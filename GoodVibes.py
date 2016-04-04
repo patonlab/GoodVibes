@@ -34,7 +34,7 @@
 #######################################################################
 #######  Written by:  Rob Paton #######################################
 #######  Modified by:  Ignacio Funes-Ardoiz ###########################
-#######  Last modified:  Mar 17, 2016 #################################
+#######  Last modified:  Apr 04, 2016 #################################
 #######################################################################
 
 import sys, math, time
@@ -291,13 +291,13 @@ class calc_bbe:
       for line in g09_output:
          # look for low frequencies
          if line.strip().startswith('Frequencies --'):
-          for i in range(2,5):
-             try:
-                x = float(line.strip().split()[i])
-                #  only deal with real frequencies
-                if x > 0.00: frequency_wn.append(x)
-             except IndexError:pass
-
+            for i in range(2,5):
+               try:
+                  x = float(line.strip().split()[i])
+                  #  only deal with real frequencies
+                  if x > 0.00: frequency_wn.append(x)
+               except IndexError:pass
+ 
          # For QM calculations look for SCF energies, last one will be the optimized energy
          if line.strip().startswith('SCF Done:'): self.scf_energy = float(line.strip().split()[4])
          # For ONIOM calculations use the extrapolated value rather than SCF value
@@ -314,7 +314,7 @@ class calc_bbe:
          if line.strip().startswith('Molecular mass:'): molecular_mass = float(line.strip().split()[2])
          if line.strip().startswith('Rotational symmetry number'): symmno = int((line.strip().split()[3]).split(".")[0])
          if line.strip().startswith('Full point group'): 
-                if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V': linear_mol = 1
+            if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V': linear_mol = 1
          if line.strip().startswith('Rotational constants'): roconst = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
 
       # create an array of frequencies equal to cut-off value
@@ -398,7 +398,7 @@ if __name__ == "__main__":
       else: log.Write("\n   Temperature (default) = 298.15K",); temperature = 298.15
 
       if conc != "none": log.Write("   Concn = "+str(conc)+" mol/l")
-      else: log.Write("   Concn (default) = 1 atmosphere"); conc = 12.187274/temperature
+      else: log.Write("   Concn (default) = 1 atmosphere"); conc = 12.187274/temperature; conc_ini="None"
 
       if freq_scale_factor != "none": log.Write("   Frequency scale factor = "+str(freq_scale_factor))
       else: log.Write("   Frequency scale factor (default) = 1.0"); freq_scale_factor = 1.0
@@ -463,7 +463,7 @@ if __name__ == "__main__":
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])):
             temperature = float(i)
             log.Write("o  "+file+" @"+" %.1f   " % (temperature))
-
+	    if conc_ini == "None": conc =  atmos/(GAS_CONSTANT*temperature)
             bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv)
             if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Job did not finish normally!\n")
             else:
