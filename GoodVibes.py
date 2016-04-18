@@ -308,63 +308,62 @@ class calc_bbe:
          # look for thermal corrections, paying attention to point group symmetry
          if line.strip().startswith('Zero-point correction='): self.zero_point_corr = float(line.strip().split()[2])
          if line.strip().find('Multiplicity') > -1: mult = float(line.strip().split()[5])
-         if line.strip().startswith('Thermal correction to Energy='): self.energy_corr = float(line.strip().split()[4])
-         if line.strip().startswith('Thermal correction to Enthalpy='): enthalpy_corr = float(line.strip().split()[4])
-         if line.strip().startswith('Thermal correction to Gibbs Free Energy='): gibbs_corr = float(line.strip().split()[6])
          if line.strip().startswith('Molecular mass:'): molecular_mass = float(line.strip().split()[2])
          if line.strip().startswith('Rotational symmetry number'): symmno = int((line.strip().split()[3]).split(".")[0])
          if line.strip().startswith('Full point group'): 
             if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V': linear_mol = 1
          if line.strip().startswith('Rotational constants'): roconst = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
 
-      # create an array of frequencies equal to cut-off value
-      cutoffs = []
-      for j in range(0,len(frequency_wn)): cutoffs.append(FREQ_CUTOFF)
+      # skip the next steps if unable to parse the frequencies or zpe from the output file
+      if len(frequency_wn) > 0 and hasattr(self, "zero_point_corr"):
+      
+         # create an array of frequencies equal to cut-off value
+         cutoffs = []
+         for j in range(0,len(frequency_wn)): cutoffs.append(FREQ_CUTOFF)
 
-      # Calculate Translational, Rotational and Vibrational contributions to the energy
-      Utrans = calc_translational_energy(temperature)
-      Urot = calc_rotational_energy(self.zero_point_corr, symmno, temperature,linear_mol)
-      Uvib = calc_vibrational_energy(frequency_wn, temperature,freq_scale_factor)
-      ZPE = calc_zeropoint_energy(frequency_wn, freq_scale_factor)
+         # Calculate Translational, Rotational and Vibrational contributions to the energy
+         Utrans = calc_translational_energy(temperature)
+         Urot = calc_rotational_energy(self.zero_point_corr, symmno, temperature,linear_mol)
+         Uvib = calc_vibrational_energy(frequency_wn, temperature,freq_scale_factor)
+         ZPE = calc_zeropoint_energy(frequency_wn, freq_scale_factor)
 
-      # Calculate Translational, Rotational and Vibrational contributions to the entropy
-      Strans = calc_translational_entropy(molecular_mass, conc, temperature, solv)
-      Selec = calc_electronic_entropy(mult)
-      Srot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, roconst, temperature)
+         # Calculate Translational, Rotational and Vibrational contributions to the entropy
+         Strans = calc_translational_entropy(molecular_mass, conc, temperature, solv)
+         Selec = calc_electronic_entropy(mult)
+         Srot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, roconst, temperature)
 
-      # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
-      Svib_rrho = calc_rrho_entropy(frequency_wn, temperature,freq_scale_factor)
-      if FREQ_CUTOFF > 0.0: Svib_rrqho = calc_rrho_entropy(cutoffs, temperature,1.0)
-      Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature,freq_scale_factor)
-      damp = calc_damp(frequency_wn, FREQ_CUTOFF)
+         # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
+         Svib_rrho = calc_rrho_entropy(frequency_wn, temperature,freq_scale_factor)
+         if FREQ_CUTOFF > 0.0: Svib_rrqho = calc_rrho_entropy(cutoffs, temperature,1.0)
+         Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature,freq_scale_factor)
+         damp = calc_damp(frequency_wn, FREQ_CUTOFF)
 
-      # Compute entropy (cal/mol/K) using the two values and damping function
-      vib_entropy = []
-      for j in range(0,len(frequency_wn)):
-         if QH == "grimme": vib_entropy.append(Svib_rrho[j] * damp[j] + (1-damp[j]) * Svib_free_rot[j])
-         elif QH == "truhlar" and FREQ_CUTOFF > 0.0:
-            if frequency_wn[j] > FREQ_CUTOFF: vib_entropy.append(Svib_rrho[j])
-            else: vib_entropy.append(Svib_rrqho[j])
+         # Compute entropy (cal/mol/K) using the two values and damping function
+         vib_entropy = []
+         for j in range(0,len(frequency_wn)):
+            if QH == "grimme": vib_entropy.append(Svib_rrho[j] * damp[j] + (1-damp[j]) * Svib_free_rot[j])
+            elif QH == "truhlar" and FREQ_CUTOFF > 0.0:
+               if frequency_wn[j] > FREQ_CUTOFF: vib_entropy.append(Svib_rrho[j])
+               else: vib_entropy.append(Svib_rrqho[j])
 
-      # Add all terms to get Free energy - perform separately for harmonic and quasi-harmonic values out of interest
-      qh_Svib = sum(vib_entropy)
-      h_Svib = sum(Svib_rrho)
-      self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT*temperature/kjtokcal/1000.0)/autokcal
-      self.zpe = ZPE/autokcal
-      self.entropy = (Strans + Srot + h_Svib + Selec)/autokcal/1000.0
-      self.qh_entropy = (Strans + Srot + qh_Svib + Selec)/autokcal/1000.0
-      self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
-      self.qh_gibbs_free_energy = self.enthalpy - temperature * self.qh_entropy
+         # Add all terms to get Free energy - perform separately for harmonic and quasi-harmonic values out of interest
+         qh_Svib = sum(vib_entropy)
+         h_Svib = sum(Svib_rrho)
+         self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT*temperature/kjtokcal/1000.0)/autokcal
+         self.zpe = ZPE/autokcal
+         self.entropy = (Strans + Srot + h_Svib + Selec)/autokcal/1000.0
+         self.qh_entropy = (Strans + Srot + qh_Svib + Selec)/autokcal/1000.0
+         self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
+         self.qh_gibbs_free_energy = self.enthalpy - temperature * self.qh_entropy
 
-      #Uncomment to compute the magnitude of the quasi-harmonic correction to the RRHO entropy
-      #QH_correction = h_Svib - qh_Svib
-      # self.QH_correction = -QH_correction * temperature/1000.0
+         #Uncomment to compute the magnitude of the quasi-harmonic correction to the RRHO entropy
+         #QH_correction = h_Svib - qh_Svib
+         # self.QH_correction = -QH_correction * temperature/1000.0
 
-      #Uncomment to compute the magnitude of the haptic (i.e. concentration-dependent) correction to the RRHO entropy
-      #Strans1atm = calc_translational_entropy(molecular_mass, atmos/(GAS_CONSTANT*temperature), temperature, solv)
-      #conc_correction = Strans - Strans1atm
-      #self.conc_correction = -conc_correction * temperature/1000.0
-
+         #Uncomment to compute the magnitude of the haptic (i.e. concentration-dependent) correction to the RRHO entropy
+         #Strans1atm = calc_translational_entropy(molecular_mass, atmos/(GAS_CONSTANT*temperature), temperature, solv)
+         #conc_correction = Strans - Strans1atm
+         #self.conc_correction = -conc_correction * temperature/1000.0
 
 if __name__ == "__main__":
    # Takes arguments: cutoff_freq g09_output_files
@@ -386,8 +385,6 @@ if __name__ == "__main__":
             if len(sys.argv[i].split(".")) > 1:
                if sys.argv[i].split(".")[1] == "out" or sys.argv[i].split(".")[1] == "log":
                   files.append(sys.argv[i])
-                  name_of_file=str(sys.argv[i].split(".")[0])
-
       freespace = get_free_space(solv)
 
       start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
@@ -424,27 +421,26 @@ if __name__ == "__main__":
       log.Write("\n\n  "+"".ljust(30)+"E/au".rjust(12)+ "  ZPE/au".rjust(12)+ "   H/au".rjust(12)+ "   T.S/au".rjust(12)+ "   T.qh-S/au".rjust(12)+ "   G(T)/au".rjust(12)+ "   qh-G(T)/au".rjust(12))
       log.Write("\n"+stars)
       for file in files:
-              bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv)
-              log.Write("\no ")
-              log.Write((file.split(".")[0]).ljust(30))
-              if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Job did not finish normally!\n")
-              else:
-                 if hasattr(bbe, "scf_energy"): log.Write("%.6f" % bbe.scf_energy)
-                 else: log.Write("N/A   ")
-                 if hasattr(bbe, "zero_point_corr"): log.Write("   %.6f" % (bbe.zpe))
-                 else: log.Write("N/A   ")
-                 if hasattr(bbe, "enthalpy"): log.Write("   %.6f" % (bbe.enthalpy))
-                 else: log.Write("N/A   ")
-                 if hasattr(bbe, "entropy"): log.Write("   %.6f" % (temperature * bbe.entropy))
-                 else: log.Write("N/A   ")
-                 if hasattr(bbe, "qh_entropy"): log.Write("   %.6f" % (temperature * bbe.qh_entropy))
-                 else: log.Write("N/A   ")
-                 if hasattr(bbe, "gibbs_free_energy"): log.Write("   %.6f" % (bbe.gibbs_free_energy))
-                 else: log.Write("N/A   ")
-                 if hasattr(bbe, "qh_gibbs_free_energy"): log.Write("   %.6f" % (bbe.qh_gibbs_free_energy))
-                 else: log.Write("N/A")
+         bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv)
+         log.Write("\no ")
+         log.Write((file.split(".")[0]).ljust(30))
+         if hasattr(bbe, "scf_energy"): log.Write("%.6f" % bbe.scf_energy)
+         else: log.Write("N/A   ")
+         if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...\n")
+         else:
+            if hasattr(bbe, "zero_point_corr"): log.Write("   %.6f" % (bbe.zpe))
+            else: log.Write("N/A   ")
+            if hasattr(bbe, "enthalpy"): log.Write("   %.6f" % (bbe.enthalpy))
+            else: log.Write("N/A   ")
+            if hasattr(bbe, "entropy"): log.Write("   %.6f" % (temperature * bbe.entropy))
+            else: log.Write("N/A   ")
+            if hasattr(bbe, "qh_entropy"): log.Write("   %.6f" % (temperature * bbe.qh_entropy))
+            else: log.Write("N/A   ")
+            if hasattr(bbe, "gibbs_free_energy"): log.Write("   %.6f" % (bbe.gibbs_free_energy))
+            else: log.Write("N/A   ")
+            if hasattr(bbe, "qh_gibbs_free_energy"): log.Write("   %.6f" % (bbe.qh_gibbs_free_energy))
+            else: log.Write("N/A")
       log.Write("\n")
-
 
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
    if len(temperature_interval) != 0:
@@ -465,7 +461,7 @@ if __name__ == "__main__":
             log.Write("o  "+file+" @"+" %.1f   " % (temperature))
 	    if conc_ini == "None": conc =  atmos/(GAS_CONSTANT*temperature)
             bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv)
-            if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Job did not finish normally!\n")
+            if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
             else:
                if hasattr(bbe, "enthalpy"): log.Write("   %.6f" % (bbe.enthalpy))
                else: log.Write("N/A   ")
