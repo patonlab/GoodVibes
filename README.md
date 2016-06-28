@@ -29,6 +29,6 @@ Tips:
 •	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
 •	The script will not work if terse output was requested in the Gaussian job.
 
-
+[![DOI](https://zenodo.org/badge/16266/bobbypaton/GoodVibes.svg)](https://zenodo.org/badge/latestdoi/16266/bobbypaton/GoodVibes)
 	
 
