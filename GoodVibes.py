@@ -315,7 +315,7 @@ class calc_bbe:
          if line.strip().startswith('Rotational constants'): roconst = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
 
       # skip the next steps if unable to parse the frequencies or zpe from the output file
-      if len(frequency_wn) > 0 and hasattr(self, "zero_point_corr"):
+      if hasattr(self, "zero_point_corr"):
       
          # create an array of frequencies equal to cut-off value
          cutoffs = []
