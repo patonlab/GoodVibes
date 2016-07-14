@@ -12,8 +12,8 @@ Installation
 	2- Add the directory of the scripts to the PATH environmental variable. (optional).
 	3- Run the script with your Gaussian outputs.
 
-Guide of use
-	The standard input for the script is:
+*Correct Usage*
+
 ```python
 Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentration) (-v scalefactor) (-ti temperature interval (initial, final, step(optional))) (-s solv) g09_output_file(s)
 ```
