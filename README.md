@@ -26,18 +26,18 @@ Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentr
 *	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f)<sup>3</sup>. Currently H2O, Toluene, DMF, AcOH and Chloroform are recognized.
 
 
-Example 1: 
+Example 1: a Grimme-type quasi-harmonic correction with cut-off = 100 wavenumbers
 ------
 ```python
-python GoodVibes.py example01.out -f 100
-```
-With a freq. cut-off set to 0, the results will be identical to the standard values output by the Gaussian program.                             
-This will calculate the quasi-harmonic corrected free energy (qh-G) using a frequency cut-off of 100 cm-1. 
-In this case the numerical results are:
-   G(T)           qh-G(T)
--1024.814592	-1024.809764
+python GoodVibes.py examples/methylaniline.out -f 100 
 
-Note that the quasi-harmonic value will always be greater than or equal to the uncorrected free energy since the vibrational entropy associated with the low frequencies is reduced in this approach.  
+                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au 
+   *************************************************************************************************************************** 
+o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.039668    0.039535    -326.554157    -326.554024 
+
+```
+
+The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected entropy is always less than or equal to the harmonic value, and the corrected Gibbs energy is greater than or equal to the uncorrected value.
 
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable.
