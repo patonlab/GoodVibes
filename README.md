@@ -7,7 +7,7 @@ All (electronic, translational, rotational and vibrational) partition functions 
 
 The quasi-harmonic approximation is applied to the vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z)<sup>1</sup>, all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full)<sup>2</sup>, entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency. 
 
-###Installation
+##Installation
 1. Download the script from https://github.com/bobbypaton/GoodVibes or from the wiki (ICIQ)  
 2. Add the directory of the scripts to the PATH environmental variable (optional).  
 3.	Run the script with your Gaussian output files.  
@@ -44,7 +44,7 @@ The output shows both standard harmonic and quasi-harmonic corrected thermochemi
 *	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
 *	The script will not work if terse output was requested in the Gaussian job.
 
-###References
+##References
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://pubs.acs.org/doi/abs/10.1021/jp205508z)  
 2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 [**DOI:** 10.1002/chem.201200497](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full)  
 3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 [**DOI:** 10.1021/jo970944f](http://pubs.acs.org/doi/abs/10.1021/jo970944f)  
