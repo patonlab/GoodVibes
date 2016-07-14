@@ -7,7 +7,7 @@ All (electronic, translational, rotational and vibrational) partition functions 
 
 The quasi-harmonic approximation is applied to the vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z)<sup>1</sup>, all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full)<sup>2</sup>, entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency. 
 
-**Installation**
+**Installation**  
 1. Download the script from https://github.com/bobbypaton/GoodVibes or from the wiki (ICIQ)  
 2. Add the directory of the scripts to the PATH environmental variable (optional).  
 3.	Run the script with your Gaussian output files.  
