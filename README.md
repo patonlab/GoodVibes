@@ -5,12 +5,12 @@ A Python program to compute quasi-harmonic thermochemical data from Gaussian fre
 
 All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 K and 1 atmosphere.
 
-The quasi-harmonic approximation is applied to the vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](link)<sup>ref</sup>, all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](link)<sup>ref</sup>, entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency. 
+The quasi-harmonic approximation is applied to the vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z)<sup>1</sup>, all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full)<sup>2</sup>, entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency. 
 
 **Installation**
-	1- Download the script from the wiki (ICIQ) or from the webpage (Add by Paton)
-	2- Add the directory of the scripts to the PATH environmental variable. (optional).
-	3- Run the script with your Gaussian outputs.
+1. Download the script from https://github.com/bobbypaton/GoodVibes or from the wiki (ICIQ) 
+2. Add the directory of the scripts to the PATH environmental variable (optional).
+3.	Run the script with your Gaussian output files.
 
 **Correct Usage**
 
@@ -23,7 +23,7 @@ Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentr
 *	The `-c` option specifies concentration (in mol/l).  It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same as the Gaussian Pressure route line specification. The correction is applied to the Sackur-Tetrode equation of the translational entropy e.g. `-c 1` corrects to a solution-phase standard state of 1 mol/l. The default is 1 atmosphere.
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations (e.g. by Radom and Truhlar groups). This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value is 1 (no scale factor).
 *	The `-ti` option specifies a temperature interval (for example to see how a free energy barrier changes with the temperature). Usage is `-ti initial_temperature, final_temperature, step_size`. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) /10
-*	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities, which is used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](link)<sup>ref</sup>. Based on the molecular Currently H2O, Toluene, DMF, AcOH and Chloroform are recognized. " the user can apply translational entropy solvent corrections… (Complete, I don’t know what it is exactly).
+*	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f)<sup>3</sup>. Currently H2O, Toluene, DMF, AcOH and Chloroform are recognized.
 
 
 Example 1: python GoodVibes.py example01.out -f 100
@@ -46,7 +46,7 @@ Example 3: python GoodVibes.py example01.out –t 343 –c 1.0 –f 100 –s 0.9
 ------
 It is also possible to apply a scaling factor to all frequencies since the harmonic approximation leads to an overestimate of experimentally measured IR and Raman absorptions. It is possible to find a scaling factor for most levels of theory (e.g. from Radom or Truhlar groups). This would reduce the ZPE by the same factor, and would also affect vibrational entropies. 
 
-Tips:
+**Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable.
 *	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
 *	The script will not work if terse output was requested in the Gaussian job.
@@ -55,4 +55,7 @@ Tips:
 ---
 License: [CC-BY](https://creativecommons.org/licenses/by/3.0/)
 
+1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 **DOI: 10.1021/jp205508z**
+2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 **DOI: 10.1002/chem.201200497**
+3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 **DOI: 10.1021/jo970944f**
 
