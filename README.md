@@ -7,17 +7,17 @@ All (electronic, translational, rotational and vibrational) partition functions 
 
 The quasi-harmonic approximation is applied to the vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](link)ref, all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](link)ref, entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency. 
 
-Installation
+**Installation**
 	1- Download the script from the wiki (ICIQ) or from the webpage (Add by Paton)
 	2- Add the directory of the scripts to the PATH environmental variable. (optional).
 	3- Run the script with your Gaussian outputs.
 
-*Correct Usage*
+**Correct Usage**
 
 ```python
 Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentration) (-v scalefactor) (-ti temperature interval (initial, final, step(optional))) (-s solv) g09_output_file(s)
 ```
-*	-qh option: you can select one of those approximation for the quasiharmonic entropic correction. The Truhlar approximation is based on setting the low frequencies to a value of 100 cm-1 (or the cutoff desired). The Grimme approximation is based on the free-rotor approximation. It is applied below the cut-off, A damping function interpolates between the RRHO and free-rotor entropy treatment for Svib to avoid a discontinuity. Both approached avoide infinite values of Svib as frequencies tend to zero. The default method is grimme.                                                      
+*	`-qh` you can select one of those approximation for the quasiharmonic entropic correction. The Truhlar approximation is based on setting the low frequencies to a value of 100 cm-1 (or the cutoff desired). The Grimme approximation is based on the free-rotor approximation. It is applied below the cut-off, A damping function interpolates between the RRHO and free-rotor entropy treatment for Svib to avoid a discontinuity. Both approached avoide infinite values of Svib as frequencies tend to zero. The default method is grimme.                                                      
 *	-f option: the user can select the cutoff value to be applied in the quasiharmonic approximation. If this value is set to 0, no approximations will be applied. This is the default value.
 *	-t option: the user can select the temperature as in G09 with the option Temperature in the command line. The default value is 298.15 K.
 *	-c option: the concentration is changed to a value in mol/l units. The default is 1 atmosphere. It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same that the g09 Pressure option in the command line of a calculation. It is useful to apply standard state corrections in the calculations.
