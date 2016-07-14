@@ -44,9 +44,10 @@ The output shows both standard harmonic and quasi-harmonic corrected thermochemi
 *	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
 *	The script will not work if terse output was requested in the Gaussian job.
 
-1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 **DOI:** 10.1021/jp205508z
-2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 **DOI:** 10.1002/chem.201200497
-3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 **DOI:** 10.1021/jo970944f
+**References**
+1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://pubs.acs.org/doi/abs/10.1021/jp205508z)
+2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 [**DOI:** 10.1002/chem.201200497](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full)
+3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 [**DOI:** 10.1021/jo970944f](http://pubs.acs.org/doi/abs/10.1021/jo970944f)
 
 [![DOI](https://zenodo.org/badge/16266/bobbypaton/GoodVibes.svg)](https://zenodo.org/badge/latestdoi/16266/bobbypaton/GoodVibes)
 ---
