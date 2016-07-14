@@ -26,8 +26,11 @@ Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentr
 *	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f)<sup>3</sup>. Currently H2O, Toluene, DMF, AcOH and Chloroform are recognized.
 
 
-Example 1: python GoodVibes.py example01.out -f 100
+Example 1: 
 ------
+```python
+python GoodVibes.py example01.out -f 100
+```
 With a freq. cut-off set to 0, the results will be identical to the standard values output by the Gaussian program.                             
 This will calculate the quasi-harmonic corrected free energy (qh-G) using a frequency cut-off of 100 cm-1. 
 In this case the numerical results are:
@@ -36,26 +39,17 @@ In this case the numerical results are:
 
 Note that the quasi-harmonic value will always be greater than or equal to the uncorrected free energy since the vibrational entropy associated with the low frequencies is reduced in this approach.  
 
-
-Example 2: python GoodVibes.py example01.out –t 343 –c 1.0 –f 0
-------
-The code enables the free energy to be evaluated at any temperature (irrespective of the temperature used in the Gaussian calculation) and at any concentration. In this example no quasi-harmonic approximation would be used (-f 0), but the temperature is specified as 343K and the concentration as 1.0 mol/l. This latter term affects the translation entropy, and in this way can be used to correct the default Gaussian values at 1 atmosphere to a solution standard state of 1 mol/l.
-
-
-Example 3: python GoodVibes.py example01.out –t 343 –c 1.0 –f 100 –s 0.995
-------
-It is also possible to apply a scaling factor to all frequencies since the harmonic approximation leads to an overestimate of experimentally measured IR and Raman absorptions. It is possible to find a scaling factor for most levels of theory (e.g. from Radom or Truhlar groups). This would reduce the ZPE by the same factor, and would also affect vibrational entropies. 
-
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable.
 *	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
 *	The script will not work if terse output was requested in the Gaussian job.
 
+1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 **DOI:** 10.1021/jp205508z
+2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 **DOI:** 10.1002/chem.201200497
+3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 **DOI:** 10.1021/jo970944f
+
 [![DOI](https://zenodo.org/badge/16266/bobbypaton/GoodVibes.svg)](https://zenodo.org/badge/latestdoi/16266/bobbypaton/GoodVibes)
 ---
 License: [CC-BY](https://creativecommons.org/licenses/by/3.0/)
 
-1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 **DOI: 10.1021/jp205508z**
-2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 **DOI: 10.1002/chem.201200497**
-3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 **DOI: 10.1021/jo970944f**
 
