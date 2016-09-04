@@ -98,6 +98,7 @@ def calc_translational_energy(temperature):
    """
    energy = 1.5 * GAS_CONSTANT * temperature
    energy = energy/kjtokcal/1000.0
+   print "\nH_trans", energy
    return energy
 
 # rotational energy evaluation (depends on molecular shape and temperature)
@@ -110,6 +111,7 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
    elif linear == 1: energy = GAS_CONSTANT * temperature 
    else: energy = 1.5 * GAS_CONSTANT * temperature
    energy = energy/kjtokcal/1000.0
+   print "H_rot", energy
    return energy
 
 # vibrational energy evaluation (depends on frequencies, temperature and scaling factor: default = 1.0)
@@ -127,6 +129,7 @@ def calc_vibrational_energy(frequency_wn, temperature,freq_scale_factor):
       temp = temp*GAS_CONSTANT
       energy = energy + temp
    energy = energy/kjtokcal/1000.0
+   print "H_vib", energy
    return energy
 
 # vibrational Zero point energy evaluation (depends on frequencies and scaling factor: default = 1.0)
@@ -143,6 +146,7 @@ def calc_zeropoint_energy(frequency_wn,freq_scale_factor):
       temp = temp*GAS_CONSTANT
       energy = energy + temp
    energy = energy/kjtokcal/1000.0
+   print "H_zpe", energy
    return energy
 
 # Computed the amount of accessible free space (ml per L) in solution accesible to a solute immersed in bulk solvent, i.e. this is the volume not occupied by solvent molecules, calculated using literature values for molarity and B3LYP/6-31G* computed molecular volumes.
@@ -184,6 +188,7 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
    freespace = get_free_space(solv)
    Ndens = Ndens / (freespace/1000.0)
    entropy = GAS_CONSTANT*(2.5+math.log(lmda**3/Ndens))/4.184
+   print "S_trans", entropy
    return entropy
 
 # electronic entropy evaluation (depends on multiplicity)
@@ -193,6 +198,7 @@ def calc_electronic_entropy(multiplicity):
    Selec = R(Ln(multiplicity)
    """
    entropy = GAS_CONSTANT*(math.log(multiplicity))/4.184
+   print "S_elec", entropy
    return entropy
 
 
@@ -222,6 +228,7 @@ def calc_rotational_entropy(zpe, linear, symmno, roconst, temperature):
    else: entropy = GAS_CONSTANT * (math.log(qrot) + 1.5)
 
    entropy = entropy/kjtokcal
+   print "S_rot", entropy
    return entropy
 
 # rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
@@ -290,6 +297,7 @@ class calc_bbe:
       # Iterate over output
       for line in g09_output:
          # look for low frequencies
+			if line.find("Proceeding to internal job step")!= -1: frequency_wn = [] #resets the array if frequencies have been calculated more than once
          if line.strip().startswith('Frequencies --'):
             for i in range(2,5):
                try:
@@ -348,6 +356,7 @@ class calc_bbe:
 
          # Add all terms to get Free energy - perform separately for harmonic and quasi-harmonic values out of interest
          qh_Svib = sum(vib_entropy)
+         print "S_qh", qh_Svib
          h_Svib = sum(Svib_rrho)
          self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT*temperature/kjtokcal/1000.0)/autokcal
          self.zpe = ZPE/autokcal
