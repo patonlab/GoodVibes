@@ -420,7 +420,7 @@ if __name__ == "__main__":
       log.Write("\n   Quasi-harmonic treatment: frequency cut-off value of "+str(FREQ_CUTOFF)+" wavenumbers will be applied")
 
       if QH == "grimme": log.Write("\n   QH = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies, as proposed by Grimme")
-      elif QH == "truhlar": log.Write("\n   QH = Trhular: Using an RRHO treatment where low frequencies are adjusted to the cut-off value, as proposed by Truhlar")
+      elif QH == "truhlar": log.Write("\n   QH = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value, as proposed by Truhlar")
       else: log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+QH+" specified (QH must = grimme or truhlar)")
 
    else: log.Fatal("\n   FATAL ERROR: Wrong number of arguments used.\n   Correct format: GoodVibes.py (-qh grimme/trhular) (-f cutoff_freq) (-t temp) (-c concn) (-v scalefactor) g09_output_file(s)\n")
