@@ -284,7 +284,7 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 
 # The funtion to compute the "black box" entropy values (and all other thermochemical quantities)
 class calc_bbe:
-   def __init__(self, file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor,solv):
+   def __init__(self, file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor,solv,spc):
       # Frequencies in waveunmbers
       frequency_wn = []
       # Read commandline arguments
@@ -293,11 +293,34 @@ class calc_bbe:
       linear_mol = 0
       roconst = [0.0,0.0,0.0]
       symmno = 1
+      linkmax = 0
+      freqloc = 0
+      link = 0
+
+      #count number of links
+      for line in g09_output:
+         # only read first link + freq not other link jobs
+         if line.find("Normal termination") != -1:
+            linkmax += 1
+         if line.find('Frequencies --') != -1:
+            freqloc = linkmax
+
+      g09_output.seek(0)
 
       # Iterate over output
       for line in g09_output:
+         # link counter
+         if line.find("Normal termination")!= -1:
+            link += 1
+            # reset frequencies if in final freq link
+            if link == freqloc: frequency_wn = []
+         # if spc specified will take last Energy from file, otherwise will break after freq calc
+         if link > freqloc and spc == 0: break
+
+      	# Iterate over output
+      	#for line in g09_output:
          # look for low frequencies
-         if line.find("Proceeding to internal job step")!= -1: frequency_wn = [] #resets the array if frequencies have been calculated more than once
+         #if line.find("Proceeding to internal job step")!= -1: frequency_wn = [] #resets the array if frequencies have been calculated more than once
          if line.strip().startswith('Frequencies --'):
             for i in range(2,5):
                try:
@@ -378,7 +401,7 @@ if __name__ == "__main__":
    # Takes arguments: cutoff_freq g09_output_files
    files = []
    log = Logger("Goodvibes","dat", "output")
-   QH = "grimme"; FREQ_CUTOFF = "none"; temperature = "none"; conc = "none"; freq_scale_factor = "none"; solv = "none"; temperature_interval = []; conc_interval = []
+   QH = "grimme"; spc = "none"; FREQ_CUTOFF = "none"; temperature = "none"; conc = "none"; freq_scale_factor = "none"; solv = "none"; temperature_interval = []; conc_interval = []
    if len(sys.argv) > 1:
       for i in range(1,len(sys.argv)):
          if sys.argv[i] == "-f": FREQ_CUTOFF = float(sys.argv[i+1])
@@ -389,6 +412,7 @@ if __name__ == "__main__":
          elif sys.argv[i] == "-s": solv = (sys.argv[i+1])
          elif sys.argv[i] == "-ti": temperature_interval = list(eval(sys.argv[i+1]))
          elif sys.argv[i] == "-ci": conc = list(sys.argv[i+1])
+         elif sys.argv[i] == "-spc": spc = 1
 
          else:
             if len(sys.argv[i].split(".")) > 1:
@@ -409,6 +433,9 @@ if __name__ == "__main__":
       if freq_scale_factor != "none": log.Write("   Frequency scale factor = "+str(freq_scale_factor))
       else: log.Write("   Frequency scale factor (default) = 1.0"); freq_scale_factor = 1.0
 
+      if spc == "none": spc = 0
+      else: log.Write("\n   Link job: combining final single point energy with thermal corrections")
+
       if freespace != 1000.0: log.Write("   Specified solvent "+solv+": free volume"+str("%.1f" % (freespace/10.0))+"(mol/l) corrects the translational entropy")
 
       if FREQ_CUTOFF == 0.0:
@@ -420,7 +447,7 @@ if __name__ == "__main__":
       log.Write("\n   Quasi-harmonic treatment: frequency cut-off value of "+str(FREQ_CUTOFF)+" wavenumbers will be applied")
 
       if QH == "grimme": log.Write("\n   QH = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies, as proposed by Grimme")
-      elif QH == "truhlar": log.Write("\n   QH = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value, as proposed by Truhlar")
+      elif QH == "truhlar": log.Write("\n   QH = Trhular: Using an RRHO treatment where low frequencies are adjusted to the cut-off value, as proposed by Truhlar")
       else: log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+QH+" specified (QH must = grimme or truhlar)")
 
    else: log.Fatal("\n   FATAL ERROR: Wrong number of arguments used.\n   Correct format: GoodVibes.py (-qh grimme/trhular) (-f cutoff_freq) (-t temp) (-c concn) (-v scalefactor) g09_output_file(s)\n")
@@ -430,7 +457,7 @@ if __name__ == "__main__":
       log.Write("\n\n  "+"".ljust(30)+"E/au".rjust(12)+ "  ZPE/au".rjust(12)+ "   H/au".rjust(12)+ "   T.S/au".rjust(12)+ "   T.qh-S/au".rjust(12)+ "   G(T)/au".rjust(12)+ "   qh-G(T)/au".rjust(12))
       log.Write("\n"+stars)
       for file in files:
-         bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv)
+         bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc)
          log.Write("\no ")
          log.Write((file.split(".")[0]).ljust(30))
          if hasattr(bbe, "scf_energy"): log.Write("%.6f" % bbe.scf_energy)
@@ -469,7 +496,7 @@ if __name__ == "__main__":
             temperature = float(i)
             log.Write("o  "+file+" @"+" %.1f   " % (temperature))
 	    if conc_ini == "None": conc =  atmos/(GAS_CONSTANT*temperature)
-            bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv)
+            bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc)
             if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
             else:
                if hasattr(bbe, "enthalpy"): log.Write("   %.6f" % (bbe.enthalpy))
