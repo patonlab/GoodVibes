@@ -63,7 +63,7 @@ class Logger:
    # Write a message to the log
    def Write(self, message):
       # Print the message
-      print message,
+      print(message, end=' ')
       # Write to log
       self.log.write(message)
 
@@ -75,7 +75,7 @@ class Logger:
    # Write a fatal error, finalize and terminate the program
    def Fatal(self, message):
       # Print the message
-      print message+"\n"
+      print(message+"\n")
       # Write to log
       self.log.write(message + "\n")
       # Finalize the log
@@ -379,7 +379,6 @@ class calc_bbe:
 
          # Add all terms to get Free energy - perform separately for harmonic and quasi-harmonic values out of interest
          qh_Svib = sum(vib_entropy)
-         #print "S_qh", qh_Svib
          h_Svib = sum(Svib_rrho)
          self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT*temperature/kjtokcal/1000.0)/autokcal
          self.zpe = ZPE/autokcal
