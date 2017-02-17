@@ -1,3 +1,4 @@
+from __future__ import print_function
 #!/usr/bin/python
 
 # THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -63,7 +64,7 @@ class Logger:
    # Write a message to the log
    def Write(self, message):
       # Print the message
-      print(message, end=' ')
+      print(message, end=' ') 
       # Write to log
       self.log.write(message)
 
@@ -228,7 +229,6 @@ def calc_rotational_entropy(zpe, linear, symmno, roconst, temperature):
    else: entropy = GAS_CONSTANT * (math.log(qrot) + 1.5)
 
    entropy = entropy/kjtokcal
-   #print "S_rot", entropy
    return entropy
 
 # rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
@@ -494,7 +494,7 @@ if __name__ == "__main__":
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])):
             temperature = float(i)
             log.Write("o  "+file+" @"+" %.1f   " % (temperature))
-	    if conc_ini == "None": conc =  atmos/(GAS_CONSTANT*temperature)
+            if conc_ini == "None": conc =  atmos/(GAS_CONSTANT*temperature)
             bbe = calc_bbe(file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc)
             if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
             else:
