@@ -58,10 +58,15 @@ The calculation is a multi-step job: an optimization and frequency calculation w
 *	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
 *	The script will not work if terse output was requested in the Gaussian job.
 
+####Papers citing GoodVibes
+1. Li, Y.; Du, S. *RSC Adv.*, **2016**, *6*, 84177-84186 [**DOI:** 10.1039/C6RA16321A](http://dx.doi.org/10.1039/C6RA16321A)
+2. Myllys, N.; Elm, J.; Kurtén, T. *Comp. Theor. Chem.* **2016**, *1098*, 1–12 [**DOI:** 10.1016/j.comptc.2016.10.015](http://dx.doi.org/10.1016/j.comptc.2016.10.015)
+3. Deb, A.; Hazra, A.; Peng, Q.; Paton, R. S.; Maiti, D. *J. Am. Chem. Soc.* **2017**, *139*, 763–775 [**DOI:** 10.1021/jacs.6b10309](http://dx.doi.org/10.1021/jacs.6b10309)
+
 ####References
-1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://pubs.acs.org/doi/abs/10.1021/jp205508z)  
-2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 [**DOI:** 10.1002/chem.201200497](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full)  
-3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 [**DOI:** 10.1021/jo970944f](http://pubs.acs.org/doi/abs/10.1021/jo970944f)  
+1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)  
+2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 [**DOI:** 10.1002/chem.201200497](http://dx.doi.org/10.1002/chem.201200497/full)  
+3. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 [**DOI:** 10.1021/jo970944f](http://dx.doi.org/10.1021/jo970944f)  
 
 [![DOI](https://zenodo.org/badge/16266/bobbypaton/GoodVibes.svg)](https://zenodo.org/badge/latestdoi/16266/bobbypaton/GoodVibes)
 ---
