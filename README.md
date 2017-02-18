@@ -40,6 +40,19 @@ o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.03
 
 The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected entropy is always less than or equal to the harmonic value, and the corrected Gibbs energy is greater than or equal to the uncorrected value.
 
+Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction
+------
+```python
+python GoodVibes.py examples/ethane_spc.out 
+
+                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au 
+   *************************************************************************************************************************** 
+o  examples/ethane_spc             -79.830417    0.075236     -79.750766    0.025837    0.025839     -79.776603     -79.776605 
+
+```
+
+The calculation is a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. 
+
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable.
 *	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
