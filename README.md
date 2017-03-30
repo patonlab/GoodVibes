@@ -1,7 +1,7 @@
 Goodvibes
 =====
 
-A Python program to compute quasi-harmonic thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Dr Robert Paton](http://paton.chem.ox.ac.uk) (Oxford) and [Ignacio Funes-Ardois](http://www.iciq.org/staff/funes-ignacio/) (ICIQ).
+A Python program to compute quasi-harmonic thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Dr Robert Paton](http://paton.chem.ox.ac.uk) (Oxford) and [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ).
 
 All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 K and 1 atmosphere.
 
