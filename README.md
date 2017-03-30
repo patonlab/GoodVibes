@@ -27,7 +27,7 @@ Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentr
 *	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f)<sup>3</sup>. The keywords H2O, Toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and Chloroform are recognized.
 
 
-Example 1: a Grimme-type quasi-harmonic correction with a cut-off of 100 cm<sup>-1</sup>
+Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
 ------
 ```python
 python GoodVibes.py examples/methylaniline.out -f 100 
@@ -52,6 +52,73 @@ o  examples/ethane_spc             -79.830417    0.075236     -79.750766    0.02
 ```
 
 The calculation is a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. 
+
+Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
+------
+```python
+python GoodVibes.py examples/methylaniline.out –t 1000 –c 1.0 
+
+                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au 
+   *************************************************************************************************************************** 
+o  examples/methylaniline         -326.664901    0.142118    -326.452307    0.218212    0.216560    -326.670519    -326.668866
+
+```
+
+This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration depdendence. In the example above the correction is larger due to the increase in temperature.
+
+Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
+
+------
+```python
+python GoodVibes.py examples/methylaniline.out –ti 300,1000,100 –qh truhlar –f 100 
+       
+                                                   H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au 
+   *************************************************************************************************************************** 
+o  examples/methylaniline.out @ 300.0       -326.514399    0.040005    0.040005    -326.554404    -326.554404 
+o  examples/methylaniline.out @ 400.0       -326.508735    0.059816    0.059816    -326.568551    -326.568551 
+o  examples/methylaniline.out @ 500.0       -326.501670    0.082625    0.082625    -326.584296    -326.584296 
+o  examples/methylaniline.out @ 600.0       -326.493429    0.108148    0.108148    -326.601577    -326.601577 
+o  examples/methylaniline.out @ 700.0       -326.484222    0.136095    0.136095    -326.620317    -326.620317 
+o  examples/methylaniline.out @ 800.0       -326.474218    0.166216    0.166216    -326.640434    -326.640434 
+o  examples/methylaniline.out @ 900.0       -326.463545    0.198300    0.198300    -326.661845    -326.661845 
+o  examples/methylaniline.out @ 1000.0      -326.452307    0.232169    0.232169    -326.684476    -326.684476
+
+```
+
+Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasiharmonic correction sets all frequencies below than 100 cm<sup>-1</sup> to a value of 100.
+
+Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
+
+------
+```python
+python GoodVibes.py examples/methylaniline.out -v 0.95 
+       
+                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au 
+   *************************************************************************************************************************** 
+o  examples/methylaniline         -326.664901    0.135012    -326.521265    0.040238    0.040091    -326.561503    -326.561356 
+
+```
+
+The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies. 
+
+Example 6: Analyzing multiple files at once
+
+------
+```python
+python GoodVibes.py examples/*.out 
+       
+                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au 
+   *************************************************************************************************************************** 
+o  examples/H2O                    -76.368128    0.020772     -76.343577    0.021458    0.021458     -76.365035     -76.365035 
+o  examples/HCN_singlet            -93.358851    0.015978     -93.339373    0.022896    0.022896     -93.362269     -93.362269 
+o  examples/HCN_triplet            -93.153787    0.012567     -93.137780    0.024070    0.024070     -93.161850     -93.161850 
+o  examples/allene                -116.569605    0.053913    -116.510916    0.027618    0.027621    -116.538534    -116.538537 
+o  examples/ethane                 -79.770819    0.073070     -79.693288    0.025918    0.025920     -79.719206     -79.719208 
+o  examples/ethane_spc             -79.830417    0.075236     -79.750766    0.025837    0.025839     -79.776603     -79.776605 
+o  examples/example01            -1025.266528    0.506850   -1024.734173    0.080419    0.075591   -1024.814592   -1024.809764 
+o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.039668    0.039535    -326.554157    -326.554024 
+
+``` 
 
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable.
