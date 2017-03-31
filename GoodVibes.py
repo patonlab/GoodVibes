@@ -38,7 +38,7 @@ from __future__ import print_function
 #######  Last modified:  Apr 04, 2016 #################################
 #######################################################################
 
-import sys, math, time
+import sys, math, time, os
 
 # PHYSICAL CONSTANTS
 GAS_CONSTANT = 8.3144621
@@ -51,6 +51,7 @@ autokcal = 627.509541
 kjtokcal = 4.184
 atmos = 101.325
 def_cut = 100.0
+SUPPORTED_EXTENSIONS = ('.out', '.log', '.qfi')
 
 stars = "   *******************************************************************************************************************************"
 
@@ -414,9 +415,9 @@ if __name__ == "__main__":
          elif sys.argv[i] == "-spc": spc = 1
 
          else:
-            if len(sys.argv[i].split(".")) > 1:
-               if sys.argv[i].split(".")[1] == "out" or sys.argv[i].split(".")[1] == "log":
-                  files.append(sys.argv[i])
+            filename, ext = os.path.splitext(sys.argv[i])
+            if ext.lower() in SUPPORTED_EXTENSIONS:
+               files.append(sys.argv[i])
       freespace = get_free_space(solv)
 
       start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
