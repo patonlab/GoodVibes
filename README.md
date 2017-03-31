@@ -27,8 +27,7 @@ Goodvibes.py (-qh grimme/truhlar) (-f cutoff_freq) (-t temperature) (-c concentr
 *	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f)<sup>3</sup>. The keywords H2O, Toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and Chloroform are recognized.
 
 
-Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
-------
+#### Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
 ```python
 python GoodVibes.py examples/methylaniline.out -f 100 
 
@@ -40,8 +39,7 @@ o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.03
 
 The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected entropy is always less than or equal to the harmonic value, and the corrected Gibbs energy is greater than or equal to the uncorrected value.
 
-Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction
-------
+#### Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction
 ```python
 python GoodVibes.py examples/ethane_spc.out 
 
@@ -53,8 +51,7 @@ o  examples/ethane_spc             -79.830417    0.075236     -79.750766    0.02
 
 The calculation is a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. 
 
-Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
-------
+#### Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
 ```python
 python GoodVibes.py examples/methylaniline.out –t 1000 –c 1.0 
 
@@ -66,9 +63,7 @@ o  examples/methylaniline         -326.664901    0.142118    -326.452307    0.21
 
 This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration depdendence. In the example above the correction is larger due to the increase in temperature.
 
-Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
-
-------
+#### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
 ```python
 python GoodVibes.py examples/methylaniline.out –ti 300,1000,100 –qh truhlar –f 100 
        
@@ -87,9 +82,7 @@ o  examples/methylaniline.out @ 1000.0      -326.452307    0.232169    0.232169 
 
 Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasiharmonic correction sets all frequencies below than 100 cm<sup>-1</sup> to a value of 100.
 
-Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
-
-------
+#### Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
 ```python
 python GoodVibes.py examples/methylaniline.out -v 0.95 
        
@@ -101,9 +94,7 @@ o  examples/methylaniline         -326.664901    0.135012    -326.521265    0.04
 
 The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies. 
 
-Example 6: Analyzing multiple files at once
-
-------
+#### Example 6: Analyzing multiple files at once
 ```python
 python GoodVibes.py examples/*.out 
        
