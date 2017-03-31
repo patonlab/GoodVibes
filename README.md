@@ -119,8 +119,11 @@ o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.03
 #### Papers citing GoodVibes
 1. Li, Y.; Du, S. *RSC Adv.* **2016**, *6*, 84177-84186 [**DOI:** 10.1039/C6RA16321A](http://dx.doi.org/10.1039/C6RA16321A)
 2. Myllys, N.; Elm, J.; Kurtén, T. *Comp. Theor. Chem.* **2016**, *1098*, 1–12 [**DOI:** 10.1016/j.comptc.2016.10.015](http://dx.doi.org/10.1016/j.comptc.2016.10.015)
-3. Deb, A.; Hazra, A.; Peng, Q.; Paton, R. S.; Maiti, D. *J. Am. Chem. Soc.* **2017**, *139*, 763–775 [**DOI:** 10.1021/jacs.6b10309](http://dx.doi.org/10.1021/jacs.6b10309)
-4. Grayson, M. N. *J. Org. Chem.* **2017**, just accepted [**DOI:** 10.1021/acs.joc.7b00521](http://dx.doi.org/10.1021/acs.joc.7b00521) 
+3. Kiss, E.; Campbell, C. D.; Driver, R. W.; Jolliffe, J. D.; Lang, R.; Sergeieva, T.; Okovytyy, S.; Paton, R. S.; Smith, M. D. *Angew. Chem. Int. Ed.* **2016**, *128* 14017-14021 [**DOI:** 10.1002/ange.201608534](http://dx.doi.org/10.1002/ange.201608534)
+4. Deb, A.; Hazra, A.; Peng, Q.; Paton, R. S.; Maiti, D. *J. Am. Chem. Soc.* **2017**, *139*, 763–775 [**DOI:** 10.1021/jacs.6b10309](http://dx.doi.org/10.1021/jacs.6b10309)
+5. Gorobets, E.; Wong, N. E.; Paton, R. S.; Derksen, D. J. *Org. Lett.* **2017**, *19*, 484-487 [**DOI:** 10.1021/acs.orglett.6b03635](http://dx.doi.org/10.1021/acs.orglett.6b03635)
+5. Grayson, M. N. *J. Org. Chem.* **2017** [**DOI:** 10.1021/acs.joc.7b00521](http://dx.doi.org/10.1021/acs.joc.7b00521) 
+6. Simón, L.; Paton, R. S. *J. Org. Chem.* **2017** [**DOI:** 10.1021/acs.joc.7b00540](http://dx.doi.org/10.1021/acs.joc.7b00540)
 
 #### References for the underlying theory
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)  
