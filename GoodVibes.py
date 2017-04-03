@@ -39,6 +39,7 @@ from __future__ import print_function
 #######################################################################
 
 import sys, math, time
+from glob import glob
 
 # PHYSICAL CONSTANTS
 GAS_CONSTANT = 8.3144621
@@ -416,7 +417,7 @@ if __name__ == "__main__":
          else:
             if len(sys.argv[i].split(".")) > 1:
                if sys.argv[i].split(".")[1] == "out" or sys.argv[i].split(".")[1] == "log":
-                  files.append(sys.argv[i])
+                  for file in glob(sys.argv[i]): files.append(file)
       freespace = get_free_space(solv)
 
       start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
