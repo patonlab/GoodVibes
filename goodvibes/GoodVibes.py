@@ -93,7 +93,7 @@ def level_of_theory(file):
    g09_output = open(file, 'r')
    inlines = g09_output.readlines()
    level = "none"
-
+   bs = "none"
    for i in range(0,len(inlines)):
       if inlines[i].strip().find('\\Freq\\') > -1:
           if len(inlines[i].strip().split("\\")) > 5:
