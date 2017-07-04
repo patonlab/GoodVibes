@@ -329,7 +329,7 @@ class calc_bbe:
       	 #for line in g09_output:
          # look for low frequencies
          #if line.find("Proceeding to internal job step")!= -1: frequency_wn = [] #resets the array if frequencies have been calculated more than once
-         if line.strip().startswith('Frequencies --'):
+         if line.startswith(' Frequencies --'):
             for i in range(2,5):
                try:
                   x = float(line.strip().split()[i])
