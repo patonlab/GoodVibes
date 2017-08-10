@@ -143,6 +143,6 @@ The program will detect several different levels of theory and give a warning th
 3. Alecu, I. M.; Zheng, J.; Zhao, Y.; Truhlar, D. G.; *J. Chem. Theory Comput.* **2010**, *6*, 2872-2887 [**DOI:** 10.1021/ct100326h](http://dx.doi.org/10.1021/ct100326h)
 4. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 [**DOI:** 10.1021/jo970944f](http://dx.doi.org/10.1021/jo970944f)  
 
-[![DOI](https://zenodo.org/badge/16266/bobbypaton/GoodVibes.svg)](https://zenodo.org/badge/latestdoi/16266/bobbypaton/GoodVibes)
+[[![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
 ---
 License: [CC-BY](https://creativecommons.org/licenses/by/3.0/)
