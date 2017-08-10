@@ -70,10 +70,10 @@ This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/
 
 #### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
 ```python
-python GoodVibes.py examples/methylaniline.out –ti 300,1000,100 –qh truhlar –f 100
+python GoodVibes.py examples/methylaniline.out –-ti '300,1000,100' –q truhlar –f 100
 
                                                    H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   ***************************************************************************************************************************
+   **********************************************************************************************************
 o  examples/methylaniline.out @ 300.0       -326.514399    0.040005    0.040005    -326.554404    -326.554404
 o  examples/methylaniline.out @ 400.0       -326.508735    0.059816    0.059816    -326.568551    -326.568551
 o  examples/methylaniline.out @ 500.0       -326.501670    0.082625    0.082625    -326.584296    -326.584296
@@ -85,7 +85,7 @@ o  examples/methylaniline.out @ 1000.0      -326.452307    0.232169    0.232169 
 
 ```
 
-Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasiharmonic correction sets all frequencies below than 100 cm<sup>-1</sup> to a value of 100.
+Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasiharmonic correction sets all frequencies below than 100 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
 
 #### Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
 ```python
