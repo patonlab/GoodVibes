@@ -132,14 +132,10 @@ The program will detect several different levels of theory and give a warning th
 3. Kiss, E.; Campbell, C. D.; Driver, R. W.; Jolliffe, J. D.; Lang, R.; Sergeieva, T.; Okovytyy, S.; Paton, R. S.; Smith, M. D. *Angew. Chem. Int. Ed.* **2016**, *128* 14017-14021 [**DOI:** 10.1002/ange.201608534](http://dx.doi.org/10.1002/ange.201608534)
 4. Deb, A.; Hazra, A.; Peng, Q.; Paton, R. S.; Maiti, D. *J. Am. Chem. Soc.* **2017**, *139*, 763–775 [**DOI:** 10.1021/jacs.6b10309](http://dx.doi.org/10.1021/jacs.6b10309)
 5. Simón, L.; Paton, R. S. *J. Org. Chem.* **2017**, *82*, 3855-3863 [**DOI:** 10.1021/acs.joc.7b00540](http://dx.doi.org/10.1021/acs.joc.7b00540)
-<<<<<<< Updated upstream
-6. Grayson, M. N. *J. Org. Chem.* **2017**, *82*, 4396–4401 [**DOI:** 10.1021/acs.joc.7b00521](http://dx.doi.org/10.1021/acs.joc.7b00521) 
-7. Duarte, F.; Paton, R. S. *J. Am. Chem. Soc.* **2017**, *article ASAP* [**DOI:** 10.1021/jacs.7b02468](http://dx.doi.org/10.1021/jacs.7b02468)  
-=======
-6. Grayson, M. N. *J. Org. Chem.* **2017** [**DOI:** 10.1021/acs.joc.7b00521](http://dx.doi.org/10.1021/acs.joc.7b00521)
-7. Herrera, R. P.; Marqués-López, E.; Alegre-Requena, J. V. *Chem. Eur. J.* **2017** [**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
-8. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017** [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
->>>>>>> Stashed changes
+6. Grayson, M. N. *J. Org. Chem.* **2017**, *82*, 4396–4401 [**DOI:** 10.1021/acs.joc.7b00521](http://dx.doi.org/10.1021/acs.joc.7b00521)
+7. Duarte, F.; Paton, R. S. *J. Am. Chem. Soc.* **2017**, *139*, 8886-8896 [**DOI:** 10.1021/jacs.7b02468](http://dx.doi.org/10.1021/jacs.7b02468)  
+8. Herrera, R. P.; Marqués-López, E.; Alegre-Requena, J. V. *Chem. Eur. J.* **2017** [**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
+9. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017** [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
 
 #### References for the underlying theory
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)  
