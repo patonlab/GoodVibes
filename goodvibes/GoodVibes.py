@@ -1,32 +1,29 @@
 #!/usr/bin/python
 from __future__ import print_function
 
-# Comments and/or additions are welcome (send e-mail to:
-# robert.paton@chem.ox.ac.uk
-
 #######################################################################
 #                              GoodVibes.py                           #
 #  Evaluation of quasi-harmonic thermochemistry from Gaussian.        #
-#  The partion functions are evaluated from vibrational frequencies   #
+#  Partion functions are evaluated from vibrational frequencies       #
 #  and rotational temperatures from the standard output.              #
 #  The rigid-rotor harmonic oscillator approximation is used as       #
 #  standard for all frequencies above a cut-off value. Below this,    #
-#  two treatments can be applied: either low frequencies can be set   #
-#  to a value of 100 cm-1 (as advocated by Cramer-Truhlar), or the    #
-#  free-rotor approximation is applied below the cut-off, (proposed   #
-#  by Grimme). A damping function interpolates between the RRHO and   #
-#  free-rotor entropy treatment for  Svib to avoid a discontinuity.   #
-#  Both approached avoide infinite values of Svib as frequencies      #
-#  tend to zero.                                                      #
+#  two treatments can be applied:                                     #
+#    (a) low frequencies are shifted to the cut-off value (as per     # 
+#    Cramer-Truhlar)                                                  #
+#    (b) a free-rotor approximation is applied below the cut-off (as  #
+#    per Grimme). In this approach, a damping function interpolates   #
+#    between the RRHO and free-rotor entropy treatment of Svib to     #
+#    avoid a discontinuity.                                           #
+#  Both approaches avoid infinitely large values of Svib as wave-     #
+#  numbers tend to zero. With a cut-off set to 0, the results will be #
+#  identical to standard values output by the Gaussian program.       #
 #  The free energy can be evaluated for variable temperature,         #
 #  concentration, vibrational scaling factor, and with a haptic       #
 #  correction of the translational entropy in different solvents,     #
-#  according to the amount of free space available. With a freq.      #
-#  cut-off set to 0, the results will be identical to the standard    #
-#  values output by the Gaussian program.                             #
+#  according to the amount of free space available.                   #
 #######################################################################
-#######  Written by:  Rob Paton #######################################
-#######  Modified by:  Ignacio Funes-Ardoiz ###########################
+#######  Written by:  Rob Paton and Ignacio Funes-Ardoiz ##############
 #######  Last modified:  Aug 10, 2017 #################################
 #######################################################################
 
@@ -54,7 +51,6 @@ goodvibes_ref = "Funes-Ardoiz, I.; Paton, R. S. (2016). GoodVibes: GoodVibes v1.
 class Logger:
    # Designated initializer
    def __init__(self,filein,suffix,append):
-      # Create the log file at the input path
       self.log = open(filein+"_"+append+"."+suffix, 'w' )
 
    def Write(self, message):
