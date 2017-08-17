@@ -371,7 +371,7 @@ if __name__ == "__main__":
           l_o_t = [level_of_theory(file) for file in files]
           def all_same(items): return all(x == items[0] for x in items) # check if all list entries are equal
           
-            if all_same(l_o_t) == True:
+          if all_same(l_o_t) == True:
              for scal in scaling_data: # search through database of scaling factors
                 if l_o_t[0].upper().find(scal['level'].upper()) > -1 or l_o_t[0].upper().find(scal['level'].replace("-","").upper()) > -1:
                    options.freq_scale_factor = scal['zpe_fac']; ref = scaling_refs[scal['zpe_ref']]
