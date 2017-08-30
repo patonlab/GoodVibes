@@ -19,7 +19,7 @@ Alternatively `pip install goodvibes` will install all classes
 **Correct Usage**
 
 ```python
-Goodvibes.py [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
+Goodvibes.py [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
 *	The `-q` option selects the approximation for the quasiharmonic entropic correction: `-q truhlar` or `-q grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequecies. If not specified this defaults to Grimme's expression.                                                      
