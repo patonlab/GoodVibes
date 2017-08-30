@@ -300,8 +300,8 @@ class calc_bbe:
              # Compute entropy (cal/mol/K) using the two values and damping function
              vib_entropy = []
              for j in range(0,len(frequency_wn)):
-                if options.QH == "grimme": vib_entropy.append(Svib_rrho[j] * damp[j] + (1-damp[j]) * Svib_free_rot[j])
-                elif options.QH == "truhlar":
+                if QH == "grimme": vib_entropy.append(Svib_rrho[j] * damp[j] + (1-damp[j]) * Svib_free_rot[j])
+                elif QH == "truhlar":
                    if FREQ_CUTOFF > 0.0:
                       if frequency_wn[j] > FREQ_CUTOFF: vib_entropy.append(Svib_rrho[j])
                       else: vib_entropy.append(Svib_rrqho[j])
