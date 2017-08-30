@@ -46,15 +46,29 @@ The output shows both standard harmonic and quasi-harmonic corrected thermochemi
 
 #### Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction
 ```python
-python GoodVibes.py examples/ethane_spc.out
+python GoodVibes.py examples/ethane_spc.out --spc link
 
-                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   ***************************************************************************************************************************
-o  examples/ethane_spc             -79.830417    0.073505     -79.752466    0.025883    0.025885     -79.778348     -79.778350
+   Structure                     E_link             E        ZPE        H_link        T.S     T.qh-S     G(T)_link  qh-G(T)_link
+   *****************************************************************************************************************************
+o  examples/ethane_spc       -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
+   *****************************************************************************************************************************
 
 ```
 
-The calculation is a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the appropriate scaling factor of 0.977 (this can be surpressed to apply no scaling with -v 1.0)
+This calculation contains a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. Note the use of the `--spc link` option. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the appropriate scaling factor of 0.977 (this can be surpressed to apply no scaling with -v 1.0)
+
+Alternatively, if a single point energy calculation has been performed separately, provided both file names share a common root e.g. `ethane.out` and `ethane_TZ.out` then use of the `--spc TZ` option is appropriate. This will give identical results as above.
+
+```python
+python GoodVibes.py examples/ethane.out --spc TZ
+
+   Structure                       E_TZ             E        ZPE          H_TZ        T.S     T.qh-S       G(T)_TZ    qh-G(T)_TZ
+   *****************************************************************************************************************************
+o  examples/ethane           -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
+   *****************************************************************************************************************************
+
+```
+
 
 #### Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
 ```python
@@ -111,9 +125,8 @@ o  examples/H2O                    -76.368128    0.020772     -76.343577    0.02
 o  examples/HCN_singlet            -93.358851    0.015978     -93.339373    0.022896    0.022896     -93.362269     -93.362269
 o  examples/HCN_triplet            -93.153787    0.012567     -93.137780    0.024070    0.024070     -93.161850     -93.161850
 o  examples/allene                -116.569605    0.053913    -116.510916    0.027618    0.027621    -116.538534    -116.538537
-o  examples/ethane                 -79.770819    0.073070     -79.693288    0.025918    0.025920     -79.719206     -79.719208
-o  examples/ethane_spc             -79.830417    0.075236     -79.750766    0.025837    0.025839     -79.776603     -79.776605
-o  examples/example01            -1025.266528    0.506850   -1024.734173    0.080419    0.075591   -1024.814592   -1024.809764
+o  examples/ethane                 -79.830421    0.075238     -79.750770    0.027523    0.027525     -79.778293     -79.778295
+o  examples/ethane_spc             -79.830421    0.075238     -79.750770    0.027523    0.027525     -79.778293     -79.778295
 o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.039668    0.039535    -326.554157    -326.554024
 
 ```
