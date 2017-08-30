@@ -69,6 +69,15 @@ class Logger:
    def Finalize(self):
       self.log.close()
 
+# Read gaussian output for a single point energy
+def sp_energy(file):
+   with open(file) as f: data = f.readlines()
+   spe = 'none'
+   for line in data:
+       if line.strip().startswith('SCF Done:'):
+           spe = float(line.strip().split()[4])
+   return spe
+
 # Read gaussian output for the level of theory and basis set used
 def level_of_theory(file):
    with open(file) as f: data = f.readlines()
@@ -233,6 +242,13 @@ class calc_bbe:
       frequency_wn, roconst, linear_mol, link, freqloc, linkmax, symmno = [], [0.0,0.0,0.0], 0, 0, 0, 0, 1
 
       with open(file) as f: g_output = f.readlines()
+
+      # read any single point energies if requested
+      if spc != False and spc != 'link':
+         try: self.sp_energy = sp_energy(file.split('.')[0]+'_'+spc+'.'+file.split('.')[1])
+         except IOError: pass
+      if spc == 'link': self.sp_energy = sp_energy(file)
+
       #count number of links
       for line in g_output:
          # only read first link + freq not other link jobs
@@ -248,7 +264,7 @@ class calc_bbe:
             # reset frequencies if in final freq link
             if link == freqloc: frequency_wn = []
          # if spc specified will take last Energy from file, otherwise will break after freq calc
-         if link > freqloc and spc == False: break
+         if link > freqloc: break
 
       	 # Iterate over output: look out for low frequencies
          if line.strip().startswith('Frequencies --'):
@@ -313,6 +329,8 @@ class calc_bbe:
 
          # Add terms (converted to au) to get Free energy - perform separately for harmonic and quasi-harmonic values out of interest
          self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT * temperature) / j_to_au
+         # single point correction replaces energy from optimization with single point value
+         if hasattr(self, 'sp_energy'): self.enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
          self.zpe = ZPE / j_to_au
          self.entropy, self.qh_entropy = (Strans + Srot + h_Svib + Selec) / j_to_au, (Strans + Srot + qh_Svib + Selec) / j_to_au
          self.gibbs_free_energy, self.qh_gibbs_free_energy = self.enthalpy - temperature * self.entropy, self.enthalpy - temperature * self.qh_entropy
@@ -336,8 +354,8 @@ if __name__ == "__main__":
                   help="Frequency scaling factor (default 1)", default=False, type="float", metavar="SCALE_FACTOR")
    parser.add_option("-s", dest="solv", action="store",
                   help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)", default="none", type="string", metavar="SOLV")
-   parser.add_option("--spc", dest="spc", action="store_true",
-                help="Indicates linked single point corrections (default False)", default=False, metavar="SOLV")
+   parser.add_option("--spc", dest="spc", action="store",
+                help="Indicates single point corrections (default False)", type="string", default=False, metavar="SPC")
    parser.add_option("--ti", dest="temperature_interval", action="store",
                 help="initial temp, final temp, step size (K)", default=False, metavar="TI")
    parser.add_option("--ci", dest="conc_interval", action="store",
@@ -397,20 +415,27 @@ if __name__ == "__main__":
 
    # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
    if options.temperature_interval == False and options.conc_interval == False:
-      log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E/au", "ZPE/au", "H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"))
-      log.Write("\n"+stars)
+      if options.spc == False:
+          log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
+          log.Write("\n"+stars)
+      else:
+          log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc))
+          log.Write("\n"+stars+'*'*14)
 
       for file in files: # loop over the output files and compute thermochemistry
          bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
 
          log.Write("\no  "+'{:<39}'.format(file.split(".")[0]))
+         if options.spc != False:
+            if hasattr(bbe, "sp_energy"): log.Write(' {:13.6f}'.format(bbe.sp_energy))
+            else: log.Write(' {:>13}'.format('----'))
          if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy))
          if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...")
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                 log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
-      log.Write("\n"+stars+"\n")
-
+      if options.spc == False: log.Write("\n"+stars+"\n")
+      else: log.Write("\n"+stars+'*'*14+"\n")
 
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
    elif options.temperature_interval != False:
