@@ -19,7 +19,7 @@ Alternatively `pip install goodvibes` will install all classes
 **Correct Usage**
 
 ```python
-Goodvibes.py [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
+Goodvibes.py [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
 *	The `-q` option selects the approximation for the quasiharmonic entropic correction: `-q truhlar` or `-q grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequecies. If not specified this defaults to Grimme's expression.                                                      
@@ -29,8 +29,8 @@ Goodvibes.py [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentra
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>3</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be surpressed by `-v 1.0`
 *	The `--ti` option specifies a temperature interval (for example to see how a free energy barrier changes with the temperature). Usage is `--ti 'initial_temperature, final_temperature, step_size'`. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) /10
 *	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>4</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
-* the `--spc` option can be used for multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation. The energy is taken from the final job and all thermal corrections are taken from the frequency calculation. The Gibbs energy is thus the single-point corrected value
-
+* the `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
+*	The `--xyz` option will write all Cartesian coordinates to an xyz file.
 
 #### Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
 ```python
@@ -113,7 +113,15 @@ o  examples/methylaniline         -326.664901    0.135012    -326.521265    0.04
 
 The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies.
 
-#### Example 6: Analyzing multiple files at once
+#### Example 6: Writing Cartesian coordinates
+```python
+python GoodVibes.py examples/HCN*.out --xyz
+
+```
+
+All optimized coordinates are written to Goodvibes_output.xyz
+
+#### Example 7: Analyzing multiple files at once
 ```python
 python GoodVibes.py examples/*.out
 
