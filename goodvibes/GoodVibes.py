@@ -39,7 +39,7 @@ GAS_CONSTANT, PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AVOGADRO_CONS
 j_to_au = 4.184 * 627.509541 * 1000.0
 
 # version number
-__version__ = "1.0.2"
+__version__ = "2.0.1"
 stars = "   " + "*" * 128
 
 # some literature references
