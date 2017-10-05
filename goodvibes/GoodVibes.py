@@ -314,7 +314,7 @@ class calc_bbe:
          if link > freqloc: break
 
       	 # Iterate over output: look out for low frequencies
-         if line.strip().startswith('Frequencies --'):
+         if line.strip().startswith('Frequencies -- '):
             for i in range(2,5):
                try:
                   x = float(line.strip().split()[i])
