@@ -324,6 +324,8 @@ class calc_bbe:
 
          # For QM calculations look for SCF energies, last one will be the optimized energy
          if line.strip().startswith('SCF Done:'): self.scf_energy = float(line.strip().split()[4])
+         # For MP2 calculations replace with EUMP2
+         if line.strip().find('EUMP2 =') > -1: self.scf_energy = float((line.strip().split()[5]).replace('D', 'E'))
          # For ONIOM calculations use the extrapolated value rather than SCF value
          if line.strip().find("ONIOM: extrapolated energy") > -1: self.scf_energy = (float(line.strip().split()[4]))
          # For Semi-empirical or Molecular Mechanics calculations
