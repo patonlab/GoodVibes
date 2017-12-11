@@ -24,7 +24,7 @@ from __future__ import print_function
 #  according to the amount of free space available.                   #
 #######################################################################
 #######  Written by:  Rob Paton and Ignacio Funes-Ardoiz ##############
-#######  Last modified:   Sep 4, 2017 #################################
+#######  Last modified:   Dec 11, 2017 #################################
 #######################################################################
 
 import os.path, sys, math, textwrap, time
@@ -231,18 +231,15 @@ def calc_electronic_entropy(multiplicity):
    return entropy
 
 # rotational entropy evaluation (depends on molecular shape and temp.)
-def calc_rotational_entropy(zpe, linear, symmno, roconst, temperature):
+def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
    """
    Calculates the rotational entropy (J/(mol*K))
    Strans = 0 (atomic) ; R(Ln(q)+1) (linear); R(Ln(q)+3/2) (non-linear)
    """
    # monatomic
-   if roconst == [0.0,0.0,0.0] or zpe == 0.0: entropy = 0.0
+   if rotemp == [0.0,0.0,0.0] or zpe == 0.0: entropy = 0.0
    else:
-      rotemp = [const * PLANCK_CONSTANT * 1e9 / BOLTZMANN_CONSTANT for const in roconst]
-
-      if 0.0 in rotemp: # diatomic
-              rotemp.remove(0.0)
+      if len(rotemp) == 1: # diatomic or linear
               qrot = temperature/rotemp[0]
       else:
          qrot = math.pi*temperature**3/(rotemp[0]*rotemp[1]*rotemp[2])
@@ -286,7 +283,7 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 class calc_bbe:
    def __init__(self, file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
       # List of frequencies and default values
-      frequency_wn, roconst, linear_mol, link, freqloc, linkmax, symmno = [], [0.0,0.0,0.0], 0, 0, 0, 0, 1
+      frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno = [], [0.0,0.0,0.0], 0, 0, 0, 0, 1
 
       with open(file) as f: g_output = f.readlines()
 
@@ -337,7 +334,8 @@ class calc_bbe:
          if line.strip().startswith('Rotational symmetry number'): symmno = int((line.strip().split()[3]).split(".")[0])
          if line.strip().startswith('Full point group'):
             if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V': linear_mol = 1
-         if line.strip().startswith('Rotational constants'): roconst = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
+         if line.strip().startswith('Rotational temperature '): rotemp = [float(line.strip().split()[3])]
+         if line.strip().startswith('Rotational temperatures'): rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
 
       # skip the next steps if unable to parse the frequencies or zpe from the output file
       if hasattr(self, "zero_point_corr"):
@@ -354,7 +352,7 @@ class calc_bbe:
              ZPE = calc_zeropoint_energy(frequency_wn, freq_scale_factor)
              Urot = calc_rotational_energy(self.zero_point_corr, symmno, temperature, linear_mol)
              Uvib = calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor)
-             Srot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, roconst, temperature)
+             Srot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, rotemp, temperature)
 
              # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
              Svib_rrho = calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor)
