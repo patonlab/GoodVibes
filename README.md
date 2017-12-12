@@ -155,9 +155,12 @@ The program will detect several different levels of theory and give a warning th
 4. Deb, A.; Hazra, A.; Peng, Q.; Paton, R. S.; Maiti, D. *J. Am. Chem. Soc.* **2017**, *139*, 763–775 [**DOI:** 10.1021/jacs.6b10309](http://dx.doi.org/10.1021/jacs.6b10309)
 5. Simón, L.; Paton, R. S. *J. Org. Chem.* **2017**, *82*, 3855-3863 [**DOI:** 10.1021/acs.joc.7b00540](http://dx.doi.org/10.1021/acs.joc.7b00540)
 6. Grayson, M. N. *J. Org. Chem.* **2017**, *82*, 4396–4401 [**DOI:** 10.1021/acs.joc.7b00521](http://dx.doi.org/10.1021/acs.joc.7b00521)
-7. Duarte, F.; Paton, R. S. *J. Am. Chem. Soc.* **2017**, *139*, 8886-8896 [**DOI:** 10.1021/jacs.7b02468](http://dx.doi.org/10.1021/jacs.7b02468)  
-8. Herrera, R. P.; Marqués-López, E.; Alegre-Requena, J. V. *Chem. Eur. J.* **2017** [**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
-9. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017** [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
+7. Duarte, F.; Paton, R. S. *J. Am. Chem. Soc.* **2017**, *139*, 8886-8896 [**DOI:** 10.1021/jacs.7b02468](http://dx.doi.org/10.1021/jacs.7b02468)
+8. Mekareeya, A.; Walker, P. R.; Couce-Rios, A.; Campbell, C. D.; Steven, A.; Paton, R. S.; Anderson, E. A. *J. Am. Chem. Soc.* **2017**, *139*, 10104–10114 [**DOI** 10.1021/jacs.7b05436](http://dx.doi.org/10.1021/jacs.7b05436)
+9. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017** *7*, 6430–6439 [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
+10. Elm, J. *J. Phys. Chem. A* **2017**, *121*, 8288–8295 [**DOI:** 10.1021/acs.jpca.7b08962](http://dx.doi.org/10.1021/acs.jpca.7b08962)
+11. Herrera, R. P.; Marqués-López, E.; Alegre-Requena, J. V. *Chem. Eur. J.* **2017** [**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
+
 
 #### References for the underlying theory
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)  
