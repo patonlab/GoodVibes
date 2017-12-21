@@ -384,7 +384,7 @@ class calc_bbe:
          self.entropy, self.qh_entropy = (Strans + Srot + h_Svib + Selec) / j_to_au, (Strans + Srot + qh_Svib + Selec) / j_to_au
          self.gibbs_free_energy, self.qh_gibbs_free_energy = self.enthalpy - temperature * self.entropy, self.enthalpy - temperature * self.qh_entropy
 
-if __name__ == "__main__":
+def main():
    # Start a log for the results
    log = Logger("Goodvibes","dat", "output")
 
@@ -513,3 +513,6 @@ if __name__ == "__main__":
    # close the log
    log.Finalize()
    if options.xyz == True: xyz.Finalize()
+
+if __name__ == "__main__":
+    main()
