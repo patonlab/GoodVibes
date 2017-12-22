@@ -31,7 +31,7 @@ import os.path, sys, math, textwrap, time
 from glob import glob
 from optparse import OptionParser
 
-from vib_scale_factors import scaling_data, scaling_refs
+from .vib_scale_factors import scaling_data, scaling_refs
 
 # PHYSICAL CONSTANTS
 GAS_CONSTANT, PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AVOGADRO_CONSTANT, AMU_to_KG, atmos = 8.3144621, 6.62606957e-34, 1.3806488e-23, 2.99792458e10, 6.0221415e23, 1.66053886E-27, 101.325
@@ -411,7 +411,7 @@ def main():
    if len(sys.argv) > 1:
       for elem in sys.argv[1:]:
          try:
-            if elem.split(".")[1] == "out" or elem.split(".")[1] == "log":
+            if os.path.splitext(elem)[1] in [".out", ".log"]:
                for file in glob(elem):
                    if options.spc == False or options.spc == 'link': files.append(file)
                    else:
@@ -470,11 +470,11 @@ def main():
          if options.xyz == True: # write Cartesians
              xyzdata = getoutData(file)
              xyz.Writetext(str(len(xyzdata.ATOMTYPES)))
-             if hasattr(bbe, "scf_energy"): xyz.Writetext('{:<39} {:>13} {:13.6f}'.format(file.split(".")[0], 'Eopt', bbe.scf_energy))
-             else: xyz.Writetext('{:<39}'.format(file.split(".")[0]))
+             if hasattr(bbe, "scf_energy"): xyz.Writetext('{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(file))[0], 'Eopt', bbe.scf_energy))
+             else: xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
              if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'): xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
 
-         log.Write("\no  "+'{:<39}'.format(file.split(".")[0]))
+         log.Write("\no  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
          if options.spc != False:
             try: log.Write(' {:13.6f}'.format(bbe.sp_energy))
             except ValueError: log.Write(' {:>13}'.format('----'))
@@ -501,7 +501,7 @@ def main():
 
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
             temp, conc = float(i), atmos / GAS_CONSTANT / float(i)
-            log.Write("\no  "+'{:<39} {:13.1f}'.format(file.split(".")[0], temp))
+            log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp))
             bbe = calc_bbe(file, options.QH, options.freq_cutoff, temp, conc, options.freq_scale_factor, options.solv, options.spc)
 
             if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
