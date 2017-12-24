@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 setup(
   name = 'goodvibes',
   packages = ['goodvibes'],
@@ -10,4 +10,7 @@ setup(
   download_url = 'https://github.com/bobbypaton/GoodVibes/archive/2.0.1.zip',
   keywords = ['compchem', 'thermochemistry', 'gaussian', 'vibrational-entropies', 'temperature'],
   classifiers = [],
+  install_requires=["numpy", ],
+  python_requires='>=2.6',
+  
 )
