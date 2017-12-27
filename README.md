@@ -160,6 +160,7 @@ The program will detect several different levels of theory and give a warning th
 9. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017**, *7*, 6430–6439 [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
 10. Elm, J. *J. Phys. Chem. A* **2017**, *121*, 8288–8295 [**DOI:** 10.1021/acs.jpca.7b08962](http://dx.doi.org/10.1021/acs.jpca.7b08962)
 11. Herrera, R. P.; Marqués-López, E.; Alegre-Requena, J. V. *Chem. Eur. J.* **2017** [**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
+12. Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. *Catal. Sci. Technol.* **2017**, 5644–5649 [**DOI:** 10.1039/C7CY01728F ](http://dx.doi.org/10.1039/C7CY01728F)
 
 
 #### References for the underlying theory
