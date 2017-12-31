@@ -124,7 +124,5 @@ def test_single_point_correction():
     assert GT_link_spc == round(bbe_spc.gibbs_free_energy, precision)
     assert qhGT_link_spc == round(bbe_spc.qh_gibbs_free_energy, precision)
 
-    assert bbe_spc.scf_energy == bbe.scf_energy
-    assert bbe_spc.zpe == bbe.zpe
-    assert bbe_spc.entropy == bbe.entropy
-    assert bbe_spc.qh_entropy == bbe.qh_entropy
+    for attr in ('scf_energy', 'zpe', 'entropy', 'qh_entropy'):
+        assert getattr(bbe, attr) == getattr(bbe_spc, attr)
