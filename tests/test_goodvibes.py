@@ -94,35 +94,38 @@ def test_temperature_corrections(QH, E, ZPE, H, TS, TqhS, G, qhG):
     assert qhG == round(bbe298.qh_gibbs_free_energy, precision) == round(bbe400.qh_gibbs_free_energy, precision)
 
 
-def test_single_point_correction():
-    E_link, E, ZPE, H_link, TS, TqhS, GT_link, qhGT_link = \
-        -79.830421, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295
-    E_link_spc, E_spc, ZPE_spc, H_link_spc, TS_spc, TqhS_spc, GT_link_spc, qhGT_link_spc = \
-        -79.858399, -79.830421, 0.075238, -79.778748, 0.027523, 0.027525, -79.806271, -79.806273
+@pytest.mark.parametrize("spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT", [
+    (False,        None, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295),
+    ('link', -79.830421, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295),
+    ('spc',  -79.858399, -79.830421, 0.075238, -79.778748, 0.027523, 0.027525, -79.806271, -79.806273),
+    ('TZ',   -79.858399, -79.830421, 0.075238, -79.778748, 0.027523, 0.027525, -79.806271, -79.806273)
+])
+def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
     conc = GV.atmos / (GV.GAS_CONSTANT * temp)
-    QH, freq_cutoff, freq_scale_factor, solv, spc = 'grimme', 100.0, 1.0, 'none', 'link'
+    QH, freq_cutoff, freq_scale_factor, solv = 'grimme', 100.0, 1.0, 'none'
     precision = 6
 
     bbe = GV.calc_bbe(datapath('ethane.out'), QH, freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
-    assert E_link == round(bbe.sp_energy, precision)
+    if E_spc:
+        assert E_spc == round(bbe.sp_energy, precision)
     assert E == round(bbe.scf_energy, precision)
     assert ZPE == round(bbe.zpe, precision)
-    assert H_link == round(bbe.enthalpy, precision)
+    assert H == round(bbe.enthalpy, precision)
     assert TS == round(temp * bbe.entropy, precision)
     assert TqhS == round(temp * bbe.qh_entropy, precision)
-    assert GT_link == round(bbe.gibbs_free_energy, precision)
-    assert qhGT_link == round(bbe.qh_gibbs_free_energy, precision)
+    assert GT == round(bbe.gibbs_free_energy, precision)
+    assert qhGT == round(bbe.qh_gibbs_free_energy, precision)
 
-    bbe_spc = GV.calc_bbe(datapath('ethane_spc.out'), QH, freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
-    assert E_link_spc == round(bbe_spc.sp_energy, precision)
-    assert E_spc == round(bbe_spc.scf_energy, precision)
-    assert ZPE_spc == round(bbe_spc.zpe, precision)
-    assert H_link_spc == round(bbe_spc.enthalpy, precision)
-    assert TS_spc == round(temp * bbe_spc.entropy, precision)
-    assert TqhS_spc == round(temp * bbe_spc.qh_entropy, precision)
-    assert GT_link_spc == round(bbe_spc.gibbs_free_energy, precision)
-    assert qhGT_link_spc == round(bbe_spc.qh_gibbs_free_energy, precision)
 
-    for attr in ('scf_energy', 'zpe', 'entropy', 'qh_entropy'):
-        assert getattr(bbe, attr) == getattr(bbe_spc, attr)
+@pytest.mark.parametrize("filename, freq_scale_factor, zpe", [
+    ('ethane.out', 0.977, 0.073508)
+])
+def test_scaling_factor_search(filename, freq_scale_factor, zpe):
+    temp = 298.15
+    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    QH, freq_cutoff, solv, spc = 'grimme', 100.0, 'none', False
+    precision = 6
+
+    bbe = GV.calc_bbe(datapath('ethane.out'), QH, freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
+    assert zpe == round(bbe.zpe, precision)
