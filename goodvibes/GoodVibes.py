@@ -291,7 +291,8 @@ class calc_bbe:
 
       # read any single point energies if requested
       if spc != False and spc != 'link':
-         try: self.sp_energy = sp_energy(file.split('.')[0]+'_'+spc+'.'+file.split('.')[1])
+         name, ext = os.path.splitext(file)
+         try: self.sp_energy = sp_energy(name+'_'+spc+ext)
          except IOError: pass
       if spc == 'link': self.sp_energy = sp_energy(file)
 
