@@ -1,7 +1,7 @@
 Goodvibes
 =========
 
-[![Build Status](https://travis-ci.org/jaimergp/GoodVibes.svg?branch=master)](https://travis-ci.org/jaimergp/GoodVibes)
+[![Build Status](https://travis-ci.org/bobbypaton/GoodVibes.svg?branch=master)](https://travis-ci.org/bobbypaton/GoodVibes)
 
 A Python program to compute quasi-harmonic thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Robert Paton](http://paton.chem.ox.ac.uk) (Oxford) and [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ).
 
