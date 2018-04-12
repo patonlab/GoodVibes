@@ -24,14 +24,14 @@ from __future__ import print_function
 #  according to the amount of free space available.                   #
 #######################################################################
 #######  Written by:  Rob Paton and Ignacio Funes-Ardoiz ##############
-#######  Last modified:   Dec 11, 2017 #################################
+#######  Last modified:   Dec 11, 2017 ################################
 #######################################################################
 
 import os.path, sys, math, textwrap, time
 from glob import glob
 from optparse import OptionParser
 
-from .vib_scale_factors import scaling_data, scaling_refs
+from vib_scale_factors import scaling_data, scaling_refs
 
 # PHYSICAL CONSTANTS
 GAS_CONSTANT, PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AVOGADRO_CONSTANT, AMU_to_KG, atmos = 8.3144621, 6.62606957e-34, 1.3806488e-23, 2.99792458e10, 6.0221415e23, 1.66053886E-27, 101.325
@@ -285,7 +285,7 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 class calc_bbe:
    def __init__(self, file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
       # List of frequencies and default values
-      frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno = [], [0.0,0.0,0.0], 0, 0, 0, 0, 1
+      im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1
 
       with open(file) as f: g_output = f.readlines()
 
@@ -320,6 +320,7 @@ class calc_bbe:
                   x = float(line.strip().split()[i])
                   #  only deal with real frequencies
                   if x > 0.00: frequency_wn.append(x)
+                  if x < 0.00: im_frequency_wn.append(x)
                except IndexError: pass
 
          # For QM calculations look for SCF energies, last one will be the optimized energy
@@ -386,6 +387,9 @@ class calc_bbe:
          self.zpe = ZPE / j_to_au
          self.entropy, self.qh_entropy = (Strans + Srot + h_Svib + Selec) / j_to_au, (Strans + Srot + qh_Svib + Selec) / j_to_au
          self.gibbs_free_energy, self.qh_gibbs_free_energy = self.enthalpy - temperature * self.entropy, self.enthalpy - temperature * self.qh_entropy
+         self.im_freq = []
+         for freq in im_frequency_wn:
+             if freq < -1 * im_freq_cutoff: self.im_freq.append(freq)
 
 def main():
    # Start a log for the results
@@ -403,6 +407,7 @@ def main():
    parser.add_option("--ti", dest="temperature_interval", action="store", help="initial temp, final temp, step size (K)", default=False, metavar="TI")
    parser.add_option("--ci", dest="conc_interval", action="store", help="initial conc, final conc, step size (mol/l)", default=False, metavar="CI")
    parser.add_option("--xyz", dest="xyz", action="store_true", help="write Cartesians to an xyz file (default False)", default=False, metavar="XYZ")
+   parser.add_option("--imag", dest="imag_freq", action="store_true", help="print imaginary frequencies (default False)", default=False, metavar="IMAG_FREQ")
    (options, args) = parser.parse_args()
    options.QH = options.QH.lower() # case insensitive
 
@@ -464,6 +469,7 @@ def main():
    if options.temperature_interval == False and options.conc_interval == False:
       if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
       else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc))
+      if options.imag_freq == True: log.Write('{:>13}'.format("im. freq."))
       if options.spc == False: log.Write("\n"+stars+"\n")
       else: log.Write("\n"+stars+'*'*14+"\n")
 
@@ -486,6 +492,8 @@ def main():
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                 log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+         if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
+             for freq in bbe.im_freq: log.Write('{:13.2f}'.format(freq))
       if options.spc == False: log.Write("\n"+stars+"\n")
       else: log.Write("\n"+stars+'*'*14+"\n")
 
