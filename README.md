@@ -13,15 +13,15 @@ The program will attempt to parse the level of theory and basis set used in the 
 
 #### Installation
 1. Clone the repository https://github.com/bobbypaton/GoodVibes.git or download from the wiki (ICIQ)
-2. Add the directory of the scripts to the PATH environment variable (optional).
-3. Run the script with your Gaussian output files. It has been tested with Python 2 and 3 on Linux, OSX and Windows
+2. Add the location of the GoodVibes directory to the PYTHONPATH environment variable.
+3. Run the script with your Gaussian output files (the program expects log or out extensions). It has been tested with Python 2 and 3 on Linux, OSX and Windows
 
 Alternatively `pip install goodvibes` will install all classes
 
 **Correct Usage**
 
-```python
-Goodvibes.py [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
+```python -m
+goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--imag] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
 *	The `-q` option selects the approximation for the quasiharmonic entropic correction: `-q truhlar` or `-q grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequecies. If not specified this defaults to Grimme's expression.
