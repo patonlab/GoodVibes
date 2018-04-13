@@ -20,7 +20,7 @@ Alternatively `pip install goodvibes` will install all classes
 
 **Correct Usage**
 
-```
+```python
 python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--imag] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
@@ -37,7 +37,7 @@ python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c co
 
 #### Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
 ```python
-python GoodVibes.py examples/methylaniline.out -f 100
+python -m goodvibes examples/methylaniline.out -f 100
 
                                          E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
    ***************************************************************************************************************************
@@ -49,7 +49,7 @@ The output shows both standard harmonic and quasi-harmonic corrected thermochemi
 
 #### Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction
 ```python
-python GoodVibes.py examples/ethane_spc.out --spc link
+python -m goodvibes examples/ethane_spc.out --spc link
 
    Structure                     E_link             E        ZPE        H_link        T.S     T.qh-S     G(T)_link  qh-G(T)_link
    *****************************************************************************************************************************
@@ -63,7 +63,7 @@ This calculation contains a multi-step job: an optimization and frequency calcul
 Alternatively, if a single point energy calculation has been performed separately, provided both file names share a common root e.g. `ethane.out` and `ethane_TZ.out` then use of the `--spc TZ` option is appropriate. This will give identical results as above.
 
 ```python
-python GoodVibes.py examples/ethane.out --spc TZ
+python -m goodvibes examples/ethane.out --spc TZ
 
    Structure                       E_TZ             E        ZPE          H_TZ        T.S     T.qh-S       G(T)_TZ    qh-G(T)_TZ
    *****************************************************************************************************************************
@@ -75,7 +75,7 @@ o  examples/ethane           -79.858399    -79.830421   0.073508    -79.780448  
 
 #### Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
 ```python
-python GoodVibes.py examples/methylaniline.out –t 1000 –c 1.0
+python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
 
                                          E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
    ***************************************************************************************************************************
@@ -87,7 +87,7 @@ This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/
 
 #### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
 ```python
-python GoodVibes.py examples/methylaniline.out –-ti '300,1000,100' –q truhlar –f 100
+python -m goodvibes examples/methylaniline.out –-ti '300,1000,100' –q truhlar –f 100
 
                                                    H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
    **********************************************************************************************************
@@ -106,7 +106,7 @@ Note that the energy and ZPE are not printed in this instance since they are tem
 
 #### Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
 ```python
-python GoodVibes.py examples/methylaniline.out -v 0.95
+python -m goodvibes examples/methylaniline.out -v 0.95
 
                                          E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
    ***************************************************************************************************************************
@@ -118,7 +118,7 @@ The frequencies are scaled by a factor of 0.95 before they are used in the compu
 
 #### Example 6: Writing Cartesian coordinates
 ```python
-python GoodVibes.py examples/HCN*.out --xyz
+python -m goodvibes examples/HCN*.out --xyz
 
 ```
 
@@ -126,7 +126,7 @@ All optimized coordinates are written to Goodvibes_output.xyz
 
 #### Example 7: Analyzing multiple files at once
 ```python
-python GoodVibes.py examples/*.out
+python -m goodvibes examples/*.out
 
                                          E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
    ***************************************************************************************************************************
