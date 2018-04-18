@@ -143,7 +143,7 @@ o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.03
 
 ```
 
-The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be innappropriate in this case.
+The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case.
 
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable
