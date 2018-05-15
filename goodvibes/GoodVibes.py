@@ -24,7 +24,7 @@ from __future__ import print_function, absolute_import
 #  according to the amount of free space available.                   #
 #######################################################################
 #######  Written by:  Rob Paton and Ignacio Funes-Ardoiz ##############
-#######  Last modified:   Dec 11, 2017 ################################
+#######  Last modified:   May 16, 2018 ################################
 #######################################################################
 
 import os.path, sys, math, textwrap, time
