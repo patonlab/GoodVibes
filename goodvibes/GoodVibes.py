@@ -341,10 +341,13 @@ class calc_bbe:
          if line.strip().startswith('Full point group'):
             if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V': linear_mol = 1
          if line.strip().startswith('Rotational temperature '): rotemp = [float(line.strip().split()[3])]
-         if line.strip().startswith('Rotational temperatures'): rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
+         if line.strip().startswith('Rotational temperatures'):
+             try: rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
+             except ValueError: rotemp = None
+             #else: rotemp = [1E10, float(line.strip().split()[4]), float(line.strip().split()[5])]
 
       # skip the next steps if unable to parse the frequencies or zpe from the output file
-      if hasattr(self, "zero_point_corr"):
+      if hasattr(self, "zero_point_corr") and rotemp:
          # create a list of frequencies equal to cut-off value
          cutoffs = [FREQ_CUTOFF for freq in frequency_wn]
 
