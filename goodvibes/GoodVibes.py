@@ -335,7 +335,7 @@ class calc_bbe:
          if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1: self.scf_energy = (float(line.strip().split()[1]))
          # look for thermal corrections, paying attention to point group symmetry
          if line.strip().startswith('Zero-point correction='): self.zero_point_corr = float(line.strip().split()[2])
-         if line.strip().find('Multiplicity') > -1: mult = float(line.strip().split()[5])
+         if line.strip().find('Multiplicity') > -1: mult = float(line.split('=')[-1].strip())
          if line.strip().startswith('Molecular mass:'): molecular_mass = float(line.strip().split()[2])
          if line.strip().startswith('Rotational symmetry number'): symmno = int((line.strip().split()[3]).split(".")[0])
          if line.strip().startswith('Full point group'):
