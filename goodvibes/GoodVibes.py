@@ -1,3 +1,4 @@
+
 #!/usr/bin/python
 from __future__ import print_function, absolute_import
 
@@ -28,6 +29,7 @@ from __future__ import print_function, absolute_import
 #######################################################################
 
 import os.path, sys, math, textwrap, time
+from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
 
@@ -135,6 +137,36 @@ def sp_energy(file):
            if line.strip().startswith('FINAL SINGLE POINT ENERGY'): spe = float(line.strip().split()[4])
    return spe
 
+# Read single-point output for cpu time
+def sp_cpu(file):
+   #print(file)
+   spe, program, data, cpu = None, None, [], None
+
+   if os.path.exists(os.path.splitext(file)[0]+'.log'):
+       with open(os.path.splitext(file)[0]+'.log') as f: data = f.readlines()
+   elif os.path.exists(os.path.splitext(file)[0]+'.out'):
+       with open(os.path.splitext(file)[0]+'.out') as f: data = f.readlines()
+   else:
+       raise ValueError("File {} does not exist".format(file))
+
+   for line in data:
+       if line.find("Gaussian") > -1: program = "Gaussian"; break
+       if line.find("* O   R   C   A *") > -1: program = "Orca"; break
+
+   for line in data:
+       if program == "Gaussian":
+           if line.strip().startswith('SCF Done:'): spe = float(line.strip().split()[4])
+           if line.strip().find("Job cpu time") > -1:
+              days = int(line.split()[3]); hours = int(line.split()[5]); mins = int(line.split()[7]); secs = 0; msecs = int(float(line.split()[9])*1000.0)
+              cpu = [days,hours,mins,secs,msecs]
+       if program == "Orca":
+           if line.strip().startswith('FINAL SINGLE POINT ENERGY'): spe = float(line.strip().split()[4])
+           if line.strip().find("TOTAL RUN TIME") > -1:
+               days = int(line.split()[3]); hours = int(line.split()[5]); mins = int(line.split()[7]); secs = int(line.split()[9]); msecs = float(line.split()[11])
+               cpu = [days,hours,mins,secs,msecs]
+   #print('orca', cpu)
+   return cpu
+
 # Read output for the level of theory and basis set used
 def level_of_theory(file):
    with open(file) as f: data = f.readlines()
@@ -143,10 +175,18 @@ def level_of_theory(file):
       if line.strip().find('\\Freq\\') > -1:
           try: level, bs = (line.strip().split("\\")[4:6])
           except IndexError: pass
-
+   for line in data:
+      if line.strip().find('\\DLPNO BASED TRIPLES CORRECTION\\') > -1: level = 'DLPNO-CCSD(T)'
+      if line.strip().find('\\Estimated CBS total energy\\') > -1: bs = 'CBS(2/3)'
       # remove the restricted R or unrestricted U label
       if level[0] == 'R' or level[0] == 'U': level = level[1:]
    return level+"/"+bs
+
+def addTime(tm, cpu):
+    [days, hrs, mins, secs, msecs] = cpu
+    fulldate = datetime(100, 1, tm.day, tm.hour, tm.minute, tm.second, tm.microsecond)
+    fulldate = fulldate + timedelta(days=days, hours=hrs, minutes=mins, seconds=secs, microseconds=msecs*1000)
+    return fulldate
 
 # translational energy evaluation (depends on temperature)
 def calc_translational_energy(temperature):
@@ -285,16 +325,19 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 class calc_bbe:
    def __init__(self, file, QH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
       # List of frequencies and default values
-      im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1
+      im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
 
       with open(file) as f: g_output = f.readlines()
 
       # read any single point energies if requested
       if spc != False and spc != 'link':
          name, ext = os.path.splitext(file)
-         try: self.sp_energy = sp_energy(name+'_'+spc+ext)
+         try:
+             self.sp_energy = sp_energy(name+'_'+spc+ext)
+             self.cpu = sp_cpu(name+'_'+spc+ext)
          except IOError: pass
-      if spc == 'link': self.sp_energy = sp_energy(file)
+      if spc == 'link':
+          self.sp_energy = sp_energy(file)
 
       #count number of links
       for line in g_output:
@@ -345,6 +388,10 @@ class calc_bbe:
              try: rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
              except ValueError: rotemp = None
              #else: rotemp = [1E10, float(line.strip().split()[4]), float(line.strip().split()[5])]
+         if line.strip().find("Job cpu time") > -1:
+             days = int(line.split()[3]) + self.cpu[0]; hours = int(line.split()[5]) + self.cpu[1]; mins = int(line.split()[7]) + self.cpu[2]; secs = 0 + self.cpu[3]; msecs = int(float(line.split()[9])*1000.0) + self.cpu[4]
+             self.cpu = [days,hours,mins,secs,msecs]
+             #print('CPU', self.cpu)
 
       # skip the next steps if unable to parse the frequencies or zpe from the output file
       if hasattr(self, "zero_point_corr") and rotemp:
@@ -409,6 +456,7 @@ def main():
    parser.add_option("-v", dest="freq_scale_factor", action="store", help="Frequency scaling factor (default 1)", default=False, type="float", metavar="SCALE_FACTOR")
    parser.add_option("-s", dest="solv", action="store", help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)", default="none", type="string", metavar="SOLV")
    parser.add_option("--spc", dest="spc", action="store", help="Indicates single point corrections (default False)", type="string", default=False, metavar="SPC")
+   parser.add_option("--cpu", dest="cputime", action="store_true", help="Total CPU time", default=False, metavar="CPU")
    parser.add_option("--ti", dest="temperature_interval", action="store", help="initial temp, final temp, step size (K)", default=False, metavar="TI")
    parser.add_option("--ci", dest="conc_interval", action="store", help="initial conc, final conc, step size (mol/l)", default=False, metavar="CI")
    parser.add_option("--xyz", dest="xyz", action="store_true", help="write Cartesians to an xyz file (default False)", default=False, metavar="XYZ")
@@ -418,6 +466,9 @@ def main():
 
    # if necessary create an xyz file for Cartesians
    if options.xyz == True: xyz = XYZout("Goodvibes","xyz", "output")
+
+   # initialize the total CPU time
+   total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
 
    # Get the filenames from the command line prompt
    files = []
@@ -481,6 +532,13 @@ def main():
       for file in files: # loop over the output files and compute thermochemistry
          bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
 
+         # Add CPU times
+         if options.cputime != False:
+             if hasattr(bbe,"cpu"):
+                 if bbe.cpu != None: total_cpu_time = addTime(total_cpu_time, bbe.cpu)
+             if hasattr(bbe,"sp_cpu"):
+                 if bbe.sp_cpu != None: total_cpu_time = addTime(total_cpu_time, bbe.sp_cpu)
+
          if options.xyz == True: # write Cartesians
              xyzdata = getoutData(file)
              xyz.Writetext(str(len(xyzdata.ATOMTYPES)))
@@ -526,7 +584,9 @@ def main():
                     log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
          log.Write("\n"+stars+"\n")
 
-   # close the log
+   #close the log
+   if options.cputime != False:
+       log.Write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} {:>4}\n'.format('TOTAL CPU', total_cpu_time.day - 1, 'days', total_cpu_time.hour, 'hrs', total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
    log.Finalize()
    if options.xyz == True: xyz.Finalize()
 
