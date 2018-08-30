@@ -21,7 +21,7 @@ Alternatively `pip install goodvibes` will install all classes
 **Correct Usage**
 
 ```python
-python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--imag] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
+python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--imag] [--cpu] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
 *	The `-q` option selects the approximation for the quasiharmonic entropic correction: `-q truhlar` or `-q grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequecies. If not specified this defaults to Grimme's expression.
@@ -33,7 +33,9 @@ python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c co
 *	The `-s` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>4</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
 * the `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
 *	The `--xyz` option will write all Cartesian coordinates to an xyz file.
+* the `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
 * the `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this.
+* the `--cpu` option will add up all of the CPU time across all files (including single point calculations if requested).
 
 #### Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
 ```python
@@ -126,7 +128,7 @@ All optimized coordinates are written to Goodvibes_output.xyz
 
 #### Example 7: Analyzing multiple files at once
 ```python
-python -m goodvibes examples/*.out
+python -m goodvibes examples/*.out --cpu
 
                                          E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
    ***************************************************************************************************************************
@@ -140,6 +142,8 @@ o  examples/allene                -116.569605    0.053913    -116.510916    0.02
 o  examples/ethane                 -79.830421    0.075238     -79.750770    0.027523    0.027525     -79.778293     -79.778295
 o  examples/ethane_spc             -79.830421    0.075238     -79.750770    0.027523    0.027525     -79.778293     -79.778295
 o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.039668    0.039535    -326.554157    -326.554024
+   ***************************************************************************************************************************
+   TOTAL CPU      0 days  0 hrs 30 mins 54 secs
 
 ```
 
