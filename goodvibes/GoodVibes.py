@@ -456,6 +456,7 @@ def main():
    parser.add_option("-v", dest="freq_scale_factor", action="store", help="Frequency scaling factor (default 1)", default=False, type="float", metavar="SCALE_FACTOR")
    parser.add_option("-s", dest="solv", action="store", help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)", default="none", type="string", metavar="SOLV")
    parser.add_option("--spc", dest="spc", action="store", help="Indicates single point corrections (default False)", type="string", default=False, metavar="SPC")
+   parser.add_option("--boltz", dest="boltz", action="store_true", help="Show Boltzmann factors", default=False, metavar="BOLTZ")
    parser.add_option("--cpu", dest="cputime", action="store_true", help="Total CPU time", default=False, metavar="CPU")
    parser.add_option("--ti", dest="temperature_interval", action="store", help="initial temp, final temp, step size (K)", default=False, metavar="TI")
    parser.add_option("--ci", dest="conc_interval", action="store", help="initial conc, final conc, step size (mol/l)", default=False, metavar="CI")
@@ -469,6 +470,7 @@ def main():
 
    # initialize the total CPU time
    total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
+   add_days = 0
 
    # Get the filenames from the command line prompt
    files = []
@@ -525,9 +527,34 @@ def main():
    if options.temperature_interval == False and options.conc_interval == False:
       if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
       else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc))
+      if options.boltz == True: log.Write('{:>13}'.format("Boltz_fac"))
       if options.imag_freq == True: log.Write('{:>13}'.format("im. freq."))
-      if options.spc == False: log.Write("\n"+stars+"\n")
-      else: log.Write("\n"+stars+'*'*14+"\n")
+
+      log.Write("\n"+stars)
+      if options.spc == True: log.Write('*'*14)
+      if options.imag_freq == True: log.Write('*'*13)
+      if options.boltz == True: log.Write('*'*13)
+      log.Write("")
+
+      if options.boltz != False:
+         boltz_facs = {}
+         e_rel = {}
+         e_min = 999999.99999
+         boltz_sum = 0.0
+
+         for file in files: # Need the most stable structure
+            bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
+            if hasattr(bbe,"qh_gibbs_free_energy"):
+                if bbe.qh_gibbs_free_energy != None:
+                    if bbe.qh_gibbs_free_energy < e_min: e_min = bbe.qh_gibbs_free_energy
+
+         for file in files: # Now calculate E_rel and Boltzmann factors
+            bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
+            if hasattr(bbe,"qh_gibbs_free_energy"):
+                if bbe.qh_gibbs_free_energy != None:
+                    e_rel[file] = bbe.qh_gibbs_free_energy - e_min
+                    boltz_facs[file] = math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
+                    boltz_sum += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
 
       for file in files: # loop over the output files and compute thermochemistry
          bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
@@ -538,6 +565,8 @@ def main():
                  if bbe.cpu != None: total_cpu_time = addTime(total_cpu_time, bbe.cpu)
              if hasattr(bbe,"sp_cpu"):
                  if bbe.sp_cpu != None: total_cpu_time = addTime(total_cpu_time, bbe.sp_cpu)
+
+         if total_cpu_time.month > 1: add_days += 31
 
          if options.xyz == True: # write Cartesians
              xyzdata = getoutData(file)
@@ -555,10 +584,16 @@ def main():
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                 log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+         if options.boltz == True:
+             log.Write('{:13.3f}'.format(boltz_facs[file]/boltz_sum))
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
              for freq in bbe.im_freq: log.Write('{:13.2f}'.format(freq))
-      if options.spc == False: log.Write("\n"+stars+"\n")
-      else: log.Write("\n"+stars+'*'*14+"\n")
+
+      log.Write("\n"+stars)
+      if options.spc == True: log.Write('*'*14)
+      if options.imag_freq == True: log.Write('*'*13)
+      if options.boltz == True: log.Write('*'*13)
+      log.Write("\n")
 
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
    elif options.temperature_interval != False:
@@ -585,8 +620,7 @@ def main():
          log.Write("\n"+stars+"\n")
 
    #close the log
-   if options.cputime != False:
-       log.Write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} {:>4}\n'.format('TOTAL CPU', total_cpu_time.day - 1, 'days', total_cpu_time.hour, 'hrs', total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
+   if options.cputime != False: log.Write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} {:>4}\n'.format('TOTAL CPU', total_cpu_time.day + add_days - 1, 'days', total_cpu_time.hour, 'hrs', total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
    log.Finalize()
    if options.xyz == True: xyz.Finalize()
 
