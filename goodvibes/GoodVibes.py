@@ -172,6 +172,9 @@ def level_of_theory(file):
    with open(file) as f: data = f.readlines()
    level, bs = 'none', 'none'
    for line in data:
+      if line.strip().find('External calculation') > -1:
+          level, bs = 'ext', 'ext'
+          break
       if line.strip().find('\\Freq\\') > -1:
           try: level, bs = (line.strip().split("\\")[4:6])
           except IndexError: pass
