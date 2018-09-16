@@ -39,6 +39,7 @@ from .vib_scale_factors import scaling_data, scaling_refs
 GAS_CONSTANT, PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AVOGADRO_CONSTANT, AMU_to_KG, atmos = 8.3144621, 6.62606957e-34, 1.3806488e-23, 2.99792458e10, 6.0221415e23, 1.66053886E-27, 101.325
 # UNIT CONVERSION
 j_to_au = 4.184 * 627.509541 * 1000.0
+kcal_to_au = 627.509541
 
 # version number
 __version__ = "2.0.2"
@@ -91,6 +92,23 @@ class XYZout:
 
    def Finalize(self):
       self.xyz.close()
+
+# Read solvation free energies from a COSMO-RS dat file
+def COSMORSout(datfile, names):
+
+   GSOLV = {}
+   if os.path.exists(os.path.splitext(datfile)[0]+'.out'):
+       with open(os.path.splitext(datfile)[0]+'.out') as f: data = f.readlines()
+   else:
+       raise ValueError("File {} does not exist".format(datfile))
+
+   for i, line in enumerate(data):
+       for name in names:
+           if line.find('('+name.split('.')[0]+')') > -1 and line.find('Compound') > -1:
+               if data[i+10].find('Gibbs') > -1:
+                   gsolv = float(data[i+10].split()[6].strip()) / kcal_to_au
+                   GSOLV[name] = gsolv
+   return GSOLV
 
 #Read molecule data from a compchem output file
 class getoutData:
@@ -338,7 +356,8 @@ class calc_bbe:
          try:
              self.sp_energy = sp_energy(name+'_'+spc+ext)
              self.cpu = sp_cpu(name+'_'+spc+ext)
-         except IOError: pass
+         except ValueError:
+             self.sp_energy = '!'; pass
       if spc == 'link':
           self.sp_energy = sp_energy(file)
 
@@ -465,6 +484,8 @@ def main():
    parser.add_option("--ci", dest="conc_interval", action="store", help="initial conc, final conc, step size (mol/l)", default=False, metavar="CI")
    parser.add_option("--xyz", dest="xyz", action="store_true", help="write Cartesians to an xyz file (default False)", default=False, metavar="XYZ")
    parser.add_option("--imag", dest="imag_freq", action="store_true", help="print imaginary frequencies (default False)", default=False, metavar="IMAG_FREQ")
+   parser.add_option("--cosmo", dest="cosmo", action="store", help="filename of a COSMO-RS out file", default=False, metavar="COSMO-RS")
+
    (options, args) = parser.parse_args()
    options.QH = options.QH.lower() # case insensitive
 
@@ -475,6 +496,7 @@ def main():
    total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
    add_days = 0
 
+   command = '   Requested: '
    # Get the filenames from the command line prompt
    files = []
    if len(sys.argv) > 1:
@@ -485,12 +507,13 @@ def main():
                    if options.spc == False or options.spc == 'link': files.append(file)
                    else:
                        if file.find('_'+options.spc+".") == -1: files.append(file)
+            else: command += elem + ' '
          except IndexError: pass
 
       # Start printing results
       start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
-      log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n\n")
-
+      log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
+      log.Write(command+'\n\n')
       if options.temperature_interval == False: log.Write("   Temperature = "+str(options.temperature)+" Kelvin")
       # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming Pressure is still 1 atm)
       if options.conc == 0.040876:
@@ -516,6 +539,15 @@ def main():
       freespace = get_free_space(options.solv)
       if freespace != 1000.0: log.Write("\n   Specified solvent "+options.solv+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
 
+      # read from COSMO-RS output
+      if options.cosmo != False:
+          try:
+              cosmo_solv = COSMORSout(options.cosmo, files)
+              log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo+'.out')
+          except ValueError:
+              log.Write('\n\n   Warning: COSMO-RS file '+options.cosmo+'.out requested but not found')
+              cosmo_solv = None
+
       # summary of the quasi-harmonic treatment; print out the relevant reference
       log.Write("\n\n   Quasi-harmonic treatment: frequency cut-off value of "+str(options.freq_cutoff)+" wavenumbers will be applied")
       if options.QH == "grimme": log.Write("\n   QH = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies"); qh_ref = grimme_ref
@@ -529,12 +561,14 @@ def main():
    # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
    if options.temperature_interval == False and options.conc_interval == False:
       if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
-      else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc))
+      else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
+      if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
       if options.boltz == True: log.Write('{:>13}'.format("Boltz_fac"))
       if options.imag_freq == True: log.Write('{:>13}'.format("im. freq."))
 
       log.Write("\n"+stars)
-      if options.spc == True: log.Write('*'*14)
+      if options.spc != False: log.Write('*'*14)
+      if options.cosmo != False: log.Write('*'*13)
       if options.imag_freq == True: log.Write('*'*13)
       if options.boltz == True: log.Write('*'*13)
       log.Write("")
@@ -587,13 +621,16 @@ def main():
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                 log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+         if options.cosmo != False and cosmo_solv != None:
+             log.Write('{:13.6f}'.format(cosmo_solv[file]))
          if options.boltz == True:
              log.Write('{:13.3f}'.format(boltz_facs[file]/boltz_sum))
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
              for freq in bbe.im_freq: log.Write('{:13.2f}'.format(freq))
 
       log.Write("\n"+stars)
-      if options.spc == True: log.Write('*'*14)
+      if options.spc != False: log.Write('*'*14)
+      if options.cosmo != False: log.Write('*'*13)
       if options.imag_freq == True: log.Write('*'*13)
       if options.boltz == True: log.Write('*'*13)
       log.Write("\n")
