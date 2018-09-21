@@ -16,11 +16,11 @@ The quasi-harmonic approximation is applied to the vibrational entropy: below a 
 The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the [Truhlar group database](https://t1.chem.umn.edu/freqscale/index.html).
 
 #### Installation
-1. Clone the repository https://github.com/bobbypaton/GoodVibes.git or download from the wiki (ICIQ)
-2. Add the location of the GoodVibes directory to the PYTHONPATH environment variable.
+*	With pypi: `pip install goodvibes`
+*  With conda: `conda install -c patonlab goodvibes`
+*  Manually Cloning the repository https://github.com/bobbypaton/GoodVibes.git and then adding the location of the GoodVibes directory to the PYTHONPATH environment variable.
 3. Run the script with your Gaussian output files (the program expects log or out extensions). It has been tested with Python 2 and 3 on Linux, OSX and Windows
 
-Alternatively `pip install goodvibes` will install all classes
 
 **Correct Usage**
 
