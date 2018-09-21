@@ -145,20 +145,19 @@ def sp_energy(file):
        raise ValueError("File {} does not exist".format(file))
 
    for line in data:
-       if program == "Gaussian":
-            if line.strip().startswith('SCF Done:'): spe = float(line.strip().split()[4])
-            if line.strip().startswith('Counterpoise corrected energy'): spe = float(line.strip().split()[4])
-            # For MP2 calculations replace with EUMP2
-            if line.strip().find('EUMP2 =') > -1: spe = float((line.strip().split()[5]).replace('D', 'E'))
-            # For ONIOM calculations use the extrapolated value rather than SCF value
-            if line.strip().find("ONIOM: extrapolated energy") > -1: spe = (float(line.strip().split()[4]))
-            # For Semi-empirical or Molecular Mechanics calculations
-            if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1: spe = (float(line.strip().split()[1]))
+       if line.find("Gaussian") > -1: program = "Gaussian"; break
        if line.find("* O   R   C   A *") > -1: program = "Orca"; break
 
    for line in data:
        if program == "Gaussian":
            if line.strip().startswith('SCF Done:'): spe = float(line.strip().split()[4])
+           if line.strip().startswith('Counterpoise corrected energy'): spe = float(line.strip().split()[4])
+           # For MP2 calculations replace with EUMP2
+           if line.strip().find('EUMP2 =') > -1: spe = float((line.strip().split()[5]).replace('D', 'E'))
+           # For ONIOM calculations use the extrapolated value rather than SCF value
+           if line.strip().find("ONIOM: extrapolated energy") > -1: spe = (float(line.strip().split()[4]))
+           # For Semi-empirical or Molecular Mechanics calculations
+           if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1: spe = (float(line.strip().split()[1]))
        if program == "Orca":
            if line.strip().startswith('FINAL SINGLE POINT ENERGY'): spe = float(line.strip().split()[4])
    return spe

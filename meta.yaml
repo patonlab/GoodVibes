@@ -1,0 +1,40 @@
+{% set name = "goodvibes" %}
+{% set version = "2.0.2" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: 6c7dfef22868f57762e910888e45daf96e2e9cc6cbb7cf299cc6a22cec37ee5c
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv "
+
+requirements:
+  host:
+    - numpy
+    - pip
+    - python
+  run:
+    - numpy
+    - python
+
+test:
+  imports:
+    - goodvibes
+
+about:
+  home: https://github.com/bobbypaton/goodvibes
+  license: CC-BY
+  license_family: CC
+  license_file: LICENSE.txt 
+  summary: Calculates quasi-harmonic free energies from Gaussian output files with temperature and haptic corrections
+  doc_url: 
+  dev_url: 
+
+extra:
+  recipe-maintainers:
+    - bobbypaton
