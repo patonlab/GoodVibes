@@ -2,6 +2,9 @@ Goodvibes
 =========
 
 [![Build Status](https://travis-ci.org/bobbypaton/GoodVibes.svg?branch=master)](https://travis-ci.org/bobbypaton/GoodVibes)
+[![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
+[![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg)](https://conda.anaconda.org/patonlab)
+[![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
 
 A Python program to compute quasi-harmonic thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Robert Paton](https://www.chem.colostate.edu/person/?id=234D5F1C7E4CBA9E192AB2B2837D6360) (Colorado State & Oxford) and [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ). Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://github.com/jaimergp).
 
@@ -169,11 +172,13 @@ The program will detect several different levels of theory and give a warning th
 11. Mekareeya, A.; Walker, P. R.; Couce-Rios, A.; Campbell, C. D.; Steven, A.; Paton, R. S.; Anderson, E. A. *J. Am. Chem. Soc.* **2017**, *139*, 10104–10114 [**DOI** 10.1021/jacs.7b05436](http://dx.doi.org/10.1021/jacs.7b05436)
 12. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017**, *7*, 6430–6439 [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
 13. Elm, J. *J. Phys. Chem. A* **2017**, *121*, 8288–8295 [**DOI:** 10.1021/acs.jpca.7b08962](http://dx.doi.org/10.1021/acs.jpca.7b08962)
-14. Li, Y.; Jackson, K. E.; Charlton, A.; Le Neve-Foster, B.; Khurshid, A.; Rudy, H.-K. A.; Thompson, A. L.; Paton, R. S.; Hodgson, D. M. *J. Org. Chem.* **2017**, *82*, 10479-10488 [**DOI:** 10.1021/acs.joc.7b01954](http://dx.doi.org/10.1021/acs.joc.7b01954) 
+14. Li, Y.; Jackson, K. E.; Charlton, A.; Le Neve-Foster, B.; Khurshid, A.; Rudy, H.-K. A.; Thompson, A. L.; Paton, R. S.; Hodgson, D. M. *J. Org. Chem.* **2017**, *82*, 10479-10488 [**DOI:** 10.1021/acs.joc.7b01954](http://dx.doi.org/10.1021/acs.joc.7b01954)
 14. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *Chem. Eur. J.* **2017**, *23*, 15336–15347[**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
-15. Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. *Catal. Sci. Technol.* **2017**, 5644–5649 [**DOI:** 10.1039/C7CY01728F ](http://dx.doi.org/10.1039/C7CY01728F)
-16. Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. *J. Phys. Chem. A* **2018** [**DOI:** 10.1021/acs.jpca.7b11580 ](http://dx.doi.org/10.1021/acs.jpca.7b11580)
-17. Harada, T. *J. Org. Chem.* **2018** [**DOI:** 10.1021/acs.joc.8b00712](http://dx.doi.org/10.1021/acs.joc.8b00712)
+15. Funes‐Ardoiz, I.; Nelson, D. J.; Maseras, F. *Chem. Eur. J.* **2017**, *23*, 16728–16733[**DOI:** 10.1002/chem.201702331](http://dx.doi.org/10.1002/chem.201702331)
+16. Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. *Catal. Sci. Technol.* **2017**, 5644–5649 [**DOI:** 10.1039/C7CY01728F ](http://dx.doi.org/10.1039/C7CY01728F)
+17. Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. *J. Phys. Chem. A* **2018**, *122*, 1392–1399 [**DOI:** 10.1021/acs.jpca.7b11580 ](http://dx.doi.org/10.1021/acs.jpca.7b11580)
+18. Harada, T. *J. Org. Chem.* **2018**, *83*, 7825–7835[**DOI:** 10.1021/acs.joc.8b00712](http://dx.doi.org/10.1021/acs.joc.8b00712)
+19. Lewis, R. D.; Garcia-Borràs, M.;  Chalkley, M. J.; Buller, A. R.; Houk, K. N.; Kan, S. B. J.; Arnold, F. H. *Proc. Natl. Acad. Sci.* **2018**, *115*, 7308-7313[**DOI:** 10.1073/pnas.1807027115](http://dx.doi.org/10.1073/pnas.1807027115)
 
 #### References for the underlying theory
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)
