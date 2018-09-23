@@ -59,6 +59,8 @@ def elementID(massno):
     if massno < len(periodictable): return periodictable[massno]
     else: return "XX"
 
+alphabet = 'abcdefghijklmnopqrstuvwxyz'
+
  # Enables output to terminal and to text file
 class Logger:
    def __init__(self, filein, suffix, append):
@@ -504,16 +506,31 @@ def main():
    add_days = 0
 
    command = '   Requested: '
+
+   clustering = False
+   if len(sys.argv) > 1:
+      for elem in sys.argv[1:]:
+          if elem == 'clust:':
+              clustering = True; options.boltz = True
+              clusters = []; nclust = -1
+
    # Get the filenames from the command line prompt
    files = []
    if len(sys.argv) > 1:
       for elem in sys.argv[1:]:
+         if clustering == True:
+            if elem == 'clust:':
+               clusters.append([]); nclust += 0
          try:
             if os.path.splitext(elem)[1] in [".out", ".log"]:
                for file in glob(elem):
-                   if options.spc == False or options.spc == 'link': files.append(file)
+                   if options.spc == False or options.spc == 'link':
+                       files.append(file)
+                       if clustering == True: clusters[nclust].append(file)
                    else:
-                       if file.find('_'+options.spc+".") == -1: files.append(file)
+                       if file.find('_'+options.spc+".") == -1:
+                           files.append(file)
+                           if clustering == True: clusters[nclust].append(file)
             else: command += elem + ' '
          except IndexError: pass
 
@@ -570,14 +587,16 @@ def main():
       if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
       else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
       if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
-      if options.boltz == True: log.Write('{:>13}'.format("Boltz_fac"))
-      if options.imag_freq == True: log.Write('{:>13}'.format("im. freq."))
+      if options.boltz == True: log.Write('{:>7}'.format("Boltz"))
+      if clustering == True: log.Write('{:>7}'.format("Clust"))
+      if options.imag_freq == True: log.Write('{:>9}'.format("im freq"))
 
       log.Write("\n"+stars)
       if options.spc != False: log.Write('*'*14)
       if options.cosmo != False: log.Write('*'*13)
-      if options.imag_freq == True: log.Write('*'*13)
-      if options.boltz == True: log.Write('*'*13)
+      if options.imag_freq == True: log.Write('*'*9)
+      if options.boltz == True: log.Write('*'*7)
+      if clustering == True: log.Write('*'*7)
       log.Write("")
 
       if options.boltz != False:
@@ -592,12 +611,19 @@ def main():
                 if bbe.qh_gibbs_free_energy != None:
                     if bbe.qh_gibbs_free_energy < e_min: e_min = bbe.qh_gibbs_free_energy
 
+         if clustering == True:
+            for n, cluster in enumerate(clusters): boltz_facs['cluster-'+alphabet[n].upper()] = 0.0
          for file in files: # Now calculate E_rel and Boltzmann factors
             bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
             if hasattr(bbe,"qh_gibbs_free_energy"):
                 if bbe.qh_gibbs_free_energy != None:
                     e_rel[file] = bbe.qh_gibbs_free_energy - e_min
                     boltz_facs[file] = math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
+                    if clustering == True:
+                       for n, cluster in enumerate(clusters):
+                           for structure in cluster:
+                               if structure == file: boltz_facs['cluster-'+alphabet[n].upper()] += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
+
                     boltz_sum += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
 
       for file in files: # loop over the output files and compute thermochemistry
@@ -631,15 +657,23 @@ def main():
          if options.cosmo != False and cosmo_solv != None:
              log.Write('{:13.6f}'.format(cosmo_solv[file]))
          if options.boltz == True:
-             log.Write('{:13.3f}'.format(boltz_facs[file]/boltz_sum))
+             log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum))
+         if clustering == True:
+             for n, cluster in enumerate(clusters):
+                 for id, structure in enumerate(cluster):
+                     if structure == file:
+                         if id == len(cluster)-1: log.Write('{:7.1f}'.format(100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
+                         else: log.Write('{:>7}'.format(''))
+
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
-             for freq in bbe.im_freq: log.Write('{:13.2f}'.format(freq))
+             for freq in bbe.im_freq: log.Write('{:9.2f}'.format(freq))
 
       log.Write("\n"+stars)
       if options.spc != False: log.Write('*'*14)
       if options.cosmo != False: log.Write('*'*13)
-      if options.imag_freq == True: log.Write('*'*13)
-      if options.boltz == True: log.Write('*'*13)
+      if options.imag_freq == True: log.Write('*'*9)
+      if options.boltz == True: log.Write('*'*7)
+      if clustering == True: log.Write('*'*7)
       log.Write("\n")
 
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
