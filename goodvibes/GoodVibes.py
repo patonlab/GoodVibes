@@ -531,12 +531,13 @@ def main():
                        if file.find('_'+options.spc+".") == -1:
                            files.append(file)
                            if clustering == True: clusters[nclust].append(file)
-            else: command += elem + ' '
+            elif elem != 'clust:': command += elem + ' '
          except IndexError: pass
 
       # Start printing results
       start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
       log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
+      if clustering ==True: command += '(clustering active)'
       log.Write(command+'\n\n')
       if options.temperature_interval == False: log.Write("   Temperature = "+str(options.temperature)+" Kelvin")
       # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming Pressure is still 1 atm)
