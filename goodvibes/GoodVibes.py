@@ -494,6 +494,7 @@ def main():
    parser.add_option("--xyz", dest="xyz", action="store_true", help="write Cartesians to an xyz file (default False)", default=False, metavar="XYZ")
    parser.add_option("--imag", dest="imag_freq", action="store_true", help="print imaginary frequencies (default False)", default=False, metavar="IMAG_FREQ")
    parser.add_option("--cosmo", dest="cosmo", action="store", help="filename of a COSMO-RS out file", default=False, metavar="COSMO-RS")
+   parser.add_option("--csv", dest="csv", action="store_true", help="print CSV format", default=False, metavar="CSV")
 
    (options, args) = parser.parse_args()
    options.QH = options.QH.lower() # case insensitive
@@ -552,7 +553,7 @@ def main():
 
           if all_same(l_o_t) == True:
              for scal in scaling_data: # search through database of scaling factors
-                if l_o_t[0].upper().find(scal['level'].upper()) > -1 or l_o_t[0].upper().find(scal['level'].replace("-","").upper()) > -1:
+                if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
                    options.freq_scale_factor = scal['zpe_fac']; ref = scaling_refs[scal['zpe_ref']]
                    log.Write("\n\n   " + "Found vibrational scaling factor for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
           elif all_same(l_o_t) == False: log.Write("\n   " + (textwrap.fill("CAUTION: different levels of theory found - " + '|'.join(l_o_t), 128, subsequent_indent='   ')))
@@ -585,12 +586,21 @@ def main():
 
    # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
    if options.temperature_interval == False and options.conc_interval == False:
-      if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
-      else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
-      if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
-      if options.boltz == True: log.Write('{:>7}'.format("Boltz"))
-      if clustering == True: log.Write('{:>7}'.format("Clust"))
-      if options.imag_freq == True: log.Write('{:>9}'.format("im freq"))
+      if options.csv == False:
+          if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
+          else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
+          if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
+          if options.boltz == True: log.Write('{:>7}'.format("Boltz"))
+          if clustering == True: log.Write('{:>7}'.format("Clust"))
+          if options.imag_freq == True: log.Write('{:>9}'.format("im freq"))
+
+      if options.csv == True:
+          if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13},{:>10},{:>13},{:>10},{:>10},{:>13},{:>13}'.format("Structure,", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
+          else: log.Write("\n\n   " + '{:<39} {:>13},{:>13},{:>10},{:>13},{:>10},{:>10},{:>13},{:>13}'.format("Structure,", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
+          if options.cosmo != False: log.Write(',{:>12}'.format("COSMO-RS"))
+          if options.boltz == True: log.Write(',{:>6}'.format("Boltz"))
+          if clustering == True: log.Write(',{:>6}'.format("Clust"))
+          if options.imag_freq == True: log.Write(',{:>8}'.format("im freq"))
 
       log.Write("\n"+stars)
       if options.spc != False: log.Write('*'*14)
@@ -646,28 +656,39 @@ def main():
              else: xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
              if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'): xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
 
-         log.Write("\no  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+         if options.csv == False: log.Write("\no  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+         else: log.Write("\no  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]+','))
          if options.spc != False:
             try: log.Write(' {:13.6f}'.format(bbe.sp_energy))
             except ValueError: log.Write(' {:>13}'.format('----'))
-         if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy))
+         if hasattr(bbe, "scf_energy"):
+             if options.csv == False: log.Write(' {:13.6f}'.format(bbe.scf_energy))
+             else: log.Write(' {:13.6f},'.format(bbe.scf_energy))
          if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...")
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                if options.csv == False: log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                else: log.Write('{:10.6f},{:13.6f},{:10.6f},{:10.6f},{:13.6f},{:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
          if options.cosmo != False and cosmo_solv != None:
              log.Write('{:13.6f}'.format(cosmo_solv[file]))
          if options.boltz == True:
-             log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum))
+             if options.csv == False: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum))
+             else: log.Write(',{:6.3f}'.format(boltz_facs[file]/boltz_sum))
          if clustering == True:
              for n, cluster in enumerate(clusters):
                  for id, structure in enumerate(cluster):
                      if structure == file:
-                         if id == len(cluster)-1: log.Write('{:7.1f}'.format(100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
-                         else: log.Write('{:>7}'.format(''))
+                         if id == len(cluster)-1:
+                             if options.csv == False: log.Write('{:7.1f}'.format(100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
+                             else: log.Write(',{:6.1f}'.format(100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
+                         else:
+                             if options.csv == False: log.Write('{:>7}'.format(''))
+                             else: log.Write(',{:>6}'.format(''))
 
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
-             for freq in bbe.im_freq: log.Write('{:9.2f}'.format(freq))
+             for freq in bbe.im_freq:
+                 if options.csv == False: log.Write('{:9.2f}'.format(freq))
+                 else: log.Write(',{:8.2f}'.format(freq))
 
       log.Write("\n"+stars)
       if options.spc != False: log.Write('*'*14)
