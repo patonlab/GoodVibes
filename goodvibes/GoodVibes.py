@@ -32,7 +32,7 @@ import os.path, sys, math, textwrap, time
 from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
-from dftd3 import *
+#from dftd3 import *
 
 from .vib_scale_factors import scaling_data, scaling_refs
 
