@@ -601,7 +601,6 @@ def main():
           else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
           if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
           if options.boltz == True: log.Write('{:>7}'.format("Boltz"))
-          if clustering == True: log.Write('{:>7}'.format("Clust"))
           if options.imag_freq == True: log.Write('{:>9}'.format("im freq"))
 
       if options.csv == True:
@@ -609,7 +608,6 @@ def main():
           else: log.Write("\n\n   " + '{:<39} {:>13},{:>13},{:>10},{:>13},{:>10},{:>10},{:>13},{:>13}'.format("Structure,", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
           if options.cosmo != False: log.Write(',{:>12}'.format("COSMO-RS"))
           if options.boltz == True: log.Write(',{:>6}'.format("Boltz"))
-          if clustering == True: log.Write(',{:>6}'.format("Clust"))
           if options.imag_freq == True: log.Write(',{:>8}'.format("im freq"))
 
       log.Write("\n"+stars)
@@ -617,7 +615,6 @@ def main():
       if options.cosmo != False: log.Write('*'*13)
       if options.imag_freq == True: log.Write('*'*9)
       if options.boltz == True: log.Write('*'*7)
-      if clustering == True: log.Write('*'*7)
       log.Write("")
 
       if options.boltz != False:
@@ -650,7 +647,6 @@ def main():
                                if structure == file:
                                    boltz_facs['cluster-'+alphabet[n].upper()] += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
                                    weighted_free_energy['cluster-'+alphabet[n].upper()] += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature) * bbe.qh_gibbs_free_energy
-                                   print(n, weighted_free_energy['cluster-'+alphabet[n].upper()])
                     boltz_sum += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
 
       for file in files: # loop over the output files and compute thermochemistry
@@ -658,6 +654,7 @@ def main():
          if options.d3 != False:
              ED3 = calcD3(file, s6, rs6, s8, bj_a1, bj_a2, options.d3, abc_term, intermolecular, pairwise)
              ED3_tot = ED3.attractive_r6_vdw + ED3.attractive_r8_vdw + ED3.repulsive_abc
+             #print(ED3_tot)
              bbe.scf_energy += ED3_tot; bbe.enthalpy += ED3_tot; bbe.gibbs_free_energy += ED3_tot; bbe.qh_gibbs_free_energy += ED3_tot
 
          # Add CPU times
@@ -694,16 +691,6 @@ def main():
          if options.boltz == True:
              if options.csv == False: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum))
              else: log.Write(',{:6.3f}'.format(boltz_facs[file]/boltz_sum))
-         if clustering == True:
-             for n, cluster in enumerate(clusters):
-                 for id, structure in enumerate(cluster):
-                     if structure == file:
-                         if id == len(cluster)-1:
-                             if options.csv == False: log.Write('{:7.1f}'.format(100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
-                             else: log.Write(',{:6.1f}'.format(100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
-                         else:
-                             if options.csv == False: log.Write('{:>7}'.format(''))
-                             else: log.Write(',{:>6}'.format(''))
 
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
              for freq in bbe.im_freq:
@@ -715,8 +702,8 @@ def main():
                  for id, structure in enumerate(cluster):
                      if structure == file:
                          if id == len(cluster)-1:
-                             if options.csv == False: log.Write("\no  "+'{:<115} {:13.6f}'.format(' ', weighted_free_energy['cluster-'+alphabet[n].upper()] ))
-                             else: log.Write('\n{:7.1f}'.format(weighted_free_energy['cluster-'+alphabet[n].upper()] * boltz_facs['cluster-'+alphabet[n].upper()] / boltz_sum))
+                             if options.csv == False: log.Write("\no  "+'{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
+                             else: log.Write("\no  "+'{:<39} {:>13},{:>10},{:>13},{:>10},{:>10},{:>13},{:13.6f},{:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper()+',', '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
 
 
       log.Write("\n"+stars)
@@ -724,7 +711,6 @@ def main():
       if options.cosmo != False: log.Write('*'*13)
       if options.imag_freq == True: log.Write('*'*9)
       if options.boltz == True: log.Write('*'*7)
-      if clustering == True: log.Write('*'*7)
       log.Write("\n")
 
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
