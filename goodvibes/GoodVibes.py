@@ -32,6 +32,7 @@ import os.path, sys, math, textwrap, time
 from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
+from dftd3 import *
 
 from .vib_scale_factors import scaling_data, scaling_refs
 
@@ -493,6 +494,7 @@ def main():
    parser.add_option("--imag", dest="imag_freq", action="store_true", help="print imaginary frequencies (default False)", default=False, metavar="IMAG_FREQ")
    parser.add_option("--cosmo", dest="cosmo", action="store", help="filename of a COSMO-RS out file", default=False, metavar="COSMO-RS")
    parser.add_option("--csv", dest="csv", action="store_true", help="print CSV format", default=False, metavar="CSV")
+   parser.add_option("--D3", dest="d3", action="store", help="add D3-dispersion correction: zero/bj", type="string", default=False, metavar="D3")
    parser.add_option("--output", dest="output", action="store", help="Change the default name of the output file to GoodVibes_\"output\".dat", default="output", metavar="OUTPUT")
 
    (options, args) = parser.parse_args()
@@ -509,7 +511,12 @@ def main():
    total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
    add_days = 0
 
+   # for printing
    command = '   Requested: '
+
+   # Default dispersion parameters
+   s6 = 0.0; rs6 = 0.0; s8 = 0.0; bj_a1 = 0.0; bj_a2 = 0.0;
+   abc_term = "off"; intermolecular = "off"; pairwise = "off"; verbose = False
 
    clustering = False
    if len(sys.argv) > 1:
@@ -648,6 +655,10 @@ def main():
 
       for file in files: # loop over the output files and compute thermochemistry
          bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
+         if options.d3 != False:
+             ED3 = calcD3(file, s6, rs6, s8, bj_a1, bj_a2, options.d3, abc_term, intermolecular, pairwise)
+             ED3_tot = ED3.attractive_r6_vdw + ED3.attractive_r8_vdw + ED3.repulsive_abc
+             bbe.scf_energy += ED3_tot; bbe.enthalpy += ED3_tot; bbe.gibbs_free_energy += ED3_tot; bbe.qh_gibbs_free_energy += ED3_tot
 
          # Add CPU times
          if options.cputime != False:
