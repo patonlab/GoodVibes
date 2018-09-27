@@ -42,13 +42,13 @@ j_to_au = 4.184 * 627.509541 * 1000.0
 kcal_to_au = 627.509541
 
 # version number
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 stars = "   " + "*" * 128
 
 # some literature references
 grimme_ref = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
 truhlar_ref = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
-goodvibes_ref = "Funes-Ardoiz, I.; Paton, R. S. (2016). GoodVibes: GoodVibes "+__version__+" http://doi.org/10.5281/zenodo.595246"
+goodvibes_ref = "Funes-Ardoiz, I.; Paton, R. S. (2018). GoodVibes: GoodVibes "+__version__+" http://doi.org/10.5281/zenodo.595246"
 
 #Some useful arrays
 periodictable = ["","H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr","Rb","Sr","Y","Zr",
@@ -475,8 +475,6 @@ class calc_bbe:
              if freq < -1 * im_freq_cutoff: self.im_freq.append(freq)
 
 def main():
-   # Start a log for the results
-   log = Logger("Goodvibes","dat", "output")
 
    # get command line inputs. Use -h to list all possible arguments and default values
    parser = OptionParser(usage="Usage: %prog [options] <input1>.log <input2>.log ...")
@@ -495,12 +493,17 @@ def main():
    parser.add_option("--imag", dest="imag_freq", action="store_true", help="print imaginary frequencies (default False)", default=False, metavar="IMAG_FREQ")
    parser.add_option("--cosmo", dest="cosmo", action="store", help="filename of a COSMO-RS out file", default=False, metavar="COSMO-RS")
    parser.add_option("--csv", dest="csv", action="store_true", help="print CSV format", default=False, metavar="CSV")
+   parser.add_option("--output", dest="output", action="store", help="Change the default name of the output file to GoodVibes_\"output\".dat", default="output", metavar="OUTPUT")
 
    (options, args) = parser.parse_args()
    options.QH = options.QH.lower() # case insensitive
 
    # if necessary create an xyz file for Cartesians
    if options.xyz == True: xyz = XYZout("Goodvibes","xyz", "output")
+
+   # Start a log for the results
+   if options.csv == False: log = Logger("Goodvibes","dat", options.output)
+   else: log = Logger("Goodvibes","csv", options.output)
 
    # initialize the total CPU time
    total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
@@ -612,6 +615,7 @@ def main():
 
       if options.boltz != False:
          boltz_facs = {}
+         weighted_free_energy = {}
          e_rel = {}
          e_min = 999999.99999
          boltz_sum = 0.0
@@ -623,18 +627,23 @@ def main():
                     if bbe.qh_gibbs_free_energy < e_min: e_min = bbe.qh_gibbs_free_energy
 
          if clustering == True:
-            for n, cluster in enumerate(clusters): boltz_facs['cluster-'+alphabet[n].upper()] = 0.0
+            for n, cluster in enumerate(clusters):
+                boltz_facs['cluster-'+alphabet[n].upper()] = 0.0
+                weighted_free_energy['cluster-'+alphabet[n].upper()] = 0.0
          for file in files: # Now calculate E_rel and Boltzmann factors
             bbe = calc_bbe(file, options.QH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
             if hasattr(bbe,"qh_gibbs_free_energy"):
                 if bbe.qh_gibbs_free_energy != None:
                     e_rel[file] = bbe.qh_gibbs_free_energy - e_min
                     boltz_facs[file] = math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
+
                     if clustering == True:
                        for n, cluster in enumerate(clusters):
                            for structure in cluster:
-                               if structure == file: boltz_facs['cluster-'+alphabet[n].upper()] += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
-
+                               if structure == file:
+                                   boltz_facs['cluster-'+alphabet[n].upper()] += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
+                                   weighted_free_energy['cluster-'+alphabet[n].upper()] += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature) * bbe.qh_gibbs_free_energy
+                                   print(n, weighted_free_energy['cluster-'+alphabet[n].upper()])
                     boltz_sum += math.exp(-e_rel[file]*j_to_au/GAS_CONSTANT/options.temperature)
 
       for file in files: # loop over the output files and compute thermochemistry
@@ -689,6 +698,15 @@ def main():
              for freq in bbe.im_freq:
                  if options.csv == False: log.Write('{:9.2f}'.format(freq))
                  else: log.Write(',{:8.2f}'.format(freq))
+
+         if clustering == True:
+             for n, cluster in enumerate(clusters):
+                 for id, structure in enumerate(cluster):
+                     if structure == file:
+                         if id == len(cluster)-1:
+                             if options.csv == False: log.Write("\no  "+'{:<115} {:13.6f}'.format(' ', weighted_free_energy['cluster-'+alphabet[n].upper()] ))
+                             else: log.Write('\n{:7.1f}'.format(weighted_free_energy['cluster-'+alphabet[n].upper()] * boltz_facs['cluster-'+alphabet[n].upper()] / boltz_sum))
+
 
       log.Write("\n"+stars)
       if options.spc != False: log.Write('*'*14)
