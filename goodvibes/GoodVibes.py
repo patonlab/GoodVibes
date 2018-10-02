@@ -412,7 +412,7 @@ class calc_bbe:
          if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1: self.scf_energy = (float(line.strip().split()[1]))
          # look for thermal corrections, paying attention to point group symmetry
          if line.strip().startswith('Zero-point correction='): self.zero_point_corr = float(line.strip().split()[2])
-         if line.strip().find('Multiplicity') > -1: mult = float(line.split('=')[-1].strip())
+         if line.strip().find('Multiplicity') > -1: mult = float(line.split('=')[-1].strip().split()[0])
          if line.strip().startswith('Molecular mass:'): molecular_mass = float(line.strip().split()[2])
          if line.strip().startswith('Rotational symmetry number'): symmno = int((line.strip().split()[3]).split(".")[0])
          if line.strip().startswith('Full point group'):
@@ -559,19 +559,23 @@ def main():
       else: log.Write("   Concentration = "+str(options.conc)+" mol/l")
 
       # attempt to automatically obtain frequency scale factor. Requires all outputs to be same level of theory
-      if options.freq_scale_factor == False:
-          l_o_t = [level_of_theory(file) for file in files]
-          def all_same(items): return all(x == items[0] for x in items)
+      l_o_t = [level_of_theory(file) for file in files]
+      def all_same(items): return all(x == items[0] for x in items)
 
+      if options.freq_scale_factor != False:
+          log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
+      else:
           if all_same(l_o_t) == True:
              for scal in scaling_data: # search through database of scaling factors
                 if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
                    options.freq_scale_factor = scal['zpe_fac']; ref = scaling_refs[scal['zpe_ref']]
-                   log.Write("\n\n   " + "Found vibrational scaling factor for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
+                   log.Write("\n   " + "Found vibrational scale factor " + str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
+
           elif all_same(l_o_t) == False: log.Write("\n   " + (textwrap.fill("CAUTION: different levels of theory found - " + '|'.join(l_o_t), 128, subsequent_indent='   ')))
 
-      if options.freq_scale_factor == False: options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
-      log.Write("\n   Frequency scale factor "+str(options.freq_scale_factor))
+      if options.freq_scale_factor == False:
+          options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
+          log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
 
       # checks to see whether the available free space of a requested solvent is defined
       freespace = get_free_space(options.solv)
