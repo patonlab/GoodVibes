@@ -159,7 +159,6 @@ class get_pes:
                         except IndexError: pass
 
         species = dict(zip(names, files))
-        #print(species)
 
         self.path, self.species = [], [],
         self.e_abs, self.zpe_abs, self.h_abs, self.ts_abs, self.qhts_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], []
