@@ -118,9 +118,10 @@ def COSMORSout(datfile, names):
                    GSOLV[name] = gsolv
    return GSOLV
 
+#Obtain relative thermochemistry between species and for reactions
 class get_pes:
     def __init__(self, file, thermo_data, log, options):
-
+        self.dps = 2; self.units = 'kcal/mol'; self.boltz = False # defaults
         with open(file) as f: data = f.readlines()
         folder, program, names, files = None, None, [], []
         for i, line in enumerate(data):
@@ -141,7 +142,7 @@ class get_pes:
                                         if os.path.splitext(os.path.basename(key))[0] == f.strip(): match = key
                                     if match:
                                         names.append(n.strip()); files.append(match)
-                                    else: log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data is available\n')
+                                    else: log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                                 else:
                                     match = []
                                     for key in thermo_data:
@@ -149,7 +150,7 @@ class get_pes:
                                             match.append(key)
                                     if len(match) > 0:
                                        names.append(n.strip()); files.append(match)
-                                    else: log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data is available\n')
+                                    else: log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                             except ValueError:
                                 if len(line) > 2: log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
             if line.strip().find('FORMAT') > -1:
@@ -157,17 +158,27 @@ class get_pes:
                     if line.strip().find('zero') > -1:
                         try: zero = line.strip().replace(':','=').split("=")[1].strip()
                         except IndexError: pass
+                    if line.strip().find('dp') > -1:
+                        try: self.dps = int(line.strip().replace(':','=').split("=")[1].strip())
+                        except IndexError: pass
+                    if line.strip().find('units') > -1:
+                        try: self.units = line.strip().replace(':','=').split("=")[1].strip()
+                        except IndexError: pass
+                    if line.strip().find('boltz') > -1:
+                        try: self.boltz = line.strip().replace(':','=').split("=")[1].strip()
+                        except IndexError: pass
 
         species = dict(zip(names, files))
 
-        self.path, self.species = [], [],
-        self.e_abs, self.zpe_abs, self.h_abs, self.ts_abs, self.qhts_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], []
-        self.e_zero, self.zpe_zero, self.h_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        self.path, self.species = [], []
+        self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.ts_abs, self.qhts_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], [], []
+        self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
         zero_structures = zero.replace(' ','').split('+')
         for structure in zero_structures:
             try:
                 if not isinstance(species[structure], list):
+                    if hasattr(thermo_data[species[structure]], "sp_energy"): self.spc_zero += thermo_data[species[structure]].sp_energy
                     self.e_zero += thermo_data[species[structure]].scf_energy
                     self.zpe_zero += thermo_data[species[structure]].zpe
                     self.h_zero += thermo_data[species[structure]].enthalpy
@@ -186,6 +197,7 @@ class get_pes:
                     for conformer in species[structure]:
                         g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                         boltz_fac = math.exp(-g_rel*j_to_au/GAS_CONSTANT/options.temperature)
+                        if hasattr(thermo_data[conformer], "sp_energy"): self.spc_zero += thermo_data[conformer].sp_energy * boltz_fac / boltz_sum
                         self.e_zero += thermo_data[conformer].scf_energy * boltz_fac / boltz_sum
                         self.zpe_zero += thermo_data[conformer].zpe * boltz_fac / boltz_sum
                         self.h_zero += thermo_data[conformer].enthalpy * boltz_fac / boltz_sum
@@ -193,12 +205,10 @@ class get_pes:
                         self.g_zero += thermo_data[conformer].gibbs_free_energy * boltz_fac / boltz_sum
                         self.qhts_zero += thermo_data[conformer].qh_entropy * boltz_fac / boltz_sum
                         self.qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_fac / boltz_sum
-
             except KeyError:
-                log.Write("   Warning! Structure "+structure+' has not been defined correctly in '+file+'\n')
+                log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
+                log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
                 sys.exit("   Please edit "+file+" and try again\n")
-            except TypeError:
-                print('Not implemented zero boltzmann yet!')
 
         with open(file) as f: data = f.readlines()
         for i, line in enumerate(data):
@@ -210,7 +220,7 @@ class get_pes:
                     elif line.strip().startswith('---') == True: break
                     else:
                         try:
-                            self.species.append([]); self.e_abs.append([]); self.zpe_abs.append([]); self.h_abs.append([]); self.ts_abs.append([]); self.g_abs.append([]); self.qhts_abs.append([]); self.qhg_abs.append([])
+                            self.species.append([]); self.e_abs.append([]); self.spc_abs.append([]); self.zpe_abs.append([]); self.h_abs.append([]); self.ts_abs.append([]); self.g_abs.append([]); self.qhts_abs.append([]); self.qhg_abs.append([])
                             pathway, pes = line.strip().replace(':','=').split("=")
                             pes = pes.strip()
                             points = [entry.strip() for entry in pes.lstrip('[').rstrip(']').split(',')]
@@ -218,11 +228,12 @@ class get_pes:
                             for point in points:
                                 if point != '':
                                     point_structures = point.replace(' ','').split('+')
-                                    e_abs, zpe_abs, h_abs, ts_abs, g_abs, qhts_abs, qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                                    e_abs, spc_abs, zpe_abs, h_abs, ts_abs, g_abs, qhts_abs, qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                     try:
                                         for structure in point_structures:
                                             if not isinstance(species[structure], list):
                                                 e_abs += thermo_data[species[structure]].scf_energy
+                                                if hasattr(thermo_data[species[structure]], "sp_energy"): spc_abs += thermo_data[species[structure]].sp_energy
                                                 zpe_abs += thermo_data[species[structure]].zpe
                                                 h_abs += thermo_data[species[structure]].enthalpy
                                                 ts_abs += thermo_data[species[structure]].entropy
@@ -241,6 +252,7 @@ class get_pes:
                                                     g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                                     boltz_fac = math.exp(-g_rel*j_to_au/GAS_CONSTANT/options.temperature)
                                                     e_abs += thermo_data[conformer].scf_energy * boltz_fac / boltz_sum
+                                                    if hasattr(thermo_data[conformer], "sp_energy"):  spc_abs += thermo_data[conformer].sp_energy * boltz_fac / boltz_sum
                                                     zpe_abs += thermo_data[conformer].zpe * boltz_fac / boltz_sum
                                                     h_abs += thermo_data[conformer].enthalpy * boltz_fac / boltz_sum
                                                     ts_abs += thermo_data[conformer].entropy * boltz_fac / boltz_sum
@@ -251,7 +263,7 @@ class get_pes:
                                         log.Write("   Warning! Structure "+structure+' has not been defined correctly in '+file+'\n')
                                         sys.exit("   Please edit "+file+" and try again\n")
 
-                                    self.species[n].append(point); self.e_abs[n].append(e_abs); self.zpe_abs[n].append(zpe_abs); self.h_abs[n].append(h_abs); self.ts_abs[n].append(ts_abs); self.g_abs[n].append(g_abs); self.qhts_abs[n].append(qhts_abs); self.qhg_abs[n].append(qhg_abs)
+                                    self.species[n].append(point); self.e_abs[n].append(e_abs); self.spc_abs[n].append(spc_abs); self.zpe_abs[n].append(zpe_abs); self.h_abs[n].append(h_abs); self.ts_abs[n].append(ts_abs); self.g_abs[n].append(g_abs); self.qhts_abs[n].append(qhts_abs); self.qhg_abs[n].append(qhg_abs)
                                 else: self.species[n].append('none'); self.e_abs[n].append(np.nan)
                             n = n + 1
                         except IndexError: pass
@@ -618,7 +630,6 @@ class calc_bbe:
 
 def main():
    files = []; bbe_vals = []; command = '   Requested: '; clustering = False; stars = "   " + "*" * 128
-
    # get command line inputs. Use -h to list all possible arguments and default values
    parser = OptionParser(usage="Usage: %prog [options] <input1>.log <input2>.log ...")
    parser.add_option("-t", dest="temperature", action="store", help="temperature (K) (default 298.15)", default="298.15", type="float", metavar="TEMP")
@@ -795,8 +806,7 @@ def main():
              #print(ED3_tot)
         #     bbe.scf_energy += ED3_tot; bbe.enthalpy += ED3_tot; bbe.gibbs_free_energy += ED3_tot; bbe.qh_gibbs_free_energy += ED3_tot
 
-         # Add CPU times
-         if options.cputime != False:
+         if options.cputime != False: # Add up CPU times
              if hasattr(bbe,"cpu"):
                  if bbe.cpu != None: total_cpu_time = addTime(total_cpu_time, bbe.cpu)
              if hasattr(bbe,"sp_cpu"):
@@ -819,8 +829,7 @@ def main():
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                 log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
-         if options.cosmo != False and cosmo_solv != None:
-             log.Write('{:13.6f}'.format(cosmo_solv[file]))
+         if options.cosmo != False and cosmo_solv != None: log.Write('{:13.6f}'.format(cosmo_solv[file]))
          if options.boltz == True: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum))
 
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
@@ -830,7 +839,10 @@ def main():
              for n, cluster in enumerate(clusters):
                  for id, structure in enumerate(cluster):
                      if structure == file:
-                         if id == len(cluster)-1: log.Write("\no  "+'{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
+                         if id == len(cluster)-1:
+                             #print(weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()])
+                             if options.spc != False: log.Write("\no  "+'{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
+                             else: log.Write("\no  "+'{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
 
       log.Write("\n"+stars+"\n")
 
@@ -864,17 +876,46 @@ def main():
    # tabulate relative values
    if options.pes != False:
       PES = get_pes(options.pes, thermo_data, log, options)
-
       # output the relative energy data
-      zero_vals = [PES.e_zero, PES.zpe_zero, PES.h_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
+      zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
       for i, path in enumerate(PES.path):
-          log.Write("\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("RXN: "+path, '\u0394'+"E", '\u0394'+"ZPE", '\u0394'+"H", '\u0394'+"T.S", '\u0394'+"T.qh-S", '\u0394'+"G(T)", '\u0394'+"qh-G(T)"))
+
+          if PES.boltz != False:
+              e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0; sels = []
+              for j, e_abs in enumerate(PES.e_abs[i]):
+                  species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], options.temperature * PES.ts_abs[i][j], options.temperature * PES.qhts_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
+                  relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+                  e_sum += math.exp(-relative[1]*j_to_au/GAS_CONSTANT/options.temperature)
+                  h_sum += math.exp(-relative[3]*j_to_au/GAS_CONSTANT/options.temperature)
+                  g_sum += math.exp(-relative[6]*j_to_au/GAS_CONSTANT/options.temperature)
+                  qhg_sum += math.exp(-relative[7]*j_to_au/GAS_CONSTANT/options.temperature)
+
+          if options.spc == False: log.Write("\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("RXN: "+path+" ("+PES.units+")", "DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)"))
+          else: log.Write("\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("RXN: "+path+" ("+PES.units+")", "DE_SPC", "DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"))
           log.Write("\n"+stars)
           for j, e_abs in enumerate(PES.e_abs[i]):
-              species = [PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], options.temperature * PES.ts_abs[i][j], options.temperature * PES.qhts_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
-              relative = [species[i]-zero_vals[i] for i in range(len(zero_vals))]
-              formatted_list = [kcal_to_au * x for x in relative]
-              log.Write("\no  "+'{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list))
+              species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], options.temperature * PES.ts_abs[i][j], options.temperature * PES.qhts_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
+              #print(species)
+              relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+              if PES.units == 'kJ/mol': formatted_list = [j_to_au / 1000.0 * x for x in relative]
+              else: formatted_list = [kcal_to_au * x for x in relative] # defaults to kcal/mol
+              if options.spc == False:
+                  formatted_list = formatted_list[1:]
+                  if PES.dps == 1: log.Write("\no  "+'{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list))
+                  if PES.dps == 2: log.Write("\no  "+'{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list))
+              else:
+                  if PES.dps == 1: log.Write("\no  "+'{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list))
+                  if PES.dps == 2: log.Write("\no  "+'{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list))
+
+              if PES.boltz != False:
+                 boltz = [math.exp(-relative[1]*j_to_au/GAS_CONSTANT/options.temperature)/e_sum, math.exp(-relative[3]*j_to_au/GAS_CONSTANT/options.temperature)/h_sum, math.exp(-relative[6]*j_to_au/GAS_CONSTANT/options.temperature)/g_sum, math.exp(-relative[7]*j_to_au/GAS_CONSTANT/options.temperature)/qhg_sum]
+                 selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
+                 log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
+                 sels.append(selectivity)
+          if PES.boltz == 'ee' and len(sels) == 2:
+              ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
+              if options.spc == False: log.Write("\n"+stars+"\n   "+'{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)', *ee))
+              else: log.Write("\n"+stars+"\n   "+'{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
           log.Write("\n"+stars+"\n")
 
    # Close the log
