@@ -13,7 +13,7 @@ setup(
   description = 'Calculates quasi-harmonic free energies from Gaussian output files with temperature and haptic corrections',
   long_description=long_description,
   long_description_content_type='text/markdown'
-  author = 'Paton Research Group',
+  author = 'Robert Paton',
   author_email = 'robert.paton@colostate.edu',
   url = 'https://github.com/bobbypaton/goodvibes',
   download_url = 'https://github.com/bobbypaton/GoodVibes/archive/2.0.3.zip',
