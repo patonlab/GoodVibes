@@ -176,9 +176,15 @@ The program will detect several different levels of theory and give a warning th
 14. Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *Chem. Eur. J.* **2017**, *23*, 15336–15347[**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
 15. Funes‐Ardoiz, I.; Nelson, D. J.; Maseras, F. *Chem. Eur. J.* **2017**, *23*, 16728–16733 [**DOI:** 10.1002/chem.201702331](http://dx.doi.org/10.1002/chem.201702331)
 16. Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. *Catal. Sci. Technol.* **2017**, 5644–5649 [**DOI:** 10.1039/C7CY01728F ](http://dx.doi.org/10.1039/C7CY01728F)
-17. Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. *J. Phys. Chem. A* **2018**, *122*, 1392–1399 [**DOI:** 10.1021/acs.jpca.7b11580 ](http://dx.doi.org/10.1021/acs.jpca.7b11580)
-18. Harada, T. *J. Org. Chem.* **2018**, *83*, 7825–7835 [**DOI:** 10.1021/acs.joc.8b00712](http://dx.doi.org/10.1021/acs.joc.8b00712)
-19. Lewis, R. D.; Garcia-Borràs, M.;  Chalkley, M. J.; Buller, A. R.; Houk, K. N.; Kan, S. B. J.; Arnold, F. H. *Proc. Natl. Acad. Sci.* **2018**, *115*, 7308-7313 [**DOI:** 10.1073/pnas.1807027115](http://dx.doi.org/10.1073/pnas.1807027115)
+17. Elm, J.; Passananti, M.; Kurtén, T.; Vehkamäki, H. *J. Phys. Chem. A* **2017**, *121*, 6155–6164 [**DOI:** 10.1021/acs.jpca.7b05658](http://dx.doi.org/10.1021/acs.jpca.7b05658)
+De Silvestro, I.; Drew, S. L.; Nichol, G. S.; Duarte, F.;* Lawrence, A. L.* Angew. Chem. Int. Ed. 2017, 56, 6813–6817.
+18. Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. *J. Phys. Chem. A* **2018**, *122*, 1392–1399 [**DOI:** 10.1021/acs.jpca.7b11580 ](http://dx.doi.org/10.1021/acs.jpca.7b11580)
+19. Harada, T. *J. Org. Chem.* **2018**, *83*, 7825–7835 [**DOI:** 10.1021/acs.joc.8b00712](http://dx.doi.org/10.1021/acs.joc.8b00712)
+20. Lewis, R. D.; Garcia-Borràs, M.;  Chalkley, M. J.; Buller, A. R.; Houk, K. N.; Kan, S. B. J.; Arnold, F. H. *Proc. Natl. Acad. Sci.* **2018**, *115*, 7308-7313 [**DOI:** 10.1073/pnas.1807027115](http://dx.doi.org/10.1073/pnas.1807027115)
+21. Hojoon Park, Nikita Chekshin, Peng-Xiang Shen, Jin-Quan Yu, *ACS Catalysis* **2018**, *8*, 9292–9297 [**DOI:** 10.1021/acscatal.8b03014](http://dx.doi.org/10.1021/acscatal.8b03014)
+22. Pupo, G.; Ibba, F.; Ascough, D. M. H.; Vicini, A. C.; Ricci, P.; Christensen, K.; Morphy, J. R.; Brown, J. M.; Paton, R. S.; Gouverneur, V. *Science* **2018**, *360*, 638–642 [**DOI:** 10.1126/science.aar7941](https://dx.doi.org/10.1126/science.aar7941)
+23. Ye, J.; Kalvet, I.; Schoenebeck, F.; Rovis, T. *Nature Chem.* **2018**, *10*, 1037–1041 [**DOI:** 10.1038/s41557-018-0085-9](https://doi.org/10.1038/s41557-018-0085-9)
+24. Green, N. J.; Connolly, C. A.; Rietdijk, K. P. W.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. *Angew. Chem. Int. Ed.* **2018**, *57*, 6198–6202.
 
 #### References for the underlying theory
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)
