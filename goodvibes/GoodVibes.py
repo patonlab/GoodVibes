@@ -36,7 +36,7 @@ from optparse import OptionParser
 
 #dirty Hack
 try: from .vib_scale_factors import scaling_data, scaling_refs
-except ModuleNotFoundError: from vib_scale_factors import scaling_data, scaling_refs
+except: from vib_scale_factors import scaling_data, scaling_refs
 
 # PHYSICAL CONSTANTS
 GAS_CONSTANT, PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AVOGADRO_CONSTANT, AMU_to_KG, atmos = 8.3144621, 6.62606957e-34, 1.3806488e-23, 2.99792458e10, 6.0221415e23, 1.66053886E-27, 101.325
