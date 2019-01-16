@@ -28,7 +28,7 @@ from __future__ import print_function, absolute_import
 #######  Last modified:   Oct 08, 2018 ################################
 #######################################################################
 
-import os.path, sys, math, textwrap, time
+import os.path, sys, math, textwrap, time, csv
 from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
@@ -65,15 +65,24 @@ alphabet = 'abcdefghijklmnopqrstuvwxyz'
 # Enables output to terminal and to text file
 class Logger:
    def __init__(self, filein, append, csv):
-      if csv == False: suffix = 'dat'
+      self.csv = csv
+      if self.csv == False: suffix = 'dat'
       else: suffix = 'csv'
       self.log = open(filein+"_"+append+"."+suffix, 'w' )
 
-   def Write(self, message):
-      print(message, end='')
-      #if csv == True:
-        #  items = message.split()
-         # message = ",".join(items)
+   def Write(self, message, thermodata=False):
+      self.thermodata = thermodata
+      #print(message, end='')
+      if self.csv == True and self.thermodata==True:
+          items = message.split()
+          message = ",".join(items)
+          message = message + ","
+          print(message)
+      #account for commas in strings (references)
+      # elif self.csv == True:
+      #     if ',' in message:
+      #       message = "\"" + message + "\""
+      #     print(message)
       self.log.write(message)
 
    def Fatal(self, message):
@@ -610,6 +619,8 @@ class calc_bbe:
                       if frequency_wn[j] > FREQ_CUTOFF: vib_entropy.append(Svib_rrho[j])
                       else: vib_entropy.append(Svib_rrqho[j])
                    else: vib_entropy.append(Svib_rrho[j])
+                elif QH == "hg": vib_entropy.append(damp[j]+(1-damp[j]))
+                   
              qh_Svib, h_Svib = sum(vib_entropy), sum(Svib_rrho)
 
          # monatomic species have no vibrational or rotational degrees of freedom
@@ -761,11 +772,15 @@ def main():
    # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
    if options.temperature_interval == False and options.conc_interval == False:
 
-      if options.spc == False: log.Write("\n\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
-      else: log.Write("\n\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"))
+      if options.spc == False: 
+          log.Write("\n\n   ")
+          log.Write('{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
+      else: 
+          log.Write("\n\n   ")
+          log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"),thermodata=True)
       if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
-      if options.boltz == True: log.Write('{:>7}'.format("Boltz"))
-      if options.imag_freq == True: log.Write('{:>9}'.format("im freq"))
+      if options.boltz == True: log.Write('{:>7}'.format("Boltz"),thermodata=True)
+      if options.imag_freq == True: log.Write('{:>9}'.format("im freq"),thermodata=True)
       log.Write("\n"+stars+"")
 
       # Boltzmann factors and averaging over clusters
@@ -820,20 +835,21 @@ def main():
              else: xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
              if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'): xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
 
-         log.Write("\no  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+         log.Write("\no  ")
+         log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
          if options.spc != False:
-            try: log.Write(' {:13.6f}'.format(bbe.sp_energy))
-            except ValueError: log.Write(' {:>13}'.format('----'))
-         if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy))
+            try: log.Write(' {:13.6f}'.format(bbe.sp_energy),thermodata=True)
+            except ValueError: log.Write(' {:>13}'.format('----'),thermodata=True)
+         if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
          if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...")
          else:
             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
          if options.cosmo != False and cosmo_solv != None: log.Write('{:13.6f}'.format(cosmo_solv[file]))
-         if options.boltz == True: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum))
+         if options.boltz == True: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum),thermodata=True)
 
          if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
-             for freq in bbe.im_freq: log.Write('{:9.2f}'.format(freq))
+             for freq in bbe.im_freq: log.Write('{:9.2f}'.format(freq),thermodata=True)
 
          if clustering == True:
              for n, cluster in enumerate(clusters):
@@ -854,20 +870,20 @@ def main():
 
       log.Write("\n\n   Variable-Temperature analysis of the enthalpy, entropy and the entropy at a constant pressure between")
       log.Write("\n   T_init:  %.1f,  T_final:  %.1f,  T_interval: %.1f" % (temperature_interval[0], temperature_interval[1], temperature_interval[2]))
-      log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"))
+      log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"),thermodata=True)
 
       for file in files: # loop over the output files
          log.Write("\n"+stars)
 
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
             temp, conc = float(i), atmos / GAS_CONSTANT / float(i)
-            log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp))
+            log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp),thermodata=True)
             bbe = calc_bbe(file, options.QH, options.freq_cutoff, temp, conc, options.freq_scale_factor, options.solv, options.spc)
 
             if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
             else:
                 if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                    log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
          log.Write("\n"+stars+"\n")
 
    #print CPU usage if requested
