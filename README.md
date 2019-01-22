@@ -11,7 +11,9 @@ A Python program to compute quasi-harmonic thermochemical data from Gaussian fre
 
 All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 K and 1 atmosphere.
 
-The quasi-harmonic approximation is applied to the vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
+Two types of quasi-harmonic approximation are applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
+
+The second type of quasi-harmonic approximation is a vibrational energy correction term 
 
 The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the [Truhlar group database](https://t1.chem.umn.edu/freqscale/index.html).
 
@@ -25,11 +27,13 @@ The program will attempt to parse the level of theory and basis set used in the 
 **Correct Usage**
 
 ```python
-python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--imag] [--cpu] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
+python -m goodvibes [-qs grimme/truhlar] [-qh head-gordon] [-f cutoff_freq] [-t temperature] [-c concentration] [-v scalefactor] [-s solvent name] [--spc link/filename] [--xyz] [--imag] [--cpu] [--ti 't_initial, t_final, step'] [--ci 'c_initial, c_final, step'] <gaussian_output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
-*	The `-q` option selects the approximation for the quasiharmonic entropic correction: `-q truhlar` or `-q grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequecies. If not specified this defaults to Grimme's expression.
-*	The `-f` option specifies the frequency cut-off (in wavenumbers) i.e. `-f 50` would use 50 cm<sup>-1</sup>. The default value is 100 cm<sup>-1</sup>. N.B. when set to zero all thermochemical values match standard (i.e. harmonic) Gaussian quantities.
+*	The `--qs` option selects the approximation for the quasiharmonic entropic correction: `--qs truhlar` or `--qs grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequecies. If not specified this defaults to Grimme's expression.
+*	The `--qh` option selects the approximation for the quasiharmonic enthalpy correction: `--qh head-gordon` requests the enthalpy correction option explained above. This replaces harmonic energy contributions with a better behaving quasi-RRHO vibrational energy term. If not specified the Head-Gordon expression is defaulted.
+*	The `--fs` option specifies the frequency cut-off for entropy calculations (in wavenumbers) i.e. `--fs 50` would use 50 cm<sup>-1</sup>. The default value is 100 cm<sup>-1</sup>. N.B. when set to zero all thermochemical values match standard (i.e. harmonic) Gaussian quantities.
+*	The `--fh` option specifies the frequency cut-off for enthalpy calculations (in wavenumbers) i.e. `--fh 200` would use 200 cm<sup>-1</sup>. The default value is 100 cm<sup>-1</sup>. N.B. when set to zero all thermochemical values match standard (i.e. harmonic) Gaussian quantities.
 *	The `-t` option specifies temperature (in Kelvin). N.B. This does not have to correspond to the temperature used in the Gaussian calculation since all thermal quantities are reevalulated by GoodVibes at the requested temperature. The default value is 298.15 K.
 *	The `-c` option specifies concentration (in mol/l).  It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same as the Gaussian Pressure route line specification. The correction is applied to the Sackur-Tetrode equation of the translational entropy e.g. `-c 1` corrects to a solution-phase standard state of 1 mol/l. The default is 1 atmosphere.
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>3</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be surpressed by `-v 1.0`
@@ -40,41 +44,39 @@ python -m goodvibes [-q grimme/truhlar] [-f cutoff_freq] [-t temperature] [-c co
 * the `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
 * the `--cpu` option will add up all of the CPU time across all files (including single point calculations if requested).
 
-#### Example 1: a Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
+#### Example 1: a Head-Gordon, Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 100 cm<sup>-1</sup>
 ```python
 python -m goodvibes examples/methylaniline.out -f 100
 
-                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   ***************************************************************************************************************************
-o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.039668    0.039535    -326.554157    -326.554024
-
+   Structure                                           E        ZPE             H          qh-H        T.S     T.qh-S          G(T)       qh-G(T)
+   **********************************************************************************************************************************************
+o  methylaniline                             -326.664901   0.142118   -326.514489   -326.514824   0.039668   0.039535   -326.554157   -326.554359
+   **********************************************************************************************************************************************
 ```
 
-The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected entropy is always less than or equal to the harmonic value, and the corrected Gibbs energy is greater than or equal to the uncorrected value.
+The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected enthalpy and entropy values are always less than or equal to the harmonic value.
 
 #### Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction
 ```python
 python -m goodvibes examples/ethane_spc.out --spc link
 
-   Structure                     E_link             E        ZPE        H_link        T.S     T.qh-S     G(T)_link  qh-G(T)_link
-   *****************************************************************************************************************************
-o  examples/ethane_spc       -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
-   *****************************************************************************************************************************
-
+   Structure                                       E_SPC             E        ZPE         H_SPC      qh-H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
+   ************************************************************************************************************************************************************
+o  ethane_spc                                 -79.858399    -79.830421   0.073508    -79.780448    -79.780456   0.027569   0.027570    -79.808017    -79.808027
+   ************************************************************************************************************************************************************
 ```
 
-This calculation contains a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. Note the use of the `--spc link` option. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the appropriate scaling factor of 0.977 (this can be surpressed to apply no scaling with -v 1.0)
+This calculation contains a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. Note the use of the `--spc link` option. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the appropriate scaling factor of 0.977 (this can be suppressed to apply no scaling with -v 1.0)
 
 Alternatively, if a single point energy calculation has been performed separately, provided both file names share a common root e.g. `ethane.out` and `ethane_TZ.out` then use of the `--spc TZ` option is appropriate. This will give identical results as above.
 
 ```python
 python -m goodvibes examples/ethane.out --spc TZ
 
-   Structure                       E_TZ             E        ZPE          H_TZ        T.S     T.qh-S       G(T)_TZ    qh-G(T)_TZ
-   *****************************************************************************************************************************
-o  examples/ethane           -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
-   *****************************************************************************************************************************
-
+   Structure                                       E_SPC             E        ZPE         H_SPC      qh-H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
+   ************************************************************************************************************************************************************
+o  ethane                                     -79.858399    -79.830421   0.073508    -79.780448    -79.780456   0.027569   0.027570    -79.808017    -79.808027
+   ************************************************************************************************************************************************************
 ```
 
 
@@ -82,29 +84,29 @@ o  examples/ethane           -79.858399    -79.830421   0.073508    -79.780448  
 ```python
 python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
 
-                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   ***************************************************************************************************************************
-o  examples/methylaniline         -326.664901    0.142118    -326.452307    0.218212    0.216560    -326.670519    -326.668866
-
+   Structure                                           E        ZPE             H          qh-H        T.S     T.qh-S          G(T)       qh-G(T)
+   **********************************************************************************************************************************************
+o  methylaniline                             -326.664901   0.142118   -326.452307   -326.453345   0.218212   0.216560   -326.670519   -326.669905
+   **********************************************************************************************************************************************
 ```
 
-This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration depdendence. In the example above the correction is larger due to the increase in temperature.
+This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration dependence. In the example above the correction is larger due to the increase in temperature.
 
 #### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
 ```python
 python -m goodvibes examples/methylaniline.out –-ti '300,1000,100' –q truhlar –f 100
 
-                                                   H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   **********************************************************************************************************
-o  examples/methylaniline.out @ 300.0       -326.514399    0.040005    0.040005    -326.554404    -326.554404
-o  examples/methylaniline.out @ 400.0       -326.508735    0.059816    0.059816    -326.568551    -326.568551
-o  examples/methylaniline.out @ 500.0       -326.501670    0.082625    0.082625    -326.584296    -326.584296
-o  examples/methylaniline.out @ 600.0       -326.493429    0.108148    0.108148    -326.601577    -326.601577
-o  examples/methylaniline.out @ 700.0       -326.484222    0.136095    0.136095    -326.620317    -326.620317
-o  examples/methylaniline.out @ 800.0       -326.474218    0.166216    0.166216    -326.640434    -326.640434
-o  examples/methylaniline.out @ 900.0       -326.463545    0.198300    0.198300    -326.661845    -326.661845
-o  examples/methylaniline.out @ 1000.0      -326.452307    0.232169    0.232169    -326.684476    -326.684476
-
+   Structure                                      Temp/K                     H/au       qh-H/au     T.S/au  T.qh-S/au       G(T)/au    qh-G(T)/au
+   **********************************************************************************************************************************************
+o  methylaniline.out                               300.0              -326.514399   -326.514735   0.040005   0.039869   -326.554404   -326.554604
+o  methylaniline.out                               400.0              -326.508735   -326.509168   0.059816   0.059524   -326.568551   -326.568692
+o  methylaniline.out                               500.0              -326.501670   -326.502202   0.082625   0.082150   -326.584296   -326.584352
+o  methylaniline.out                               600.0              -326.493429   -326.494061   0.108148   0.107468   -326.601577   -326.601529
+o  methylaniline.out                               700.0              -326.484222   -326.484956   0.136095   0.135193   -326.620317   -326.620148
+o  methylaniline.out                               800.0              -326.474218   -326.475053   0.166216   0.165076   -326.640434   -326.640129
+o  methylaniline.out                               900.0              -326.463545   -326.464482   0.198300   0.196909   -326.661845   -326.661391
+o  methylaniline.out                              1000.0              -326.452307   -326.453345   0.232169   0.230517   -326.684476   -326.683862
+   **********************************************************************************************************************************************
 ```
 
 Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasiharmonic correction sets all frequencies below than 100 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
@@ -113,10 +115,10 @@ Note that the energy and ZPE are not printed in this instance since they are tem
 ```python
 python -m goodvibes examples/methylaniline.out -v 0.95
 
-                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   ***************************************************************************************************************************
-o  examples/methylaniline         -326.664901    0.135012    -326.521265    0.040238    0.040091    -326.561503    -326.561356
-
+   Structure                                           E        ZPE             H          qh-H        T.S     T.qh-S          G(T)       qh-G(T)
+   **********************************************************************************************************************************************
+o  methylaniline                             -326.664901   0.135012   -326.521265   -326.521597   0.040238   0.040091   -326.561503   -326.561688
+   **********************************************************************************************************************************************
 ```
 
 The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies.
@@ -124,7 +126,6 @@ The frequencies are scaled by a factor of 0.95 before they are used in the compu
 #### Example 6: Writing Cartesian coordinates
 ```python
 python -m goodvibes examples/HCN*.out --xyz
-
 ```
 
 All optimized coordinates are written to Goodvibes_output.xyz
@@ -133,21 +134,21 @@ All optimized coordinates are written to Goodvibes_output.xyz
 ```python
 python -m goodvibes examples/*.out --cpu
 
-                                         E/au      ZPE/au           H/au      T.S/au   T.qh-S/au        G(T)/au     qh-G(T)/au
-   ***************************************************************************************************************************
-o  examples/Al_298K               -242.328708    0.000000    -242.326347    0.017670    0.017670    -242.344018    -242.344018
-o  examples/Al_400K               -242.328708    0.000000    -242.326347    0.017670    0.017670    -242.344018    -242.344018
-o  examples/CuCN                  -289.005463    0.006594    -288.994307    0.025953    0.025956    -289.020260    -289.020264
-o  examples/H2O                    -76.368128    0.020772     -76.343577    0.021458    0.021458     -76.365035     -76.365035
-o  examples/HCN_singlet            -93.358851    0.015978     -93.339373    0.022896    0.022896     -93.362269     -93.362269
-o  examples/HCN_triplet            -93.153787    0.012567     -93.137780    0.024070    0.024070     -93.161850     -93.161850
-o  examples/allene                -116.569605    0.053913    -116.510916    0.027618    0.027621    -116.538534    -116.538537
-o  examples/ethane                 -79.830421    0.075238     -79.750770    0.027523    0.027525     -79.778293     -79.778295
-o  examples/ethane_spc             -79.830421    0.075238     -79.750770    0.027523    0.027525     -79.778293     -79.778295
-o  examples/methylaniline         -326.664901    0.142118    -326.514489    0.039668    0.039535    -326.554157    -326.554024
-   ***************************************************************************************************************************
+   Structure                                           E        ZPE             H          qh-H        T.S     T.qh-S          G(T)       qh-G(T)
+   **********************************************************************************************************************************************
+o  Al_298K                                   -242.328708   0.000000   -242.326347   -242.326347   0.017670   0.017670   -242.344018   -242.344018
+o  Al_400K                                   -242.328708   0.000000   -242.326347   -242.326347   0.017670   0.017670   -242.344018   -242.344018
+o  CuCN                                      -289.005463   0.006594   -288.994307   -288.994323   0.025953   0.025956   -289.020260   -289.020279
+o  H2O                                        -76.368128   0.020772    -76.343577    -76.343577   0.021458   0.021458    -76.365035    -76.365035
+o  HCN_singlet                                -93.358851   0.015978    -93.339373    -93.339374   0.022896   0.022896    -93.362269    -93.362270
+o  HCN_triplet                                -93.153787   0.012567    -93.137780    -93.137780   0.024070   0.024070    -93.161850    -93.161851
+o  allene                                    -116.569605   0.053913   -116.510916   -116.510925   0.027618   0.027621   -116.538534   -116.538546
+o  ethane                                     -79.830421   0.075238    -79.750770    -79.750778   0.027523   0.027525    -79.778293    -79.778303
+o  ethane_TZ                                  -79.858399   Warning! Couldn't find frequency information ...
+o  ethane_spc                                 -79.830421   0.075238    -79.750770    -79.750778   0.027523   0.027525    -79.778293    -79.778303
+o  methylaniline                             -326.664901   0.142118   -326.514489   -326.514824   0.039668   0.039535   -326.554157   -326.554359
+   **********************************************************************************************************************************************
    TOTAL CPU      0 days  0 hrs 30 mins 54 secs
-
 ```
 
 The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case.

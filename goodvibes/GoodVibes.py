@@ -531,7 +531,7 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 
 # The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
 class calc_bbe:
-   def __init__(self, file, QHS, QHH, FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
+   def __init__(self, file, QHS, QHH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
       # List of frequencies and default values
       im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
 
@@ -604,7 +604,7 @@ class calc_bbe:
       # skip the next steps if unable to parse the frequencies or zpe from the output file
       if hasattr(self, "zero_point_corr") and rotemp:
          # create a list of frequencies equal to cut-off value
-         cutoffs = [FREQ_CUTOFF for freq in frequency_wn]
+         cutoffs = [S_FREQ_CUTOFF for freq in frequency_wn]
 
          # Translational and electronic contributions to the energy and entropy do not depend on frequencies
          Utrans = calc_translational_energy(temperature)
@@ -620,23 +620,24 @@ class calc_bbe:
 
              # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
              Svib_rrho = calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor)
-             if FREQ_CUTOFF > 0.0: Svib_rrqho = calc_rrho_entropy(cutoffs, temperature, 1.0)
+             if S_FREQ_CUTOFF > 0.0: Svib_rrqho = calc_rrho_entropy(cutoffs, temperature, 1.0)
              Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor)
              Uvib_qrrho = calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor)
-             damp = calc_damp(frequency_wn, FREQ_CUTOFF)
+             S_damp = calc_damp(frequency_wn, S_FREQ_CUTOFF)
+             H_damp = calc_damp(frequency_wn, H_FREQ_CUTOFF)
 
              # Compute entropy (cal/mol/K) using the two values and damping function
              vib_entropy = []
              vib_energy = []
              for j in range(0,len(frequency_wn)):
                 #print(frequency_wn[j])
-                if QHS == "grimme": vib_entropy.append(Svib_rrho[j] * damp[j] + (1-damp[j]) * Svib_free_rot[j])
+                if QHS == "grimme": vib_entropy.append(Svib_rrho[j] * S_damp[j] + (1-S_damp[j]) * Svib_free_rot[j])
                 elif QHS == "truhlar":
-                   if FREQ_CUTOFF > 0.0:
-                      if frequency_wn[j] > FREQ_CUTOFF: vib_entropy.append(Svib_rrho[j])
+                   if S_FREQ_CUTOFF > 0.0:
+                      if frequency_wn[j] > S_FREQ_CUTOFF: vib_entropy.append(Svib_rrho[j])
                       else: vib_entropy.append(Svib_rrqho[j])
                    else: vib_entropy.append(Svib_rrho[j])
-                if QHH == "head-gordon": vib_energy.append(damp[j] * Uvib_qrrho[j] + (1-damp[j]) * 0.5 * GAS_CONSTANT * temperature)
+                if QHH == "head-gordon": vib_energy.append(H_damp[j] * Uvib_qrrho[j] + (1-H_damp[j]) * 0.5 * GAS_CONSTANT * temperature)
                    
              qh_Svib, h_Svib = sum(vib_entropy), sum(Svib_rrho)
              qh_Uvib = sum(vib_energy)
@@ -667,7 +668,8 @@ def main():
    parser.add_option("-t", dest="temperature", action="store", help="temperature (K) (default 298.15)", default="298.15", type="float", metavar="TEMP")
    parser.add_option("--qs", dest="QHS", action="store", help="Type of quasi-harmonic entropy correction (Grimme or Truhlar) (default Grimme)", default="grimme", type="string", metavar="QHS")
    parser.add_option("--qh", dest="QHH", action="store", help="Type of quasi-harmonic enthalpy correction (Head-Gordon)", default="head-gordon", type="string", metavar="QHH")
-   parser.add_option("-f", dest="freq_cutoff", action="store", help="Cut-off frequency (wavenumbers) (default = 100)", default="100.0", type="float", metavar="FREQ_CUTOFF")
+   parser.add_option("--fs", dest="S_freq_cutoff", action="store", help="Cut-off frequency for entropy (wavenumbers) (default = 100)", default="100.0", type="float", metavar="S_FREQ_CUTOFF")
+   parser.add_option("--fh", dest="H_freq_cutoff", action="store", help="Cut-off frequency for enthalpy (wavenumbers) (default = 100)", default="100.0", type="float", metavar="H_FREQ_CUTOFF")
    parser.add_option("-c", dest="conc", action="store", help="concentration (mol/l) (default 1 atm)", default="0.040876", type="float", metavar="CONC")
    parser.add_option("-v", dest="freq_scale_factor", action="store", help="Frequency scaling factor (default 1)", default=False, type="float", metavar="SCALE_FACTOR")
    parser.add_option("-s", dest="solv", action="store", help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)", default="none", type="string", metavar="SOLV")
@@ -754,8 +756,10 @@ def main():
 
       if options.freq_scale_factor == False:
           options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
-          log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
-
+          if all_same(l_o_t) != True:
+              log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + ": differing levels of theory detected." )
+          else:
+              log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
       # checks to see whether the available free space of a requested solvent is defined
       freespace = get_free_space(options.solv)
       if freespace != 1000.0: log.Write("\n   Specified solvent "+options.solv+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
@@ -770,13 +774,14 @@ def main():
               cosmo_solv = None
 
       # summary of the quasi-harmonic treatment; print out the relevant reference
-      log.Write("\n\n   Quasi-harmonic treatment: frequency cut-off value of "+str(options.freq_cutoff)+" wavenumbers will be applied")
+      log.Write("\n\n   Entropic quasi-harmonic treatment: frequency cut-off value of "+str(options.S_freq_cutoff)+" wavenumbers will be applied.")
       if options.QHS == "grimme": log.Write("\n   QHS = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies"); qhs_ref = grimme_ref
-      elif options.QHS == "truhlar": log.Write("\n   QHS = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value"); qhs_ref = truhlar_ref
+      elif options.QHS == "truhlar": log.Write("\n   QHS = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value."); qhs_ref = truhlar_ref
       else: log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+options.QHS+" specified (QHS must = grimme or truhlar)")
       log.Write("\n   REF: " + qhs_ref)
-      
-      if options.QHH == "head-gordon": log.Write("\n\n   QHH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy"); qhh_ref = head_gordon_ref
+
+      log.Write("\n\n   Enthalpy quasi-harmonic treatment: frequency cut-off value of "+str(options.H_freq_cutoff)+" wavenumbers will be applied.")
+      if options.QHH == "head-gordon": log.Write("\n   QHH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy."); qhh_ref = head_gordon_ref
       else: log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+options.QHH+" specified (QHJ must = head-gordon)")
       log.Write("\n   REF: " + qhh_ref)
 
@@ -784,7 +789,7 @@ def main():
       if options.spc == "True": log.Write("\n   Link job: combining final single point energy with thermal corrections")
 
    for file in files: # loop over all specified output files and compute thermochemistry
-      bbe = calc_bbe(file, options.QHS, options.QHH, options.freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
+      bbe = calc_bbe(file, options.QHS, options.QHH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.solv, options.spc)
       bbe_vals.append(bbe)
 
    fileList = [file for file in files]
@@ -795,10 +800,9 @@ def main():
    if options.cosmo != False: stars += '*' * 13
    if options.imag_freq == True: stars += '*' * 9
    if options.boltz == True: stars += '*' * 7
-
+   
    # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
    if options.temperature_interval == False and options.conc_interval == False:
-
       if options.spc == False: 
           log.Write("\n\n   ")
           log.Write('{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
@@ -897,7 +901,7 @@ def main():
 
       log.Write("\n\n   Variable-Temperature analysis of the enthalpy, entropy and the entropy at a constant pressure between")
       log.Write("\n   T_init:  %.1f,  T_final:  %.1f,  T_interval: %.1f" % (temperature_interval[0], temperature_interval[1], temperature_interval[2]))
-      log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>21} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H/au", "qh-H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"),thermodata=True)
+      log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H/au", "qh-H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"),thermodata=True)
 
       for file in files: # loop over the output files
          log.Write("\n"+stars)
@@ -905,12 +909,12 @@ def main():
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
             temp, conc = float(i), atmos / GAS_CONSTANT / float(i)
             log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp),thermodata=True)
-            bbe = calc_bbe(file, options.QHS, options.QHH, options.freq_cutoff, temp, conc, options.freq_scale_factor, options.solv, options.spc)
+            bbe = calc_bbe(file, options.QHS, options.QHH, options.S_freq_cutoff,options.H_freq_cutoff, temp, conc, options.freq_scale_factor, options.solv, options.spc)
 
             if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
             else:
                 if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    log.Write(' {:24.6f} {:22.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
+                    log.Write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
          log.Write("\n"+stars+"\n")
 
    #print CPU usage if requested
