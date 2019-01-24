@@ -16,6 +16,7 @@ from __future__ import print_function, absolute_import
 #    per Grimme). In this approach, a damping function interpolates   #
 #    between the RRHO and free-rotor entropy treatment of Svib to     #
 #    avoid a discontinuity.                                           #
+""" add in something about head gordon here """                                       
 #  Both approaches avoid infinitely large values of Svib as wave-     #
 #  numbers tend to zero. With a cut-off set to 0, the results will be #
 #  identical to standard values output by the Gaussian program.       #
@@ -24,8 +25,9 @@ from __future__ import print_function, absolute_import
 #  correction of the translational entropy in different solvents,     #
 #  according to the amount of free space available.                   #
 #######################################################################
-#######  Written by:  Rob Paton and Ignacio Funes-Ardoiz ##############
-#######  Last modified:   Oct 08, 2018 ################################
+#######  Written by:  Rob Paton, Ignacio Funes-Ardoiz  ################
+#######               and Guilian Luchini              ################
+#######  Last modified:  2019                          ################
 #######################################################################
 
 import os.path, sys, math, textwrap, time
@@ -44,12 +46,12 @@ GAS_CONSTANT, PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AVOGADRO_CONS
 j_to_au = 4.184 * 627.509541 * 1000.0
 kcal_to_au = 627.509541
 
-__version__ = "2.0.3" # version number
+__version__ = "3.0.0" # version number
 
 # some literature references
 grimme_ref = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
 truhlar_ref = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
-head_gordon_ref = "Li, Y.; Gomes, J. Mallikarjun Sharada, S. Bell, A. T. Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
+head_gordon_ref = "Li, Y.; Gomes, J. Sharada, S. M. Bell, A. T. Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
 goodvibes_ref = "Funes-Ardoiz, I.; Paton, R. S. (2018). GoodVibes: GoodVibes "+__version__+" http://doi.org/10.5281/zenodo.595246"
 
 #Some useful arrays
@@ -534,7 +536,7 @@ class calc_bbe:
    def __init__(self, file, QHS, QHH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
       # List of frequencies and default values
       im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
-
+      
       with open(file) as f: g_output = f.readlines()
 
       # read any single point energies if requested
@@ -668,6 +670,7 @@ def main():
    parser.add_option("-t", dest="temperature", action="store", help="temperature (K) (default 298.15)", default="298.15", type="float", metavar="TEMP")
    parser.add_option("--qs", dest="QHS", action="store", help="Type of quasi-harmonic entropy correction (Grimme or Truhlar) (default Grimme)", default="grimme", type="string", metavar="QHS")
    parser.add_option("--qh", dest="QHH", action="store", help="Type of quasi-harmonic enthalpy correction (Head-Gordon)", default="head-gordon", type="string", metavar="QHH")
+   parser.add_option("-f", dest="freq_cutoff", action="store", help="Cut-off frequency for both entropy and enthalpy (wavenumbers) (default = 100)", default = "100", type="float", metavar="FREQ_CUTOFF")
    parser.add_option("--fs", dest="S_freq_cutoff", action="store", help="Cut-off frequency for entropy (wavenumbers) (default = 100)", default="100.0", type="float", metavar="S_FREQ_CUTOFF")
    parser.add_option("--fh", dest="H_freq_cutoff", action="store", help="Cut-off frequency for enthalpy (wavenumbers) (default = 100)", default="100.0", type="float", metavar="H_FREQ_CUTOFF")
    parser.add_option("-c", dest="conc", action="store", help="concentration (mol/l) (default 1 atm)", default="0.040876", type="float", metavar="CONC")
@@ -751,7 +754,6 @@ def main():
                 if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
                    options.freq_scale_factor = scal['zpe_fac']; ref = scaling_refs[scal['zpe_ref']]
                    log.Write("\n   " + "Found vibrational scale factor " + str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
-
           elif all_same(l_o_t) == False: log.Write("\n   " + (textwrap.fill("CAUTION: different levels of theory found - " + '|'.join(l_o_t), 128, subsequent_indent='   ')))
 
       if options.freq_scale_factor == False:
@@ -772,7 +774,11 @@ def main():
           except ValueError:
               log.Write('\n\n   Warning: COSMO-RS file '+options.cosmo+'.out requested but not found')
               cosmo_solv = None
-
+      
+      if options.freq_cutoff != 100.0:
+          options.S_freq_cutoff = options.freq_cutoff
+          options.H_freq_cutoff = options.freq_cutoff
+          
       # summary of the quasi-harmonic treatment; print out the relevant reference
       log.Write("\n\n   Entropic quasi-harmonic treatment: frequency cut-off value of "+str(options.S_freq_cutoff)+" wavenumbers will be applied.")
       if options.QHS == "grimme": log.Write("\n   QHS = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies"); qhs_ref = grimme_ref
