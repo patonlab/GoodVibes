@@ -187,7 +187,7 @@ The program will detect several different levels of theory and give a warning th
 25. Ye, J.; Kalvet, I.; Schoenebeck, F.; Rovis, T. *Nature Chem.* **2018**, *10*, 1037–1041 [**DOI:** 10.1038/s41557-018-0085-9](https://doi.org/10.1038/s41557-018-0085-9)
 26. Green, N. J.; Connolly, C. A.; Rietdijk, K. P. W.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. *Angew. Chem. Int. Ed.* **2018**, *57*, 6198–6202. [**DOI:** 10.1002/anie.201802125](https://doi.org/10.1002/anie.201802125)
 27. dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. *J. Am. Chem. Soc.* **2018**, *140*, 14272-14288 [**DOI:** 10.1021.jacs.8b08513](http://doi.org/10.1021/jacs.8b08513)
-28.Wodrich, M. D.; Busch, M.; Corminboeuf, C. *Helv. Chim. Acta* **2018**,*101*, e1800107 [**DOI:** 10.1002/hlca.201800107](http://doi.org/10.1002/hlca.201800107)
+28. Wodrich, M. D.; Busch, M.; Corminboeuf, C. *Helv. Chim. Acta* **2018**,*101*, e1800107 [**DOI:** 10.1002/hlca.201800107](http://doi.org/10.1002/hlca.201800107)
 
 
 #### References for the underlying theory
