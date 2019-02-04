@@ -189,6 +189,7 @@ The program will detect several different levels of theory and give a warning th
 27. dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. *J. Am. Chem. Soc.* **2018**, *140*, 14272-14288 [**DOI:** 10.1021.jacs.8b08513](http://doi.org/10.1021/jacs.8b08513)
 28. Wodrich, M. D.; Busch, M.; Corminboeuf, C. *Helv. Chim. Acta* **2018**, *101*, e1800107 [**DOI:** 10.1002/hlca.201800107](http://doi.org/10.1002/hlca.201800107)
 29. Hilton, M. C.; Zhang, X.; Boyle, B. T.; Alegre-Requena, J. V.; Paton, R. S.; McNally, A. *Science* **2018**, *362*, 799-804 [**DOI:** 10.1126/science.aas8961] (http://doi.org/10.1126/science.aas8961)
+30. Audic, B.; Wodrich, M. D.; Cramer, N. *Chem. Sci.* **2019**, *10*, 781-787 [**DOI:** 10.1039/C8SC04385J](http://doi.org/10.1039/C8SC04385J)
 
 
 #### References for the underlying theory
