@@ -97,7 +97,7 @@ This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/
 
 #### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
 ```python
-python -m goodvibes examples/methylaniline.out –-ti '300,1000,100' –q truhlar –-fs 100
+python -m goodvibes examples/methylaniline.out –-ti '300,1000,100' –-qs truhlar –-fs 100
 
    Structure                                      Temp/K                     H/au       qh-H/au     T.S/au  T.qh-S/au       G(T)/au    qh-G(T)/au
    **********************************************************************************************************************************************
