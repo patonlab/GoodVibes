@@ -158,7 +158,7 @@ The program will detect several different levels of theory and give a warning th
 
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable
-*	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out)
+*	It is possible to run on any number of files at once, for example using wildcards to specify all of the Gaussian files in a directory (*.out or *.log)
 *  File names not in the form of filename.log or filename.out are not read
 *	The script will not work if terse output was requested in the Gaussian job
 
