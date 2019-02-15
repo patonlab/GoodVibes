@@ -36,7 +36,7 @@ from glob import glob
 from optparse import OptionParser
 
 #dirty Hack
-try: from .vib_scale_factors import scaling_data, scaling_refs
+try: from goodvibes.vib_scale_factors import scaling_data, scaling_refs
 except: from vib_scale_factors import scaling_data, scaling_refs
 
 # PHYSICAL CONSTANTS
