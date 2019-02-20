@@ -15,8 +15,7 @@ from __future__ import print_function, absolute_import
 #    (b) a free-rotor approximation is applied below the cut-off (as  #
 #    per Grimme). In this approach, a damping function interpolates   #
 #    between the RRHO and free-rotor entropy treatment of Svib to     #
-#    avoid a discontinuity.                                           #
-""" add in something about head gordon here """                                       
+#    avoid a discontinuity.                                           #                                     
 #  Both approaches avoid infinitely large values of Svib as wave-     #
 #  numbers tend to zero. With a cut-off set to 0, the results will be #
 #  identical to standard values output by the Gaussian program.       #
@@ -24,6 +23,17 @@ from __future__ import print_function, absolute_import
 #  concentration, vibrational scaling factor, and with a haptic       #
 #  correction of the translational entropy in different solvents,     #
 #  according to the amount of free space available.                   #
+""" 
+add info on:
+    o Head-Gordon enthalpy correction
+    o PES ∆Gconf corrections
+    o %ee and ∆∆G‡
+    o Juanvi's checks for    
+        o frequency calculations
+        o level of theory
+        o single point calculations
+    o Outputs (CSV, XYZ)
+"""  
 #######################################################################
 #######  Written by:  Rob Paton, Ignacio Funes-Ardoiz  ################
 #######               Guilian Luchini, Juanvi Alegre   ################
@@ -35,8 +45,8 @@ from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
 
-#dirty Hack
-try: from goodvibes.vib_scale_factors import scaling_data, scaling_refs
+#fancy Hack - this does not work for python 2.6 or 2.7 according to Travis
+try: from .vib_scale_factors import scaling_data, scaling_refs
 except: from vib_scale_factors import scaling_data, scaling_refs
 
 # PHYSICAL CONSTANTS
@@ -47,13 +57,13 @@ kcal_to_au = 627.509541
 
 __version__ = "3.0.0" # version number
 
-# some literature references
+# Some literature references
 grimme_ref = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
 truhlar_ref = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
 head_gordon_ref = "Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
 goodvibes_ref = "Funes-Ardoiz, I.; Paton, R. S. (2018). GoodVibes: GoodVibes "+__version__+" http://doi.org/10.5281/zenodo.595246"
 
-#Some useful arrays
+# Some useful arrays
 periodictable = ["","H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr","Rb","Sr","Y","Zr",
     "Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl",
     "Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Uub","Uut","Uuq","Uup","Uuh","Uus","Uuo"]
@@ -281,14 +291,15 @@ class get_pes:
                                 else:
                                     match = []
                                     for key in thermo_data:
-                                        if os.path.splitext(os.path.basename(key))[0].find(f.strip().strip('*')) > -1:
+                                        if os.path.splitext(os.path.basename(key))[0].find(f.strip().strip('*')) == 0:
                                             match.append(key)
                                     if len(match) > 0:
                                        names.append(n.strip()); files.append(match)
                                     else: log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                             except ValueError:
+                                """why does this error occur? msg unhelpful to user - windows error? if so check OS?"""
                                 if len(line) > 2: log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
-                                if options.gconf: log.Write('   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
+                            
             if line.strip().find('FORMAT') > -1:
                 for j, line in enumerate(data[i+1:]):
                     if line.strip().find('zero') > -1:
@@ -303,7 +314,9 @@ class get_pes:
                     if line.strip().find('boltz') > -1:
                         try: self.boltz = line.strip().replace(':','=').split("=")[1].strip()
                         except IndexError: pass
-
+                        
+        if options.gconf: log.Write('   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
+        
         species = dict(zip(names, files))
 
         self.path, self.species = [], []
@@ -843,7 +856,7 @@ def main():
    parser.add_option("--output", dest="output", action="store", help="Change the default name of the output file to GoodVibes_\"output\".dat", default="output", metavar="OUTPUT")
    parser.add_option("--pes", dest="pes", action="store", help="Tabulate relative values", default=False, metavar="PES")
    parser.add_option("--gconf", dest="gconf", action="store_false", help="Calculate a free-energy correction related to multi-configurational space (default True)", default=True, metavar="GCONF")
-   parser.add_option("--ee", dest="ee", action="store_true", help="Tabulate enantiomeric excess value of a mixture", default=False, metavar="EE")
+   parser.add_option("--ee", dest="ee", action="store_true", help="Tabulate % enantiomeric excess value of a mixture", default=False, metavar="EE")
    
    (options, args) = parser.parse_args()
    
@@ -963,7 +976,6 @@ def main():
 
    fileList = [file for file in files]
    thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
-
    # Adjust printing according to options requested
    if options.spc != False: stars += '*' * 14
    if options.cosmo != False: stars += '*' * 13
