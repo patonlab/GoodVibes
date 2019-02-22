@@ -127,7 +127,7 @@ class calc_bbe:
    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
       # List of frequencies and default values
       im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
-      
+      linear_warning = ""
       with open(file) as f: g_output = f.readlines()
 
       # read any single point energies if requested
@@ -145,6 +145,7 @@ class calc_bbe:
       for line in g_output:
          # only read first link + freq not other link jobs
          if line.find("Normal termination") != -1: linkmax += 1
+         else: frequency_wn = []
          if line.find('Frequencies --') != -1: freqloc = linkmax
 
       # Iterate over output
@@ -180,7 +181,13 @@ class calc_bbe:
          if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1: self.scf_energy = (float(line.strip().split()[1]))
          # look for thermal corrections, paying attention to point group symmetry
          if line.strip().startswith('Zero-point correction='): self.zero_point_corr = float(line.strip().split()[2])
-         if line.strip().find('Multiplicity') > -1: mult = float(line.split('=')[-1].strip().split()[0])
+         if line.strip().find('Multiplicity') > -1: 
+             try:
+                 mult = float(line.split('=')[-1].strip().split()[0])
+             except:
+                 mult = float(line.split()[-1])
+             self.mult = mult
+
          if line.strip().startswith('Molecular mass:'): molecular_mass = float(line.strip().split()[2])
          if line.strip().startswith('Rotational symmetry number'): symmno = int((line.strip().split()[3]).split(".")[0])
          if line.strip().startswith('Full point group'):
@@ -188,8 +195,11 @@ class calc_bbe:
          if line.strip().startswith('Rotational temperature '): rotemp = [float(line.strip().split()[3])]
          if line.strip().startswith('Rotational temperatures'):
              try: rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
-             except ValueError: rotemp = None
-             #else: rotemp = [1E10, float(line.strip().split()[4]), float(line.strip().split()[5])]
+             except ValueError: 
+                 rotemp = None
+                 if line.strip().find('********'):
+                         linear_warning = ["Warning! Potential invalid calculation of linear molecule from Gaussian."]
+                         rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
          if line.strip().find("Job cpu time") > -1:
              days = int(line.split()[3]) + self.cpu[0]; hours = int(line.split()[5]) + self.cpu[1]; mins = int(line.split()[7]) + self.cpu[2]; secs = 0 + self.cpu[3]; msecs = int(float(line.split()[9])*1000.0) + self.cpu[4]
              self.cpu = [days,hours,mins,secs,msecs]
@@ -262,6 +272,8 @@ class calc_bbe:
          self.im_freq = []
          for freq in im_frequency_wn:
              if freq < -1 * im_freq_cutoff: self.im_freq.append(freq)
+      self.frequency_wn = frequency_wn
+      self.linear_warning = linear_warning
 
 # Obtain relative thermochemistry between species and for reactions
 class get_pes:
@@ -512,6 +524,7 @@ class getoutData:
 
         for line in data:
            if line.find("Gaussian") > -1: program = "Gaussian"; break
+           if line.find("* O   R   C   A *") > -1: program = "Orca"; break
 
         def getATOMTYPES(self, outlines, program):
             if program == "Gaussian":
@@ -524,6 +537,18 @@ class getoutData:
                             self.ATOMICTYPES.append(int(line.split()[2]))
                             if len(line.split()) > 5: self.CARTESIANS.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
                             else: self.CARTESIANS.append([float(line.split()[2]),float(line.split()[3]),float(line.split()[4])])
+            if program == "Orca":
+                for i, line in enumerate(outlines):
+                    if line.find("*") >-1 and line.find(">") >-1 and line.find("xyz") >-1:
+                        self.ATOMTYPES, self.CARTESIANS, carts = [], [], outlines[i+1:]
+                        for j, line in enumerate(carts):
+                            if line.find(">") > -1 and line.find("*") > -1: break
+                            if len(line.split()) > 5:
+                                self.CARTESIANS.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
+                                self.ATOMTYPES.append(line.split()[2])
+                            else:
+                                self.CARTESIANS.append([float(line.split()[2]),float(line.split()[3]),float(line.split()[4])])
+                                self.ATOMTYPES.append(line.split()[1])
 
         getATOMTYPES(self, data, program)
 
@@ -546,7 +571,7 @@ def COSMORSout(datfile, names):
 
 # Read gaussian output for a single point energy
 def sp_energy(file):
-   spe, program, data = 'none', 'none', []
+   spe, program, data, version_program, solvation_model, keyword_line, a, charge = 'none', 'none', [], '', '', '', 0, []
 
    if os.path.exists(os.path.splitext(file)[0]+'.log'):
        with open(os.path.splitext(file)[0]+'.log') as f: data = f.readlines()
@@ -569,9 +594,60 @@ def sp_energy(file):
            if line.strip().find("ONIOM: extrapolated energy") > -1: spe = (float(line.strip().split()[4]))
            # For Semi-empirical or Molecular Mechanics calculations
            if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1: spe = (float(line.strip().split()[1]))
+           if line.find("Gaussian") > -1 and line.find("Revision") > -1:
+               for i in range(len(line.strip(",").split(","))-1):
+                    line.strip(",").split(",")[i]
+                    version_program += line.strip(",").split(",")[i]
+               version_program = version_program[1:]
+           if line.strip().find("Charge") > -1 and line.strip().find("Multiplicity") > -1:
+              charge = line.strip("=").split()[2]
        if program == "Orca":
            if line.strip().startswith('FINAL SINGLE POINT ENERGY'): spe = float(line.strip().split()[4])
-   return spe
+           if line.strip().find('Program Version') > -1:
+              version_program = "ORCA version " + line.split()[2]
+           if line.strip().find("Total Charge") > -1 and line.strip().find("....") > -1:
+              charge = line.strip("=").split()[-1]
+
+   # Solvation model detection
+   if version_program.strip().find('Gaussian') > -1:
+       for i, line in enumerate(data):
+          if line.strip().find('#') > -1 and a == 0:
+              for j, line in enumerate(data[i:i+10]):
+                     if line.strip().find('--') > -1:
+                        a = a + 1
+                        break
+                     if a != 0: break
+                     else:
+                        for k in range(len(line.strip().split("\n"))):
+                           line.strip().split("\n")[k]
+                           keyword_line += line.strip().split("\n")[k]
+       keyword_line = keyword_line.lower()
+       if keyword_line.strip().find('scrf') == -1:
+            solvation_model = "gas phase"
+       if keyword_line.strip().find('scrf') > -1:
+            start_scrf = keyword_line.strip().find('scrf') + 5
+            if keyword_line[start_scrf] == "(":
+               end_scrf = keyword_line.find(")",start_scrf)
+               solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf] + ")"
+            else:
+               start_scrf2 = keyword_line.strip().find('scrf') + 4
+               end_scrf = keyword_line.find(" ",start_scrf)
+               if keyword_line[start_scrf2] == "(":
+                   solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
+               else:
+                   solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+   if version_program.strip().find('ORCA') > -1:
+        keyword_line_1 = "gas phase"
+        for i, line in enumerate(data):
+           if line.strip().find('CPCM SOLVATION MODEL') > -1:
+               keyword_line_1 = "CPCM,"
+           if line.strip().find('SMD CDS free energy correction energy') > -1:
+               keyword_line_2 = "SMD,"
+           if line.strip().find("Solvent:              ") > -1:
+               keyword_line_3 = line.strip().split()[-1]
+        solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
+
+   return spe,program,version_program,solvation_model,file,charge
 
 # Read single-point output for cpu time
 def sp_cpu(file):
@@ -612,9 +688,20 @@ def level_of_theory(file):
       if line.strip().find('\\Freq\\') > -1:
           try: level, bs = (line.strip().split("\\")[4:6])
           except IndexError: pass
+      elif line.strip().find('|Freq|') > -1:
+           try: level, bs = (line.strip().split("|")[4:6])
+           except IndexError: pass
+      if line.strip().find('\\SP\\') > -1:
+          try: level, bs = (line.strip().split("\\")[4:6])
+          except IndexError: pass
+      elif line.strip().find('|SP|') > -1:
+          try: level, bs = (line.strip().split("|")[4:6])
+          except IndexError: pass
    for line in data:
-      if line.strip().find('\\DLPNO BASED TRIPLES CORRECTION\\') > -1: level = 'DLPNO-CCSD(T)'
-      if line.strip().find('\\Estimated CBS total energy\\') > -1: bs = 'CBS(2/3)'
+      if line.strip().find('DLPNO BASED TRIPLES CORRECTION') > -1: level = 'DLPNO-CCSD(T)'
+      if line.strip().find('Estimated CBS total energy') > -1:
+          try: bs = ("Extrapol."+line.strip().split()[4])
+          except IndexError: pass
       # remove the restricted R or unrestricted U label
       if level[0] == 'R' or level[0] == 'U': level = level[1:]
    return level+"/"+bs
@@ -719,13 +806,19 @@ def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
    # monatomic
    if rotemp == [0.0,0.0,0.0] or zpe == 0.0: entropy = 0.0
    else:
-      if len(rotemp) == 1: # diatomic or linear
+      if len(rotemp) == 1: # diatomic or linear molecules
+              linear = 1
               qrot = temperature/rotemp[0]
+      elif len(rotemp) == 2:
+          linear = 2
       else:
          qrot = math.pi*temperature**3/(rotemp[0]*rotemp[1]*rotemp[2])
          qrot = qrot ** 0.5
 
-      if linear == 1: entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1)
+      if linear == 1:
+          entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1)
+      elif linear == 2:
+          entropy = 0.0
       else: entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1.5)
    return entropy
 
@@ -857,7 +950,8 @@ def main():
    parser.add_option("--pes", dest="pes", action="store", help="Tabulate relative values", default=False, metavar="PES")
    parser.add_option("--gconf", dest="gconf", action="store_false", help="Calculate a free-energy correction related to multi-configurational space (default True)", default=True, metavar="GCONF")
    parser.add_option("--ee", dest="ee", action="store_true", help="Tabulate % enantiomeric excess value of a mixture", default=False, metavar="EE")
-   
+   parser.add_option("--check", dest="check", action="store_true", help="Check if calculations were done with the same program, level of theory and solvent,as well as detects potential duplicates. ", default=False, metavar="CHECK")
+
    (options, args) = parser.parse_args()
    
    # case insensitive
@@ -926,7 +1020,24 @@ def main():
                 if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
                    options.freq_scale_factor = scal['zpe_fac']; ref = scaling_refs[scal['zpe_ref']]
                    log.Write("\n   " + "Found vibrational scale factor " + str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
-          elif all_same(l_o_t) == False: log.Write("\n   " + (textwrap.fill("CAUTION: different levels of theory found - " + '|'.join(l_o_t), 128, subsequent_indent='   ')))
+          elif all_same(l_o_t) == False: 
+              files_l_o_t,levels_l_o_t,filtered_calcs_l_o_t = [],[],[]
+              for file in files:
+                  files_l_o_t.append(file)
+              for i in l_o_t:
+                  levels_l_o_t.append(i)
+              filtered_calcs_l_o_t.append(files_l_o_t)
+              filtered_calcs_l_o_t.append(levels_l_o_t)
+              l_o_t_freq_print = "Caution! Different levels of theory found - " + filtered_calcs_l_o_t[1][0] + " (" + filtered_calcs_l_o_t[0][0]
+              for i in range(len(filtered_calcs_l_o_t[1])):
+                 if filtered_calcs_l_o_t[1][i] == filtered_calcs_l_o_t[1][0] and i != 0:
+                    l_o_t_freq_print += ", " + filtered_calcs_l_o_t[0][i]
+              l_o_t_freq_print += ")"
+              for i in range(len(filtered_calcs_l_o_t[1])):
+                 if filtered_calcs_l_o_t[1][i] != filtered_calcs_l_o_t[1][0] and i != 0:
+                    l_o_t_freq_print += ", " + filtered_calcs_l_o_t[1][i] + " (" + filtered_calcs_l_o_t[0][i] + ")"
+                    filter_of_scaling_f = filter_of_scaling_f + 1
+              log.Write("\nx  " + l_o_t_freq_print)
 
       if options.freq_scale_factor == False:
           options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
@@ -944,7 +1055,7 @@ def main():
               cosmo_solv = COSMORSout(options.cosmo, files)
               log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo+'.out')
           except ValueError:
-              log.Write('\n\n   Warning: COSMO-RS file '+options.cosmo+'.out requested but not found')
+              log.Write('\n\n   Warning! COSMO-RS file '+options.cosmo+'.out requested but not found')
               cosmo_solv = None
       
       if options.freq_cutoff != 100.0:
@@ -1000,7 +1111,8 @@ def main():
       # Boltzmann factors and averaging over clusters
       if options.boltz != False:
          boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files,thermo_data,clustering,options.temperature)
-        
+      
+      ZPE_duplic, entropy_duplic, qh_entropy_duplic = [], [], []
       for file in files: # loop over the output files and compute thermochemistry
          bbe = thermo_data[file]
 
@@ -1018,18 +1130,33 @@ def main():
              else: xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
              if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'): xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
 
-         log.Write("\no  ")
-         log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-         if options.spc != False:
-            try: log.Write(' {:13.6f}'.format(bbe.sp_energy),thermodata=True)
-            except ValueError: log.Write(' {:>13}'.format('----'),thermodata=True)
-         if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
-         if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...")
+         linear_warning = []
+         linear_warning.append(bbe.linear_warning)
+         if linear_warning == [['Caution! Potential invalid calculation of linear molecule from Gaussian.']]:
+             log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+             log.Write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian ...')
          else:
-            if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                log.Write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
-            elif all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
+             if hasattr(bbe, "gibbs_free_energy"):
+                 log.Write("\no  ")
+                 log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+             if not hasattr(bbe,"gibbs_free_energy"):
+                 log.Write("\nx  ")
+                 log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+             if options.spc != False:
+                try: log.Write(' {:13.6f}'.format(bbe.sp_energy),thermodata=True)
+                except ValueError: log.Write(' {:>13}'.format('----'),thermodata=True)
+             if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
+             if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...")
+             else:
+                if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                    log.Write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)                    
+                elif all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                    log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
+                if options.check != False:
+                    ZPE_duplic.append(bbe.zpe)
+                    entropy_duplic.append((options.temperature * bbe.entropy))
+                    qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
+         
          if options.cosmo != False and cosmo_solv != None: log.Write('{:13.6f}'.format(cosmo_solv[file]))
          if options.boltz == True: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum),thermodata=True)
 
@@ -1045,7 +1172,288 @@ def main():
                              else: log.Write("\no  "+'{:<39} {:>13} {:>10} {:>13} {:9} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
 
       log.Write("\n"+stars+"\n")
+      
+      # Check checks
+      if options.check != False:
+          log.Write("\n   Checks for thermochemistry calculations (frequency calculations):")
+          log.Write("\n"+stars)
+          version_check = [sp_energy(file)[2] for file in files]
+          file_version = [sp_energy(file)[4] for file in files]
+          if all_same(version_check) != False:
+                log.Write("\no  Using "+version_check[0]+" in all the calculations.")
+          else:
+              version_check_print = "Caution! Different programs or versions found - " + version_check[0] + " (" + file_version[0]
+              for i in range(len(version_check)):
+                 if version_check[i] == version_check[0] and i != 0:
+                    version_check_print += ", " + file_version[i]
+              version_check_print += ")"
+              for i in range(len(version_check)):
+                 if version_check[i] != version_check[0] and i != 0:
+                    version_check_print += "," + version_check[i] + " (" + file_version[i] + ")"
+              log.Write("\nx  " + version_check_print)
+          solvent_check = [sp_energy(file)[3] for file in files]
+          if all_same(solvent_check) != False:
+                log.Write("\no  Using "+solvent_check[0]+" in all the calculations.")
+          else:
+              solvent_check_print = "Caution! Different solvation models found - " + solvent_check[0] + " (" + file_version[0]
+              filtered_calcs = []
+              for i in range(len(solvent_check)):
+                        if i != 0:
+                            filter_num = 0
+                            for j in range(len(solvent_check[0].replace("(",",").replace(")","").split(","))):
+                                   for k in range(len(solvent_check[i].replace("(",",").replace(")","").split(","))):
+                                           if solvent_check[0].replace("(",",").replace(")","").split(",")[j] == solvent_check[i].replace("(",",").replace(")","").split(",")[k]:
+                                               filter_num = filter_num + 1
+                                               if filter_num == len(solvent_check[0].replace("(",",").replace(")","").split(",")):
+                                                   solvent_check_print += ", " + file_version[i]
+                                                   filtered_calcs.append(solvent_check[i])
+              solvent_check_print += ")"
+              solvent_different,file_different = [],[]
+              for i in range(len(solvent_check)):
+                 if solvent_check[i] != solvent_check[0]:
+                    solvent_different.append(solvent_check[i])
+                    file_different.append(file_version[i])
+              for i in range(len(solvent_different)):
+                 for j in range(len(filtered_calcs)):
+                    if solvent_different[i] == filtered_calcs[j]:
+                        solvent_different.remove(solvent_different[i])
+                        file_different.remove(file_different[i])
+                        break
+              for i in range(len(solvent_different)):
+                 solvent_check_print += ", " + solvent_different[i] + " (" + file_different[i] + ")"
+              log.Write("\nx  " + solvent_check_print)
+          if all_same(l_o_t) != False:
+             log.Write("\no  Using "+l_o_t[0]+" in all the calculations.")
+          elif all_same(l_o_t) == False:
+             l_o_t_print = "Caution! Different levels of theory found - " + l_o_t[0] + " (" + file_version[0]
+             for i in range(len(l_o_t)):
+                 if l_o_t[i] == l_o_t[0] and i != 0:
+                    l_o_t_print += ", " + file_version[i]
+             l_o_t_print += ")"
+             for i in range(len(l_o_t)):
+                 if l_o_t[i] != l_o_t[0] and i != 0:
+                    l_o_t_print += ", " + l_o_t[i] + " (" + file_version[i] + ")"
+             log.Write("\nx  " + l_o_t_print)
+          charge_check = [sp_energy(file)[5] for file in files]
+          multiplicity_check = []
+          for file in files:
+               multiplicity_check.append(str(int(bbe.mult)))
+          if all_same(charge_check) != False and all_same(multiplicity_check) != False:
+             log.Write("\no  Using charge and multiplicity "+charge_check[0]+ " " + multiplicity_check[0] + " in all the calculations.")
+          else:
+             charge_check_print = "Caution! Different charge and multiplicity found - " + charge_check[0] + " " + multiplicity_check[0] + " (" + file_version[0]
+             for i in range(len(charge_check)):
+                 if charge_check[i] == charge_check[0] and multiplicity_check[i] == multiplicity_check[0] and i != 0:
+                    charge_check_print += ", " + file_version[i]
+             charge_check_print += ")"
+             for i in range(len(charge_check)):
+                 if charge_check[i] != charge_check[0] or multiplicity_check[i] != multiplicity_check[0] and i != 0:
+                    charge_check_print += ", " + charge_check[i] + " " + multiplicity_check[i] + " (" + file_version[i] + ")"
+             log.Write("\nx  " + charge_check_print)
+          energy_duplic,files_duplic = [],[]
+          for file in files:
+              energy_duplic.append(sp_energy(file)[0])
+              files_duplic.append(file)
+          info_duplic = []
+          info_duplic.append(energy_duplic)
+          info_duplic.append(ZPE_duplic)
+          info_duplic.append(entropy_duplic)
+          info_duplic.append(qh_entropy_duplic)
+          info_duplic.append(files_duplic)
+          #Add thermodynamic FILTERS
+          duplicates = "Caution! Potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S) - "
+          try:
+             for i in range(len(files)):
+                 for j in range(len(files)):
+                     if j > i:
+                        if info_duplic[0][i] > info_duplic[0][j]-0.00016 and info_duplic[0][i] < info_duplic[0][j]+0.00016:
+                           if info_duplic[1][i] > info_duplic[1][j]-0.00016 and info_duplic[1][i] < info_duplic[1][j]+0.00016:
+                              if info_duplic[2][i] > info_duplic[2][j]-0.00016 and info_duplic[2][i] < info_duplic[2][j]+0.00016:
+                                 if info_duplic[3][i] > info_duplic[3][j]-0.00016 and info_duplic[3][i] < info_duplic[3][j]+0.00016:
+                                    duplicates += ", " + info_duplic[4][i] + " and " + info_duplic[4][j]
+          except IndexError:
+               log.Write("\nx  Caution! Some E, ZPE, T.S or qh_T.S could not be obtained to analyze duplicated structures.")
+          if duplicates == "Caution! Potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S) - ":
+             log.Write("\no  No potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S).")
+          else:
+             duplicates1 = duplicates[:102]
+             duplicates2 = duplicates[104:]
+             log.Write("\nx  " + duplicates1 + duplicates2)
+          linear_fails,linear_fails_atom,linear_fails_freq,linear_fails_cart,linear_fails_files,linear_fails_atomtypes,linear_fails_list = [],[],[],[],[],[],[]
+          frequency_get,frequency_list = [],[]
+          for file in files:
+               linear_fails = getoutData(file)
+               linear_fails_cart.append(linear_fails.CARTESIANS)
+               linear_fails_atom.append(linear_fails.ATOMTYPES)
+               linear_fails_files.append(file)
+               frequency_list.append(bbe.frequency_wn)
+          linear_fails_list.append(linear_fails_atom)
+          linear_fails_list.append(linear_fails_cart)
+          linear_fails_list.append(frequency_list)
+          linear_fails_list.append(linear_fails_files)
+          possible_linear_mol,linear_mol_correct,linear_mol_wrong = [],[],[]
+          for i in range(len(linear_fails_list[0])):
+              count_linear = 0
+              if len(linear_fails_list[0][i]) == 2:
+                 if len(linear_fails_list[2][i]) == 1:
+                     linear_mol_correct.append(linear_fails_list[3][i])
+                 else:
+                     linear_mol_wrong.append(linear_fails_list[3][i])
+              if len(linear_fails_list[0][i]) == 3:
+                  if linear_fails_list[0][i] == ['I', 'I', 'I'] or linear_fails_list[0][i] == ['O', 'O', 'O'] or linear_fails_list[0][i] == ['H', 'C', 'N']:
+                      if len(linear_fails_list[2][i]) == 4:
+                          linear_mol_correct.append(linear_fails_list[3][i])
+                      else:
+                          linear_mol_wrong.append(linear_fails_list[3][i])
+                  else:
+                      for j in range(len(linear_fails_list[0][i])):
+                         for k in range(len(linear_fails_list[0][i])):
+                            if k > j:
+                                for l in range(len(linear_fails_list[1][i][j])):
+                                  if linear_fails_list[0][i][j] == linear_fails_list[0][i][k]:
+                                      if linear_fails_list[1][i][j][l] > (-linear_fails_list[1][i][k][l]-0.1) and linear_fails_list[1][i][j][l] < (-linear_fails_list[1][i][k][l]+0.1):
+                                         count_linear = count_linear + 1
+                                         if count_linear == 3:
+                                            if len(linear_fails_list[2][i]) == 4:
+                                                linear_mol_correct.append(linear_fails_list[3][i])
+                                            else:
+                                                linear_mol_wrong.append(linear_fails_list[3][i])
+              if len(linear_fails_list[0][i]) == 4:
+                 if linear_fails_list[0][i] == ['C', 'C', 'H', 'H'] or linear_fails_list[0][i] == ['C', 'H', 'C', 'H'] or linear_fails_list[0][i] == ['C', 'H', 'H', 'C'] or linear_fails_list[0][i] == ['H', 'C', 'C', 'H'] or linear_fails_list[0][i] == ['H', 'C', 'H', 'C'] or linear_fails_list[0][i] == ['H', 'H', 'C', 'C']:
+                    if len(linear_fails_list[2][i]) == 7:
+                        linear_mol_correct.append(linear_fails_list[3][i])
+                    else:
+                        linear_mol_wrong.append(linear_fails_list[3][i])
+          linear_correct_print,linear_wrong_print = "",""
+          for i in range(len(linear_mol_correct)):
+              linear_correct_print += ', ' + linear_mol_correct[i]
+          for i in range(len(linear_mol_wrong)):
+              linear_wrong_print += ', ' + linear_mol_wrong[i]
+          linear_correct_print = linear_correct_print[1:]
+          linear_wrong_print = linear_wrong_print[1:]
+          if len(linear_mol_correct) == 0:
+              if len(linear_mol_wrong) == 0:
+                  log.Write("\no  No linear molecules found.")
+              if len(linear_mol_wrong) >= 1:
+                  log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found (correct number = 3N-5) -"+linear_wrong_print)
+          elif len(linear_mol_correct) >= 1:
+             if len(linear_mol_wrong) == 0:
+                 log.Write("\no  All the linear molecules have the correct number of frequencies -"+linear_correct_print)
+             if len(linear_mol_wrong) >= 1:
+                 log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -"+linear_wrong_print+". Correct number of frequencies (3N-5) found in other calculations -"+linear_correct_print)
+          log.Write("\n"+stars+"\n")
+          #Checks for single-point corrections
+          if options.spc != False:
+                    log.Write("\n\n   Checks for single-point corrections:")
+                    log.Write("\n"+stars+"\n")
+                    names_spc, version_check_spc = [], []
+                    for file in files:
+                     if file.find('_'+options.spc+".") == -1:
+                       name, ext = os.path.splitext(file)
+                       names_spc.append(name+'_'+options.spc+".out") # fix this when you fix the problem with extensions in the --spc option
+                    version_check_spc = [sp_energy(name)[2] for name in names_spc]
+                    if all_same(version_check_spc) != False:
+                          log.Write("\no  Using "+version_check_spc[0]+" in all the single-point corrections.")
+                    else:
+                        version_check_spc_print = "Caution! Different programs or versions found - " + version_check_spc[0] + " (" + names_spc[0]
+                        for i in range(len(version_check_spc)):
+                           if version_check_spc[i] == version_check_spc[0] and i != 0:
+                              version_check_spc_print += ", " + names_spc[i]
+                        version_check_spc_print += ")"
+                        for i in range(len(version_check_spc)):
+                           if version_check_spc[i] != version_check_spc[0] and i != 0:
+                              version_check_spc_print += "," + version_check_spc[i] + " (" + names_spc[i] + ")"
+                        log.Write("\nx  " + version_check_spc_print)
+                    solvent_check_spc = [sp_energy(name)[3] for name in names_spc]
+                    if all_same(solvent_check_spc) != False:
+                          log.Write("\no  Using "+solvent_check_spc[0]+" in all the single-point corrections.")
+                    else:
+                        solvent_check_spc_print = "Caution! Different solvation models found - " + solvent_check_spc[0] + " (" + names_spc[0]
+                        filtered_calcs_spc = []
+                        for i in range(len(solvent_check_spc)):
+                                  if i != 0:
+                                      filter_num_spc = 0
+                                      for j in range(len(solvent_check_spc[0].replace("(",",").replace(")","").split(","))):
+                                             for k in range(len(solvent_check_spc[i].replace("(",",").replace(")","").split(","))):
+                                                     if solvent_check_spc[0].replace("(",",").replace(")","").split(",")[j] == solvent_check_spc[i].replace("(",",").replace(")","").split(",")[k]:
+                                                         filter_num_spc = filter_num_spc + 1
+                                                         if filter_num_spc == len(solvent_check_spc[0].replace("(",",").replace(")","").split(",")):
+                                                             solvent_check_spc_print += ", " + names_spc[i]
+                                                             filtered_calcs_spc.append(solvent_check_spc[i])
+                        solvent_check_spc_print += ")"
+                        solvent_different_spc,file_different_spc = [],[]
+                        for i in range(len(solvent_check_spc)):
+                           if solvent_check_spc[i] != solvent_check_spc[0]:
+                              solvent_different_spc.append(solvent_check_spc[i])
+                              file_different_spc.append(names_spc[i])
+                        for i in range(len(solvent_different_spc)):
+                           for j in range(len(filtered_calcs_spc)):
+                              if solvent_different_spc[i] == filtered_calcs_spc[j]:
+                                  solvent_different_spc.remove(solvent_different_spc[i])
+                                  file_different_spc.remove(file_different_spc[i])
+                                  break
+                        for i in range(len(solvent_different_spc)):
+                           solvent_check_spc_print += ", " + solvent_different_spc[i] + " (" + file_different_spc[i] + ")"
+                        log.Write("\nx  " + solvent_check_spc_print)
+                    l_o_t_spc = [level_of_theory(name) for name in names_spc]
+                    if all_same(l_o_t_spc) != False:
+                       log.Write("\no  Using "+l_o_t_spc[0]+" in all the single-point corrections.")
+                    elif all_same(l_o_t_spc) == False:
+                        l_o_t_spc_print = "Caution! Different levels of theory found - " + l_o_t_spc[0] + " (" + names_spc[0]
+                        for i in range(len(l_o_t_spc)):
+                           if l_o_t_spc[i] == l_o_t_spc[0] and i != 0:
+                              l_o_t_spc_print += ", " + names_spc[i]
+                        l_o_t_spc_print += ")"
+                        for i in range(len(l_o_t_spc)):
+                           if l_o_t_spc[i] != l_o_t_spc[0] and i != 0:
+                              l_o_t_spc_print += ", " + l_o_t_spc[i] + " (" + names_spc[i] + ")"
+                        log.Write("\nx  " + l_o_t_spc_print)
+                    charge_spc_check = [sp_energy(name)[5] for name in names_spc]
+                    multiplicity_spc_check = []
+                    for name in names_spc:
+                         multiplicity_spc_check.append(str(int(bbe.mult)))
+                    if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
+                       log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
+                    else:
+                       charge_spc_check_print = "Caution! Different charge and multiplicity found - " + charge_spc_check[0] + " " + multiplicity_spc_check[0] + " (" + names_spc[0]
+                       for i in range(len(charge_check)):
+                           if charge_spc_check[i] == charge_spc_check[0] and multiplicity_spc_check[i] == multiplicity_spc_check[0] and i != 0:
+                              charge_spc_check_print += ", " + names_spc[i]
+                       charge_spc_check_print += ")"
+                       for i in range(len(charge_spc_check)):
+                           if charge_spc_check[i] != charge_spc_check[0] or multiplicity_spc_check[i] != multiplicity_spc_check[0] and i != 0:
+                              charge_spc_check_print += ", " + charge_spc_check[i] + " " + multiplicity_spc_check[i] + " (" + names_spc[i] + ")"
+                       log.Write("\nx  " + charge_spc_check_print)
+                    #Check if the geometries of freq calculations match their corresponding structures in single-point calculations
+                    geom_duplic_list,geom_duplic_list_spc,geom_duplic_cart,geom_duplic_files,geom_duplic_cart_spc,geom_duplic_files_spc = [],[],[],[],[],[]
+                    for file in files:
+                       geom_duplic = getoutData(file)
+                       geom_duplic_cart.append(geom_duplic.CARTESIANS)
+                       geom_duplic_files.append(file)
+                    geom_duplic_list.append(geom_duplic_cart)
+                    geom_duplic_list.append(geom_duplic_files)
 
+                       #geom_duplic_list.append(round(geom_duplic.CARTESIANS, 4))
+                    for name in names_spc:
+                        geom_duplic_spc = getoutData(name)
+                        geom_duplic_cart_spc.append(geom_duplic_spc.CARTESIANS)
+                        geom_duplic_files_spc.append(name)
+                    geom_duplic_list_spc.append(geom_duplic_cart_spc)
+                    geom_duplic_list_spc.append(geom_duplic_files_spc)
+                    spc_mismatching = "Caution! Potential differences found between frequency and single-point geometries -"
+                    for i in range(len(files)):
+                        if geom_duplic_list[0][i] == geom_duplic_list_spc[0][i]:
+                            i = i + 1
+                        else:
+                           spc_mismatching += ", " + geom_duplic_list[1][i]
+                    if spc_mismatching == "Caution! Potential differences found between frequency and single-point geometries -":
+                       log.Write("\no  No potential differences found between frequency and single-point geometries (based on input coordinates).")
+                    else:
+                        spc_mismatching_1 = spc_mismatching[:84]
+                        spc_mismatching_2 = spc_mismatching[85:]
+                        log.Write("\nx  " + spc_mismatching_1 + spc_mismatching_2)
+                    log.Write("\n"+stars+"\n")
+      
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
    elif options.temperature_interval != False:
       temperature_interval = [float(temp) for temp in options.temperature_interval.split(',')]
@@ -1058,19 +1466,30 @@ def main():
       else:log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"),thermodata=True)
   
       for file in files: # loop over the output files
-         log.Write("\n"+stars)
+         log.Write("\n"+stars+"\n")
 
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
             temp, conc = float(i), atmos / GAS_CONSTANT / float(i)
             log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp),thermodata=True)
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, conc, options.freq_scale_factor, options.f, options.spc)
-
-            if not hasattr(bbe,"gibbs_free_energy"): log.Write("Warning! Couldn't find frequency information ...\n")
+            linear_warning = []
+            linear_warning.append(bbe.linear_warning)
+            if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
+               log.Write("\nx  ")
+               log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+               log.Write('             Warning! Potential invalid calculation of linear molecule from Gaussian ...')
             else:
-                if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    log.Write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
-                elif all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
+                if not hasattr(bbe,"gibbs_free_energy"): 
+                    log.Write("\nx  ")
+                    log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+                    log.Write("Warning! Couldn't find frequency information ...\n")
+                else:
+                    log.Write("\no  ")
+                    log.Write(+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+                    if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                        log.Write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
+                    elif all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                        log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
          log.Write("\n"+stars+"\n")
 
    #print CPU usage if requested
