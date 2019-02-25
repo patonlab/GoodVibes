@@ -26,8 +26,8 @@ from __future__ import print_function, absolute_import
 """ 
 add info on:
     o Head-Gordon enthalpy correction
-    o PES ∆Gconf corrections
-    o %ee and ∆∆G‡
+    o PES Gconf corrections
+    o ee and ddG
     o Juanvi's checks for    
         o frequency calculations
         o level of theory
