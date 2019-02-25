@@ -26,8 +26,8 @@ from __future__ import print_function, absolute_import
 """ 
 add info on:
     o Head-Gordon enthalpy correction
-    o PES Gconf corrections
-    o ee and ddG
+    o PES ∆Gconf corrections
+    o ee and G
     o Juanvi's checks for    
         o frequency calculations
         o level of theory
@@ -45,7 +45,7 @@ from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
 
-#fancy Hack - this does not work for python 2.6 or 2.7 according to Travis
+#fancy Hack
 try: from .vib_scale_factors import scaling_data, scaling_refs
 except: from vib_scale_factors import scaling_data, scaling_refs
 
@@ -955,7 +955,8 @@ def main():
    parser.add_option("--gconf", dest="gconf", action="store_false", help="Calculate a free-energy correction related to multi-configurational space (default True)", default=True, metavar="GCONF")
    parser.add_option("--ee", dest="ee", action="store_true", help="Tabulate % enantiomeric excess value of a mixture", default=False, metavar="EE")
    parser.add_option("--check", dest="check", action="store_true", help="Check if calculations were done with the same program, level of theory and solvent,as well as detects potential duplicates. ", default=False, metavar="CHECK")
-
+   parser.add_option("--media", dest="media", action="store", help="Correction for standard concentration of solvents", default=False, metavar="MEDIA") 
+   
    (options, args) = parser.parse_args()
    
    # case insensitive
@@ -1161,15 +1162,31 @@ def main():
              if hasattr(bbe, "scf_energy"): log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
              if not hasattr(bbe,"gibbs_free_energy"): log.Write("   Warning! Couldn't find frequency information ...")
              else:
-                if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    log.Write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)                    
-                elif all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
-                if options.check != False:
-                    ZPE_duplic.append(bbe.zpe)
-                    entropy_duplic.append((options.temperature * bbe.entropy))
-                    qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
-         
+                if options.media == False:
+                   if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                       if options.QH: log.Write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                       else: log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                       if options.check != False:
+                           ZPE_duplic.append(bbe.zpe)
+                           entropy_duplic.append((options.temperature * bbe.entropy))
+                           qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
+                else:
+                   try: from .media import solvents
+                   except: from media import solvents
+                   if options.media.lower() in solvents and options.media.lower() == os.path.splitext(os.path.basename(file)).lower():
+                       MW_solvent = solvents[options.media.lower()][0]
+                       density_solvent = solvents[options.media.lower()][1]
+                       concentration_solvent = (density_solvent*1000)/MW_solvent
+                       media_correction = -(GAS_CONSTANT/j_to_au)*math.log(concentration_solvent)
+                       if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                           if options.QH: log.Write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * (bbe.entropy+media_correction)), (options.temperature * (bbe.qh_entropy+media_correction)), bbe.gibbs_free_energy+(options.temperature * (-media_correction)), bbe.qh_gibbs_free_energy+(options.temperature * (-media_correction))))
+                           else: log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * (bbe.entropy+media_correction)), (options.temperature * (bbe.qh_entropy+media_correction)), bbe.gibbs_free_energy+(options.temperature * (-media_correction)), bbe.qh_gibbs_free_energy+(options.temperature * (-media_correction))))
+                           if options.check != False:
+                               ZPE_duplic.append(bbe.zpe)
+                               entropy_duplic.append((options.temperature * bbe.entropy))
+                               qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
+                   else:
+                      log.Write("     Warning! " + options.media + " was not found in media.py, please add solvent information.")                
          if options.cosmo != False and cosmo_solv != None: log.Write('{:13.6f}'.format(cosmo_solv[file]))
          if options.boltz == True: log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum),thermodata=True)
 
@@ -1482,11 +1499,10 @@ def main():
       else:log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H/au", "T.S/au", "T.qh-S/au", "G(T)/au", "qh-G(T)/au"),thermodata=True)
   
       for file in files: # loop over the output files
-         log.Write("\n"+stars+"\n")
-
+         log.Write("\n"+stars)
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
             temp, conc,linear_warning = float(i), atmos / GAS_CONSTANT / float(i),[]
-            log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp),thermodata=True)
+            # log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp),thermodata=True)
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, conc, options.freq_scale_factor, options.freespace, options.spc)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -1500,11 +1516,32 @@ def main():
                     log.Write("Warning! Couldn't find frequency information ...\n")
                 else:
                     log.Write("\no  ")
-                    log.Write(+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
-                    if all(getattr(bbe, attrib) for attrib in ["enthalpy", "qh_enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                        log.Write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
-                    elif all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                        log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),thermodata=True)
+                    log.Write('{:<39} {:13.1f}'.format(os.path.splitext(os.path.basename(file))[0], temp),thermodata=True)
+                    if options.media == False:
+                       if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                           if options.QH: log.Write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                           else: log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
+                           if options.check != False:
+                               ZPE_duplic.append(bbe.zpe)
+                               entropy_duplic.append((options.temperature * bbe.entropy))
+                               qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
+                    else:
+                       try: from .media import solvents
+                       except: from media import solvents
+                       if options.media.lower() in solvents:
+                           MW_solvent = solvents[options.media.lower()][0]
+                           density_solvent = solvents[options.media.lower()][1]
+                           concentration_solvent = (density_solvent*1000)/MW_solvent
+                           media_correction = -(GAS_CONSTANT/j_to_au)*math.log(concentration_solvent)
+                           if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                               if options.QH: log.Write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * (bbe.entropy+media_correction)), (options.temperature * (bbe.qh_entropy+media_correction)), bbe.gibbs_free_energy+(options.temperature * (-media_correction)), bbe.qh_gibbs_free_energy+(options.temperature * (-media_correction))))
+                               else: log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (options.temperature * (bbe.entropy+media_correction)), (options.temperature * (bbe.qh_entropy+media_correction)), bbe.gibbs_free_energy+(options.temperature * (-media_correction)), bbe.qh_gibbs_free_energy+(options.temperature * (-media_correction))))
+                               if options.check != False:
+                                   ZPE_duplic.append(bbe.zpe)
+                                   entropy_duplic.append((options.temperature * bbe.entropy))
+                                   qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
+                       else:
+                          log.Write("     Warning! " + options.media + " was not found in media.py, please add solvent information.")
          log.Write("\n"+stars+"\n")
 
    #print CPU usage if requested
