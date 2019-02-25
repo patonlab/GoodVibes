@@ -158,7 +158,7 @@ def test_temperature_corrections(QS, QH, E, ZPE, H, TS, TqhS, G, qhG):
 def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
     conc = GV.atmos / (GV.GAS_CONSTANT * temp)
-    QS, QH, s_freq_cutoff, h_freq_cutoff freq_scale_factor, solv = 'grimme', False, 100.0, 100.0, 1.0, 'none'
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv = 'grimme', False, 100.0, 100.0, 1.0, 'none'
     precision = 6
 
     bbe = GV.calc_bbe(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
