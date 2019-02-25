@@ -40,7 +40,7 @@ add info on:
 #######  Last modified:  2019                          ################
 #######################################################################
 
-import os.path, sys, math, textwrap, time
+import os.path, sys, math, time
 from datetime import datetime, timedelta
 from glob import glob
 from optparse import OptionParser
@@ -134,12 +134,12 @@ class calc_bbe:
       if spc != False and spc != 'link':
          name, ext = os.path.splitext(file)
          try:
-             self.sp_energy = sp_energy(name+'_'+spc+ext)
+             self.sp_energy = sp_energy(name+'_'+spc+ext)[0]
              self.cpu = sp_cpu(name+'_'+spc+ext)
          except ValueError:
              self.sp_energy = '!'; pass
       if spc == 'link':
-          self.sp_energy = sp_energy(file)
+          self.sp_energy = sp_energy(file)[0]
 
       #count number of links
       for line in g_output:
@@ -410,7 +410,7 @@ class get_pes:
         with open(file) as f: data = f.readlines()
         for i, line in enumerate(data):
             if line.strip().find('PES') > -1:
-                n = 0; foundalready = ''
+                n = 0
                 for j, line in enumerate(data[i+1:]):
                     if line.strip().startswith('#') == True: pass
                     elif len(line) < 2: pass
@@ -647,7 +647,7 @@ def sp_energy(file):
                keyword_line_3 = line.strip().split()[-1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
 
-   return spe,program,version_program,solvation_model,file,charge
+   return spe, program, version_program, solvation_model, file, charge
 
 # Read single-point output for cpu time
 def sp_cpu(file):
@@ -878,7 +878,11 @@ def get_ee(files,boltz_facs,boltz_sum,temperature,log):
             log.Write("   Make sure the filename ends in either '_R' or '_S' \n")
             sys.exit("   Please edit "+file+" and try again\n")
     
+    print("\nR: ", R_sum, "S: ",S_sum)
+    
     ee = (R_sum - S_sum) * 100.
+    #if ee is negative, more in favor of S
+    
     dd_free_energy = GAS_CONSTANT / j_to_au * temperature * math.log((50 + ee / 2.0) / (50 - ee / 2.0)) * kcal_to_au
     
     #try to obtain name of reaction by base name for files
@@ -994,8 +998,12 @@ def main():
                            files.append(file)
                            if clustering == True: clusters[nclust].append(file)
             elif elem != 'clust:': command += elem + ' '
-         except IndexError: pass
-
+         except IndexError: pass          
+      
+      #after parsing arguments, check if user specified files along with arguments
+      if len(files) == 0:
+          sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
+          
       # Start printing results
       start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
       log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
@@ -1015,6 +1023,7 @@ def main():
       if options.freq_scale_factor != False:
           log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
       else:
+          filter_of_scaling_f = 0
           if all_same(l_o_t) == True:
              for scal in scaling_data: # search through database of scaling factors
                 if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
@@ -1041,10 +1050,10 @@ def main():
 
       if options.freq_scale_factor == False:
           options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
-          if all_same(l_o_t) != True:
-              log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + ": differing levels of theory detected." )
+          if filter_of_scaling_f == 0:
+              log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory")
           else:
-              log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
+              log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + ": differing levels of theory detected.")
       # checks to see whether the available free space of a requested solvent is defined
       freespace = get_free_space(options.freespace)
       if freespace != 1000.0: log.Write("\n   Specified solvent "+options.freespace+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
@@ -1080,6 +1089,10 @@ def main():
       
       # whether linked single-point energies are to be used
       if options.spc == "True": log.Write("\n   Link job: combining final single point energy with thermal corrections.")
+   
+   #check if user has specified any files, if not quit now
+   if len(files) == 0:
+      sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
    for file in files: # loop over all specified output files and compute thermochemistry
       bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
@@ -1102,7 +1115,7 @@ def main():
       else:
           log.Write("\n\n   ")
           if options.QH:log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"),thermodata=True)
-          else:log.Write('{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
+          else:log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
       if options.cosmo != False: log.Write('{:>13}'.format("COSMO-RS"))
       if options.boltz == True: log.Write('{:>7}'.format("Boltz"),thermodata=True)
       if options.imag_freq == True: log.Write('{:>9}'.format("im freq"),thermodata=True)
@@ -1129,12 +1142,12 @@ def main():
              if hasattr(bbe, "scf_energy"): xyz.Writetext('{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(file))[0], 'Eopt', bbe.scf_energy))
              else: xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
              if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'): xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-
+         warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
          linear_warning = []
-         linear_warning.append(bbe.linear_warning)
-         if linear_warning == [['Caution! Potential invalid calculation of linear molecule from Gaussian.']]:
+         linear_warning.append(warning_linear.linear_warning)
+         if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
              log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
-             log.Write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian ...')
+             log.Write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
          else:
              if hasattr(bbe, "gibbs_free_energy"):
                  log.Write("\no  ")
@@ -1237,7 +1250,8 @@ def main():
           charge_check = [sp_energy(file)[5] for file in files]
           multiplicity_check = []
           for file in files:
-               multiplicity_check.append(str(int(bbe.mult)))
+               multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+               multiplicity_check.append(str(int(multiplicity_calc.mult)))
           if all_same(charge_check) != False and all_same(multiplicity_check) != False:
              log.Write("\no  Using charge and multiplicity "+charge_check[0]+ " " + multiplicity_check[0] + " in all the calculations.")
           else:
@@ -1279,19 +1293,20 @@ def main():
              duplicates1 = duplicates[:102]
              duplicates2 = duplicates[104:]
              log.Write("\nx  " + duplicates1 + duplicates2)
-          linear_fails,linear_fails_atom,linear_fails_freq,linear_fails_cart,linear_fails_files,linear_fails_atomtypes,linear_fails_list = [],[],[],[],[],[],[]
-          frequency_get,frequency_list = [],[]
+          linear_fails,linear_fails_atom,linear_fails_cart,linear_fails_files,linear_fails_list = [],[],[],[],[]
+          frequency_list, frequency_get= [],[]
           for file in files:
                linear_fails = getoutData(file)
                linear_fails_cart.append(linear_fails.CARTESIANS)
                linear_fails_atom.append(linear_fails.ATOMTYPES)
                linear_fails_files.append(file)
-               frequency_list.append(bbe.frequency_wn)
+               frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+               frequency_list.append(frequency_get.frequency_wn)
           linear_fails_list.append(linear_fails_atom)
           linear_fails_list.append(linear_fails_cart)
           linear_fails_list.append(frequency_list)
           linear_fails_list.append(linear_fails_files)
-          possible_linear_mol,linear_mol_correct,linear_mol_wrong = [],[],[]
+          linear_mol_correct,linear_mol_wrong = [],[]
           for i in range(len(linear_fails_list[0])):
               count_linear = 0
               if len(linear_fails_list[0][i]) == 2:
@@ -1411,7 +1426,8 @@ def main():
                     charge_spc_check = [sp_energy(name)[5] for name in names_spc]
                     multiplicity_spc_check = []
                     for name in names_spc:
-                         multiplicity_spc_check.append(str(int(bbe.mult)))
+                         multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                         multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                     if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                        log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
                     else:
@@ -1469,10 +1485,9 @@ def main():
          log.Write("\n"+stars+"\n")
 
          for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
-            temp, conc = float(i), atmos / GAS_CONSTANT / float(i)
+            temp, conc,linear_warning = float(i), atmos / GAS_CONSTANT / float(i),[]
             log.Write("\no  "+'{:<39} {:13.1f}'.format(os.path.basename(file), temp),thermodata=True)
-            bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, conc, options.freq_scale_factor, options.f, options.spc)
-            linear_warning = []
+            bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, conc, options.freq_scale_factor, options.freespace, options.spc)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
                log.Write("\nx  ")
