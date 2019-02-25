@@ -106,7 +106,7 @@ from conftest import datapath
     ('HCN_triplet.out', 'truhlar', True, 100.0,-93.153787,0.012567,-93.140111,-93.140112,0.006803,0.006803,-93.146915,-93.146916),
     ('methylaniline.out', 'truhlar', True, 100.0, -326.664901,0.142118,-326.521226,-326.521398,0.009864,0.009864,-326.531090,-326.531261)
 ])
-def test_all(path, QS, QH, temp, E, ZPE, H, TS, TqhS, G, qhG):
+def test_all(path, QS, QH, temp, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     # Defaults, no temp interval, no conc interval
     path = datapath(path)
     conc = GV.atmos / (GV.GAS_CONSTANT * temp)
@@ -132,7 +132,7 @@ def test_all(path, QS, QH, temp, E, ZPE, H, TS, TqhS, G, qhG):
     ('grimme', True,  -242.328708,0.000000,-242.327125,-242.327125,0.011221,0.011221,-242.338346,-242.338346),
     ('truhlar', True, -242.328708,0.000000,-242.327125,-242.327125,0.011221,0.011221,-242.338346,-242.338346),
 ])
-def test_temperature_corrections(QS, QH, E, ZPE, H, TS, TqhS, G, qhG):
+def test_temperature_corrections(QS, QH, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     temp = 200
     conc = GV.atmos / (GV.GAS_CONSTANT * temp)
     s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc = 100.0, 100.0, 1.0, 'none', False
