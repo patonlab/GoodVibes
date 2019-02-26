@@ -1565,6 +1565,7 @@ def main():
                     log.Write("\n"+STARS+"\n")
 
    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
+   """from here"""
    elif options.temperature_interval != False:
       temperature_interval = [float(temp) for temp in options.temperature_interval.split(',')]
       # If no temperature step was defined, divide the region into 10
