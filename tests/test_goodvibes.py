@@ -60,7 +60,7 @@ from conftest import datapath
 def test_QS(path, QS, temp, E, ZPE, H, TS, TqhS, G, qhG):
     # Defaults, no temp interval, no conc interval
     path = datapath(path)
-    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc = False, 100.0, 100.0, 1.0, 'none', False
     bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
     precision = 6 # if temp == 298.15 else 4e-4
@@ -126,7 +126,7 @@ def test_QS(path, QS, temp, E, ZPE, H, TS, TqhS, G, qhG):
 def test_QH(path, QS, temp, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     # Defaults, no temp interval, no conc interval
     path = datapath(path)
-    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc = True, 100.0, 100.0, 1.0, 'none', False
     bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
     precision = 6 # if temp == 298.15 else 4e-4
@@ -148,7 +148,7 @@ def test_QH(path, QS, temp, E, ZPE, H, qhH, TS, TqhS, G, qhG):
 ])
 def test_temperature_corrections_QS(QS, E, ZPE, H, TS, TqhS, G, qhG):
     temp = 200
-    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc = False, 100.0, 100.0, 1.0, 'none', False
     bbe298 = GV.calc_bbe(datapath('Al_298K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
     bbe400 = GV.calc_bbe(datapath('Al_400K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
@@ -167,7 +167,7 @@ def test_temperature_corrections_QS(QS, E, ZPE, H, TS, TqhS, G, qhG):
 ])
 def test_temperature_corrections_QH(QS, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     temp = 200
-    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc = True, 100.0, 100.0, 1.0, 'none', False
     bbe298 = GV.calc_bbe(datapath('Al_298K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
     bbe400 = GV.calc_bbe(datapath('Al_400K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc)
@@ -189,7 +189,7 @@ def test_temperature_corrections_QH(QS, E, ZPE, H, qhH, TS, TqhS, G, qhG):
 ])
 def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
-    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv = 'grimme', False, 100.0, 100.0, 1.0, 'none'
     precision = 6
 
@@ -210,7 +210,7 @@ def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
 ])
 def test_scaling_factor_search(filename, freq_scale_factor, zpe):
     temp = 298.15
-    conc = GV.atmos / (GV.GAS_CONSTANT * temp)
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QS, QH, s_freq_cutoff, h_freq_cutoff, solv, spc = 'grimme',True, 100.0, 100.0, 'none', False
     precision = 6
 
