@@ -46,7 +46,7 @@ import math
 import time
 from datetime import datetime, timedelta
 from glob import glob
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 # Importing regardless of relative import
 try: 
@@ -56,6 +56,8 @@ except:
 
 # VERSION NUMBER
 __version__ = "3.0.0" 
+
+SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
 # PHYSICAL CONSTANTS 
 GAS_CONSTANT =          8.3144621                       # J / K / mol
@@ -94,6 +96,7 @@ def elementID(massno):
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
+
 # Enables output to terminal and to text file
 class Logger:
     def __init__(self, filein, append, csv):
@@ -102,7 +105,7 @@ class Logger:
             suffix = 'dat'
         else:
             suffix = 'csv'
-        self.log = open(filein+"_"+append+"."+suffix, 'w' )
+        self.log = open('{}_{}.{}'.format(filein, append, suffix), 'w' )
 
     def Write(self, message, thermodata=False):
         self.thermodata = thermodata
@@ -124,7 +127,7 @@ class Logger:
 # Enables output of optimized coordinates to a single xyz-formatted file
 class XYZout:
     def __init__(self, filein, suffix, append):
-        self.xyz = open(filein+"_"+append+"."+suffix, 'w' )
+        self.xyz = open('{}_{}.{}'.format(filein, append, suffix), 'w')
     
     def Writetext(self, message):
         self.xyz.write(message + "\n")
@@ -138,6 +141,7 @@ class XYZout:
 
     def Finalize(self):
         self.xyz.close()
+
 
 # The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
 class calc_bbe:
@@ -192,42 +196,41 @@ class calc_bbe:
                       if x < 0.00: im_frequency_wn.append(x)
                    except IndexError: 
                        pass
-
             # For QM calculations look for SCF energies, last one will be the optimized energy
-            if line.strip().startswith('SCF Done:'):
+            elif line.strip().startswith('SCF Done:'):
                 self.scf_energy = float(line.strip().split()[4])
             # For Counterpoise calculations the corrected energy value will be taken
-            if line.strip().startswith('Counterpoise corrected energy'):
+            elif line.strip().startswith('Counterpoise corrected energy'):
                 self.scf_energy = float(line.strip().split()[4])
             # For MP2 calculations replace with EUMP2
-            if 'EUMP2 =' in line.strip():
+            elif 'EUMP2 =' in line.strip():
                 self.scf_energy = float((line.strip().split()[5]).replace('D', 'E'))
             # For ONIOM calculations use the extrapolated value rather than SCF value
-            if "ONIOM: extrapolated energy" in line.strip():
+            elif "ONIOM: extrapolated energy" in line.strip():
                 self.scf_energy = (float(line.strip().split()[4]))
             # For Semi-empirical or Molecular Mechanics calculations
-            if "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
+            elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
                 self.scf_energy = (float(line.strip().split()[1]))
             # look for thermal corrections, paying attention to point group symmetry
-            if line.strip().startswith('Zero-point correction='):
+            elif line.strip().startswith('Zero-point correction='):
                 self.zero_point_corr = float(line.strip().split()[2])
-            if 'Multiplicity' in line.strip():
+            elif 'Multiplicity' in line.strip():
                 try:
                     mult = float(line.split('=')[-1].strip().split()[0])
                 except:
                     mult = float(line.split()[-1])
                 self.mult = mult
 
-            if line.strip().startswith('Molecular mass:'):
+            elif line.strip().startswith('Molecular mass:'):
                 molecular_mass = float(line.strip().split()[2])
-            if line.strip().startswith('Rotational symmetry number'):
+            elif line.strip().startswith('Rotational symmetry number'):
                 symmno = int((line.strip().split()[3]).split(".")[0])
-            if line.strip().startswith('Full point group'):
+            elif line.strip().startswith('Full point group'):
                 if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V':
                     linear_mol = 1
-            if line.strip().startswith('Rotational temperature '):
+            elif line.strip().startswith('Rotational temperature '):
                 rotemp = [float(line.strip().split()[3])]
-            if line.strip().startswith('Rotational temperatures'):
+            elif line.strip().startswith('Rotational temperatures'):
                 try: 
                     rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
                 except ValueError:
@@ -298,7 +301,8 @@ class calc_bbe:
             else:
                 ZPE, Urot, Uvib, qh_Uvib, Srot, h_Svib, qh_Svib = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
-            # Add terms (converted to au) to get Free energy - perform separately for harmonic and quasi-harmonic values out of interest
+            # Add terms (converted to au) to get Free energy - perform separately 
+            # for harmonic and quasi-harmonic values out of interest
             self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT * temperature) / J_TO_AU
             self.qh_enthalpy = 0.0
             if QH:
@@ -332,6 +336,7 @@ class calc_bbe:
                     self.im_freq.append(freq)
         self.frequency_wn = frequency_wn
         self.linear_warning = linear_warning
+
 
 # Obtain relative thermochemistry between species and for reactions
 class get_pes:
@@ -606,6 +611,7 @@ class get_pes:
                         except IndexError: 
                             pass
 
+
 # Read molecule data from a compchem output file
 class getoutData:
     def __init__(self, file):
@@ -651,6 +657,7 @@ class getoutData:
 
         getATOMTYPES(self, data, program)
 
+
 # Read solvation free energies from a COSMO-RS dat file
 def COSMORSout(datfile, names):
     GSOLV = {}
@@ -669,12 +676,13 @@ def COSMORSout(datfile, names):
     
     return GSOLV
 
+
 # Read gaussian output for a single point energy
 def sp_energy(file):
     spe, program, data, version_program, solvation_model, keyword_line, a, charge = 'none', 'none', [], '', '', '', 0, []
 
     if os.path.exists(os.path.splitext(file)[0]+'.log'):
-        with open(os.path.splitext(file)[0]+'.log') as f:
+        with open(os.path.splitext(file)[0]+'.log') as f: 
             data = f.readlines()
     elif os.path.exists(os.path.splitext(file)[0]+'.out'):
         with open(os.path.splitext(file)[0]+'.out') as f: 
@@ -762,6 +770,7 @@ def sp_energy(file):
 
     return spe, program, version_program, solvation_model, file, charge
 
+
 # Read single-point output for cpu time
 def sp_cpu(file):
     spe, program, data, cpu = None, None, [], None
@@ -807,6 +816,7 @@ def sp_cpu(file):
   
     return cpu
 
+
 # Read output for the level of theory and basis set used
 def level_of_theory(file):
     with open(file) as f:
@@ -849,7 +859,8 @@ def level_of_theory(file):
         if level[0] == 'R' or level[0] == 'U':
             level = level[1:]
   
-    return level+"/"+bs
+    return '/'.join([level, bs])
+
 
 # Calculate elapsed time
 def addTime(tm, cpu):
@@ -859,15 +870,18 @@ def addTime(tm, cpu):
     
     return fulldate
 
+
 # Translational energy evaluation (depends on temperature)
 def calc_translational_energy(temperature):
     """
-    Calculates the translational energy (J/mol) of an ideal gas - i.e. non-interactiing molecules so molar energy = Na * atomic energy
+    Calculates the translational energy (J/mol) of an ideal gas
+    i.e. non-interactiing molecules so molar energy = Na * atomic energy.
     This approximation applies to all energies and entropies computed within
     Etrans = 3/2 RT!
     """
     energy = 1.5 * GAS_CONSTANT * temperature
     return energy
+
 
 # Rotational energy evaluation (depends on molecular shape and temperature)
 def calc_rotational_energy(zpe, symmno, temperature, linear):
@@ -884,6 +898,7 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
     
     return energy
 
+
 # Vibrational energy evaluation (depends on frequencies, temperature and scaling factor: default = 1.0)
 def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
     """
@@ -897,6 +912,7 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
     
     return sum(energy)
 
+
 # Vibrational Zero point energy evaluation (depends on frequencies and scaling factor: default = 1.0)
 def calc_zeropoint_energy(frequency_wn, freq_scale_factor):
     """
@@ -909,10 +925,15 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor):
     
     return sum(energy)
 
-# Computed the amount of accessible free space (ml per L) in solution accesible to a solute immersed in bulk solvent, i.e. this is the volume not occupied by solvent molecules, calculated using literature values for molarity and B3LYP/6-31G* computed molecular volumes.
+
+# Computed the amount of accessible free space (ml per L) in solution 
+# accessible to a solute immersed in bulk solvent, i.e. this is the volume 
+# not occupied by solvent molecules, calculated using literature values for 
+# molarity and B3LYP/6-31G* computed molecular volumes.
 def get_free_space(solv):
     """
-    Calculates the free space in a litre of bulk solvent, based on Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830)
+    Calculates the free space in a litre of bulk solvent, based on 
+    Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830)
     """
     solvent_list = ["none", "H2O", "toluene", "DMF", "AcOH", "chloroform"]
     molarity = [1.0, 55.6, 9.4, 12.9, 17.4, 12.5] #mol/l
@@ -934,10 +955,12 @@ def get_free_space(solv):
     
     return freespace
 
+
 # Translational entropy evaluation (depends on mass, concentration, temperature, solvent free space: default = 1000.0)
 def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     """
-    Calculates the translational entropic contribution (J/(mol*K)) of an ideal gas. Needs the molecular mass. Convert mass in amu to kg; conc in mol/l to number per m^3
+    Calculates the translational entropic contribution (J/(mol*K)) of an ideal gas.
+    Needs the molecular mass. Convert mass in amu to kg; conc in mol/l to number per m^3
     Strans = R(Ln(2pimkT/h^2)^3/2(1/C)) + 1 + 3/2)
     """
     lmda = ((2.0 * math.pi * molecular_mass * AMU_to_KG * BOLTZMANN_CONSTANT * temperature)**0.5) / PLANCK_CONSTANT
@@ -947,6 +970,7 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     
     return entropy
 
+
 # Electronic entropy evaluation (depends on multiplicity)
 def calc_electronic_entropy(multiplicity):
     """
@@ -955,6 +979,7 @@ def calc_electronic_entropy(multiplicity):
     """
     entropy = GAS_CONSTANT * (math.log(multiplicity))
     return entropy
+
 
 # Rotational entropy evaluation (depends on molecular shape and temp.)
 def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
@@ -984,10 +1009,12 @@ def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
     
     return entropy
 
+
 # Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
 def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor):
     """
-    Entropic contributions (J/(mol*K)) according to a rigid-rotor harmonic-oscillator description for a list of vibrational modes
+    Entropic contributions (J/(mol*K)) according to a rigid-rotor 
+    harmonic-oscillator description for a list of vibrational modes
     Sv = RSum(hv/(kT(e^(hv/kT)-1) - ln(1-e^(-hv/kT)))
     """
     factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT / temperature 
@@ -996,10 +1023,12 @@ def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor):
                 for entry in factor]
     return entropy
 
+
 # Quasi-rigid rotor harmonic oscillator energy evaluation used for calculating quasi-harmonic enthalpy
 def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     """
-    Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of vibrational modes described by a rigid-rotor harmonic approximation
+    Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of 
+    vibrational modes described by a rigid-rotor harmonic approximation
     V_RRHO = 1/2(Nhv) + RT(hv/kT)e^(-hv/kT)/(1-e^(-hv/kT))
     """
     factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor 
@@ -1011,10 +1040,12 @@ def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     
     return energy
 
+
 # Free rotor entropy evaluation - used for low frequencies below the cut-off if qs=grimme is specified
 def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor):
     """
-    Entropic contributions (J/(mol*K)) according to a free-rotor description for a list of vibrational modes
+    Entropic contributions (J/(mol*K)) according to a free-rotor 
+    description for a list of vibrational modes
     Sr = R(1/2 + 1/2ln((8pi^3u'kT/h^2))
     """
     # This is the average moment of inertia used by Grimme
@@ -1025,11 +1056,13 @@ def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor):
     entropy = [(0.5 + math.log(entry**0.5)) * GAS_CONSTANT for entry in factor]
     return entropy
 
+
 # A damping function to interpolate between RRHO and free rotor vibrational entropy values
 def calc_damp(frequency_wn, FREQ_CUTOFF):
     alpha = 4
     damp = [1 / (1+(FREQ_CUTOFF/entry)**alpha) for entry in frequency_wn]
     return damp
+
 
 # Calculate enantioselectivity based on boltzmann factors of given R and S enantiomers
 def get_ee(files,boltz_facs,boltz_sum,temperature,log):
@@ -1063,6 +1096,7 @@ def get_ee(files,boltz_facs,boltz_sum,temperature,log):
     if rxn_name == '': rxn_name = "Reaction"
     return rxn_name, ee, dd_free_energy
 
+
 # Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values, used for --ee and --boltz options
 def get_boltz(files,thermo_data,clustering,temperature):
     boltz_facs, weighted_free_energy, e_rel, e_min, boltz_sum = {}, {}, {}, sys.float_info.max, 0.0
@@ -1094,37 +1128,66 @@ def get_boltz(files,thermo_data,clustering,temperature):
 
     return boltz_facs, weighted_free_energy, boltz_sum
 
+
 def main():
     files = []; bbe_vals = []; command = '   Requested: '; clustering = False
     # get command line inputs. Use -h to list all possible arguments and default values
-    parser = OptionParser(usage="Usage: %prog [options] <input1>.log <input2>.log ...")
-    parser.add_option("-t", dest="temperature", action="store", help="temperature (K) (default 298.15)", default="298.15", type="float", metavar="TEMP")
-    parser.add_option("-q", dest="Q", action="store_true", help="Quasi-harmonic entropy correction and enthalpy correction applied (default S=Grimme, H=Head-Gordon)", default=False, metavar="Q")
-    parser.add_option("--qs", dest="QS", action="store", help="Type of quasi-harmonic entropy correction (Grimme or Truhlar) (default Grimme)", default="grimme", type="string", metavar="QS")
-    parser.add_option("--qh", dest="QH", action="store_true", help="Type of quasi-harmonic enthalpy correction (Head-Gordon)", default=False, metavar="QH")
-    parser.add_option("-f", dest="freq_cutoff", action="store", help="Cut-off frequency for both entropy and enthalpy (wavenumbers) (default = 100)", default = "100", type="float", metavar="FREQ_CUTOFF")
-    parser.add_option("--fs", dest="S_freq_cutoff", action="store", help="Cut-off frequency for entropy (wavenumbers) (default = 100)", default="100.0", type="float", metavar="S_FREQ_CUTOFF")
-    parser.add_option("--fh", dest="H_freq_cutoff", action="store", help="Cut-off frequency for enthalpy (wavenumbers) (default = 100)", default="100.0", type="float", metavar="H_FREQ_CUTOFF")
-    parser.add_option("-c", dest="conc", action="store", help="concentration (mol/l) (default 1 atm)", default=False, type="float", metavar="CONC")
-    parser.add_option("-v", dest="freq_scale_factor", action="store", help="Frequency scaling factor (default 1)", default=False, type="float", metavar="SCALE_FACTOR")
-    parser.add_option("--freespace", dest="freespace", action="store", help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)", default="none", type="string", metavar="FREESPACE")
-    parser.add_option("--spc", dest="spc", action="store", help="Indicates single point corrections (default False)", type="string", default=False, metavar="SPC")
-    parser.add_option("--boltz", dest="boltz", action="store_true", help="Show Boltzmann factors", default=False, metavar="BOLTZ")
-    parser.add_option("--cpu", dest="cputime", action="store_true", help="Total CPU time", default=False, metavar="CPU")
-    parser.add_option("--ti", dest="temperature_interval", action="store", help="initial temp, final temp, step size (K)", default=False, metavar="TI")
-    parser.add_option("--ci", dest="conc_interval", action="store", help="initial conc, final conc, step size (mol/l)", default=False, metavar="CI")
-    parser.add_option("--xyz", dest="xyz", action="store_true", help="Write Cartesians to an xyz file (default False)", default=False, metavar="XYZ")
-    parser.add_option("--imag", dest="imag_freq", action="store_true", help="Print imaginary frequencies (default False)", default=False, metavar="IMAG_FREQ")
-    parser.add_option("--cosmo", dest="cosmo", action="store", help="Filename of a COSMO-RS out file", default=False, metavar="COSMO-RS")
-    parser.add_option("--csv", dest="csv", action="store_true", help="Print CSV format", default=False, metavar="CSV")
-    parser.add_option("--output", dest="output", action="store", help="Change the default name of the output file to GoodVibes_\"output\".dat", default="output", metavar="OUTPUT")
-    parser.add_option("--pes", dest="pes", action="store", help="Tabulate relative values", default=False, metavar="PES")
-    parser.add_option("--gconf", dest="gconf", action="store_false", help="Calculate a free-energy correction related to multi-configurational space (default True)", default=True, metavar="GCONF")
-    parser.add_option("--ee", dest="ee", action="store_true", help="Tabulate % enantiomeric excess value of a mixture", default=False, metavar="EE")
-    parser.add_option("--check", dest="check", action="store_true", help="Check if calculations were done with the same program, level of theory and solvent,as well as detects potential duplicates. ", default=False, metavar="CHECK")
-    parser.add_option("--media", dest="media", action="store", help="Correction for standard concentration of solvents", default=False, metavar="MEDIA")
+    parser = ArgumentParser()
+    parser.add_argument("-t", dest="temperature", default=298.15, type=float, metavar="TEMP",
+                        help="temperature (K) (default 298.15)")
+    parser.add_argument("-q", dest="Q", action="store_true", default=False,
+                        help="Quasi-harmonic entropy correction and enthalpy correction applied (default S=Grimme, H=Head-Gordon)")
+    parser.add_argument("--qs", dest="QS", default="grimme", type=str, metavar="QS",choices=('grimme', 'truhlar'),
+                        help="Type of quasi-harmonic entropy correction (Grimme or Truhlar) (default Grimme)",)
+    parser.add_argument("--qh", dest="QH", action="store_true", default=False,
+                        help="Type of quasi-harmonic enthalpy correction (Head-Gordon)")
+    parser.add_argument("-f", dest="freq_cutoff", default=100, type=float, metavar="FREQ_CUTOFF",
+                        help="Cut-off frequency for both entropy and enthalpy (wavenumbers) (default = 100)",)
+    parser.add_argument("--fs", dest="S_freq_cutoff", default=100.0, type=float, metavar="S_FREQ_CUTOFF",
+                        help="Cut-off frequency for entropy (wavenumbers) (default = 100)")
+    parser.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
+                        help="Cut-off frequency for enthalpy (wavenumbers) (default = 100)")
+    parser.add_argument("-c", dest="conc", default=False, type=float, metavar="CONC",
+                        help="concentration (mol/l) (default 1 atm)")
+    parser.add_argument("-v", dest="freq_scale_factor", default=False, type=float, metavar="SCALE_FACTOR",
+                        help="concentration (mol/l) (default 1 atm)")
+    parser.add_argument("--freespace", dest="freespace", default="none", type=str, metavar="FREESPACE",
+                        help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)")
+    parser.add_argument("--spc", dest="spc", type=str, default=False, metavar="SPC",
+                        help="Indicates single point corrections (default False)")
+    parser.add_argument("--boltz", dest="boltz", action="store_true", default=False,
+                        help="Show Boltzmann factors")
+    parser.add_argument("--cpu", dest="cputime", action="store_true", default=False,
+                        help="Total CPU time")
+    parser.add_argument("--ti", dest="temperature_interval", default=False, metavar="TI",
+                        help="initial temp, final temp, step size (K)")
+    parser.add_argument("--ci", dest="conc_interval", default=False, metavar="CI",
+                        help="initial conc, final conc, step size (mol/l)")
+    parser.add_argument("--xyz", dest="xyz", action="store_true", default=False,
+                        help="Write Cartesians to an xyz file (default False)")
+    parser.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
+                        help="Print imaginary frequencies (default False)")
+    parser.add_argument("--cosmo", dest="cosmo", default=False, metavar="COSMO-RS",
+                        help="Filename of a COSMO-RS out file")
+    parser.add_argument("--csv", dest="csv", action="store_true", default=False,
+                        help="Write .csv output file format")
+    parser.add_argument("--output", dest="output", default="output", metavar="OUTPUT",
+                        help="Change the default name of the output file to GoodVibes_\"output\".dat")
+    parser.add_argument("--pes", dest="pes", default=False, metavar="PES",
+                        help="Tabulate relative values")
+    parser.add_argument("--gconf", dest="gconf", action="store_false", default=True,
+                        help="Calculate a free-energy correction related to multi-configurational space (default True)")
+    parser.add_argument("--ee", dest="ee", action="store_true", default=False,
+                        help="Tabulate % enantiomeric excess value of a mixture")
+    parser.add_argument("--check", dest="check", action="store_true", default=False,
+                        help="Checks if calculations were done with the same program, level of theory and solvent, as well as detects potential duplicates")
+    parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
+                        help="Correction for standard concentration of solvents")
+    parser.add_argument("--custom_ext", type=str, default='',
+                        help="List of additional file extensions to support, separated by commas (ie, '.qfi,.gaussian'). "
+                            "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
 
-    (options, args) = parser.parse_args()
+    (options, args) = parser.parse_known_args()
 
     # case insensitive
     options.QS = options.QS.lower()
@@ -1141,6 +1204,11 @@ def main():
     if options.xyz is True:
         xyz = XYZout("Goodvibes","xyz", "output")
 
+    if options.custom_ext or os.environ.get('GOODVIBES_CUSTOM_EXT', ''):
+        custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
+        for ext in custom_extensions:
+            SUPPORTED_EXTENSIONS.add(ext.strip())
+            
     # Start a log for the results
     log = Logger("Goodvibes", options.output, options.csv)
 
@@ -1148,20 +1216,20 @@ def main():
     total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
     add_days = 0
 
-    if len(sys.argv) > 1:
-        for elem in sys.argv[1:]:
+    if len(args) > 1:
+        for elem in args:
             if elem == 'clust:':
                 clustering = True; options.boltz = True
                 clusters = []; nclust = -1
 
     # Get the filenames from the command line prompt
-    if len(sys.argv) > 1:
-        for elem in sys.argv[1:]:
+    if len(args) > 1:
+        for elem in args:
             if clustering == True:
                 if elem == 'clust:':
                     clusters.append([]); nclust += 0
             try:
-                if os.path.splitext(elem)[1] in [".out", ".log"]:
+                if os.path.splitext(elem)[1] in SUPPORTED_EXTENSIONS:
                     for file in glob(elem):
                         if options.spc is False or options.spc is 'link':
                             files.append(file)
@@ -1281,7 +1349,8 @@ def main():
         sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
     for file in files: # loop over all specified output files and compute thermochemistry
-        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
         bbe_vals.append(bbe)
 
     fileList = [file for file in files]
@@ -1346,7 +1415,8 @@ def main():
                     xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
             linear_warning = []
             linear_warning.append(warning_linear.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -1495,7 +1565,8 @@ def main():
             charge_check = [sp_energy(file)[5] for file in files]
             multiplicity_check = []
             for file in files:
-                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                                                options.conc, options.freq_scale_factor, options.freespace, options.spc)
                 multiplicity_check.append(str(int(multiplicity_calc.mult)))
             if all_same(charge_check) != False and all_same(multiplicity_check) != False:
                 log.Write("\no  Using charge and multiplicity "+charge_check[0]+ " " + multiplicity_check[0] + " in all the calculations.")
@@ -1545,7 +1616,8 @@ def main():
                 linear_fails_cart.append(linear_fails.CARTESIANS)
                 linear_fails_atom.append(linear_fails.ATOMTYPES)
                 linear_fails_files.append(file)
-                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                                            options.conc, options.freq_scale_factor, options.freespace, options.spc)
                 frequency_list.append(frequency_get.frequency_wn)
             linear_fails_list.append(linear_fails_atom)
             linear_fails_list.append(linear_fails_cart)
@@ -1671,7 +1743,8 @@ def main():
                     charge_spc_check = [sp_energy(name)[5] for name in names_spc]
                     multiplicity_spc_check = []
                     for name in names_spc:
-                         multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                         multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                                                            options.conc, options.freq_scale_factor, options.freespace, options.spc)
                          multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                     if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                         log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
@@ -1739,7 +1812,8 @@ def main():
             log.Write("\n"+STARS)
             for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
                 temp, conc,linear_warning = float(i), ATMOS / GAS_CONSTANT / float(i),[]
-                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, conc, options.freq_scale_factor, options.freespace, options.spc)
+                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, 
+                                conc, options.freq_scale_factor, options.freespace, options.spc)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
                     log.Write("\nx  ")
