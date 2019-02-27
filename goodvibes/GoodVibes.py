@@ -50,9 +50,9 @@ from argparse import ArgumentParser
 
 # Importing regardless of relative import
 try: 
-    from .vib_scale_factors import scaling_data, scaling_refs
+    from .vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 except:
-    from vib_scale_factors import scaling_data, scaling_refs
+    from vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 
 # VERSION NUMBER
 __version__ = "3.0.0" 
@@ -335,6 +335,7 @@ class calc_bbe:
                 if freq < -1 * im_freq_cutoff:
                     self.im_freq.append(freq)
         self.frequency_wn = frequency_wn
+        self.im_frequency_wn = im_frequency_wn
         self.linear_warning = linear_warning
 
 
@@ -757,6 +758,39 @@ def sp_energy(file):
                     solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
                 else:
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+        #For empirical dispersion
+        empirical_dispersion = ''
+        if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp(') == -1:
+            empirical_dispersion = "No empirical dispersion detected"
+        elif keyword_line.strip().find('empiricaldispersion') > -1:
+            start_empirical_dispersion = keyword_line.strip().find('empiricaldispersion') + 20
+            if keyword_line[start_empirical_dispersion] == "(":
+                end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
+                empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+            else:
+                start_empirical_dispersion2 = keyword_line.strip().find('empiricaldispersion') + 19
+                end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                if keyword_line[start_empirical_dispersion2] == "(":
+                    empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion-1]
+                else:
+                    empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
+        elif keyword_line.strip().find('emp=') > -1:
+            start_empirical_dispersion = keyword_line.strip().find('emp=') + 4
+            if keyword_line[start_empirical_dispersion] == "(":
+                end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
+                empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+            else:
+                start_empirical_dispersion2 = keyword_line.strip().find('emp=') + 3
+                end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                if keyword_line[start_empirical_dispersion2] == "(":
+                    empirical_dispersion2 = "empiricaldispersion=(" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
+                else:
+                    empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
+        elif keyword_line.strip().find('emp(') > -1:
+            start_empirical_dispersion = keyword_line.strip().find('emp(') + 3
+            end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
+            empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+    
     if 'ORCA' in version_program.strip():
         keyword_line_1 = "gas phase"
         for i, line in enumerate(data):
@@ -767,8 +801,18 @@ def sp_energy(file):
             if "Solvent:              " in line.strip():
                 keyword_line_3 = line.strip().split()[-1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
+        empirical_dispersion1 = 'No empirical dispersion detected'
+        for i, line in enumerate(data):
+            if keyword_line.strip().find('DFT DISPERSION CORRECTION') == -1:
+                empirical_dispersion1 = ''
+            if keyword_line.strip().find('DFTD3') == -1:
+                empirical_dispersion2 = "D3"
+            if keyword_line.strip().find('USING zero damping') == -1:
+                empirical_dispersion3 = ' with zero damping'
+        empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
 
-    return spe, program, version_program, solvation_model, file, charge
+
+    return spe, program, version_program, solvation_model, file, charge, empirical_dispersion
 
 
 # Read single-point output for cpu time
@@ -856,7 +900,7 @@ def level_of_theory(file):
             except IndexError:
                 pass
         # remove the restricted R or unrestricted U label
-        if level[0] == 'R' or level[0] == 'U':
+        if level[0] in ('R', 'U'):
             level = level[1:]
   
     return '/'.join([level, bs])
@@ -1105,7 +1149,8 @@ def get_boltz(files,thermo_data,clustering,temperature):
         bbe = thermo_data[file]
         if hasattr(bbe,"qh_gibbs_free_energy"):
             if bbe.qh_gibbs_free_energy != None:
-                if bbe.qh_gibbs_free_energy < e_min: e_min = bbe.qh_gibbs_free_energy
+                if bbe.qh_gibbs_free_energy < e_min: 
+                    e_min = bbe.qh_gibbs_free_energy
                 
     if clustering == True:
         for n, cluster in enumerate(clusters):
@@ -1137,7 +1182,7 @@ def main():
                         help="temperature (K) (default 298.15)")
     parser.add_argument("-q", dest="Q", action="store_true", default=False,
                         help="Quasi-harmonic entropy correction and enthalpy correction applied (default S=Grimme, H=Head-Gordon)")
-    parser.add_argument("--qs", dest="QS", default="grimme", type=str, metavar="QS",choices=('grimme', 'truhlar'),
+    parser.add_argument("--qs", dest="QS", default="grimme", type=str.lower, metavar="QS",choices=('grimme', 'truhlar'),
                         help="Type of quasi-harmonic entropy correction (Grimme or Truhlar) (default Grimme)",)
     parser.add_argument("--qh", dest="QH", action="store_true", default=False,
                         help="Type of quasi-harmonic enthalpy correction (Head-Gordon)")
@@ -1150,7 +1195,7 @@ def main():
     parser.add_argument("-c", dest="conc", default=False, type=float, metavar="CONC",
                         help="concentration (mol/l) (default 1 atm)")
     parser.add_argument("-v", dest="freq_scale_factor", default=False, type=float, metavar="SCALE_FACTOR",
-                        help="concentration (mol/l) (default 1 atm)")
+                        help="Frequency scaling factor. If not set, try to find a suitable value in database. If not found, use 1.0")
     parser.add_argument("--freespace", dest="freespace", default="none", type=str, metavar="FREESPACE",
                         help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)")
     parser.add_argument("--spc", dest="spc", type=str, default=False, metavar="SPC",
@@ -1175,8 +1220,8 @@ def main():
                         help="Change the default name of the output file to GoodVibes_\"output\".dat")
     parser.add_argument("--pes", dest="pes", default=False, metavar="PES",
                         help="Tabulate relative values")
-    parser.add_argument("--gconf", dest="gconf", action="store_false", default=True,
-                        help="Calculate a free-energy correction related to multi-configurational space (default True)")
+    parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
+                        help="Calculate a free-energy correction related to multi-configurational space (default calculate Gconf)")
     parser.add_argument("--ee", dest="ee", action="store_true", default=False,
                         help="Tabulate % enantiomeric excess value of a mixture")
     parser.add_argument("--check", dest="check", action="store_true", default=False,
@@ -1187,12 +1232,10 @@ def main():
                         help="List of additional file extensions to support, separated by commas (ie, '.qfi,.gaussian'). "
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
 
+    # Parse Arguments
     (options, args) = parser.parse_known_args()
 
-    # case insensitive
-    options.QS = options.QS.lower()
-
-    #if requested, turn on head-gordon enthalpy correction
+    # If requested, turn on head-gordon enthalpy correction
     if options.Q:
         options.QH = True
     if options.QH:
@@ -1200,10 +1243,11 @@ def main():
     else:
         STARS = "   " + "*" * 128
 
-    # if necessary create an xyz file for Cartesians
-    if options.xyz is True:
+    # If necessary, create an xyz file for Cartesians
+    if options.xyz:
         xyz = XYZout("Goodvibes","xyz", "output")
-
+    
+    # If user has specified different file extensions
     if options.custom_ext or os.environ.get('GOODVIBES_CUSTOM_EXT', ''):
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
         for ext in custom_extensions:
@@ -1212,7 +1256,7 @@ def main():
     # Start a log for the results
     log = Logger("Goodvibes", options.output, options.csv)
 
-    # initialize the total CPU time
+    # Initialize the total CPU time
     total_cpu_time = datetime(100, 1, 1, 00, 00, 00, 00)
     add_days = 0
 
@@ -1223,128 +1267,131 @@ def main():
                 clusters = []; nclust = -1
 
     # Get the filenames from the command line prompt
-    if len(args) > 1:
-        for elem in args:
-            if clustering == True:
-                if elem == 'clust:':
-                    clusters.append([]); nclust += 0
-            try:
-                if os.path.splitext(elem)[1] in SUPPORTED_EXTENSIONS:
-                    for file in glob(elem):
-                        if options.spc is False or options.spc is 'link':
+    for elem in args:
+        if clustering == True:
+            if elem == 'clust:':
+                clusters.append([]); nclust += 0
+        try:
+            if os.path.splitext(elem)[1] in SUPPORTED_EXTENSIONS:
+                for file in glob(elem):
+                    if options.spc is False or options.spc is 'link':
+                        files.append(file)
+                        if clustering == True:
+                            clusters[nclust].append(file)
+                    else:
+                        if file.find('_'+options.spc+".") == -1:
                             files.append(file)
                             if clustering == True:
                                 clusters[nclust].append(file)
-                        else:
-                            if file.find('_'+options.spc+".") == -1:
-                                files.append(file)
-                                if clustering == True:
-                                    clusters[nclust].append(file)
-                elif elem != 'clust:':
-                    command += elem + ' '
-            except IndexError: 
-                pass
+            elif elem != 'clust:':
+                command += elem + ' '
+        except IndexError: 
+            pass
 
-        #after parsing arguments, check if user specified files along with arguments
-        if len(files) == 0:
-            sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
+    # After parsing arguments, check if user specified files along with arguments
+    if len(files) == 0:
+        sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
-        # Start printing results
-        start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
-        log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
-        if clustering ==True:
-            command += '(clustering active)'
-        log.Write(command+'\n\n')
-        if options.temperature_interval is False:
-            log.Write("   Temperature = "+str(options.temperature)+" Kelvin")
-        # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming Pressure is still 1 atm)
-        if options.conc != False:
-            log.Write("   Concentration = "+str(options.conc)+" mol/l")
+    # Start printing results
+    start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
+    log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
+    if clustering ==True:
+        command += '(clustering active)'
+    log.Write(command+'\n\n')
+    if options.temperature_interval is False:
+        log.Write("   Temperature = "+str(options.temperature)+" Kelvin")
+    # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming Pressure is still 1 atm)
+    if options.conc != False:
+        log.Write("   Concentration = "+str(options.conc)+" mol/l")
+    else:
+        options.conc = ATMOS/(GAS_CONSTANT*options.temperature); log.Write("   Pressure = 1 atm")
+
+    # Attempt to automatically obtain frequency scale factor
+    # Requires all outputs to be same level of theory
+    l_o_t = [level_of_theory(file) for file in files]
+    def all_same(items):
+        return all(x == items[0] for x in items)
+
+    if options.freq_scale_factor is not False:
+        log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
+    else:
+        filter_of_scaling_f = 0
+        if all_same(l_o_t) is True:
+            level = l_o_t[0].upper()
+            for data in (scaling_data_dict, scaling_data_dict_mod):
+                if level in data:
+                    options.freq_scale_factor = data[level].zpe_fac
+                    ref = scaling_refs[data[level].zpe_ref]
+                    log.Write("\n\n   Found vibrational scaling factor of {:.3f} for {} level of theory\n"
+                              "   REF: {}".format(options.freq_scale_factor, l_o_t[0], ref))
+                    break
+        elif all_same(l_o_t) is False:
+            files_l_o_t,levels_l_o_t,filtered_calcs_l_o_t = [],[],[]
+            for file in files:
+                files_l_o_t.append(file)
+            for i in l_o_t:
+                levels_l_o_t.append(i)
+            filtered_calcs_l_o_t.append(files_l_o_t)
+            filtered_calcs_l_o_t.append(levels_l_o_t)
+            l_o_t_freq_print = "Caution! Different levels of theory found - " + filtered_calcs_l_o_t[1][0] + " (" + filtered_calcs_l_o_t[0][0]
+            for i in range(len(filtered_calcs_l_o_t[1])):
+                if filtered_calcs_l_o_t[1][i] == filtered_calcs_l_o_t[1][0] and i != 0:
+                    l_o_t_freq_print += ", " + filtered_calcs_l_o_t[0][i]
+            l_o_t_freq_print += ")"
+            for i in range(len(filtered_calcs_l_o_t[1])):
+                if filtered_calcs_l_o_t[1][i] != filtered_calcs_l_o_t[1][0] and i != 0:
+                    l_o_t_freq_print += ", " + filtered_calcs_l_o_t[1][i] + " (" + filtered_calcs_l_o_t[0][i] + ")"
+                    filter_of_scaling_f = filter_of_scaling_f + 1
+            log.Write("\nx  " + l_o_t_freq_print)
+
+    if options.freq_scale_factor is False:
+        options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
+        if filter_of_scaling_f == 0:
+            log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory")
         else:
-            options.conc = ATMOS/(GAS_CONSTANT*options.temperature); log.Write("   Pressure = 1 atm")
+            log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + ": differing levels of theory detected.")
+    # checks to see whether the available free space of a requested solvent is defined
+    freespace = get_free_space(options.freespace)
+    if freespace != 1000.0:
+        log.Write("\n   Specified solvent "+options.freespace+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
 
-        # attempt to automatically obtain frequency scale factor. Requires all outputs to be same level of theory
-        l_o_t = [level_of_theory(file) for file in files]
-        def all_same(items):
-            return all(x == items[0] for x in items)
+    # read from COSMO-RS output
+    if options.cosmo is not False:
+        try:
+            cosmo_solv = COSMORSout(options.cosmo, files)
+            log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo+'.out')
+        except ValueError:
+            log.Write('\n\n   Warning! COSMO-RS file '+options.cosmo+'.out requested but not found')
+            cosmo_solv = None
 
-        if options.freq_scale_factor is not False:
-            log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
-        else:
-            filter_of_scaling_f = 0
-            if all_same(l_o_t) is True:
-                for scal in scaling_data: # search through database of scaling factors
-                    if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
-                        options.freq_scale_factor = scal['zpe_fac']
-                        ref = scaling_refs[scal['zpe_ref']]
-                        log.Write("\n   " + "Found vibrational scale factor " + str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
-            elif all_same(l_o_t) is False:
-                files_l_o_t,levels_l_o_t,filtered_calcs_l_o_t = [],[],[]
-                for file in files:
-                    files_l_o_t.append(file)
-                for i in l_o_t:
-                    levels_l_o_t.append(i)
-                filtered_calcs_l_o_t.append(files_l_o_t)
-                filtered_calcs_l_o_t.append(levels_l_o_t)
-                l_o_t_freq_print = "Caution! Different levels of theory found - " + filtered_calcs_l_o_t[1][0] + " (" + filtered_calcs_l_o_t[0][0]
-                for i in range(len(filtered_calcs_l_o_t[1])):
-                    if filtered_calcs_l_o_t[1][i] == filtered_calcs_l_o_t[1][0] and i != 0:
-                        l_o_t_freq_print += ", " + filtered_calcs_l_o_t[0][i]
-                l_o_t_freq_print += ")"
-                for i in range(len(filtered_calcs_l_o_t[1])):
-                    if filtered_calcs_l_o_t[1][i] != filtered_calcs_l_o_t[1][0] and i != 0:
-                        l_o_t_freq_print += ", " + filtered_calcs_l_o_t[1][i] + " (" + filtered_calcs_l_o_t[0][i] + ")"
-                        filter_of_scaling_f = filter_of_scaling_f + 1
-                log.Write("\nx  " + l_o_t_freq_print)
+    if options.freq_cutoff != 100.0:
+        options.S_freq_cutoff = options.freq_cutoff
+        options.H_freq_cutoff = options.freq_cutoff
 
-        if options.freq_scale_factor is False:
-            options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
-            if filter_of_scaling_f == 0:
-                log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory")
-            else:
-                log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + ": differing levels of theory detected.")
-        # checks to see whether the available free space of a requested solvent is defined
-        freespace = get_free_space(options.freespace)
-        if freespace != 1000.0:
-            log.Write("\n   Specified solvent "+options.freespace+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
+    # Summary of the quasi-harmonic treatment; print out the relevant reference
+    log.Write("\n\n   Entropic quasi-harmonic treatment: frequency cut-off value of "+str(options.S_freq_cutoff)+" wavenumbers will be applied.")
+    if options.QS == "grimme":
+        log.Write("\n   QS = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies."); qs_ref = grimme_ref
+    elif options.QS == "truhlar":
+        log.Write("\n   QS = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value."); qs_ref = truhlar_ref
+    else:
+        log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+options.QS+" specified (QS must = grimme or truhlar).")
+    log.Write("\n   REF: " + qs_ref)
 
-        # read from COSMO-RS output
-        if options.cosmo is not False:
-            try:
-                cosmo_solv = COSMORSout(options.cosmo, files)
-                log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo+'.out')
-            except ValueError:
-                log.Write('\n\n   Warning! COSMO-RS file '+options.cosmo+'.out requested but not found')
-                cosmo_solv = None
+    # Check if qh correction should be applied
+    if options.QH:
+        log.Write("\n\n   Enthalpy quasi-harmonic treatment: frequency cut-off value of "+str(options.H_freq_cutoff)+" wavenumbers will be applied.")
+        log.Write("\n   QH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy.")
+        qh_ref = head_gordon_ref
+        log.Write("\n   REF: " + qh_ref)
+    else:
+        log.Write("\n\n   No quasi-harmonic enthalpy correction will be applied.")
 
-        if options.freq_cutoff != 100.0:
-            options.S_freq_cutoff = options.freq_cutoff
-            options.H_freq_cutoff = options.freq_cutoff
+    # Whether linked single-point energies are to be used
+    if options.spc is "True":
+        log.Write("\n   Link job: combining final single point energy with thermal corrections.")
 
-        # summary of the quasi-harmonic treatment; print out the relevant reference
-        log.Write("\n\n   Entropic quasi-harmonic treatment: frequency cut-off value of "+str(options.S_freq_cutoff)+" wavenumbers will be applied.")
-        if options.QS == "grimme":
-            log.Write("\n   QS = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies."); qs_ref = grimme_ref
-        elif options.QS == "truhlar":
-            log.Write("\n   QS = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value."); qs_ref = truhlar_ref
-        else:
-            log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+options.QS+" specified (QS must = grimme or truhlar).")
-        log.Write("\n   REF: " + qs_ref)
-
-        #check if qh correction should be applied
-        if options.QH:
-            log.Write("\n\n   Enthalpy quasi-harmonic treatment: frequency cut-off value of "+str(options.H_freq_cutoff)+" wavenumbers will be applied.")
-            log.Write("\n   QH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy.")
-            qh_ref = head_gordon_ref
-            log.Write("\n   REF: " + qh_ref)
-        else:
-            log.Write("\n\n   No quasi-harmonic enthalpy correction will be applied.")
-
-        # whether linked single-point energies are to be used
-        if options.spc is "True":
-            log.Write("\n   Link job: combining final single point energy with thermal corrections.")
-
-    #check if user has specified any files, if not quit now
+    # Check if user has specified any files, if not quit now
     if len(files) == 0:
         sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
@@ -1393,7 +1440,7 @@ def main():
             boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files,thermo_data,clustering,options.temperature)
 
         ZPE_duplic, entropy_duplic, qh_entropy_duplic = [], [], []
-        for file in files: # loop over the output files and compute thermochemistry
+        for file in files: # Loop over the output files and compute thermochemistry
             bbe = thermo_data[file]
 
             if options.cputime != False: # Add up CPU times
@@ -1406,7 +1453,7 @@ def main():
             if total_cpu_time.month > 1:
                 add_days += 31
 
-            if options.xyz is True: # write Cartesians
+            if options.xyz: # Write Cartesians
                 xyzdata = getoutData(file)
                 xyz.Writetext(str(len(xyzdata.ATOMTYPES)))
                 if hasattr(bbe, "scf_energy"):
@@ -1422,6 +1469,10 @@ def main():
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
                 log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 log.Write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
+                if options.check != False:
+                    ZPE_duplic.append(0.0)
+                    entropy_duplic.append(0.0)
+                    qh_entropy_duplic.append(0.0)
             else:
                 if hasattr(bbe, "gibbs_free_energy"):
                     log.Write("\no  ")
@@ -1438,6 +1489,11 @@ def main():
                     log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
                 if not hasattr(bbe,"gibbs_free_energy"):
                     log.Write("   Warning! Couldn't find frequency information ...")
+                    if options.check != False:
+                        ZPE_duplic.append(0.0)
+                        entropy_duplic.append(0.0)
+                        qh_entropy_duplic.append(0.0)
+
                 else:
                     if options.media == False:
                         if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
@@ -1517,8 +1573,8 @@ def main():
                 version_check_print += ")"
                 for i in range(len(version_check)):
                     if version_check[i] != version_check[0] and i != 0:
-                        version_check_print += "," + version_check[i] + " (" + file_version[i] + ")"
-                log.Write("\nx  " + version_check_print)
+                        version_check_print += ", " + version_check[i] + " (" + file_version[i] + ")"
+                log.Write("\nx  " + version_check_print + ".")
             solvent_check = [sp_energy(file)[3] for file in files]
             if all_same(solvent_check) != False:
                 log.Write("\no  Using "+solvent_check[0]+" in all the calculations.")
@@ -1549,7 +1605,9 @@ def main():
                             break
                 for i in range(len(solvent_different)):
                     solvent_check_print += ", " + solvent_different[i] + " (" + file_different[i] + ")"
-                log.Write("\nx  " + solvent_check_print)
+                log.Write("\nx  " + solvent_check_print + '.')
+            
+            # Check level of theory
             if all_same(l_o_t) is not False:
                 log.Write("\no  Using "+l_o_t[0]+" in all the calculations.")
             elif all_same(l_o_t) is False:
@@ -1561,7 +1619,9 @@ def main():
                 for i in range(len(l_o_t)):
                     if l_o_t[i] != l_o_t[0] and i != 0:
                         l_o_t_print += ", " + l_o_t[i] + " (" + file_version[i] + ")"
-                log.Write("\nx  " + l_o_t_print)
+                log.Write("\nx  " + l_o_t_print + '.')
+            
+            # Check charge and multiplicity 
             charge_check = [sp_energy(file)[5] for file in files]
             multiplicity_check = []
             for file in files:
@@ -1579,7 +1639,9 @@ def main():
                 for i in range(len(charge_check)):
                     if charge_check[i] != charge_check[0] or multiplicity_check[i] != multiplicity_check[0] and i != 0:
                         charge_check_print += ", " + charge_check[i] + " " + multiplicity_check[i] + " (" + file_version[i] + ")"
-                log.Write("\nx  " + charge_check_print)
+                log.Write("\nx  " + charge_check_print+ '.')
+            
+            # Check for duplicate structures
             energy_duplic,files_duplic = [],[]
             for file in files:
                 energy_duplic.append(sp_energy(file)[0])
@@ -1592,25 +1654,24 @@ def main():
             info_duplic.append(files_duplic)
             #Add thermodynamic FILTERS
             duplicates = "Caution! Potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S) - "
-            try:
-                for i in range(len(files)):
-                    for j in range(len(files)):
-                        if j > i:
-                            if info_duplic[0][i] > info_duplic[0][j]-0.00016 and info_duplic[0][i] < info_duplic[0][j]+0.00016:
-                                if info_duplic[1][i] > info_duplic[1][j]-0.00016 and info_duplic[1][i] < info_duplic[1][j]+0.00016:
-                                    if info_duplic[2][i] > info_duplic[2][j]-0.00016 and info_duplic[2][i] < info_duplic[2][j]+0.00016:
-                                        if info_duplic[3][i] > info_duplic[3][j]-0.00016 and info_duplic[3][i] < info_duplic[3][j]+0.00016:
-                                            duplicates += ", " + info_duplic[4][i] + " and " + info_duplic[4][j]
-            except IndexError:
-                log.Write("\nx  Caution! Some E, ZPE, T.S or qh_T.S could not be obtained to analyze duplicated structures.")
+            for i in range(len(files)):
+                for j in range(len(files)):
+                    if j > i:
+                        if info_duplic[0][i] > info_duplic[0][j]-0.00016 and info_duplic[0][i] < info_duplic[0][j]+0.00016:
+                            if info_duplic[1][i] > info_duplic[1][j]-0.00016 and info_duplic[1][i] < info_duplic[1][j]+0.00016:
+                                if info_duplic[2][i] > info_duplic[2][j]-0.00016 and info_duplic[2][i] < info_duplic[2][j]+0.00016:
+                                    if info_duplic[3][i] > info_duplic[3][j]-0.00016 and info_duplic[3][i] < info_duplic[3][j]+0.00016:
+                                        duplicates += ", " + info_duplic[4][i] + " and " + info_duplic[4][j]
             if duplicates == "Caution! Potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S) - ":
                 log.Write("\no  No potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S).")
             else:
                 duplicates1 = duplicates[:102]
                 duplicates2 = duplicates[104:]
-                log.Write("\nx  " + duplicates1 + duplicates2)
+                log.Write("\nx  " + duplicates1 + duplicates2 + '.')
+                
+            # Check for linear molecules with incorrect number of vibrational modes
             linear_fails,linear_fails_atom,linear_fails_cart,linear_fails_files,linear_fails_list = [],[],[],[],[]
-            frequency_list, frequency_get= [],[]
+            frequency_list, im_frequency_list, frequency_get= [],[],[]
             for file in files:
                 linear_fails = getoutData(file)
                 linear_fails_cart.append(linear_fails.CARTESIANS)
@@ -1619,10 +1680,15 @@ def main():
                 frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
                                             options.conc, options.freq_scale_factor, options.freespace, options.spc)
                 frequency_list.append(frequency_get.frequency_wn)
+                im_frequency_list.append(frequency_get.im_frequency_wn)
             linear_fails_list.append(linear_fails_atom)
             linear_fails_list.append(linear_fails_cart)
             linear_fails_list.append(frequency_list)
             linear_fails_list.append(linear_fails_files)
+            im_freq_separated = []
+            im_freq_separated.append(im_frequency_list)
+            im_freq_separated.append(linear_fails_files)
+
             linear_mol_correct,linear_mol_wrong = [],[]
             for i in range(len(linear_fails_list[0])):
                 count_linear = 0
@@ -1665,24 +1731,74 @@ def main():
             linear_wrong_print = linear_wrong_print[1:]
             if len(linear_mol_correct) == 0:
                 if len(linear_mol_wrong) == 0:
-                    log.Write("\no  No linear molecules found.")
+                    log.Write("\n-  No linear molecules found.")
                 if len(linear_mol_wrong) >= 1:
-                    log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found (correct number = 3N-5) -"+linear_wrong_print)
+                    log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found (correct number = 3N-5) -"
+                                + linear_wrong_print + ".")
             elif len(linear_mol_correct) >= 1:
                 if len(linear_mol_wrong) == 0:
-                    log.Write("\no  All the linear molecules have the correct number of frequencies -"+linear_correct_print)
+                    log.Write("\no  All the linear molecules have the correct number of frequencies -" + linear_correct_print + '.')
                 if len(linear_mol_wrong) >= 1:
-                    log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -"+linear_wrong_print+". Correct number of frequencies (3N-5) found in other calculations -"+linear_correct_print)
+                    log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -" + linear_wrong_print 
+                                + ". Correct number of frequencies (3N-5) found in other calculations -" + linear_correct_print + '.')
+            # Check for false TS
+            false_TS_list,right_TS_list = [],[]
+            for i in range(len(im_freq_separated[0])):
+                TS_neg_freq, TS_false_freq = 0,0
+                if im_freq_separated[1][i].strip().startswith('TS-') or im_freq_separated[1][i].strip().startswith('TS_'):
+                    for j in range(len(im_freq_separated[0][i])):
+                        if im_freq_separated[0][i][j] < -50.0:
+                                TS_neg_freq = TS_neg_freq + 1
+                                if TS_neg_freq == 2 and im_freq_separated[1][i] not in false_TS_list:
+                                    false_TS_list.append(im_freq_separated[1][i])
+                        if im_freq_separated[0][i][j] > -50.0 and im_freq_separated[0][i][j] < -1:
+                            TS_false_freq = TS_false_freq + 1
+                            if TS_false_freq == 1 and im_freq_separated[1][i] not in false_TS_list:
+                                false_TS_list.append(im_freq_separated[1][i])
+                    if TS_neg_freq != 1 and im_freq_separated[1][i] not in false_TS_list:
+                        false_TS_list.append(im_freq_separated[1][i])
+                    if TS_neg_freq == 1 and TS_false_freq == 0 and im_freq_separated[1][i] not in false_TS_list:
+                        right_TS_list.append(im_freq_separated[1][i])
+            false_TS_print = ""
+            for i in false_TS_list:
+                false_TS_print += ", " + i
+            if len(false_TS_print) == 0 and len(right_TS_list) == 0:
+                log.Write("\n-  No transition states found (Warning! If you have any TS, rename the files to start with \"TS-\" or \"TS_\").")
+            if len(right_TS_list) > 0 and len(false_TS_print) == 0:
+                log.Write("\no  All the transition states have only 1 imaginary frequency lower than -50 cm-1.")
+            if len(false_TS_print) != 0:
+                log.Write("\nx  Caution! Potential transition states with wrong number of negative frequencies found -"+ false_TS_print[1:] + ".")
+
+            #Check for empirical dispersion
+            dispersion_check = [sp_energy(file)[6] for file in files]
+            if all_same(dispersion_check) != False:
+                log.Write("\no  Using "+dispersion_check[0]+" in all the calculations.")
+            else:
+                dispersion_check_print = "Caution! Different dispersion models found - " + dispersion_check[0] + " (" + file_version[0]
+                for i in range(len(dispersion_check)):
+                    if dispersion_check[i] == dispersion_check[0] and i != 0:
+                        dispersion_check_print += ", " + file_version[i]
+                dispersion_check_print += ")"
+                for i in range(len(dispersion_check)):
+                    if dispersion_check[i] != dispersion_check[0] and i != 0:
+                        dispersion_check_print += ", " + dispersion_check[i] + " (" + file_version[i] + ")"
+                log.Write("\nx  " + dispersion_check_print + ".")
+
             log.Write("\n"+STARS+"\n")
-            #Checks for single-point corrections
+            
+            #Check for single-point corrections
             if options.spc is not False:
                 log.Write("\n\n   Checks for single-point corrections:")
                 log.Write("\n"+STARS+"\n")
                 names_spc, version_check_spc = [], []
                 for file in files:
-                    if file.find('_'+options.spc+".") == -1:
-                        name, ext = os.path.splitext(file)
-                        names_spc.append(name+'_'+options.spc+".out") # fix this when you fix the problem with extensions in the --spc option
+                    name, ext = os.path.splitext(file)
+                    if os.path.exists(name+'_'+options.spc+'.log'):
+                        names_spc.append(name+'_'+options.spc+'.log')
+                    elif os.path.exists(name+'_'+options.spc+'.out'):
+                        names_spc.append(name+'_'+options.spc+'.out')
+                        
+                    # Check program versions
                     version_check_spc = [sp_energy(name)[2] for name in names_spc]
                     if all_same(version_check_spc) != False:
                         log.Write("\no  Using "+version_check_spc[0]+" in all the single-point corrections.")
@@ -1694,8 +1810,8 @@ def main():
                         version_check_spc_print += ")"
                         for i in range(len(version_check_spc)):
                             if version_check_spc[i] != version_check_spc[0] and i != 0:
-                                version_check_spc_print += "," + version_check_spc[i] + " (" + names_spc[i] + ")"
-                        log.Write("\nx  " + version_check_spc_print)
+                                version_check_spc_print += ", " + version_check_spc[i] + " (" + names_spc[i] + ")"
+                        log.Write("\nx  " + version_check_spc_print + ".")
                     solvent_check_spc = [sp_energy(name)[3] for name in names_spc]
                     if all_same(solvent_check_spc) != False:
                         log.Write("\no  Using "+solvent_check_spc[0]+" in all the single-point corrections.")
@@ -1726,7 +1842,7 @@ def main():
                                     break
                         for i in range(len(solvent_different_spc)):
                             solvent_check_spc_print += ", " + solvent_different_spc[i] + " (" + file_different_spc[i] + ")"
-                        log.Write("\nx  " + solvent_check_spc_print)
+                        log.Write("\nx  " + solvent_check_spc_print + '.')
                     l_o_t_spc = [level_of_theory(name) for name in names_spc]
                     if all_same(l_o_t_spc) != False:
                         log.Write("\no  Using "+l_o_t_spc[0]+" in all the single-point corrections.")
@@ -1739,7 +1855,7 @@ def main():
                         for i in range(len(l_o_t_spc)):
                             if l_o_t_spc[i] != l_o_t_spc[0] and i != 0:
                                 l_o_t_spc_print += ", " + l_o_t_spc[i] + " (" + names_spc[i] + ")"
-                        log.Write("\nx  " + l_o_t_spc_print)
+                        log.Write("\nx  " + l_o_t_spc_print + '.')
                     charge_spc_check = [sp_energy(name)[5] for name in names_spc]
                     multiplicity_spc_check = []
                     for name in names_spc:
@@ -1757,7 +1873,7 @@ def main():
                         for i in range(len(charge_spc_check)):
                             if charge_spc_check[i] != charge_spc_check[0] or multiplicity_spc_check[i] != multiplicity_spc_check[0] and i != 0:
                                 charge_spc_check_print += ", " + charge_spc_check[i] + " " + multiplicity_spc_check[i] + " (" + names_spc[i] + ")"
-                        log.Write("\nx  " + charge_spc_check_print)
+                        log.Write("\nx  " + charge_spc_check_print + '.')
                     #Check if the geometries of freq calculations match their corresponding structures in single-point calculations
                     geom_duplic_list,geom_duplic_list_spc,geom_duplic_cart,geom_duplic_files,geom_duplic_cart_spc,geom_duplic_files_spc = [],[],[],[],[],[]
                     for file in files:
@@ -1785,10 +1901,26 @@ def main():
                     else:
                         spc_mismatching_1 = spc_mismatching[:84]
                         spc_mismatching_2 = spc_mismatching[85:]
-                        log.Write("\nx  " + spc_mismatching_1 + spc_mismatching_2)
+                        log.Write("\nx  " + spc_mismatching_1 + spc_mismatching_2 + '.')
+                        
+                    # Check for dispersion
+                    dispersion_check_spc = [sp_energy(name)[6] for name in names_spc]
+                    if all_same(dispersion_check_spc) != False:
+                        log.Write("\no  Using "+dispersion_check_spc[0]+" in all the calculations.")
+                    else:
+                      dispersion_check_spc_print = "Caution! Different dispersion models found - " + dispersion_check_spc[0] + " (" + names_spc[0]
+                      for i in range(len(dispersion_check_spc)):
+                         if dispersion_check_spc[i] == dispersion_check_spc[0] and i != 0:
+                            dispersion_check_spc_print += ", " + names_spc[i]
+                      dispersion_check_spc_print += ")"
+                      for i in range(len(dispersion_check_spc)):
+                         if dispersion_check_spc[i] != dispersion_check_spc[0] and i != 0:
+                            dispersion_check_spc_print += ", " + dispersion_check_spc[i] + " (" + names_spc[i] + ")"
+                      log.Write("\nx  " + dispersion_check_spc_print + ".")
+
                     log.Write("\n"+STARS+"\n")
 
-    #Running a variable temperature analysis of the enthalpy, entropy and the free energy
+    # Running a variable temperature analysis of the enthalpy, entropy and the free energy
     elif options.temperature_interval != False:
         temperature_interval = [float(temp) for temp in options.temperature_interval.split(',')]
         # If no temperature step was defined, divide the region into 10
@@ -1870,14 +2002,14 @@ def main():
                                         qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
             log.Write("\n"+STARS+"\n")
 
-    #print CPU usage if requested
+    # Print CPU usage if requested
     if options.cputime != False:
         log.Write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} {:>4}\n'.format('TOTAL CPU', total_cpu_time.day + add_days - 1, 'days', total_cpu_time.hour, 'hrs', total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
 
-    # tabulate relative values
+    # Tabulate relative values
     if options.pes != False:
         PES = get_pes(options.pes, thermo_data, log, options)
-        # output the relative energy data
+        # Output the relative energy data
         if options.QH:
             zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, PES.qh_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
         else:
@@ -1968,7 +2100,7 @@ def main():
         
     # Close the log
     log.Finalize()
-    if options.xyz is True:
+    if options.xyz:
         xyz.Finalize()
 
 if __name__ == "__main__":

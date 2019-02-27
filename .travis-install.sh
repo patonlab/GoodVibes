@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [[$TRAVIS_OS_NAME == 'osx' ]]; then
+if [[$TRAVIS_OS_NAME == 'osx']]; then
     brew update
     brew install pyenv-virtualenv
     case "${TOXENV}" in
