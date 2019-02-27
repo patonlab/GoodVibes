@@ -87,9 +87,9 @@ periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na",
     "Rg", "Uub", "Uut", "Uuq", "Uup", "Uuh", "Uus", "Uuo"]
     
 def elementID(massno):
-    if massno < len(periodictable): 
+    try:
         return periodictable[massno]
-    else:
+    except IndexError:
         return "XX"
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
@@ -162,11 +162,11 @@ class calc_bbe:
         #count number of links
         for line in g_output:
             # only read first link + freq not other link jobs
-            if line.find("Normal termination") != -1:
+            if "Normal termination" in line:
                 linkmax += 1
             else: 
                 frequency_wn = []
-            if line.find('Frequencies --') != -1:
+            if 'Frequencies --' in line:
                 freqloc = linkmax
 
         # Iterate over output
@@ -174,7 +174,7 @@ class calc_bbe:
             freqloc = len(g_output)
         for line in g_output:
             # link counter
-            if line.find("Normal termination")!= -1:
+            if "Normal termination" in line:
                 link += 1
                 # reset frequencies if in final freq link
                 if link == freqloc: frequency_wn = []
@@ -200,18 +200,18 @@ class calc_bbe:
             if line.strip().startswith('Counterpoise corrected energy'):
                 self.scf_energy = float(line.strip().split()[4])
             # For MP2 calculations replace with EUMP2
-            if line.strip().find('EUMP2 =') > -1:
+            if 'EUMP2 =' in line.strip():
                 self.scf_energy = float((line.strip().split()[5]).replace('D', 'E'))
             # For ONIOM calculations use the extrapolated value rather than SCF value
-            if line.strip().find("ONIOM: extrapolated energy") > -1:
+            if "ONIOM: extrapolated energy" in line.strip():
                 self.scf_energy = (float(line.strip().split()[4]))
             # For Semi-empirical or Molecular Mechanics calculations
-            if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1:
+            if "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
                 self.scf_energy = (float(line.strip().split()[1]))
             # look for thermal corrections, paying attention to point group symmetry
             if line.strip().startswith('Zero-point correction='):
                 self.zero_point_corr = float(line.strip().split()[2])
-            if line.strip().find('Multiplicity') > -1:
+            if 'Multiplicity' in line.strip():
                 try:
                     mult = float(line.split('=')[-1].strip().split()[0])
                 except:
@@ -235,7 +235,7 @@ class calc_bbe:
                     if line.strip().find('********'):
                         linear_warning = ["Warning! Potential invalid calculation of linear molecule from Gaussian."]
                         rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
-            if line.strip().find("Job cpu time") > -1:
+            if "Job cpu time" in line.strip():
                 days = int(line.split()[3]) + self.cpu[0]
                 hours = int(line.split()[5]) + self.cpu[1]
                 mins = int(line.split()[7]) + self.cpu[2]
@@ -614,20 +614,20 @@ class getoutData:
         program = 'none'
 
         for line in data:
-           if line.find("Gaussian") > -1: 
+           if "Gaussian" in line:
                program = "Gaussian"
                break
-           if line.find("* O   R   C   A *") > -1:
+           if "* O   R   C   A *" in line:
                program = "Orca"
                break
 
         def getATOMTYPES(self, outlines, program):
             if program == "Gaussian":
                 for i, line in enumerate(outlines):
-                    if line.find("Input orientation") >-1 or line.find("Standard orientation") > -1:
+                    if "Input orientation" in line or "Standard orientation" in line:
                         self.ATOMTYPES, self.CARTESIANS, self.ATOMICTYPES, carts = [], [], [], outlines[i+5:]
                         for j, line in enumerate(carts):
-                            if line.find("-------") > -1:
+                            if "-------" in line :
                                 break
                             self.ATOMTYPES.append(elementID(int(line.split()[1])))
                             self.ATOMICTYPES.append(int(line.split()[2]))
@@ -637,10 +637,10 @@ class getoutData:
                                 self.CARTESIANS.append([float(line.split()[2]),float(line.split()[3]),float(line.split()[4])])
             if program == "Orca":
                 for i, line in enumerate(outlines):
-                    if line.find("*") >-1 and line.find(">") >-1 and line.find("xyz") >-1:
+                    if "*" in line and ">" in line and "xyz" in line:
                         self.ATOMTYPES, self.CARTESIANS, carts = [], [], outlines[i+1:]
                         for j, line in enumerate(carts):
-                            if line.find(">") > -1 and line.find("*") > -1:
+                            if ">" in line and "*" in line:
                                 break
                             if len(line.split()) > 5:
                                 self.CARTESIANS.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
@@ -683,10 +683,10 @@ def sp_energy(file):
         raise ValueError("File {} does not exist".format(file))
 
     for line in data:
-        if line.find("Gaussian") > -1:
+        if "Gaussian" in line:
             program = "Gaussian"
             break
-        if line.find("* O   R   C   A *") > -1:
+        if "* O   R   C   A *" in line:
             program = "Orca"
             break
 
@@ -697,34 +697,35 @@ def sp_energy(file):
             if line.strip().startswith('Counterpoise corrected energy'):
                 spe = float(line.strip().split()[4])
             # For MP2 calculations replace with EUMP2
-            if line.strip().find('EUMP2 =') > -1:
+            if 'EUMP2 =' in line.strip():
                 spe = float((line.strip().split()[5]).replace('D', 'E'))
             # For ONIOM calculations use the extrapolated value rather than SCF value
-            if line.strip().find("ONIOM: extrapolated energy") > -1:
+            if "ONIOM: extrapolated energy" in line.strip():
                 spe = (float(line.strip().split()[4]))
             # For Semi-empirical or Molecular Mechanics calculations
-            if line.strip().find("Energy= ") > -1 and line.strip().find("Predicted")==-1 and line.strip().find("Thermal")==-1:
+            if "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
                 spe = (float(line.strip().split()[1]))
-            if line.find("Gaussian") > -1 and line.find("Revision") > -1:
+            if "Gaussian" in line and "Revision" in line:
                 for i in range(len(line.strip(",").split(","))-1):
                     line.strip(",").split(",")[i]
                     version_program += line.strip(",").split(",")[i]
                 version_program = version_program[1:]
-            if line.strip().find("Charge") > -1 and line.strip().find("Multiplicity") > -1:
+            if "Charge" in line.strip() and "Multiplicity" in line.strip():
                 charge = line.strip("=").split()[2]
         if program == "Orca":
-            if line.strip().startswith('FINAL SINGLE POINT ENERGY'): spe = float(line.strip().split()[4])
-            if line.strip().find('Program Version') > -1:
+            if line.strip().startswith('FINAL SINGLE POINT ENERGY'): 
+                spe = float(line.strip().split()[4])
+            if 'Program Version' in line.strip():
                 version_program = "ORCA version " + line.split()[2]
-            if line.strip().find("Total Charge") > -1 and line.strip().find("....") > -1:
+            if "Total Charge" in line.strip() and "...." in line.strip():
                 charge = line.strip("=").split()[-1]
 
     # Solvation model detection
-    if version_program.strip().find('Gaussian') > -1:
+    if 'Gaussian' in version_program.strip():
         for i, line in enumerate(data):
-            if line.strip().find('#') > -1 and a == 0:
+            if '#' in line.strip() and a == 0:
                 for j, line in enumerate(data[i:i+10]):
-                    if line.strip().find('--') > -1:
+                    if '--' in line.strip():
                         a = a + 1
                         break
                     if a != 0: 
@@ -734,9 +735,9 @@ def sp_energy(file):
                             line.strip().split("\n")[k]
                             keyword_line += line.strip().split("\n")[k]
         keyword_line = keyword_line.lower()
-        if keyword_line.strip().find('scrf') == -1:
+        if 'scrf' not in keyword_line.strip():
             solvation_model = "gas phase"
-        if keyword_line.strip().find('scrf') > -1:
+        else:
             start_scrf = keyword_line.strip().find('scrf') + 5
             if keyword_line[start_scrf] == "(":
                 end_scrf = keyword_line.find(")",start_scrf)
@@ -748,14 +749,14 @@ def sp_energy(file):
                     solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
                 else:
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
-    if version_program.strip().find('ORCA') > -1:
+    if 'ORCA' in version_program.strip():
         keyword_line_1 = "gas phase"
         for i, line in enumerate(data):
-            if line.strip().find('CPCM SOLVATION MODEL') > -1:
+            if 'CPCM SOLVATION MODEL' in line.strip():
                 keyword_line_1 = "CPCM,"
-            if line.strip().find('SMD CDS free energy correction energy') > -1:
+            if 'SMD CDS free energy correction energy' in line.strip():
                 keyword_line_2 = "SMD,"
-            if line.strip().find("Solvent:              ") > -1:
+            if "Solvent:              " in line.strip():
                 keyword_line_3 = line.strip().split()[-1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
 
@@ -815,31 +816,31 @@ def level_of_theory(file):
         if line.strip().find('External calculation') > -1:
             level, bs = 'ext', 'ext'
             break
-        if line.strip().find('\\Freq\\') > -1:
+        if '\\Freq\\' in line.strip():
             try:
                 level, bs = (line.strip().split("\\")[4:6])
             except IndexError:
                 pass
-        elif line.strip().find('|Freq|') > -1:
+        elif '|Freq|' in line.strip():
             try:
                 level, bs = (line.strip().split("|")[4:6])
             except IndexError:
                 pass
-        if line.strip().find('\\SP\\') > -1:
+        if '\\SP\\' in line.strip():
             try:
                 level, bs = (line.strip().split("\\")[4:6])
             except IndexError:
                 pass
-        elif line.strip().find('|SP|') > -1:
+        elif '|SP|' in line.strip():
             try:
                 level, bs = (line.strip().split("|")[4:6])
             except IndexError:
                 pass
     
     for line in data:
-        if line.strip().find('DLPNO BASED TRIPLES CORRECTION') > -1:
+        if 'DLPNO BASED TRIPLES CORRECTION' in line.strip():
             level = 'DLPNO-CCSD(T)'
-        if line.strip().find('Estimated CBS total energy') > -1:
+        if 'Estimated CBS total energy' in line.strip():
             try:
                 bs = ("Extrapol."+line.strip().split()[4])
             except IndexError:
@@ -1137,7 +1138,7 @@ def main():
         STARS = "   " + "*" * 128
 
     # if necessary create an xyz file for Cartesians
-    if options.xyz == True:
+    if options.xyz is True:
         xyz = XYZout("Goodvibes","xyz", "output")
 
     # Start a log for the results
@@ -1162,7 +1163,7 @@ def main():
             try:
                 if os.path.splitext(elem)[1] in [".out", ".log"]:
                     for file in glob(elem):
-                        if options.spc == False or options.spc == 'link':
+                        if options.spc is False or options.spc is 'link':
                             files.append(file)
                             if clustering == True:
                                 clusters[nclust].append(file)
@@ -1186,7 +1187,7 @@ def main():
         if clustering ==True:
             command += '(clustering active)'
         log.Write(command+'\n\n')
-        if options.temperature_interval == False:
+        if options.temperature_interval is False:
             log.Write("   Temperature = "+str(options.temperature)+" Kelvin")
         # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming Pressure is still 1 atm)
         if options.conc != False:
@@ -1199,17 +1200,17 @@ def main():
         def all_same(items):
             return all(x == items[0] for x in items)
 
-        if options.freq_scale_factor != False:
+        if options.freq_scale_factor is not False:
             log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
         else:
             filter_of_scaling_f = 0
-            if all_same(l_o_t) == True:
+            if all_same(l_o_t) is True:
                 for scal in scaling_data: # search through database of scaling factors
                     if l_o_t[0].upper() == scal['level'].upper() or l_o_t[0].upper() == scal['level'].replace("-","").upper():
                         options.freq_scale_factor = scal['zpe_fac']
                         ref = scaling_refs[scal['zpe_ref']]
                         log.Write("\n   " + "Found vibrational scale factor " + str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" + "\n   REF: " + ref)
-            elif all_same(l_o_t) == False:
+            elif all_same(l_o_t) is False:
                 files_l_o_t,levels_l_o_t,filtered_calcs_l_o_t = [],[],[]
                 for file in files:
                     files_l_o_t.append(file)
@@ -1228,7 +1229,7 @@ def main():
                         filter_of_scaling_f = filter_of_scaling_f + 1
                 log.Write("\nx  " + l_o_t_freq_print)
 
-        if options.freq_scale_factor == False:
+        if options.freq_scale_factor is False:
             options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
             if filter_of_scaling_f == 0:
                 log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory")
@@ -1240,7 +1241,7 @@ def main():
             log.Write("\n   Specified solvent "+options.freespace+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
 
         # read from COSMO-RS output
-        if options.cosmo != False:
+        if options.cosmo is not False:
             try:
                 cosmo_solv = COSMORSout(options.cosmo, files)
                 log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo+'.out')
@@ -1272,7 +1273,7 @@ def main():
             log.Write("\n\n   No quasi-harmonic enthalpy correction will be applied.")
 
         # whether linked single-point energies are to be used
-        if options.spc == "True":
+        if options.spc is "True":
             log.Write("\n   Link job: combining final single point energy with thermal corrections.")
 
     #check if user has specified any files, if not quit now
@@ -1287,18 +1288,18 @@ def main():
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
    
     # Adjust printing according to options requested
-    if options.spc != False:
+    if options.spc is not False:
         STARS += '*' * 14
-    if options.cosmo != False:
+    if options.cosmo is not False:
         STARS += '*' * 13
-    if options.imag_freq == True:
+    if options.imag_freq is True:
         STARS += '*' * 9
-    if options.boltz == True:
+    if options.boltz is True:
         STARS += '*' * 7
 
     # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
-    if options.temperature_interval == False and options.conc_interval == False:
-        if options.spc == False:
+    if options.temperature_interval is False and options.conc_interval is False:
+        if options.spc is False:
             log.Write("\n\n   ")
             if options.QH:
                 log.Write('{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
@@ -1310,11 +1311,11 @@ def main():
                 log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "qh-H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
             else:
                 log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
-        if options.cosmo != False:
+        if options.cosmo is not False:
             log.Write('{:>13}'.format("COSMO-RS"))
-        if options.boltz == True:
+        if options.boltz is True:
             log.Write('{:>7}'.format("Boltz"),thermodata=True)
-        if options.imag_freq == True:
+        if options.imag_freq is True:
             log.Write('{:>9}'.format("im freq"),thermodata=True)
         log.Write("\n"+STARS+"")
 
@@ -1336,7 +1337,7 @@ def main():
             if total_cpu_time.month > 1:
                 add_days += 31
 
-            if options.xyz == True: # write Cartesians
+            if options.xyz is True: # write Cartesians
                 xyzdata = getoutData(file)
                 xyz.Writetext(str(len(xyzdata.ATOMTYPES)))
                 if hasattr(bbe, "scf_energy"):
@@ -1358,7 +1359,7 @@ def main():
                 if not hasattr(bbe,"gibbs_free_energy"):
                     log.Write("\nx  ")
                     log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-                if options.spc != False:
+                if options.spc is not False:
                     try:
                         log.Write(' {:13.6f}'.format(bbe.sp_energy),thermodata=True)
                     except ValueError:
@@ -1410,11 +1411,11 @@ def main():
                                     entropy_duplic.append((options.temperature * bbe.entropy))
                                     qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
 
-            if options.cosmo != False and cosmo_solv != None:
+            if options.cosmo is not False and cosmo_solv != None:
                 log.Write('{:13.6f}'.format(cosmo_solv[file]))
-            if options.boltz == True:
+            if options.boltz is True:
                 log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum),thermodata=True)
-            if options.imag_freq == True and hasattr(bbe, "im_freq") == True:
+            if options.imag_freq is True and hasattr(bbe, "im_freq") == True:
                 for freq in bbe.im_freq:
                     log.Write('{:9.2f}'.format(freq),thermodata=True)
 
@@ -1423,7 +1424,7 @@ def main():
                     for id, structure in enumerate(cluster):
                         if structure == file:
                             if id == len(cluster)-1:
-                                if options.spc != False:
+                                if options.spc is not False:
                                     log.Write("\no  "+'{:<39} {:>13} {:>13} {:>10} {:9} {:>13} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
                                 else:
                                     log.Write("\no  "+'{:<39} {:>13} {:>10} {:>13} {:9} {:>10} {:>10} {:>13} {:13.6f} {:6.2f}'.format('Boltzmann-weighted Cluster '+alphabet[n].upper(), '***', '***', '***', '***', '***', '***', '***', weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , 100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum))
@@ -1479,9 +1480,9 @@ def main():
                 for i in range(len(solvent_different)):
                     solvent_check_print += ", " + solvent_different[i] + " (" + file_different[i] + ")"
                 log.Write("\nx  " + solvent_check_print)
-            if all_same(l_o_t) != False:
+            if all_same(l_o_t) is not False:
                 log.Write("\no  Using "+l_o_t[0]+" in all the calculations.")
-            elif all_same(l_o_t) == False:
+            elif all_same(l_o_t) is False:
                 l_o_t_print = "Caution! Different levels of theory found - " + l_o_t[0] + " (" + file_version[0]
                 for i in range(len(l_o_t)):
                     if l_o_t[i] == l_o_t[0] and i != 0:
@@ -1602,7 +1603,7 @@ def main():
                     log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -"+linear_wrong_print+". Correct number of frequencies (3N-5) found in other calculations -"+linear_correct_print)
             log.Write("\n"+STARS+"\n")
             #Checks for single-point corrections
-            if options.spc != False:
+            if options.spc is not False:
                 log.Write("\n\n   Checks for single-point corrections:")
                 log.Write("\n"+STARS+"\n")
                 names_spc, version_check_spc = [], []
@@ -1724,12 +1725,12 @@ def main():
         log.Write("\n\n   Variable-Temperature analysis of the enthalpy, entropy and the entropy at a constant pressure between")
         log.Write("\n   T_init:  %.1f,  T_final:  %.1f,  T_interval: %.1f" % (temperature_interval[0], temperature_interval[1], temperature_interval[2]))
         if options.QH:
-            if options.spc == False:
+            if options.spc is False:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
             else:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "qh-H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
         else:
-            if options.spc == False:
+            if options.spc is False:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
             else:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
@@ -1821,7 +1822,7 @@ def main():
                     g_sum += math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)
                     qhg_sum += math.exp(-relative[8]*J_TO_AU/GAS_CONSTANT/options.temperature)
 
-            if options.spc == False:
+            if options.spc is False:
                 if options.QH:
                     log.Write("\n   " + '{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("RXN:" + path + "(" + PES.units + ")", "DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
                 else:
@@ -1844,7 +1845,7 @@ def main():
                 else:
                     formatted_list = [KCAL_TO_AU * x for x in relative] # defaults to kcal/mol
                 log.Write("\no  ")
-                if options.spc == False:
+                if options.spc is False:
                     formatted_list = formatted_list[1:]
                     if options.QH:
                         if PES.dps == 1:
@@ -1875,7 +1876,7 @@ def main():
 
             if PES.boltz == 'ee' and len(sels) == 2:
                 ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
-                if options.spc == False:
+                if options.spc is False:
                     log.Write("\n"+STARS+"\n   "+'{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)', *ee))
                 else:
                     log.Write("\n"+STARS+"\n   "+'{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
@@ -1893,7 +1894,7 @@ def main():
         
     # Close the log
     log.Finalize()
-    if options.xyz == True:
+    if options.xyz is True:
         xyz.Finalize()
 
 if __name__ == "__main__":
