@@ -1,5 +1,4 @@
 language: python
-
 osx_image: xcode9.4
 dist: trusty
 sudo: false
@@ -21,6 +20,8 @@ matrix:
     - os: linux
       python: 3.7
       env: TOXENV=py37
+      dist: xenial
+      sudo: true
     - os: osx
       language: generic
       env: TOXENV=py26
@@ -36,6 +37,8 @@ matrix:
     - os: osx
       language: generic
       env: TOXENV=py37
+      dist: xenial
+      sudo: true
 
 install:
   - pip install pytest
