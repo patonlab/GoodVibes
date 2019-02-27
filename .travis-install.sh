@@ -20,6 +20,10 @@ if [[$TRAVIS_OS_NAME == 'osx' ]]; then
             pyenv install 3.6.7
             export PYENV_VERSION=3.6.7
             ;;
+        py37)
+            pyenv install 3.7.2
+            export PYENV_VERSION=3.7.2
+            ;;
     esac
     export PATH="/Users/travis/.pyenv/shims:${PATH}"
     pyenv-virtualenv venv
