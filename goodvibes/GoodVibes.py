@@ -49,21 +49,21 @@ from glob import glob
 from argparse import ArgumentParser
 
 # Importing regardless of relative import
-try: 
+try:
     from .vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 except:
     from vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 
 # VERSION NUMBER
-__version__ = "3.0.0" 
+__version__ = "3.0.0"
 
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
-# PHYSICAL CONSTANTS 
+# PHYSICAL CONSTANTS
 GAS_CONSTANT =          8.3144621                       # J / K / mol
 PLANCK_CONSTANT =       6.62606957e-34                  # J * s
 BOLTZMANN_CONSTANT =    1.3806488e-23                   # J / K
-SPEED_OF_LIGHT =        2.99792458e10                   # cm / s 
+SPEED_OF_LIGHT =        2.99792458e10                   # cm / s
 AVOGADRO_CONSTANT =     6.0221415e23                    # 1 / mol
 AMU_to_KG =             1.66053886E-27                  # UNIT CONVERSION
 ATMOS =                 101.325                         # UNIT CONVERSION
@@ -87,7 +87,7 @@ periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na",
     "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu",
     "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
     "Rg", "Uub", "Uut", "Uuq", "Uup", "Uuh", "Uus", "Uuo"]
-    
+
 def elementID(massno):
     try:
         return periodictable[massno]
@@ -128,14 +128,14 @@ class Logger:
 class XYZout:
     def __init__(self, filein, suffix, append):
         self.xyz = open('{}_{}.{}'.format(filein, append, suffix), 'w')
-    
+
     def Writetext(self, message):
         self.xyz.write(message + "\n")
 
     def Writecoords(self, atoms, coords):
         for n, carts in enumerate(coords):
             self.xyz.write('{:>1}'.format(atoms[n]))
-            for cart in carts: 
+            for cart in carts:
                 self.xyz.write('{:13.6f}'.format(cart))
                 self.xyz.write('\n')
 
@@ -149,7 +149,7 @@ class calc_bbe:
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
-        with open(file) as f: 
+        with open(file) as f:
             g_output = f.readlines()
 
         # read any single point energies if requested
@@ -168,13 +168,13 @@ class calc_bbe:
             # only read first link + freq not other link jobs
             if "Normal termination" in line:
                 linkmax += 1
-            else: 
+            else:
                 frequency_wn = []
             if 'Frequencies --' in line:
                 freqloc = linkmax
 
         # Iterate over output
-        if freqloc == 0: 
+        if freqloc == 0:
             freqloc = len(g_output)
         for line in g_output:
             # link counter
@@ -183,7 +183,7 @@ class calc_bbe:
                 # reset frequencies if in final freq link
                 if link == freqloc: frequency_wn = []
             # if spc specified will take last Energy from file, otherwise will break after freq calc
-            if link > freqloc: 
+            if link > freqloc:
                 break
 
           	# Iterate over output: look out for low frequencies
@@ -194,7 +194,7 @@ class calc_bbe:
                       #  only deal with real frequencies
                       if x > 0.00: frequency_wn.append(x)
                       if x < 0.00: im_frequency_wn.append(x)
-                   except IndexError: 
+                   except IndexError:
                        pass
             # For QM calculations look for SCF energies, last one will be the optimized energy
             elif line.strip().startswith('SCF Done:'):
@@ -231,7 +231,7 @@ class calc_bbe:
             elif line.strip().startswith('Rotational temperature '):
                 rotemp = [float(line.strip().split()[3])]
             elif line.strip().startswith('Rotational temperatures'):
-                try: 
+                try:
                     rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]), float(line.strip().split()[5])]
                 except ValueError:
                     rotemp = None
@@ -280,7 +280,7 @@ class calc_bbe:
                 vib_energy = []
                 for j in range(0,len(frequency_wn)):
                     #entropy correction
-                    if QS == "grimme": 
+                    if QS == "grimme":
                         vib_entropy.append(Svib_rrho[j] * S_damp[j] + (1-S_damp[j]) * Svib_free_rot[j])
                     elif QS == "truhlar":
                         if S_FREQ_CUTOFF > 0.0:
@@ -301,7 +301,7 @@ class calc_bbe:
             else:
                 ZPE, Urot, Uvib, qh_Uvib, Srot, h_Svib, qh_Svib = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
-            # Add terms (converted to au) to get Free energy - perform separately 
+            # Add terms (converted to au) to get Free energy - perform separately
             # for harmonic and quasi-harmonic values out of interest
             self.enthalpy = self.scf_energy + (Utrans + Urot + Uvib + GAS_CONSTANT * temperature) / J_TO_AU
             self.qh_enthalpy = 0.0
@@ -323,10 +323,10 @@ class calc_bbe:
             self.qh_entropy = (Strans + Srot + qh_Svib + Selec) / J_TO_AU
 
             #Calculate Free Energy
-            if QH: 
+            if QH:
                 self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
                 self.qh_gibbs_free_energy = self.qh_enthalpy - temperature * self.qh_entropy
-            else: 
+            else:
                 self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
                 self.qh_gibbs_free_energy = self.enthalpy - temperature * self.qh_entropy
 
@@ -346,20 +346,20 @@ class get_pes:
         self.dps = 2
         self.units = 'kcal/mol'
         self.boltz = False
-        
-        with open(file) as f: 
+
+        with open(file) as f:
             data = f.readlines()
         folder, program, names, files = None, None, [], []
         for i, line in enumerate(data):
             if line.strip().find('SPECIES') > -1:
                 for j, line in enumerate(data[i+1:]):
-                    if line.strip().startswith('---') == True: 
+                    if line.strip().startswith('---') == True:
                         break
                     else:
                         if line.lower().strip().find('folder') > -1:
-                            try: 
+                            try:
                                 folder = line.strip().replace('#','=').split("=")[1].strip()
-                            except IndexError: 
+                            except IndexError:
                                 pass
                         else:
                             try:
@@ -372,7 +372,7 @@ class get_pes:
                                             match = key
                                     if match:
                                         names.append(n.strip()); files.append(match)
-                                    else: 
+                                    else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                                 else:
                                     match = []
@@ -381,7 +381,7 @@ class get_pes:
                                             match.append(key)
                                     if len(match) > 0:
                                        names.append(n.strip()); files.append(match)
-                                    else: 
+                                    else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                             except ValueError:
                                 if len(line) > 2: log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
@@ -417,14 +417,14 @@ class get_pes:
         self.path, self.species = [], []
         self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], [], [], []
         self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        
+
         min_conf = False
         h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         zero_structures = zero.replace(' ','').split('+')
         for structure in zero_structures:
             try:
                 if not isinstance(species[structure], list):
-                    if hasattr(thermo_data[species[structure]], "sp_energy"): 
+                    if hasattr(thermo_data[species[structure]], "sp_energy"):
                         self.spc_zero += thermo_data[species[structure]].sp_energy
                     self.e_zero += thermo_data[species[structure]].scf_energy
                     self.zpe_zero += thermo_data[species[structure]].zpe
@@ -448,7 +448,7 @@ class get_pes:
                         g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                         boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
                         boltz_prob = boltz_fac / boltz_sum
-                        if hasattr(thermo_data[conformer], "sp_energy"): 
+                        if hasattr(thermo_data[conformer], "sp_energy"):
                             self.spc_zero += thermo_data[conformer].sp_energy * boltz_prob
                         self.e_zero += thermo_data[conformer].scf_energy * boltz_prob
                         self.zpe_zero += thermo_data[conformer].zpe * boltz_prob
@@ -483,9 +483,9 @@ class get_pes:
                         qh_tot = min_conf.qh_enthalpy + qh_adj
                         qs_adj = qs_conf - min_conf.qh_entropy
                         qs_tot = min_conf.qh_entropy + qs_adj
-                        if options.QH: 
+                        if options.QH:
                             qg_corr = qh_tot - options.temperature * qs_tot
-                        else: 
+                        else:
                             qg_corr = h_tot - options.temperature * qs_tot
                         self.qh_zero = qh_tot
                         self.qhts_zero = qs_tot
@@ -501,15 +501,15 @@ class get_pes:
             if line.strip().find('PES') > -1:
                 n = 0
                 for j, line in enumerate(data[i+1:]):
-                    if line.strip().startswith('#') == True: 
+                    if line.strip().startswith('#') == True:
                         pass
-                    elif len(line) < 2: 
+                    elif len(line) < 2:
                         pass
-                    elif line.strip().startswith('---') == True: 
+                    elif line.strip().startswith('---') == True:
                         break
                     else:
                         try:
-                            self.species.append([]); self.e_abs.append([]); self.spc_abs.append([]); self.zpe_abs.append([]); self.h_abs.append([]) 
+                            self.species.append([]); self.e_abs.append([]); self.spc_abs.append([]); self.zpe_abs.append([]); self.h_abs.append([])
                             self.qh_abs.append([]); self.s_abs.append([]); self.g_abs.append([]); self.qs_abs.append([]); self.qhg_abs.append([])
                             pathway, pes = line.strip().replace(':','=').split("=")
                             pes = pes.strip()
@@ -605,11 +605,11 @@ class get_pes:
                                         self.qs_abs[n].append(qs_abs)
                                         self.qhg_abs[n].append(qhg_abs)
 
-                                else: 
+                                else:
                                     self.species[n].append('none')
                                     self.e_abs[n].append(float('nan'))
                             n = n + 1
-                        except IndexError: 
+                        except IndexError:
                             pass
 
 
@@ -674,7 +674,7 @@ def COSMORSout(datfile, names):
                 if data[i+10].find('Gibbs') > -1:
                     gsolv = float(data[i+10].split()[6].strip()) / KCAL_TO_AU
                     GSOLV[name] = gsolv
-    
+
     return GSOLV
 
 
@@ -683,10 +683,10 @@ def sp_energy(file):
     spe, program, data, version_program, solvation_model, keyword_line, a, charge = 'none', 'none', [], '', '', '', 0, []
 
     if os.path.exists(os.path.splitext(file)[0]+'.log'):
-        with open(os.path.splitext(file)[0]+'.log') as f: 
+        with open(os.path.splitext(file)[0]+'.log') as f:
             data = f.readlines()
     elif os.path.exists(os.path.splitext(file)[0]+'.out'):
-        with open(os.path.splitext(file)[0]+'.out') as f: 
+        with open(os.path.splitext(file)[0]+'.out') as f:
             data = f.readlines()
     else:
         raise ValueError("File {} does not exist".format(file))
@@ -698,7 +698,7 @@ def sp_energy(file):
         if "* O   R   C   A *" in line:
             program = "Orca"
             break
-
+    repeated_link1 = 0
     for line in data:
         if program == "Gaussian":
             if line.strip().startswith('SCF Done:'):
@@ -714,15 +714,16 @@ def sp_energy(file):
             # For Semi-empirical or Molecular Mechanics calculations
             if "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
                 spe = (float(line.strip().split()[1]))
-            if "Gaussian" in line and "Revision" in line:
+            if "Gaussian" in line and "Revision" in line and repeated_link1 == 0:
                 for i in range(len(line.strip(",").split(","))-1):
                     line.strip(",").split(",")[i]
                     version_program += line.strip(",").split(",")[i]
+                    repeated_link1 = 1
                 version_program = version_program[1:]
             if "Charge" in line.strip() and "Multiplicity" in line.strip():
                 charge = line.strip("=").split()[2]
         if program == "Orca":
-            if line.strip().startswith('FINAL SINGLE POINT ENERGY'): 
+            if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
                 spe = float(line.strip().split()[4])
             if 'Program Version' in line.strip():
                 version_program = "ORCA version " + line.split()[2]
@@ -737,7 +738,7 @@ def sp_energy(file):
                     if '--' in line.strip():
                         a = a + 1
                         break
-                    if a != 0: 
+                    if a != 0:
                         break
                     else:
                         for k in range(len(line.strip().split("\n"))):
@@ -790,7 +791,7 @@ def sp_energy(file):
             start_empirical_dispersion = keyword_line.strip().find('emp(') + 3
             end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
             empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
-    
+
     if 'ORCA' in version_program.strip():
         keyword_line_1 = "gas phase"
         for i, line in enumerate(data):
@@ -820,16 +821,16 @@ def sp_cpu(file):
     spe, program, data, cpu = None, None, [], None
 
     if os.path.exists(os.path.splitext(file)[0]+'.log'):
-        with open(os.path.splitext(file)[0]+'.log') as f: 
+        with open(os.path.splitext(file)[0]+'.log') as f:
             data = f.readlines()
     elif os.path.exists(os.path.splitext(file)[0]+'.out'):
-        with open(os.path.splitext(file)[0]+'.out') as f: 
+        with open(os.path.splitext(file)[0]+'.out') as f:
             data = f.readlines()
     else:
         raise ValueError("File {} does not exist".format(file))
 
     for line in data:
-        if line.find("Gaussian") > -1: 
+        if line.find("Gaussian") > -1:
             program = "Gaussian"
             break
         if line.find("* O   R   C   A *") > -1:
@@ -857,7 +858,7 @@ def sp_cpu(file):
                 secs = int(line.split()[9])
                 msecs = float(line.split()[11])
                 cpu = [days,hours,mins,secs,msecs]
-  
+
     return cpu
 
 
@@ -890,7 +891,7 @@ def level_of_theory(file):
                 level, bs = (line.strip().split("|")[4:6])
             except IndexError:
                 pass
-    
+
     for line in data:
         if 'DLPNO BASED TRIPLES CORRECTION' in line.strip():
             level = 'DLPNO-CCSD(T)'
@@ -902,7 +903,7 @@ def level_of_theory(file):
         # remove the restricted R or unrestricted U label
         if level[0] in ('R', 'U'):
             level = level[1:]
-  
+
     return '/'.join([level, bs])
 
 
@@ -911,7 +912,7 @@ def addTime(tm, cpu):
     [days, hrs, mins, secs, msecs] = cpu
     fulldate = datetime(100, 1, tm.day, tm.hour, tm.minute, tm.second, tm.microsecond)
     fulldate = fulldate + timedelta(days=days, hours=hrs, minutes=mins, seconds=secs, microseconds=msecs*1000)
-    
+
     return fulldate
 
 
@@ -939,7 +940,7 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
         energy = GAS_CONSTANT * temperature
     else:
         energy = 1.5 * GAS_CONSTANT * temperature
-    
+
     return energy
 
 
@@ -950,10 +951,10 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
     Evib = R * Sum(0.5 hv/k + (hv/k)/(e^(hv/KT)-1))
     """
     factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
-                for freq in frequency_wn]   
+                for freq in frequency_wn]
     energy = [entry * GAS_CONSTANT * temperature * (0.5 + (1.0 / (math.exp(entry) - 1.0)))
                 for entry in factor]
-    
+
     return sum(energy)
 
 
@@ -963,20 +964,20 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor):
     Calculates the vibrational ZPE (J/mol)
     EZPE = Sum(0.5 hv/k)
     """
-    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT 
+    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT
                 for freq in frequency_wn]
     energy = [0.5 * entry * GAS_CONSTANT for entry in factor]
-    
+
     return sum(energy)
 
 
-# Computed the amount of accessible free space (ml per L) in solution 
-# accessible to a solute immersed in bulk solvent, i.e. this is the volume 
-# not occupied by solvent molecules, calculated using literature values for 
+# Computed the amount of accessible free space (ml per L) in solution
+# accessible to a solute immersed in bulk solvent, i.e. this is the volume
+# not occupied by solvent molecules, calculated using literature values for
 # molarity and B3LYP/6-31G* computed molecular volumes.
 def get_free_space(solv):
     """
-    Calculates the free space in a litre of bulk solvent, based on 
+    Calculates the free space in a litre of bulk solvent, based on
     Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830)
     """
     solvent_list = ["none", "H2O", "toluene", "DMF", "AcOH", "chloroform"]
@@ -994,9 +995,9 @@ def get_free_space(solv):
     if nsolv > 0:
         V_free = 8 * ((1E27/(solv_molarity * AVOGADRO_CONSTANT)) ** 0.333333 - solv_volume ** 0.333333) ** 3
         freespace = V_free * solv_molarity * AVOGADRO_CONSTANT * 1E-24
-    else: 
+    else:
         freespace = 1000.0
-    
+
     return freespace
 
 
@@ -1011,7 +1012,7 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     freespace = get_free_space(solv)
     Ndens = conc * 1000 * AVOGADRO_CONSTANT / (freespace/1000.0)
     entropy = GAS_CONSTANT * (2.5 + math.log(lmda**3 / Ndens))
-    
+
     return entropy
 
 
@@ -1031,14 +1032,14 @@ def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
     Calculates the rotational entropy (J/(mol*K))
     Strans = 0 (atomic) ; R(Ln(q)+1) (linear); R(Ln(q)+3/2) (non-linear)
     """
-    
+
     if rotemp == [0.0,0.0,0.0] or zpe == 0.0: # monatomic
         entropy = 0.0
     else:
         if len(rotemp) == 1: # diatomic or linear molecules
             linear = 1
             qrot = temperature/rotemp[0]
-        elif len(rotemp) == 2: # possible gaussian problem with linear triatomic 
+        elif len(rotemp) == 2: # possible gaussian problem with linear triatomic
             linear = 2
         else:
             qrot = math.pi*temperature**3/(rotemp[0]*rotemp[1]*rotemp[2])
@@ -1048,22 +1049,22 @@ def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
             entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1)
         elif linear == 2:
             entropy = 0.0
-        else: 
+        else:
             entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1.5)
-    
+
     return entropy
 
 
 # Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
 def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor):
     """
-    Entropic contributions (J/(mol*K)) according to a rigid-rotor 
+    Entropic contributions (J/(mol*K)) according to a rigid-rotor
     harmonic-oscillator description for a list of vibrational modes
     Sv = RSum(hv/(kT(e^(hv/kT)-1) - ln(1-e^(-hv/kT)))
     """
-    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT / temperature 
+    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT / temperature
                 for freq in frequency_wn]
-    entropy = [entry * GAS_CONSTANT / (math.exp(entry) - 1) - GAS_CONSTANT * math.log(1 - math.exp(-entry)) 
+    entropy = [entry * GAS_CONSTANT / (math.exp(entry) - 1) - GAS_CONSTANT * math.log(1 - math.exp(-entry))
                 for entry in factor]
     return entropy
 
@@ -1071,24 +1072,24 @@ def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor):
 # Quasi-rigid rotor harmonic oscillator energy evaluation used for calculating quasi-harmonic enthalpy
 def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     """
-    Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of 
+    Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of
     vibrational modes described by a rigid-rotor harmonic approximation
     V_RRHO = 1/2(Nhv) + RT(hv/kT)e^(-hv/kT)/(1-e^(-hv/kT))
     """
-    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor 
+    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor
                 for freq in frequency_wn]
     energy = [0.5 * AVOGADRO_CONSTANT * entry + GAS_CONSTANT * temperature * entry / BOLTZMANN_CONSTANT
-                / temperature * math.exp(-entry / BOLTZMANN_CONSTANT / temperature) / 
-                (1 - math.exp(-entry / BOLTZMANN_CONSTANT / temperature))  
+                / temperature * math.exp(-entry / BOLTZMANN_CONSTANT / temperature) /
+                (1 - math.exp(-entry / BOLTZMANN_CONSTANT / temperature))
                 for entry in factor]
-    
+
     return energy
 
 
 # Free rotor entropy evaluation - used for low frequencies below the cut-off if qs=grimme is specified
 def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor):
     """
-    Entropic contributions (J/(mol*K)) according to a free-rotor 
+    Entropic contributions (J/(mol*K)) according to a free-rotor
     description for a list of vibrational modes
     Sr = R(1/2 + 1/2ln((8pi^3u'kT/h^2))
     """
@@ -1149,9 +1150,9 @@ def get_boltz(files,thermo_data,clustering,temperature):
         bbe = thermo_data[file]
         if hasattr(bbe,"qh_gibbs_free_energy"):
             if bbe.qh_gibbs_free_energy != None:
-                if bbe.qh_gibbs_free_energy < e_min: 
+                if bbe.qh_gibbs_free_energy < e_min:
                     e_min = bbe.qh_gibbs_free_energy
-                
+
     if clustering == True:
         for n, cluster in enumerate(clusters):
             boltz_facs['cluster-'+alphabet[n].upper()] = 0.0
@@ -1246,13 +1247,13 @@ def main():
     # If necessary, create an xyz file for Cartesians
     if options.xyz:
         xyz = XYZout("Goodvibes","xyz", "output")
-    
+
     # If user has specified different file extensions
     if options.custom_ext or os.environ.get('GOODVIBES_CUSTOM_EXT', ''):
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
         for ext in custom_extensions:
             SUPPORTED_EXTENSIONS.add(ext.strip())
-            
+
     # Start a log for the results
     log = Logger("Goodvibes", options.output, options.csv)
 
@@ -1285,7 +1286,7 @@ def main():
                                 clusters[nclust].append(file)
             elif elem != 'clust:':
                 command += elem + ' '
-        except IndexError: 
+        except IndexError:
             pass
 
     # After parsing arguments, check if user specified files along with arguments
@@ -1396,13 +1397,13 @@ def main():
         sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
     for file in files: # loop over all specified output files and compute thermochemistry
-        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc)
         bbe_vals.append(bbe)
 
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
-   
+
     # Adjust printing according to options requested
     if options.spc is not False:
         STARS += '*' * 14
@@ -1462,7 +1463,7 @@ def main():
                     xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                         options.conc, options.freq_scale_factor, options.freespace, options.spc)
             linear_warning = []
             linear_warning.append(warning_linear.linear_warning)
@@ -1606,7 +1607,7 @@ def main():
                 for i in range(len(solvent_different)):
                     solvent_check_print += ", " + solvent_different[i] + " (" + file_different[i] + ")"
                 log.Write("\nx  " + solvent_check_print + '.')
-            
+
             # Check level of theory
             if all_same(l_o_t) is not False:
                 log.Write("\no  Using "+l_o_t[0]+" in all the calculations.")
@@ -1620,12 +1621,12 @@ def main():
                     if l_o_t[i] != l_o_t[0] and i != 0:
                         l_o_t_print += ", " + l_o_t[i] + " (" + file_version[i] + ")"
                 log.Write("\nx  " + l_o_t_print + '.')
-            
-            # Check charge and multiplicity 
+
+            # Check charge and multiplicity
             charge_check = [sp_energy(file)[5] for file in files]
             multiplicity_check = []
             for file in files:
-                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                                 options.conc, options.freq_scale_factor, options.freespace, options.spc)
                 multiplicity_check.append(str(int(multiplicity_calc.mult)))
             if all_same(charge_check) != False and all_same(multiplicity_check) != False:
@@ -1640,7 +1641,7 @@ def main():
                     if charge_check[i] != charge_check[0] or multiplicity_check[i] != multiplicity_check[0] and i != 0:
                         charge_check_print += ", " + charge_check[i] + " " + multiplicity_check[i] + " (" + file_version[i] + ")"
                 log.Write("\nx  " + charge_check_print+ '.')
-            
+
             # Check for duplicate structures
             energy_duplic,files_duplic = [],[]
             for file in files:
@@ -1668,7 +1669,7 @@ def main():
                 duplicates1 = duplicates[:102]
                 duplicates2 = duplicates[104:]
                 log.Write("\nx  " + duplicates1 + duplicates2 + '.')
-                
+
             # Check for linear molecules with incorrect number of vibrational modes
             linear_fails,linear_fails_atom,linear_fails_cart,linear_fails_files,linear_fails_list = [],[],[],[],[]
             frequency_list, im_frequency_list, frequency_get= [],[],[]
@@ -1677,7 +1678,7 @@ def main():
                 linear_fails_cart.append(linear_fails.CARTESIANS)
                 linear_fails_atom.append(linear_fails.ATOMTYPES)
                 linear_fails_files.append(file)
-                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                             options.conc, options.freq_scale_factor, options.freespace, options.spc)
                 frequency_list.append(frequency_get.frequency_wn)
                 im_frequency_list.append(frequency_get.im_frequency_wn)
@@ -1739,7 +1740,7 @@ def main():
                 if len(linear_mol_wrong) == 0:
                     log.Write("\no  All the linear molecules have the correct number of frequencies -" + linear_correct_print + '.')
                 if len(linear_mol_wrong) >= 1:
-                    log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -" + linear_wrong_print 
+                    log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -" + linear_wrong_print
                                 + ". Correct number of frequencies (3N-5) found in other calculations -" + linear_correct_print + '.')
             # Check for false TS
             false_TS_list,right_TS_list = [],[]
@@ -1772,7 +1773,7 @@ def main():
             #Check for empirical dispersion
             dispersion_check = [sp_energy(file)[6] for file in files]
             if all_same(dispersion_check) != False:
-                log.Write("\no  Using "+dispersion_check[0]+" in all the calculations.")
+                log.Write("\no  "+dispersion_check[0]+" in all the calculations.")
             else:
                 dispersion_check_print = "Caution! Different dispersion models found - " + dispersion_check[0] + " (" + file_version[0]
                 for i in range(len(dispersion_check)):
@@ -1785,7 +1786,7 @@ def main():
                 log.Write("\nx  " + dispersion_check_print + ".")
 
             log.Write("\n"+STARS+"\n")
-            
+
             #Check for single-point corrections
             if options.spc is not False:
                 log.Write("\n\n   Checks for single-point corrections:")
@@ -1797,7 +1798,7 @@ def main():
                         names_spc.append(name+'_'+options.spc+'.log')
                     elif os.path.exists(name+'_'+options.spc+'.out'):
                         names_spc.append(name+'_'+options.spc+'.out')
-                        
+
                     # Check program versions
                     version_check_spc = [sp_energy(name)[2] for name in names_spc]
                     if all_same(version_check_spc) != False:
@@ -1859,7 +1860,7 @@ def main():
                     charge_spc_check = [sp_energy(name)[5] for name in names_spc]
                     multiplicity_spc_check = []
                     for name in names_spc:
-                         multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                         multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                                             options.conc, options.freq_scale_factor, options.freespace, options.spc)
                          multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                     if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
@@ -1902,11 +1903,11 @@ def main():
                         spc_mismatching_1 = spc_mismatching[:84]
                         spc_mismatching_2 = spc_mismatching[85:]
                         log.Write("\nx  " + spc_mismatching_1 + spc_mismatching_2 + '.')
-                        
+
                     # Check for dispersion
                     dispersion_check_spc = [sp_energy(name)[6] for name in names_spc]
                     if all_same(dispersion_check_spc) != False:
-                        log.Write("\no  Using "+dispersion_check_spc[0]+" in all the calculations.")
+                        log.Write("\no  "+dispersion_check_spc[0]+" in all the calculations.")
                     else:
                       dispersion_check_spc_print = "Caution! Different dispersion models found - " + dispersion_check_spc[0] + " (" + names_spc[0]
                       for i in range(len(dispersion_check_spc)):
@@ -1944,7 +1945,7 @@ def main():
             log.Write("\n"+STARS)
             for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
                 temp, conc,linear_warning = float(i), ATMOS / GAS_CONSTANT / float(i),[]
-                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, 
+                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp,
                                 conc, options.freq_scale_factor, options.freespace, options.spc)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -2097,7 +2098,7 @@ def main():
         log.Write("\no  ")
         log.Write('{:<39} {:13.2f} {:13.2f}'.format(rxn_name,ee,dd_free_energy), thermodata=True)
         log.Write("\n"+EE_STARS+"\n")
-        
+
     # Close the log
     log.Finalize()
     if options.xyz:
