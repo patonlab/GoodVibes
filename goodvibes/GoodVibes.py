@@ -864,6 +864,7 @@ def sp_cpu(file):
 
 # Read output for the level of theory and basis set used
 def level_of_theory(file):
+    repeated_theory = 0
     with open(file) as f:
         data = f.readlines()
     level, bs = 'none', 'none'
@@ -871,24 +872,28 @@ def level_of_theory(file):
         if line.strip().find('External calculation') > -1:
             level, bs = 'ext', 'ext'
             break
-        if '\\Freq\\' in line.strip():
+        if '\\Freq\\' in line.strip() and repeated_theory == 0:
             try:
                 level, bs = (line.strip().split("\\")[4:6])
+                repeated_theory = 1
             except IndexError:
                 pass
-        elif '|Freq|' in line.strip():
+        elif '|Freq|' in line.strip() and repeated_theory == 0:
             try:
                 level, bs = (line.strip().split("|")[4:6])
+                repeated_theory = 1
             except IndexError:
                 pass
-        if '\\SP\\' in line.strip():
+        if '\\SP\\' in line.strip() and repeated_theory == 0:
             try:
                 level, bs = (line.strip().split("\\")[4:6])
+                repeated_theory = 1
             except IndexError:
                 pass
-        elif '|SP|' in line.strip():
+        elif '|SP|' in line.strip() and repeated_theory == 0:
             try:
                 level, bs = (line.strip().split("|")[4:6])
+                repeated_theory = 1
             except IndexError:
                 pass
 
