@@ -1709,7 +1709,7 @@ def main():
                     else:
                         linear_mol_wrong.append(linear_fails_list[3][i])
                 if len(linear_fails_list[0][i]) == 3:
-                    if linear_fails_list[0][i] == ['I', 'I', 'I'] or linear_fails_list[0][i] == ['O', 'O', 'O'] or linear_fails_list[0][i] == ['H', 'C', 'N']:
+                    if linear_fails_list[0][i] == ['I', 'I', 'I'] or linear_fails_list[0][i] == ['O', 'O', 'O'] or linear_fails_list[0][i] == ['N', 'N', 'N'] or linear_fails_list[0][i] == ['H', 'C', 'N'] or linear_fails_list[0][i] == ['H', 'N', 'C'] or linear_fails_list[0][i] == ['C', 'H', 'N'] or linear_fails_list[0][i] == ['C', 'N', 'H'] or linear_fails_list[0][i] == ['N', 'H', 'C'] or linear_fails_list[0][i] == ['N', 'C', 'H']:
                         if len(linear_fails_list[2][i]) == 4:
                             linear_mol_correct.append(linear_fails_list[3][i])
                         else:
