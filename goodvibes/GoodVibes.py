@@ -751,13 +751,18 @@ def sp_energy(file):
             start_scrf = keyword_line.strip().find('scrf') + 5
             if keyword_line[start_scrf] == "(":
                 end_scrf = keyword_line.find(")",start_scrf)
-                solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf] + ")"
+                solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+                if solvation_model[-1] != ")":
+                    solvation_model = solvation_model + ")"
             else:
                 start_scrf2 = keyword_line.strip().find('scrf') + 4
                 end_scrf = keyword_line.find(" ",start_scrf)
                 if keyword_line[start_scrf2] == "(":
                     solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
+                    if solvation_model[-1] != ")":
+                        solvation_model = solvation_model + ")"
                 else:
+                    end_scrf = keyword_line.find(" ",start_scrf)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
         #For empirical dispersion
         empirical_dispersion = ''
@@ -1778,7 +1783,7 @@ def main():
             #Check for empirical dispersion
             dispersion_check = [sp_energy(file)[6] for file in files]
             if all_same(dispersion_check) != False:
-                log.Write("\no  "+dispersion_check[0]+" in all the calculations.")
+                log.Write("\no  "+dispersion_check[0]+" in any of the calculations.")
             else:
                 dispersion_check_print = "Caution! Different dispersion models found - " + dispersion_check[0] + " (" + file_version[0]
                 for i in range(len(dispersion_check)):
@@ -1912,7 +1917,7 @@ def main():
                     # Check for dispersion
                     dispersion_check_spc = [sp_energy(name)[6] for name in names_spc]
                     if all_same(dispersion_check_spc) != False:
-                        log.Write("\no  "+dispersion_check_spc[0]+" in all the calculations.")
+                        log.Write("\no  "+dispersion_check_spc[0]+" in any of the singe-point calculations.")
                     else:
                       dispersion_check_spc_print = "Caution! Different dispersion models found - " + dispersion_check_spc[0] + " (" + names_spc[0]
                       for i in range(len(dispersion_check_spc)):
