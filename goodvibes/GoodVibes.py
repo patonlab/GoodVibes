@@ -1452,7 +1452,7 @@ def main():
         if options.boltz != False:
             boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files,thermo_data,clustering,options.temperature)
 
-        ZPE_duplic, entropy_duplic, qh_entropy_duplic = [], [], []
+        Gqh_duplic, H_duplic, qh_entropy_duplic = [], [], []
         for file in files: # Loop over the output files and compute thermochemistry
             bbe = thermo_data[file]
 
@@ -1483,8 +1483,8 @@ def main():
                 log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 log.Write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
                 if options.check != False:
-                    ZPE_duplic.append(0.0)
-                    entropy_duplic.append(0.0)
+                    Gqh_duplic.append(0.0)
+                    H_duplic.append(0.0)
                     qh_entropy_duplic.append(0.0)
             else:
                 if hasattr(bbe, "gibbs_free_energy"):
@@ -1503,8 +1503,8 @@ def main():
                 if not hasattr(bbe,"gibbs_free_energy"):
                     log.Write("   Warning! Couldn't find frequency information ...")
                     if options.check != False:
-                        ZPE_duplic.append(0.0)
-                        entropy_duplic.append(0.0)
+                        Gqh_duplic.append(0.0)
+                        H_duplic.append(0.0)
                         qh_entropy_duplic.append(0.0)
 
                 else:
@@ -1515,8 +1515,8 @@ def main():
                             else:
                                 log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
                             if options.check != False:
-                                ZPE_duplic.append(bbe.zpe)
-                                entropy_duplic.append((options.temperature * bbe.entropy))
+                                Gqh_duplic.append(bbe.qh_gibbs_free_energy)
+                                H_duplic.append(bbe.enthalpy)
                                 qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
                     else:
                         try:
@@ -1536,8 +1536,8 @@ def main():
                                     log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * (bbe.entropy+media_correction)), (options.temperature * (bbe.qh_entropy+media_correction)), bbe.gibbs_free_energy+(options.temperature * (-media_correction)), bbe.qh_gibbs_free_energy+(options.temperature * (-media_correction))))
                                     log.Write("  Solvent")
                                 if options.check != False:
-                                    ZPE_duplic.append(bbe.zpe)
-                                    entropy_duplic.append((options.temperature * bbe.entropy))
+                                    Gqh_duplic.append(bbe.qh_gibbs_free_energy)
+                                    H_duplic.append(bbe.enthalpy)
                                     qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
                         else:
                             if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
@@ -1546,8 +1546,8 @@ def main():
                                 else:
                                     log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
                                 if options.check != False:
-                                    ZPE_duplic.append(bbe.zpe)
-                                    entropy_duplic.append((options.temperature * bbe.entropy))
+                                    Gqh_duplic.append(bbe.qh_gibbs_free_energy)
+                                    H_duplic.append(bbe.enthalpy)
                                     qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
 
             if options.cosmo is not False and cosmo_solv != None:
@@ -1661,12 +1661,12 @@ def main():
                 files_duplic.append(file)
             info_duplic = []
             info_duplic.append(energy_duplic)
-            info_duplic.append(ZPE_duplic)
-            info_duplic.append(entropy_duplic)
+            info_duplic.append(Gqh_duplic)
+            info_duplic.append(H_duplic)
             info_duplic.append(qh_entropy_duplic)
             info_duplic.append(files_duplic)
             #Add thermodynamic FILTERS
-            duplicates = "Caution! Potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S) - "
+            duplicates = "Caution! Potential duplicates or enantiomeric conformations found (based on E, H, qh_T.S and qh_G) - "
             for i in range(len(files)):
                 for j in range(len(files)):
                     if j > i:
@@ -1675,11 +1675,11 @@ def main():
                                 if info_duplic[2][i] > info_duplic[2][j]-0.00016 and info_duplic[2][i] < info_duplic[2][j]+0.00016:
                                     if info_duplic[3][i] > info_duplic[3][j]-0.00016 and info_duplic[3][i] < info_duplic[3][j]+0.00016:
                                         duplicates += ", " + info_duplic[4][i] + " and " + info_duplic[4][j]
-            if duplicates == "Caution! Potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S) - ":
-                log.Write("\no  No potential duplicates or enantiomeric conformations found (based on E, ZPE, T.S and qh_T.S).")
+            if duplicates == "Caution! Potential duplicates or enantiomeric conformations found (based on E, H, qh_T.S and qh_G) - ":
+                log.Write("\no  No potential duplicates or enantiomeric conformations found (based on E, H, qh_T.S and qh_G).")
             else:
-                duplicates1 = duplicates[:102]
-                duplicates2 = duplicates[104:]
+                duplicates1 = duplicates[:101]
+                duplicates2 = duplicates[103:]
                 log.Write("\nx  " + duplicates1 + duplicates2 + '.')
 
             # Check for linear molecules with incorrect number of vibrational modes
@@ -1801,7 +1801,7 @@ def main():
             #Check for single-point corrections
             if options.spc is not False:
                 log.Write("\n   Checks for single-point corrections:")
-                log.Write("\n"+STARS+"\n")
+                log.Write("\n"+STARS)
                 names_spc, version_check_spc = [], []
                 for file in files:
                     name, ext = os.path.splitext(file)
@@ -1978,8 +1978,8 @@ def main():
                                 else:
                                     log.Write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
                                 if options.check != False:
-                                    ZPE_duplic.append(bbe.zpe)
-                                    entropy_duplic.append((options.temperature * bbe.entropy))
+                                    Gqh_duplic.append(bbe.qh_gibbs_free_energy)
+                                    H_duplic.append(bbe.enthalpy)
                                     qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
                         else:
                             try:
@@ -1999,8 +1999,8 @@ def main():
                                     log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * (bbe.entropy+media_correction)), (options.temperature * (bbe.qh_entropy+media_correction)), bbe.gibbs_free_energy+(options.temperature * (-media_correction)), bbe.qh_gibbs_free_energy+(options.temperature * (-media_correction))))
                                     log.Write("  Solvent")
                                 if options.check != False:
-                                    ZPE_duplic.append(bbe.zpe)
-                                    entropy_duplic.append((options.temperature * bbe.entropy))
+                                    Gqh_duplic.append(bbe.qh_gibbs_free_energy)
+                                    H_duplic.append(bbe.enthalpy)
                                     qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
                             else:
                                 if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
@@ -2009,8 +2009,8 @@ def main():
                                     else:
                                         log.Write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe, bbe.enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
                                     if options.check != False:
-                                        ZPE_duplic.append(bbe.zpe)
-                                        entropy_duplic.append((options.temperature * bbe.entropy))
+                                        Gqh_duplic.append(bbe.qh_gibbs_free_energy)
+                                        H_duplic.append(bbe.enthalpy)
                                         qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
             log.Write("\n"+STARS+"\n")
 
