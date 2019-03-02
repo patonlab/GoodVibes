@@ -775,7 +775,10 @@ def sp_energy(file):
                 empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
             else:
                 start_empirical_dispersion2 = keyword_line.strip().find('empiricaldispersion') + 19
-                end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                if keyword_line.find(" ",start_empirical_dispersion) > -1:
+                    end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                else:
+                    end_empirical_dispersion = len(keyword_line)
                 if keyword_line[start_empirical_dispersion2] == "(":
                     empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion-1]
                 else:
@@ -787,7 +790,10 @@ def sp_energy(file):
                 empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
             else:
                 start_empirical_dispersion2 = keyword_line.strip().find('emp=') + 3
-                end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                if keyword_line.find(" ",start_empirical_dispersion) > -1:
+                    end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                else:
+                    end_empirical_dispersion = len(keyword_line)
                 if keyword_line[start_empirical_dispersion2] == "(":
                     empirical_dispersion2 = "empiricaldispersion=(" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
                 else:
