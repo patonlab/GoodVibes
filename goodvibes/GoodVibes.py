@@ -1784,7 +1784,10 @@ def main():
             #Check for empirical dispersion
             dispersion_check = [sp_energy(file)[6] for file in files]
             if all_same(dispersion_check) != False:
-                log.Write("\no  "+dispersion_check[0]+" in any of the calculations.")
+                if dispersion_check[0] == 'No empirical dispersion detected':
+                    log.Write("\n-  No empirical dispersion detected in any of the calculations.")
+                else:
+                    log.Write("\no   Using "+dispersion_check[0]+" in all the calculations.")
             else:
                 dispersion_check_print = "Caution! Different dispersion models found - " + dispersion_check[0] + " (" + file_version[0]
                 for i in range(len(dispersion_check)):
