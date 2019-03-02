@@ -810,12 +810,14 @@ def sp_energy(file):
                 keyword_line_3 = line.strip().split()[-1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
         empirical_dispersion1 = 'No empirical dispersion detected'
+        empirical_dispersion2 = ''
+        empirical_dispersion3 = ''
         for i, line in enumerate(data):
-            if keyword_line.strip().find('DFT DISPERSION CORRECTION') == -1:
+            if keyword_line.strip().find('DFT DISPERSION CORRECTION') > -1:
                 empirical_dispersion1 = ''
-            if keyword_line.strip().find('DFTD3') == -1:
+            if keyword_line.strip().find('DFTD3') > -1:
                 empirical_dispersion2 = "D3"
-            if keyword_line.strip().find('USING zero damping') == -1:
+            if keyword_line.strip().find('USING zero damping') > -1:
                 empirical_dispersion3 = ' with zero damping'
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
 
@@ -1921,7 +1923,10 @@ def main():
                 # Check for dispersion
                 dispersion_check_spc = [sp_energy(name)[6] for name in names_spc]
                 if all_same(dispersion_check_spc) != False:
-                    log.Write("\no  "+dispersion_check_spc[0]+" in any of the singe-point calculations.")
+                    if dispersion_check_spc[0] == 'No empirical dispersion detected':
+                        log.Write("\n-  No empirical dispersion detected in any of the calculations.")
+                    else:
+                        log.Write("\no  Using "+dispersion_check_spc[0]+" in all the singe-point calculations.")
                 else:
                   dispersion_check_spc_print = "Caution! Different dispersion models found - " + dispersion_check_spc[0] + " (" + names_spc[0]
                   for i in range(len(dispersion_check_spc)):
