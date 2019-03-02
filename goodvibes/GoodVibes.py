@@ -756,13 +756,19 @@ def sp_energy(file):
                     solvation_model = solvation_model + ")"
             else:
                 start_scrf2 = keyword_line.strip().find('scrf') + 4
-                end_scrf = keyword_line.find(" ",start_scrf)
+                if keyword_line.find(" ",start_scrf) > -1:
+                    end_scrf = keyword_line.find(" ",start_scrf)
+                else:
+                    end_scrf = len(keyword_line)
                 if keyword_line[start_scrf2] == "(":
                     solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
                     if solvation_model[-1] != ")":
                         solvation_model = solvation_model + ")"
                 else:
-                    end_scrf = keyword_line.find(" ",start_scrf)
+                    if keyword_line.find(" ",start_scrf) > -1:
+                        end_scrf = keyword_line.find(" ",start_scrf)
+                    else:
+                        end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
         #For empirical dispersion
         empirical_dispersion = ''
@@ -773,6 +779,8 @@ def sp_energy(file):
             if keyword_line[start_empirical_dispersion] == "(":
                 end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
                 empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+                if empirical_dispersion[-1] != ")":
+                    empirical_dispersion = empirical_dispersion + ")"
             else:
                 start_empirical_dispersion2 = keyword_line.strip().find('empiricaldispersion') + 19
                 if keyword_line.find(" ",start_empirical_dispersion) > -1:
@@ -802,6 +810,7 @@ def sp_energy(file):
             start_empirical_dispersion = keyword_line.strip().find('emp(') + 3
             end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
             empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+
 
     if 'ORCA' in version_program.strip():
         keyword_line_1 = "gas phase"
