@@ -145,10 +145,11 @@ class XYZout:
 
 # The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
 class calc_bbe:
-    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc):
+    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
+        inverted_freqs = []
         with open(file) as f: 
             g_output = f.readlines()
 
@@ -185,17 +186,26 @@ class calc_bbe:
             # if spc specified will take last Energy from file, otherwise will break after freq calc
             if link > freqloc: 
                 break
-
           	# Iterate over output: look out for low frequencies
             if line.strip().startswith('Frequencies -- '):
                 for i in range(2,5):
-                   try:
-                      x = float(line.strip().split()[i])
-                      #  only deal with real frequencies
-                      if x > 0.00: frequency_wn.append(x)
-                      if x < 0.00: im_frequency_wn.append(x)
-                   except IndexError: 
-                       pass
+                    try:
+                        x = float(line.strip().split()[i])
+                        # only deal with real frequencies
+                        if x > 0.00: 
+                            frequency_wn.append(x)
+                        # check if we want to make any low lying imaginary frequencies positive
+                        elif x < -1 * im_freq_cutoff: 
+                            if invert:
+                                if x > -50.0:
+                                    frequency_wn.append(x * -1.)
+                                    inverted_freqs.append(x)
+                                else: 
+                                    im_frequency_wn.append(x)
+                            else:
+                                im_frequency_wn.append(x)
+                    except IndexError: 
+                        pass
             # For QM calculations look for SCF energies, last one will be the optimized energy
             elif line.strip().startswith('SCF Done:'):
                 self.scf_energy = float(line.strip().split()[4])
@@ -245,7 +255,8 @@ class calc_bbe:
                 secs = 0 + self.cpu[3]
                 msecs = int(float(line.split()[9])*1000.0) + self.cpu[4]
                 self.cpu = [days,hours,mins,secs,msecs]
-
+        self.inverted_freqs = inverted_freqs
+        
         # skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             # create a list of frequencies equal to cut-off value
@@ -410,7 +421,7 @@ class get_pes:
                             pass
 
         if options.gconf:
-            log.Write('   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
+            log.Write('\n   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
 
         species = dict(zip(names, files))
 
@@ -1178,8 +1189,6 @@ def main():
     files = []; bbe_vals = []; command = '   Requested: '; clustering = False
     # get command line inputs. Use -h to list all possible arguments and default values
     parser = ArgumentParser()
-    parser.add_argument("-t", dest="temperature", default=298.15, type=float, metavar="TEMP",
-                        help="temperature (K) (default 298.15)")
     parser.add_argument("-q", dest="Q", action="store_true", default=False,
                         help="Quasi-harmonic entropy correction and enthalpy correction applied (default S=Grimme, H=Head-Gordon)")
     parser.add_argument("--qs", dest="QS", default="grimme", type=str.lower, metavar="QS",choices=('grimme', 'truhlar'),
@@ -1192,30 +1201,34 @@ def main():
                         help="Cut-off frequency for entropy (wavenumbers) (default = 100)")
     parser.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
                         help="Cut-off frequency for enthalpy (wavenumbers) (default = 100)")
+    parser.add_argument("-t", dest="temperature", default=298.15, type=float, metavar="TEMP",
+                        help="Temperature (K) (default 298.15)")
     parser.add_argument("-c", dest="conc", default=False, type=float, metavar="CONC",
-                        help="concentration (mol/l) (default 1 atm)")
+                        help="Concentration (mol/l) (default 1 atm)")
+    parser.add_argument("--ti", dest="temperature_interval", default=False, metavar="TI",
+                        help="Initial temp, final temp, step size (K)")
+    parser.add_argument("--ci", dest="conc_interval", default=False, metavar="CI",
+                        help="Initial conc, final conc, step size (mol/l)")
     parser.add_argument("-v", dest="freq_scale_factor", default=False, type=float, metavar="SCALE_FACTOR",
                         help="Frequency scaling factor. If not set, try to find a suitable value in database. If not found, use 1.0")
-    parser.add_argument("--freespace", dest="freespace", default="none", type=str, metavar="FREESPACE",
-                        help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)")
     parser.add_argument("--spc", dest="spc", type=str, default=False, metavar="SPC",
                         help="Indicates single point corrections (default False)")
     parser.add_argument("--boltz", dest="boltz", action="store_true", default=False,
                         help="Show Boltzmann factors")
     parser.add_argument("--cpu", dest="cputime", action="store_true", default=False,
                         help="Total CPU time")
-    parser.add_argument("--ti", dest="temperature_interval", default=False, metavar="TI",
-                        help="initial temp, final temp, step size (K)")
-    parser.add_argument("--ci", dest="conc_interval", default=False, metavar="CI",
-                        help="initial conc, final conc, step size (mol/l)")
     parser.add_argument("--xyz", dest="xyz", action="store_true", default=False,
-                        help="Write Cartesians to an xyz file (default False)")
-    parser.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
-                        help="Print imaginary frequencies (default False)")
-    parser.add_argument("--cosmo", dest="cosmo", default=False, metavar="COSMO-RS",
-                        help="Filename of a COSMO-RS out file")
+                        help="Write Cartesians to a .xyz file (default False)")
     parser.add_argument("--csv", dest="csv", action="store_true", default=False,
                         help="Write .csv output file format")
+    parser.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
+                        help="Print imaginary frequencies (default False)")
+    parser.add_argument("--invertifreq", dest="invert", nargs='?', const=True, default=False,
+                        help="Make low lying imaginary frequencies positive (cutoff > -50.0 wavenumbers)")
+    parser.add_argument("--freespace", dest="freespace", default="none", type=str, metavar="FREESPACE",
+                        help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)")
+    parser.add_argument("--cosmo", dest="cosmo", default=False, metavar="COSMO-RS",
+                        help="Filename of a COSMO-RS out file")
     parser.add_argument("--output", dest="output", default="output", metavar="OUTPUT",
                         help="Change the default name of the output file to GoodVibes_\"output\".dat")
     parser.add_argument("--pes", dest="pes", default=False, metavar="PES",
@@ -1223,13 +1236,13 @@ def main():
     parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
                         help="Calculate a free-energy correction related to multi-configurational space (default calculate Gconf)")
     parser.add_argument("--ee", dest="ee", action="store_true", default=False,
-                        help="Tabulate % enantiomeric excess value of a mixture")
+                        help="Tabulate %% enantiomeric excess value of a mixture")
     parser.add_argument("--check", dest="check", action="store_true", default=False,
                         help="Checks if calculations were done with the same program, level of theory and solvent, as well as detects potential duplicates")
     parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
                         help="Correction for standard concentration of solvents")
     parser.add_argument("--custom_ext", type=str, default='',
-                        help="List of additional file extensions to support, separated by commas (ie, '.qfi,.gaussian'). "
+                        help="List of additional file extensions to support, separated by commas (ie, '.qfi,.gaussian'). " +
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
 
     # Parse Arguments
@@ -1397,9 +1410,16 @@ def main():
 
     for file in files: # loop over all specified output files and compute thermochemistry
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
-                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
         bbe_vals.append(bbe)
-
+    
+    # Check if user has chosen to make any low lying imaginary frequencies positive
+    if options.invert:
+        inverted = bbe.inverted_freqs
+        if len(inverted) == 1:
+            log.Write("\n\n   The following frequency was made positive and used in calculations: " + str(inverted[0]))
+        elif len(inverted) > 1:
+            log.Write("\n\n   The following frequencies were made positive and used in calculations: " + str(inverted))
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
    
@@ -1463,7 +1483,7 @@ def main():
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
             warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
-                                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
             linear_warning = []
             linear_warning.append(warning_linear.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -1541,8 +1561,8 @@ def main():
                 log.Write('{:13.6f}'.format(cosmo_solv[file]))
             if options.boltz is True:
                 log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum),thermodata=True)
-            if options.imag_freq is True and hasattr(bbe, "im_freq") == True:
-                for freq in bbe.im_freq:
+            if options.imag_freq is True and hasattr(bbe, "im_frequency_wn") == True:
+                for freq in bbe.im_frequency_wn:
                     log.Write('{:9.2f}'.format(freq),thermodata=True)
 
             if clustering == True:
@@ -1626,7 +1646,7 @@ def main():
             multiplicity_check = []
             for file in files:
                 multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
-                                                options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                                                options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 multiplicity_check.append(str(int(multiplicity_calc.mult)))
             if all_same(charge_check) != False and all_same(multiplicity_check) != False:
                 log.Write("\no  Using charge and multiplicity "+charge_check[0]+ " " + multiplicity_check[0] + " in all the calculations.")
@@ -1678,7 +1698,7 @@ def main():
                 linear_fails_atom.append(linear_fails.ATOMTYPES)
                 linear_fails_files.append(file)
                 frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
-                                            options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 frequency_list.append(frequency_get.frequency_wn)
                 im_frequency_list.append(frequency_get.im_frequency_wn)
             linear_fails_list.append(linear_fails_atom)
@@ -1860,7 +1880,7 @@ def main():
                     multiplicity_spc_check = []
                     for name in names_spc:
                          multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
-                                                            options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                                                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                          multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                     if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                         log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
@@ -1945,7 +1965,7 @@ def main():
             for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
                 temp, conc,linear_warning = float(i), ATMOS / GAS_CONSTANT / float(i),[]
                 bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, 
-                                conc, options.freq_scale_factor, options.freespace, options.spc)
+                                conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
                     log.Write("\nx  ")

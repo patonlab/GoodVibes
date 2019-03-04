@@ -10,7 +10,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
   name = 'goodvibes',
   packages = ['goodvibes'],
-  version = '2.0.3',
+  version = '3.0.0',
   description = 'Calculates quasi-harmonic free energies from Gaussian output files with temperature and haptic corrections',
   long_description=long_description,
   long_description_content_type='text/markdown',
