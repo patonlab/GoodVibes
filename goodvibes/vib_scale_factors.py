@@ -48,8 +48,4 @@ scaling_data_dict, scaling_data_dict_mod = {}, {}
 for row in scaling_data:
     level_basis, zpe_fac, zpe_ref, zpe_meth, harm_fac, harm_ref, harm_meth, fund_fac, fund_ref, fund_meth = row
     data = ScalingData(*row)
-<<<<<<< HEAD
     scaling_data_dict[level_basis.upper()] = scaling_data_dict_mod[level_basis.replace("-", "").upper()] = data
-=======
-    scaling_data_dict[level_basis.upper()] = scaling_data_dict_mod[level_basis.replace("-", "").upper()] = data
->>>>>>> d783b273d21a9bdf95db2e6f15b3f38655973fbb
