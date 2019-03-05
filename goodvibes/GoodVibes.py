@@ -1917,7 +1917,7 @@ def main():
                 multiplicity_spc_check = []
                 for name in names_spc:
                      multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc,options.invert)
+                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
                      multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                 if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                     log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
@@ -2068,6 +2068,15 @@ def main():
 
     # Tabulate relative values
     if options.pes != False:
+        for key in thermo_data:
+            if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
+                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
+                sys.exit(pes_error)
+            if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
+                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
+                sys.exit(pes_error)
+            
+        
         PES = get_pes(options.pes, thermo_data, log, options)
         # Output the relative energy data
         if options.QH:
