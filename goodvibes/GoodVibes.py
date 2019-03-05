@@ -152,7 +152,7 @@ class calc_bbe:
         inverted_freqs = []
         with open(file) as f:
             g_output = f.readlines()
-
+        
         # read any single point energies if requested
         if spc != False and spc != 'link':
             name, ext = os.path.splitext(file)
@@ -195,9 +195,15 @@ class calc_bbe:
                         if x > 0.00:
                             frequency_wn.append(x)
                         # check if we want to make any low lying imaginary frequencies positive
+<<<<<<< HEAD
                         elif x < -1 * im_freq_cutoff:
                             if invert:
                                 if x > -50.0:
+=======
+                        elif x < -1 * im_freq_cutoff: 
+                            if invert is not False:
+                                if x > float(invert):
+>>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
                                     frequency_wn.append(x * -1.)
                                     inverted_freqs.append(x)
                                 else:
@@ -1150,36 +1156,37 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 
 
 # Calculate enantioselectivity based on boltzmann factors of given R and S enantiomers
-def get_ee(files,boltz_facs,boltz_sum,temperature,log):
+def get_ee(name,files,boltz_facs,boltz_sum,temperature,log):
     R_files,S_files = [], []
     R_sum,S_sum = 0.0, 0.0
+    failed = False
+    RS_pref = ''
     for file in files:
-        if file.find('_R.') > -1:
-            R_files.append(file)
-            R_sum += boltz_facs[file]/boltz_sum
-        elif file.find('_S.') > -1:
-            S_files.append(file)
-            S_sum += boltz_facs[file]/boltz_sum
-        else:
-            log.Write("\n   Warning! Filename "+file+' has not been formatted correctly for determining enantioselectivity\n')
-            log.Write("   Make sure the filename ends in either '_R' or '_S' \n")
-            sys.exit("   Please edit "+file+" and try again\n")
-
+        if file.lower().startswith(name.lower()):
+            if file.find('_R.') > -1:
+                R_files.append(file)
+                R_sum += boltz_facs[file]/boltz_sum
+            elif file.find('_S.') > -1:
+                S_files.append(file)
+                S_sum += boltz_facs[file]/boltz_sum
+            else:
+                log.Write("\n   Warning! Filename "+file+' has not been formatted correctly for determining enantioselectivity\n')
+                log.Write("   Make sure the filename ends in either '_R' or '_S' \n")
+                sys.exit("   Please edit "+file+" and try again\n")
+        
     ee = (R_sum - S_sum) * 100.
+    
     #if ee is negative, more in favor of S
+    if ee == 0:
+        log.Write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
+        failed = True
+    elif ee > 0:
+        RS_pref = 'R'
+    else:
+        RS_pref = 'S'
 
-    dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + ee / 2.0) / (50 - ee / 2.0)) * KCAL_TO_AU
-
-    #try to obtain name of reaction by base name for files
-    rxn_len = len(files[0])
-    rxn_name = files[0]
-    for i in range(len(files[0])):
-        for j in range(len(files)):
-            rxn_name = rxn_name[0:rxn_len]
-            if rxn_name != files[j][0:rxn_len]:
-                rxn_len -= 1
-    if rxn_name == '': rxn_name = "Reaction"
-    return rxn_name, ee, dd_free_energy
+    dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(ee) / 2.0) / (50 - abs(ee) / 2.0)) * KCAL_TO_AU
+    return abs(ee), dd_free_energy, failed, RS_pref
 
 
 # Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values, used for --ee and --boltz options
@@ -1265,8 +1272,8 @@ def main():
                         help="Tabulate relative values")
     parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
                         help="Calculate a free-energy correction related to multi-configurational space (default calculate Gconf)")
-    parser.add_argument("--ee", dest="ee", action="store_true", default=False,
-                        help="Tabulate %% enantiomeric excess value of a mixture")
+    parser.add_argument("--ee", dest="ee", default=False, type=str, 
+                        help="Tabulate %% enantiomeric excess value of a mixture, provide name of stereodetermining step")
     parser.add_argument("--check", dest="check", action="store_true", default=False,
                         help="Checks if calculations were done with the same program, level of theory and solvent, as well as detects potential duplicates")
     parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
@@ -1276,8 +1283,7 @@ def main():
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
 
     # Parse Arguments
-    (options, args) = parser.parse_known_args()
-
+    (options, args) = parser.parse_known_args() 
     # If requested, turn on head-gordon enthalpy correction
     if options.Q:
         options.QH = True
@@ -1330,10 +1336,6 @@ def main():
                 command += elem + ' '
         except IndexError:
             pass
-
-    # After parsing arguments, check if user specified files along with arguments
-    if len(files) == 0:
-        sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
     # Start printing results
     start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
@@ -1438,10 +1440,12 @@ def main():
     if len(files) == 0:
         sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
+    inverted_freqs, inverted_files = [], []
     for file in files: # loop over all specified output files and compute thermochemistry
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
         bbe_vals.append(bbe)
+<<<<<<< HEAD
 
     # Check if user has chosen to make any low lying imaginary frequencies positive
     if options.invert:
@@ -1450,8 +1454,25 @@ def main():
             log.Write("\n\n   The following frequency was made positive and used in calculations: " + str(inverted[0]))
         elif len(inverted) > 1:
             log.Write("\n\n   The following frequencies were made positive and used in calculations: " + str(inverted))
+=======
+    
+>>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
+
+    inverted_freqs, inverted_files = [], []
+    for file in files:
+        if len(thermo_data[file].inverted_freqs) > 0:
+            inverted_freqs.append(thermo_data[file].inverted_freqs)
+            inverted_files.append(file)
+            
+    # Check if user has chosen to make any low lying imaginary frequencies positive
+    if options.invert is not False:
+        for i,file in enumerate(inverted_files):
+            if len(inverted_freqs[i]) == 1:
+                log.Write("\n\n   The following frequency was made positive and used in calculations: " + str(inverted_freqs[i][0]) + " from " + file)
+            elif len(inverted_freqs[i]) > 1:
+                log.Write("\n\n   The following frequencies were made positive and used in calculations: " + str(inverted_freqs[i]) + " from " + file)
 
     # Adjust printing according to options requested
     if options.spc is not False:
@@ -1913,7 +1934,11 @@ def main():
                 multiplicity_spc_check = []
                 for name in names_spc:
                      multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+<<<<<<< HEAD
                                                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+=======
+                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc,options.invert)
+>>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
                      multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                 if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                     log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
@@ -2144,15 +2169,16 @@ def main():
                     log.Write("\n"+STARS+"\n   "+'{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
             log.Write("\n"+STARS+"\n")
 
-    if options.ee:#compute enantiomeric excess
-        EE_STARS = "   " + '*' * 67
+    if options.ee is not False:#compute enantiomeric excess
+        EE_STARS = "   " + '*' * 81
         boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files,thermo_data,clustering,options.temperature)
-        rxn_name, ee, dd_free_energy = get_ee(files,boltz_facs,boltz_sum,options.temperature,log)
-        log.Write("\n   " + '{:<39} {:>13} {:>13}'.format("Enantioselectivity" , "%ee", "ddG"), thermodata=True)
-        log.Write("\n"+EE_STARS)
-        log.Write("\no  ")
-        log.Write('{:<39} {:13.2f} {:13.2f}'.format(rxn_name,ee,dd_free_energy), thermodata=True)
-        log.Write("\n"+EE_STARS+"\n")
+        ee, dd_free_energy,failed,RS_preference = get_ee(options.ee,files,boltz_facs,boltz_sum,options.temperature,log)
+        if not failed:
+            log.Write("\n   " + '{:<39} {:>13} {:>13} {:>13}'.format("Enantioselectivity" , "%ee", "ddG", "Abs. Config."), thermodata=True)
+            log.Write("\n"+EE_STARS)
+            log.Write("\no  ")
+            log.Write('{:<39} {:13.2f} {:13.2f} {:>13}'.format(options.ee,ee,dd_free_energy,RS_preference), thermodata=True)
+            log.Write("\n"+EE_STARS+"\n")
 
     # Close the log
     log.Finalize()
