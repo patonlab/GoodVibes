@@ -150,9 +150,9 @@ class calc_bbe:
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
         inverted_freqs = []
-        with open(file) as f:
+        with open(file) as f: 
             g_output = f.readlines()
-
+        
         # read any single point energies if requested
         if spc != False and spc != 'link':
             name, ext = os.path.splitext(file)
@@ -192,19 +192,19 @@ class calc_bbe:
                     try:
                         x = float(line.strip().split()[i])
                         # only deal with real frequencies
-                        if x > 0.00:
+                        if x > 0.00: 
                             frequency_wn.append(x)
                         # check if we want to make any low lying imaginary frequencies positive
-                        elif x < -1 * im_freq_cutoff:
+                        elif x < -1 * im_freq_cutoff: 
                             if invert is not False:
                                 if x > float(invert):
                                     frequency_wn.append(x * -1.)
                                     inverted_freqs.append(x)
-                                else:
+                                else: 
                                     im_frequency_wn.append(x)
                             else:
                                 im_frequency_wn.append(x)
-                    except IndexError:
+                    except IndexError: 
                         pass
             # For QM calculations look for SCF energies, last one will be the optimized energy
             elif line.strip().startswith('SCF Done:'):
@@ -256,7 +256,7 @@ class calc_bbe:
                 msecs = int(float(line.split()[9])*1000.0) + self.cpu[4]
                 self.cpu = [days,hours,mins,secs,msecs]
         self.inverted_freqs = inverted_freqs
-
+        
         # skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             # create a list of frequencies equal to cut-off value
@@ -424,7 +424,7 @@ class get_pes:
             log.Write('\n   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
 
         species = dict(zip(names, files))
-
+        
         self.path, self.species = [], []
         self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], [], [], []
         self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -459,8 +459,10 @@ class get_pes:
                         g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                         boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
                         boltz_prob = boltz_fac / boltz_sum
-                        if hasattr(thermo_data[conformer], "sp_energy"):
+                        if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
                             self.spc_zero += thermo_data[conformer].sp_energy * boltz_prob
+                        if thermo_data[conformer].sp_energy is '!':
+                            sys.exit("Not all files contain a SPC value, relative values will not be calculated.")
                         self.e_zero += thermo_data[conformer].scf_energy * boltz_prob
                         self.zpe_zero += thermo_data[conformer].zpe * boltz_prob
                         if options.gconf: #default calculate gconf correction for conformers
@@ -559,7 +561,10 @@ class get_pes:
                                                     g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                                     boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
                                                     boltz_prob = boltz_fac / boltz_sum
-                                                    if hasattr(thermo_data[conformer], "sp_energy"):  spc_abs += thermo_data[conformer].sp_energy * boltz_prob
+                                                    if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
+                                                        spc_abs += thermo_data[conformer].sp_energy * boltz_prob
+                                                    if thermo_data[conformer].sp_energy is '!':
+                                                        sys.exit("\n   Not all files contain a SPC value, relative values will not be calculated.\n")
                                                     e_abs += thermo_data[conformer].scf_energy * boltz_prob
                                                     zpe_abs += thermo_data[conformer].zpe * boltz_prob
                                                     if options.gconf: #default calculate gconf correction for conformers
@@ -1167,9 +1172,9 @@ def get_ee(name,files,boltz_facs,boltz_sum,temperature,log):
                 log.Write("\n   Warning! Filename "+file+' has not been formatted correctly for determining enantioselectivity\n')
                 log.Write("   Make sure the filename ends in either '_R' or '_S' \n")
                 sys.exit("   Please edit "+file+" and try again\n")
-
+        
     ee = (R_sum - S_sum) * 100.
-
+    
     #if ee is negative, more in favor of S
     if ee == 0:
         log.Write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
@@ -1266,7 +1271,7 @@ def main():
                         help="Tabulate relative values")
     parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
                         help="Calculate a free-energy correction related to multi-configurational space (default calculate Gconf)")
-    parser.add_argument("--ee", dest="ee", default=False, type=str,
+    parser.add_argument("--ee", dest="ee", default=False, type=str, 
                         help="Tabulate %% enantiomeric excess value of a mixture, provide name of stereodetermining step")
     parser.add_argument("--check", dest="check", action="store_true", default=False,
                         help="Checks if calculations were done with the same program, level of theory and solvent, as well as detects potential duplicates")
@@ -1277,7 +1282,7 @@ def main():
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
 
     # Parse Arguments
-    (options, args) = parser.parse_known_args()
+    (options, args) = parser.parse_known_args() 
     # If requested, turn on head-gordon enthalpy correction
     if options.Q:
         options.QH = True
@@ -1285,7 +1290,7 @@ def main():
         STARS = "   " + "*" * 142
     else:
         STARS = "   " + "*" * 128
-
+    
     # If necessary, create an xyz file for Cartesians
     if options.xyz:
         xyz = XYZout("Goodvibes","xyz", "output")
@@ -1308,7 +1313,7 @@ def main():
             if elem == 'clust:':
                 clustering = True; options.boltz = True
                 clusters = []; nclust = -1
-
+    
     # Get the filenames from the command line prompt
     args = sys.argv[1:]
     for elem in args:
@@ -1328,11 +1333,10 @@ def main():
                             if clustering == True:
                                 clusters[nclust].append(file)
             elif elem != 'clust:': # look for requested options
-
                 command += elem + ' '
         except IndexError:
             pass
-
+        
     # Start printing results
     start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
     log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
@@ -1352,7 +1356,6 @@ def main():
     l_o_t = [level_of_theory(file) for file in files]
     def all_same(items):
         return all(x == items[0] for x in items)
-
     if options.freq_scale_factor is not False:
         log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
     else:
@@ -1438,10 +1441,10 @@ def main():
 
     inverted_freqs, inverted_files = [], []
     for file in files: # loop over all specified output files and compute thermochemistry
-        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
         bbe_vals.append(bbe)
-
+    
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
 
@@ -1450,7 +1453,7 @@ def main():
         if len(thermo_data[file].inverted_freqs) > 0:
             inverted_freqs.append(thermo_data[file].inverted_freqs)
             inverted_files.append(file)
-
+            
     # Check if user has chosen to make any low lying imaginary frequencies positive
     if options.invert is not False:
         for i,file in enumerate(inverted_files):
@@ -1518,7 +1521,7 @@ def main():
                     xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
                                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
             linear_warning = []
             linear_warning.append(warning_linear.linear_warning)
@@ -1681,7 +1684,7 @@ def main():
             charge_check = [sp_energy(file)[5] for file in files]
             multiplicity_check = []
             for file in files:
-                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
                                                 options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 multiplicity_check.append(str(int(multiplicity_calc.mult)))
             if all_same(charge_check) != False and all_same(multiplicity_check) != False:
@@ -1733,7 +1736,7 @@ def main():
                 linear_fails_cart.append(linear_fails.CARTESIANS)
                 linear_fails_atom.append(linear_fails.ATOMTYPES)
                 linear_fails_files.append(file)
-                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
                                             options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 frequency_list.append(frequency_get.frequency_wn)
                 im_frequency_list.append(frequency_get.im_frequency_wn)
@@ -1919,7 +1922,7 @@ def main():
                 multiplicity_spc_check = []
                 for name in names_spc:
                      multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc,options.invert)
+                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
                      multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                 if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                     log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
@@ -2006,7 +2009,7 @@ def main():
             log.Write("\n"+STARS)
             for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
                 temp, conc,linear_warning = float(i), ATMOS / GAS_CONSTANT / float(i),[]
-                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp,
+                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, 
                                 conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -2077,8 +2080,8 @@ def main():
             if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
                 sys.exit(pes_error)
-
-
+            
+        
         PES = get_pes(options.pes, thermo_data, log, options)
         # Output the relative energy data
         if options.QH:
