@@ -150,7 +150,7 @@ class calc_bbe:
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
         inverted_freqs = []
-        with open(file) as f: 
+        with open(file) as f:
             g_output = f.readlines()
         
         # read any single point energies if requested
@@ -192,19 +192,25 @@ class calc_bbe:
                     try:
                         x = float(line.strip().split()[i])
                         # only deal with real frequencies
-                        if x > 0.00: 
+                        if x > 0.00:
                             frequency_wn.append(x)
                         # check if we want to make any low lying imaginary frequencies positive
+<<<<<<< HEAD
+                        elif x < -1 * im_freq_cutoff:
+                            if invert:
+                                if x > -50.0:
+=======
                         elif x < -1 * im_freq_cutoff: 
                             if invert is not False:
                                 if x > float(invert):
+>>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
                                     frequency_wn.append(x * -1.)
                                     inverted_freqs.append(x)
-                                else: 
+                                else:
                                     im_frequency_wn.append(x)
                             else:
                                 im_frequency_wn.append(x)
-                    except IndexError: 
+                    except IndexError:
                         pass
             # For QM calculations look for SCF energies, last one will be the optimized energy
             elif line.strip().startswith('SCF Done:'):
@@ -256,7 +262,7 @@ class calc_bbe:
                 msecs = int(float(line.split()[9])*1000.0) + self.cpu[4]
                 self.cpu = [days,hours,mins,secs,msecs]
         self.inverted_freqs = inverted_freqs
-        
+
         # skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             # create a list of frequencies equal to cut-off value
@@ -1436,10 +1442,21 @@ def main():
 
     inverted_freqs, inverted_files = [], []
     for file in files: # loop over all specified output files and compute thermochemistry
-        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
         bbe_vals.append(bbe)
+<<<<<<< HEAD
+
+    # Check if user has chosen to make any low lying imaginary frequencies positive
+    if options.invert:
+        inverted = bbe.inverted_freqs
+        if len(inverted) == 1:
+            log.Write("\n\n   The following frequency was made positive and used in calculations: " + str(inverted[0]))
+        elif len(inverted) > 1:
+            log.Write("\n\n   The following frequencies were made positive and used in calculations: " + str(inverted))
+=======
     
+>>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
 
@@ -1516,7 +1533,7 @@ def main():
                     xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
             linear_warning = []
             linear_warning.append(warning_linear.linear_warning)
@@ -1679,7 +1696,7 @@ def main():
             charge_check = [sp_energy(file)[5] for file in files]
             multiplicity_check = []
             for file in files:
-                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                multiplicity_calc = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                                 options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 multiplicity_check.append(str(int(multiplicity_calc.mult)))
             if all_same(charge_check) != False and all_same(multiplicity_check) != False:
@@ -1731,7 +1748,7 @@ def main():
                 linear_fails_cart.append(linear_fails.CARTESIANS)
                 linear_fails_atom.append(linear_fails.ATOMTYPES)
                 linear_fails_files.append(file)
-                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 
+                frequency_get = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                                             options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 frequency_list.append(frequency_get.frequency_wn)
                 im_frequency_list.append(frequency_get.im_frequency_wn)
@@ -1917,7 +1934,15 @@ def main():
                 multiplicity_spc_check = []
                 for name in names_spc:
                      multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+<<<<<<< HEAD
                                                         options.conc, options.freq_scale_factor, options.freespace, options.spc)
+=======
+<<<<<<< HEAD
+                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+=======
+                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc,options.invert)
+>>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
+>>>>>>> 36709a6bb94837c3b56dc099e0325917c98ecd8d
                      multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                 if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                     log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
@@ -2004,7 +2029,7 @@ def main():
             log.Write("\n"+STARS)
             for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
                 temp, conc,linear_warning = float(i), ATMOS / GAS_CONSTANT / float(i),[]
-                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp, 
+                bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp,
                                 conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
