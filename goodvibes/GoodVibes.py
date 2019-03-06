@@ -1922,7 +1922,7 @@ def main():
                 multiplicity_spc_check = []
                 for name in names_spc:
                      multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
+                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
                      multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                 if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                     log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
