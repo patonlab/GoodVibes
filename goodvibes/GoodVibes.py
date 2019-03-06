@@ -137,7 +137,7 @@ class XYZout:
             self.xyz.write('{:>1}'.format(atoms[n]))
             for cart in carts:
                 self.xyz.write('{:13.6f}'.format(cart))
-                self.xyz.write('\n')
+            self.xyz.write('\n')
 
     def Finalize(self):
         self.xyz.close()
