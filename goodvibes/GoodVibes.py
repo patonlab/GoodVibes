@@ -195,15 +195,9 @@ class calc_bbe:
                         if x > 0.00:
                             frequency_wn.append(x)
                         # check if we want to make any low lying imaginary frequencies positive
-<<<<<<< HEAD
                         elif x < -1 * im_freq_cutoff:
                             if invert:
                                 if x > -50.0:
-=======
-                        elif x < -1 * im_freq_cutoff: 
-                            if invert is not False:
-                                if x > float(invert):
->>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
                                     frequency_wn.append(x * -1.)
                                     inverted_freqs.append(x)
                                 else:
@@ -1445,7 +1439,6 @@ def main():
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
         bbe_vals.append(bbe)
-<<<<<<< HEAD
 
     # Check if user has chosen to make any low lying imaginary frequencies positive
     if options.invert:
@@ -1454,9 +1447,6 @@ def main():
             log.Write("\n\n   The following frequency was made positive and used in calculations: " + str(inverted[0]))
         elif len(inverted) > 1:
             log.Write("\n\n   The following frequencies were made positive and used in calculations: " + str(inverted))
-=======
-    
->>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
 
@@ -1934,15 +1924,7 @@ def main():
                 multiplicity_spc_check = []
                 for name in names_spc:
                      multiplicity_spc_calc = calc_bbe(name, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-<<<<<<< HEAD
-                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc)
-=======
-<<<<<<< HEAD
-                                                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
-=======
                                                         options.conc, options.freq_scale_factor, options.freespace, options.spc,options.invert)
->>>>>>> 7584bf95fa246767f30a2e8e5b8772e286d6ac36
->>>>>>> 36709a6bb94837c3b56dc099e0325917c98ecd8d
                      multiplicity_spc_check.append(str(int(multiplicity_spc_calc.mult)))
                 if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
                     log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
