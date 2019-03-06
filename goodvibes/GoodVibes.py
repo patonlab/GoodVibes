@@ -678,19 +678,17 @@ class getoutData:
 # Read solvation free energies from a COSMO-RS dat file
 def COSMORSout(datfile, names):
     GSOLV = {}
-    if os.path.exists(os.path.splitext(datfile)[0]+'.out'):
-        with open(os.path.splitext(datfile)[0]+'.out') as f:
+    if os.path.exists(datfile):
+        with open(datfile) as f:
             data = f.readlines()
     else:
         raise ValueError("File {} does not exist".format(datfile))
 
     for i, line in enumerate(data):
         for name in names:
-            if line.find('('+name.split('.')[0]+')') > -1 and line.find('Compound') > -1:
-                if data[i+10].find('Gibbs') > -1:
-                    gsolv = float(data[i+10].split()[6].strip()) / KCAL_TO_AU
-                    GSOLV[name] = gsolv
-
+            if line.find(name.split('.')[0]) > -1:
+                gsolv = float(line.split(' ')[-1]) / KCAL_TO_AU
+                GSOLV[name] = gsolv
     return GSOLV
 
 
@@ -1403,9 +1401,9 @@ def main():
     if options.cosmo is not False:
         try:
             cosmo_solv = COSMORSout(options.cosmo, files)
-            log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo+'.out')
+            log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo)
         except ValueError:
-            log.Write('\n\n   Warning! COSMO-RS file '+options.cosmo+'.out requested but not found')
+            log.Write('\n\n   Warning! COSMO-RS file '+options.cosmo+' requested but not found')
             cosmo_solv = None
 
     if options.freq_cutoff != 100.0:
@@ -1466,7 +1464,7 @@ def main():
     if options.spc is not False:
         STARS += '*' * 14
     if options.cosmo is not False:
-        STARS += '*' * 13
+        STARS += '*' * 30
     if options.imag_freq is True:
         STARS += '*' * 9
     if options.boltz is True:
@@ -1487,7 +1485,7 @@ def main():
             else:
                 log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
         if options.cosmo is not False:
-            log.Write('{:>13}'.format("COSMO-RS"))
+            log.Write('{:>13} {:>16}'.format("COSMO-RS","COSMO-qh-G(T)"))
         if options.boltz is True:
             log.Write('{:>7}'.format("Boltz"),thermodata=True)
         if options.imag_freq is True:
@@ -1597,7 +1595,7 @@ def main():
                                     qh_entropy_duplic.append((options.temperature * bbe.qh_entropy))
 
             if options.cosmo is not False and cosmo_solv != None:
-                log.Write('{:13.6f}'.format(cosmo_solv[file]))
+                log.Write('{:13.6f} {:16.6f}'.format(cosmo_solv[file],bbe.qh_gibbs_free_energy+cosmo_solv[file]))
             if options.boltz is True:
                 log.Write('{:7.3f}'.format(boltz_facs[file]/boltz_sum),thermodata=True)
             if options.imag_freq is True and hasattr(bbe, "im_frequency_wn") == True:
