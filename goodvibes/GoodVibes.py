@@ -1534,8 +1534,16 @@ def main():
                     qh_entropy_duplic.append(0.0)
             else:
                 if hasattr(bbe, "gibbs_free_energy"):
-                    log.Write("\no  ")
-                    log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+                    if options.spc is False:
+                        log.Write("\no  ")
+                        log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+                    if options.spc is not False:
+                        if bbe.sp_energy is not "!":
+                            log.Write("\no  ")
+                            log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+                        elif bbe.sp_energy is "!":
+                            log.Write("\nx  ")
+                            log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
                 if not hasattr(bbe,"gibbs_free_energy"):
                     log.Write("\nx  ")
                     log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
@@ -2077,10 +2085,6 @@ def main():
             if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
                 sys.exit(pes_error)
-            if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False and options.spc is '!':
-                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
-                sys.exit(pes_error)
-
 
         PES = get_pes(options.pes, thermo_data, log, options)
         # Output the relative energy data
