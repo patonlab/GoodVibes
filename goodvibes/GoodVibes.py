@@ -1960,17 +1960,20 @@ def main():
                 geom_duplic_list_spc.append(geom_duplic_cart_spc)
                 geom_duplic_list_spc.append(geom_duplic_files_spc)
                 spc_mismatching = "Caution! Potential differences found between frequency and single-point geometries -"
-                for i in range(len(files)):
-                    if geom_duplic_list[0][i] == geom_duplic_list_spc[0][i]:
-                        i = i
+                if len(geom_duplic_list[0]) == len(geom_duplic_list_spc[0]):
+                    for i in range(len(files)):
+                        if geom_duplic_list[0][i] == geom_duplic_list_spc[0][i]:
+                            i = i
+                        else:
+                            spc_mismatching += ", " + geom_duplic_list[1][i]
+                    if spc_mismatching == "Caution! Potential differences found between frequency and single-point geometries -":
+                        log.Write("\no  No potential differences found between frequency and single-point geometries (based on input coordinates).")
                     else:
-                        spc_mismatching += ", " + geom_duplic_list[1][i]
-                if spc_mismatching == "Caution! Potential differences found between frequency and single-point geometries -":
-                    log.Write("\no  No potential differences found between frequency and single-point geometries (based on input coordinates).")
+                        spc_mismatching_1 = spc_mismatching[:84]
+                        spc_mismatching_2 = spc_mismatching[85:]
+                        log.Write("\nx  " + spc_mismatching_1 + spc_mismatching_2 + '.')
                 else:
-                    spc_mismatching_1 = spc_mismatching[:84]
-                    spc_mismatching_2 = spc_mismatching[85:]
-                    log.Write("\nx  " + spc_mismatching_1 + spc_mismatching_2 + '.')
+                    log.Write("\nx  One or more geometries from single-point corrections are missing.")
 
                 # Check for dispersion
                 dispersion_check_spc = [sp_energy(name)[6] for name in names_spc]
