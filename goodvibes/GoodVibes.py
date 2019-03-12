@@ -1373,7 +1373,7 @@ def main():
                 if level in data:
                     options.freq_scale_factor = data[level].zpe_fac
                     ref = scaling_refs[data[level].zpe_ref]
-                    log.Write("\n\n   Found vibrational scaling factor of {:.3f} for {} level of theory\n"
+                    log.Write("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
                               "   REF: {}".format(options.freq_scale_factor, l_o_t[0], ref))
                     break
         elif all_same(l_o_t) is False:
