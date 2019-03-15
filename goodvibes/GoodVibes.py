@@ -70,8 +70,6 @@ ATMOS =                 101.325                         # UNIT CONVERSION
 J_TO_AU =               4.184 * 627.509541 * 1000.0     # UNIT CONVERSION
 KCAL_TO_AU =            627.509541                      # UNIT CONVERSION
 
-
-
 # Some literature references
 grimme_ref = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
 truhlar_ref = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
@@ -676,10 +674,111 @@ class getoutData:
 
 
 #graph a reaction profile
-def graph_reaction_profile(thermo_data):
-    log.Write("Graphing Reaction Profile")
-    for key in thermo_data:
-        print(key,thermo_data[key].sp_energy)
+def graph_reaction_profile(graph_data,log,options,plt):
+    import matplotlib.path as mpath
+    import matplotlib.patches as mpatches
+    
+    log.Write("\n   Graphing Reaction Profile\n")
+    data,yaxis,color = {},None,None
+    #get pes data
+    for i, path in enumerate(graph_data.path):
+        g_data = []
+        zero_val = graph_data.qhg_zero
+        for j, e_abs in enumerate(graph_data.e_abs[i]):
+            species = graph_data.qhg_abs[i][j]
+            relative = species-zero_val
+            if graph_data.units == 'kJ/mol':
+                formatted_g = J_TO_AU / 1000.0 * relative
+            else:
+                formatted_g = KCAL_TO_AU * relative # defaults to kcal/mol
+            g_data.append(formatted_g)
+        data[path]=g_data
+    
+    #grab any other formatting for graph
+    with open(options.graph) as f:
+        yaml= f.readlines()
+    folder, program, names, files = None, None, [], []
+    for i, line in enumerate(yaml):
+        if line.strip().find('FORMAT') > -1:
+            for j, line in enumerate(yaml[i+1:]):
+                if line.strip().find('yaxis') > -1:
+                    try:
+                        yaxis = line.strip().replace(':','=').split("=")[1].strip().split(',')
+                    except IndexError:
+                        pass
+                if line.strip().find('color') > -1:
+                    try:
+                        colors = line.strip().replace(':','=').split("=")[1].strip().split(',')
+                    except IndexError:
+                        pass
+    #do some graphing
+    Path = mpath.Path
+    fig, ax = plt.subplots()
+    
+    for i, path in enumerate(graph_data.path):
+        for j in range(len(data[path])-1):
+            if colors is not None:
+                color = colors[i]
+            path_patch = mpatches.PathPatch(
+                Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
+                     [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
+                     label=path,fc="none", transform=ax.transData,color=color)
+            ax.add_patch(path_patch)
+            plt.hlines(data[path][j],j-0.15,j+0.15)
+        plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
+
+    for i, path in enumerate(graph_data.path):
+        #annotate points with energy level
+        for i, point in enumerate(data[path]):
+            if graph_data.dps == 1:
+                ax.annotate(round(point,1),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center').draggable()
+            elif graph_data.dps == 2:
+                ax.annotate(round(point,2),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center').draggable()
+    
+    if yaxis is not None:
+        ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
+    ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
+    
+    #label structures
+    plt.subplots_adjust(bottom=0.1)
+            
+    ax_label = []
+    xaxis_text=[]
+    newax_text_list=[]
+    
+    for i, path in enumerate(graph_data.path):
+        newax_text = []
+        ax_label.append(path)
+        for j, e_abs in enumerate(graph_data.e_abs[i]):
+            if i is 0:
+                xaxis_text.append(graph_data.species[i][j])
+            else:
+                newax_text.append(graph_data.species[i][j])
+        newax_text_list.append(newax_text)
+
+    plt.xticks(range(len(xaxis_text)),xaxis_text)
+    locs,labels = plt.xticks()
+    newax = []
+    for i in range(len(ax_label)):
+        if i > 0:
+            y = ax.twiny()
+            newax.append(y)
+    
+    for i in range(len(newax)):
+        newax[i].set_xticks(locs)
+        newax[i].set_xlim(ax.get_xlim())
+        if color is not None:
+            newax[i].tick_params(axis='x',colors=colors[i+1])
+        newax[i].set_xticklabels(newax_text_list[i+1])
+        newax[i].xaxis.set_ticks_position('bottom') 
+        newax[i].xaxis.set_label_position('bottom') 
+        newax[i].xaxis.set_ticks_position('none') 
+        newax[i].spines['bottom'].set_position(('outward', 15))
+        newax[i].spines['bottom'].set_visible(False)
+        
+            
+    plt.show()
+        
 
 
 # Read solvation free energies from a COSMO-RS dat file
@@ -1285,7 +1384,7 @@ def main():
     parser.add_argument("--custom_ext", type=str, default='',
                         help="List of additional file extensions to support, separated by commas (ie, '.qfi,.gaussian'). " +
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
-    parser.add_argument("--graph", dest='graph', action='store_true', default=False,
+    parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
                         help="Graph a reaction profile based on free energies calculated. ")
 
     # Parse Arguments
@@ -2184,15 +2283,26 @@ def main():
             log.Write("\n"+EE_STARS+"\n")
 
     #graph reaction profiles
-    if options.graph:
+    if options.graph is not False:
         try:
             import matplotlib.pyplot as plt
-            graph_reaction_profile(thermo_data)
         except ImportError:
             log.Write("\n\n   Warning! matplotlib module is not installed, reaction profile will not be graphed.")
             log.Write("\n   To install matplotlib, run the following commands: \n\t   python -m pip install -U pip" +
                         "\n\t   python -m pip install -U matplotlib\n\n")
-
+        
+        for key in thermo_data:
+            if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
+                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
+                sys.exit(pes_error)
+            if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
+                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
+                sys.exit(pes_error)
+                
+        graph_data = get_pes(options.graph, thermo_data, log, options)
+        graph_reaction_profile(graph_data,log,options,plt)
+        
+    
     # Close the log
     log.Finalize()
     if options.xyz:
