@@ -7,9 +7,10 @@ from __future__ import print_function, absolute_import
 #  Evaluation of quasi-harmonic thermochemistry from Gaussian.        #
 #  Partion functions are evaluated from vibrational frequencies       #
 #  and rotational temperatures from the standard output.              #
+#######################################################################
 #  The rigid-rotor harmonic oscillator approximation is used as       #
 #  standard for all frequencies above a cut-off value. Below this,    #
-#  two treatments can be applied:                                     #
+#  two treatments can be applied to entropic values:                  #
 #    (a) low frequencies are shifted to the cut-off value (as per     #
 #    Cramer-Truhlar)                                                  #
 #    (b) a free-rotor approximation is applied below the cut-off (as  #
@@ -19,21 +20,31 @@ from __future__ import print_function, absolute_import
 #  Both approaches avoid infinitely large values of Svib as wave-     #
 #  numbers tend to zero. With a cut-off set to 0, the results will be #
 #  identical to standard values output by the Gaussian program.       #
+#######################################################################
+#  Enthalpy values below the cutoff value are treated similarly to    #
+#  Grimme's method (as per Head-Gordon) where below the cutoff value, #
+#  a damping function is applied as the value approaches a value of   #
+#  0.5RT.                                                             #
+#######################################################################
 #  The free energy can be evaluated for variable temperature,         #
 #  concentration, vibrational scaling factor, and with a haptic       #
 #  correction of the translational entropy in different solvents,     #
 #  according to the amount of free space available.                   #
-"""
-add info on:
-    o Head-Gordon enthalpy correction
-    o PES Gconf corrections
-    o ee and G
-    o Juanvi's checks for
-        o frequency calculations
-        o level of theory
-        o single point calculations
-    o Outputs (CSV, XYZ)
-"""
+#######################################################################
+#  A potential energy surface may be evaluated for a given set of     #
+#  structures or conformers, in which case a correction to the free-  #
+#  energy due to multiple conformers is applied.                      #
+#  Enantiomeric excess and ddG can also be calculated to show         #
+#  preference of R or S enantiomers.                                  #
+#######################################################################
+#  Careful checks may be applied to compare variables between         #
+#  multiple files such as Gaussian version, solvation models, levels  #
+#  of theory, charge and multiplicity, potential duplicate structures #
+#  errors in potentail linear molecules, correct or incorrect         #
+#  transition states, and empirical dispersion models.                #
+#######################################################################
+
+
 #######################################################################
 #######  Written by:  Rob Paton, Ignacio Funes-Ardoiz  ################
 #######               Guilian Luchini, Juanvi Alegre   ################
@@ -719,10 +730,17 @@ def graph_reaction_profile(graph_data,log,options,plt):
         for j in range(len(data[path])-1):
             if colors is not None:
                 color = colors[i]
-            path_patch = mpatches.PathPatch(
-                Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
-                     [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
-                     label=path,fc="none", transform=ax.transData,color=color)
+            if j == 0:
+                path_patch = mpatches.PathPatch(
+                    Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
+                         [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
+                         label=path,fc="none", transform=ax.transData,color=color)
+            
+            else:
+                path_patch = mpatches.PathPatch(
+                    Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
+                         [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
+                         fc="none", transform=ax.transData,color=color)
             ax.add_patch(path_patch)
             plt.hlines(data[path][j],j-0.15,j+0.15)
         plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
@@ -731,16 +749,16 @@ def graph_reaction_profile(graph_data,log,options,plt):
         #annotate points with energy level
         for i, point in enumerate(data[path]):
             if graph_data.dps == 1:
-                ax.annotate(round(point,1),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center').draggable()
+                ax.annotate(round(point,1),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
             elif graph_data.dps == 2:
-                ax.annotate(round(point,2),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center').draggable()
+                ax.annotate(round(point,2),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
     
     if yaxis is not None:
         ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
     
-    #label structures
-    plt.subplots_adjust(bottom=0.1)
+    #label structureswas 
+    plt.subplots_adjust(bottom=0.1*(len(data)-1))
             
     ax_label = []
     xaxis_text=[]
@@ -773,13 +791,12 @@ def graph_reaction_profile(graph_data,log,options,plt):
         newax[i].xaxis.set_ticks_position('bottom') 
         newax[i].xaxis.set_label_position('bottom') 
         newax[i].xaxis.set_ticks_position('none') 
-        newax[i].spines['bottom'].set_position(('outward', 15))
+        newax[i].spines['bottom'].set_position(('outward', 15*(i+1)))
         newax[i].spines['bottom'].set_visible(False)
-        
-            
+    
+    plt.title('Reaction Profile')
     plt.show()
         
-
 
 # Read solvation free energies from a COSMO-RS dat file
 def COSMORSout(datfile, names):
