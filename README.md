@@ -7,13 +7,13 @@ Goodvibes
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
 [![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
 
-A Python program to compute corrections to thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Robert Paton](https://www.chem.colostate.edu/person/?id=234D5F1C7E4CBA9E192AB2B2837D6360) (Colorado State & Oxford) and [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ). Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://github.com/jaimergp).
+A Python program to compute corrections to thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Robert Paton](https://www.chem.colostate.edu/person/?id=234D5F1C7E4CBA9E192AB2B2837D6360) (Colorado State & Oxford), [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ), Guilian Luchini, Juan Alegre-Requena, and Yanfei Guan (Paton Research Group, Colorado State). Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://github.com/jaimergp).
 
 All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 K and 1 atmosphere.
 
 Two types of quasi-harmonic approximation are applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
 
-The second type of quasi-harmonic approximation is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach. 
+The second type of quasi-harmonic approximation is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. 
 
 The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the [Truhlar group database](https://t1.chem.umn.edu/freqscale/index.html).
 
@@ -21,7 +21,7 @@ The program will attempt to parse the level of theory and basis set used in the 
 *  With pypi: `pip install goodvibes`
 *  With conda: `conda install -c patonlab goodvibes`
 *  Manually Cloning the repository https://github.com/bobbypaton/GoodVibes.git and then adding the location of the GoodVibes directory to the PYTHONPATH environment variable.
-3. Run the script with your Gaussian output files (the program expects .log or .out extensions). It has been tested with Python 2 and 3 on Linux, OSX and Windows
+*  Run the script with your Gaussian output files (the program expects .log or .out extensions). It has been tested with Python 2 and 3 on Linux, macOS and Windows
 
 
 **Correct Usage**
@@ -48,19 +48,20 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by `-v 1.0`
 *   The `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
 *   The `--boltz` option will display the Boltzmann weighted factors based on free energy of each specified output file. 
+*	The `--pes` option takes a .yaml file input (see template) along with calculation output files to allow for the construction of a potential energy surface from relative computed Gibbs free-energy values.
+*	The `--nogconf` option will turn off a correction to the Gibbs free-energy due to multiple conformations when constructing a potential energy surface (use only with --pes option). Default is to calculate Gconf correction.
+*	The `--graph` option takes a .yaml file input (see template) along with calculation output files and will compute and graph relative Gibbs free-energy values along a reaction path (requires matplotlib library to be installed)
 *   The `--cpu` option will add up all of the CPU time across all files (including single point calculations if requested).
-*	The `--xyz` option will write all Cartesian coordinates to a .xyz file.
-*	The `--csv` option will write calculated thermochemical data output to a .csv file. 
-* the `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
-* the `--invertifreq` option will convert any low lying imaginary frequencies lying in a certain range to positive values (in wavenumbers). The default cutoff is to make imaginary frequencies above -50 cm<sup>-1</sup> positive.
+*	The `--xyz` option will write all Cartesian coordinates to a .xyz output file.
+*	The `--csv` option will write calculated thermochemical data to a .csv output file. 
+*   The `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
+*   The `--invertifreq` option will convert any low lying imaginary frequencies lying in a certain range to positive values (in wavenumbers). The default cutoff is to make imaginary frequencies above -50 cm<sup>-1</sup> positive.
 *	The `--freespace` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>5</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
 *	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out file. 
 *	The `--output` option is used to change the default output file name to a specified name instead. Use as  `--output NAME` to change the name of the output file of thermochemical data from "GoodVibes.dat" to "GoodVibes_NAME.dat"
-*	The `--pes` option 
-*	The `--nogconf` option will turn off 
-*	The `--ee` option
-*	The `--check` option  
-*	The `--media` option 
+*	The `--ee` option takes a .yaml input file (see template) along with calculation output files and calculates percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
+*	The `--check` option applies the checks specified above to the calculation output files and displays a pass or fail message to the user.
+*	The `--media` option
 *	The `--custom_ext` option 
 
 

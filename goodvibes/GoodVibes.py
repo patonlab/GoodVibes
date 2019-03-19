@@ -708,7 +708,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #grab any other formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
-    folder, program, names, files = None, None, [], []
+    folder, program, names, files, label, dpi, dec = None, None, [], [], True, False, 2
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -722,14 +722,34 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         colors = line.strip().replace(':','=').split("=")[1].strip().split(',')
                     except IndexError:
                         pass
+                if line.strip().find('dec') > -1:
+                    try:
+                        dec = int(line.strip().replace(':','=').split("=")[1].strip().split(',')[0])
+                    except IndexError:
+                        pass
+                if line.strip().find('label') > -1:
+                    try:
+                        label_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if label_input is 'false':
+                            label = False
+                    except IndexError:
+                        pass
+                if line.strip().find('dpi') > -1:
+                    try:
+                        dpi = int(line.strip().replace(':','=').split("=")[1].strip().split(',')[0])
+                    except IndexError:
+                        pass
     #do some graphing
     Path = mpath.Path
     fig, ax = plt.subplots()
-    
+
     for i, path in enumerate(graph_data.path):
         for j in range(len(data[path])-1):
             if colors is not None:
-                color = colors[i]
+                if len(colors) > 1:
+                    color = colors[i]
+                else:
+                    color = colors[0]
             if j == 0:
                 path_patch = mpatches.PathPatch(
                     Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
@@ -744,14 +764,15 @@ def graph_reaction_profile(graph_data,log,options,plt):
             ax.add_patch(path_patch)
             plt.hlines(data[path][j],j-0.15,j+0.15)
         plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
-
-    for i, path in enumerate(graph_data.path):
-        #annotate points with energy level
-        for i, point in enumerate(data[path]):
-            if graph_data.dps == 1:
-                ax.annotate(round(point,1),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
-            elif graph_data.dps == 2:
-                ax.annotate(round(point,2),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
+    
+    if label:
+        for i, path in enumerate(graph_data.path):
+            #annotate points with energy level
+            for i, point in enumerate(data[path]):
+                if dec is 1:
+                    ax.annotate("{:.1f}".format(point),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
+                else:
+                    ax.annotate("{:.2f}".format(point),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
     
     if yaxis is not None:
         ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
@@ -774,7 +795,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
                 newax_text.append(graph_data.species[i][j])
         newax_text_list.append(newax_text)
 
-    plt.xticks(range(len(xaxis_text)),xaxis_text)
+    plt.set_xticks(range(len(xaxis_text)),xaxis_text)
     locs,labels = plt.xticks()
     newax = []
     for i in range(len(ax_label)):
@@ -794,7 +815,9 @@ def graph_reaction_profile(graph_data,log,options,plt):
         newax[i].spines['bottom'].set_position(('outward', 15*(i+1)))
         newax[i].spines['bottom'].set_visible(False)
     
-    plt.title('Reaction Profile')
+    ax.set_title("Reaction Profile")
+    if dpi is not False:
+        plt.savefig('Rxn_profile_'+options.graph.split('.')[0]+'.png', dpi=dpi)
     plt.show()
         
 
