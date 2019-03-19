@@ -688,7 +688,7 @@ class getoutData:
 def graph_reaction_profile(graph_data,log,options,plt):
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
-    
+
     log.Write("\n   Graphing Reaction Profile\n")
     data,yaxis,color = {},None,None
     #get pes data
@@ -704,7 +704,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
                 formatted_g = KCAL_TO_AU * relative # defaults to kcal/mol
             g_data.append(formatted_g)
         data[path]=g_data
-    
+
     #grab any other formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
@@ -755,7 +755,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
                     Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
                          [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
                          label=path,fc="none", transform=ax.transData,color=color)
-            
+
             else:
                 path_patch = mpatches.PathPatch(
                     Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
@@ -764,7 +764,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
             ax.add_patch(path_patch)
             plt.hlines(data[path][j],j-0.15,j+0.15)
         plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
-    
+
     if label:
         for i, path in enumerate(graph_data.path):
             #annotate points with energy level
@@ -773,18 +773,18 @@ def graph_reaction_profile(graph_data,log,options,plt):
                     ax.annotate("{:.1f}".format(point),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
                 else:
                     ax.annotate("{:.2f}".format(point),(i,point-fig.get_figheight()*fig.dpi*0.025),horizontalalignment='center')
-    
+
     if yaxis is not None:
         ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
-    
-    #label structureswas 
+
+    #label structureswas
     plt.subplots_adjust(bottom=0.1*(len(data)-1))
-            
+
     ax_label = []
     xaxis_text=[]
     newax_text_list=[]
-    
+
     for i, path in enumerate(graph_data.path):
         newax_text = []
         ax_label.append(path)
@@ -802,24 +802,24 @@ def graph_reaction_profile(graph_data,log,options,plt):
         if i > 0:
             y = ax.twiny()
             newax.append(y)
-    
+
     for i in range(len(newax)):
         newax[i].set_xticks(locs)
         newax[i].set_xlim(ax.get_xlim())
         if color is not None:
             newax[i].tick_params(axis='x',colors=colors[i+1])
         newax[i].set_xticklabels(newax_text_list[i+1])
-        newax[i].xaxis.set_ticks_position('bottom') 
-        newax[i].xaxis.set_label_position('bottom') 
-        newax[i].xaxis.set_ticks_position('none') 
+        newax[i].xaxis.set_ticks_position('bottom')
+        newax[i].xaxis.set_label_position('bottom')
+        newax[i].xaxis.set_ticks_position('none')
         newax[i].spines['bottom'].set_position(('outward', 15*(i+1)))
         newax[i].spines['bottom'].set_visible(False)
-    
+
     ax.set_title("Reaction Profile")
     if dpi is not False:
         plt.savefig('Rxn_profile_'+options.graph.split('.')[0]+'.png', dpi=dpi)
     plt.show()
-        
+
 
 # Read solvation free energies from a COSMO-RS dat file
 def COSMORSout(datfile, names):
@@ -1680,16 +1680,19 @@ def main():
                     qh_entropy_duplic.append(0.0)
             else:
                 if hasattr(bbe, "gibbs_free_energy"):
-                    log.Write("\no  ")
-                    log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-                if not hasattr(bbe,"gibbs_free_energy"):
-                    log.Write("\nx  ")
-                    log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-                if options.spc is not False:
-                    try:
-                        log.Write(' {:13.6f}'.format(bbe.sp_energy),thermodata=True)
-                    except ValueError:
-                        log.Write(' {:>13}'.format('----'),thermodata=True)
+                    if options.spc is not False:
+                        if bbe.sp_energy != '!':
+                            log.Write("\no  ")
+                            log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+                            log.Write(' {:13.6f}'.format(bbe.sp_energy),thermodata=True)
+                        if bbe.sp_energy == '!':
+                            log.Write("\nx  ")
+                            log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+                            log.Write(' {:>13}'.format('----'),thermodata=True)
+                    else:
+                        log.Write("\no  ")
+                        log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
+
                 if hasattr(bbe, "scf_energy"):
                     log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
                 if not hasattr(bbe,"gibbs_free_energy"):
@@ -2330,7 +2333,7 @@ def main():
             log.Write("\n\n   Warning! matplotlib module is not installed, reaction profile will not be graphed.")
             log.Write("\n   To install matplotlib, run the following commands: \n\t   python -m pip install -U pip" +
                         "\n\t   python -m pip install -U matplotlib\n\n")
-        
+
         for key in thermo_data:
             if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
@@ -2338,11 +2341,11 @@ def main():
             if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
                 sys.exit(pes_error)
-                
+
         graph_data = get_pes(options.graph, thermo_data, log, options)
         graph_reaction_profile(graph_data,log,options,plt)
-        
-    
+
+
     # Close the log
     log.Finalize()
     if options.xyz:
