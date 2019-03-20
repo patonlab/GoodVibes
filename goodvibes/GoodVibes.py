@@ -2109,10 +2109,10 @@ def main():
                             if count == 1:
                                 if geom_duplic_list[0][i][j] == geom_duplic_list_spc[0][i][j]:
                                     count = count
-                                elif geom_duplic_list[0][i][j][0] == geom_duplic_list_spc[0][i][j][0]*(-1) or geom_duplic_list[0][i][j][0] == geom_duplic_list_spc[0][i][j][0]:
-                                    if geom_duplic_list[0][i][j][1] == geom_duplic_list_spc[0][i][j][1]*(-1) or geom_duplic_list[0][i][j][1] == geom_duplic_list_spc[0][i][j][1]*(-1):
+                                elif '{0:.3f}'.format(geom_duplic_list[0][i][j][0]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][0]*(-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][0]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][0]):
+                                    if '{0:.3f}'.format(geom_duplic_list[0][i][j][1]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][1]*(-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][1]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][1]*(-1)):
                                         count = count
-                                    if geom_duplic_list[0][i][j][2] == geom_duplic_list_spc[0][i][j][2]*(-1) or geom_duplic_list[0][i][j][2] == geom_duplic_list_spc[0][i][j][2]*(-1):
+                                    if '{0:.3f}'.format(geom_duplic_list[0][i][j][2]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][2]*(-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][2]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][2]*(-1)):
                                         count = count
                                 else:
                                     spc_mismatching += ", " + geom_duplic_list[1][i]
