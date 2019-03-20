@@ -2104,10 +2104,19 @@ def main():
                 spc_mismatching = "Caution! Potential differences found between frequency and single-point geometries -"
                 if len(geom_duplic_list[0]) == len(geom_duplic_list_spc[0]):
                     for i in range(len(files)):
-                        if geom_duplic_list[0][i] == geom_duplic_list_spc[0][i]:
-                            i = i
-                        else:
-                            spc_mismatching += ", " + geom_duplic_list[1][i]
+                        count = 1
+                        for j in range(len(geom_duplic_list[0][i])):
+                            if count == 1:
+                                if geom_duplic_list[0][i][j] == geom_duplic_list_spc[0][i][j]:
+                                    count = count
+                                elif geom_duplic_list[0][i][j][0] == geom_duplic_list_spc[0][i][j][0]*(-1) or geom_duplic_list[0][i][j][0] == geom_duplic_list_spc[0][i][j][0]:
+                                    if geom_duplic_list[0][i][j][1] == geom_duplic_list_spc[0][i][j][1]*(-1) or geom_duplic_list[0][i][j][1] == geom_duplic_list_spc[0][i][j][1]*(-1):
+                                        count = count
+                                    if geom_duplic_list[0][i][j][2] == geom_duplic_list_spc[0][i][j][2]*(-1) or geom_duplic_list[0][i][j][2] == geom_duplic_list_spc[0][i][j][2]*(-1):
+                                        count = count
+                                else:
+                                    spc_mismatching += ", " + geom_duplic_list[1][i]
+                                    count = count + 1
                     if spc_mismatching == "Caution! Potential differences found between frequency and single-point geometries -":
                         log.Write("\no  No potential differences found between frequency and single-point geometries (based on input coordinates).")
                     else:
