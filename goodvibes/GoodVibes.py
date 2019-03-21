@@ -789,6 +789,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
             ax.add_patch(path_patch)
             plt.hlines(data[path][j],j-0.15,j+0.15)
         plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
+    
     if legend:
         plt.legend()
     if label_g:
@@ -2321,25 +2322,25 @@ def main():
                 if options.spc is False:
                     formatted_list = formatted_list[1:]
                     if options.QH:
-                        if PES.dps == 1:
+                        if PES.dec == 1:
                             log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dps == 2:
+                        if PES.dec == 2:
                             log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
                     else:
-                        if PES.dps == 1:
+                        if PES.dec == 1:
                             log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dps == 2:
+                        if PES.dec == 2:
                             log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
                 else:
                     if options.QH:
-                        if PES.dps == 1:
+                        if PES.dec == 1:
                             log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dps == 2:
+                        if PES.dec == 2:
                             log.Write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
                     else:
-                        if PES.dps == 1:
+                        if PES.dec == 1:
                             log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dps == 2:
+                        if PES.dec == 2:
                             log.Write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
                 if PES.boltz != False:
                     boltz = [math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)/e_sum, math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)/h_sum, math.exp(-relative[6]*J_TO_AU/GAS_CONSTANT/options.temperature)/g_sum, math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)/qhg_sum]
