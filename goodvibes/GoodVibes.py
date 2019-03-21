@@ -363,7 +363,7 @@ class calc_bbe:
 class get_pes:
     def __init__(self, file, thermo_data, log, options):
         # defaults
-        self.dps = 2
+        self.dec = 2
         self.units = 'kcal/mol'
         self.boltz = False
 
@@ -413,9 +413,9 @@ class get_pes:
                             zero = line.strip().replace(':','=').split("=")[1].strip()
                         except IndexError:
                             pass
-                    if line.strip().find('dp') > -1:
+                    if line.strip().find('dec') > -1:
                         try:
-                            self.dps = int(line.strip().replace(':','=').split("=")[1].strip())
+                            self.dec = int(line.strip().replace(':','=').split("=")[1].strip())
                         except IndexError:
                             pass
                     if line.strip().find('units') > -1:
@@ -726,7 +726,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #grab any other formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
-    folder, program, names, files, label, dpi, dec = None, None, [], [], True, False, 2
+    folder, program, names, files, label_g, dpi, dec, legend = None, None, [], [], True, False, 2, True
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -748,13 +748,20 @@ def graph_reaction_profile(graph_data,log,options,plt):
                 if line.strip().find('label') > -1:
                     try:
                         label_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
-                        if label_input is 'false':
-                            label = False
+                        if label_input == 'false':
+                            label_g = False
                     except IndexError:
                         pass
                 if line.strip().find('dpi') > -1:
                     try:
                         dpi = int(line.strip().replace(':','=').split("=")[1].strip().split(',')[0])
+                    except IndexError:
+                        pass
+                if line.strip().find('legend') > -1:
+                    try:
+                        legend_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if legend_input == 'false':
+                            legend = False
                     except IndexError:
                         pass
     #do some graphing
@@ -782,8 +789,9 @@ def graph_reaction_profile(graph_data,log,options,plt):
             ax.add_patch(path_patch)
             plt.hlines(data[path][j],j-0.15,j+0.15)
         plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
-
-    if label:
+    if legend:
+        plt.legend()
+    if label_g:
         for i, path in enumerate(graph_data.path):
             #annotate points with energy level
             for i, point in enumerate(data[path]):
@@ -813,7 +821,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
                 newax_text.append(graph_data.species[i][j])
         newax_text_list.append(newax_text)
 
-    plt.set_xticks(range(len(xaxis_text)),xaxis_text)
+    plt.xticks(range(len(xaxis_text)),xaxis_text)
     locs,labels = plt.xticks()
     newax = []
     for i in range(len(ax_label)):
@@ -1710,7 +1718,11 @@ def main():
                     else:
                         log.Write("\no  ")
                         log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-
+                
+                if hasattr(bbe, "scf_energy") and not hasattr(bbe,"gibbs_free_energy"):#gaussian spc files
+                    log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+                elif not hasattr(bbe, "scf_energy") and not hasattr(bbe,"gibbs_free_energy"): #orca spc files
+                    log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(bbe, "scf_energy"):
                     log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
                 if not hasattr(bbe,"gibbs_free_energy"):
@@ -2196,10 +2208,12 @@ def main():
                     log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
                     log.Write('             Warning! Potential invalid calculation of linear molecule from Gaussian ...')
                 else:
+                    if hasattr(bbe, "scf_energy") and not hasattr(bbe,"gibbs_free_energy"):#gaussian spc files
+                        log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
+                    elif not hasattr(bbe, "scf_energy") and not hasattr(bbe,"gibbs_free_energy"): #orca spc files
+                        log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                     if not hasattr(bbe,"gibbs_free_energy"):
-                        log.Write("\nx  ")
-                        log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-                        log.Write("Warning! Couldn't find frequency information ...\n")
+                        log.Write("Warning! Couldn't find frequency information ...")
                     else:
                         log.Write("\no  ")
                         log.Write('{:<39} {:13.1f}'.format(os.path.splitext(os.path.basename(file))[0], temp),thermodata=True)

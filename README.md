@@ -1,5 +1,5 @@
-Goodvibes
-=========
+GoodVibes
+===
 
 [![Build Status](https://travis-ci.com/luchini18/GoodVibes.svg?branch=master)](https://travis-ci.org/luchini18/GoodVibes)
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
@@ -49,14 +49,14 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by `-v 1.0`
 *   The `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
 *   The `--boltz` option will display the Boltzmann weighted factors based on free energy of each specified output file. 
-*	The `--pes` option takes a .yaml file input (see template) along with calculation output files to allow for the construction of a potential energy surface from relative computed Gibbs free-energy values.
+*	The `--pes` option takes a .yaml file input (see template below) along with calculation output files to allow for the construction of a potential energy surface from relative computed Gibbs free-energy values.
 *	The `--nogconf` option will turn off a correction to the Gibbs free-energy due to multiple conformations when constructing a potential energy surface (use only with --pes option). Default is to calculate Gconf correction.
-*	The `--graph` option takes a .yaml file input (see template) along with calculation output files and will compute and graph relative Gibbs free-energy values along a reaction path (requires matplotlib library to be installed)
+*	The `--graph` option takes a .yaml file input (see template below) along with calculation output files and will compute and graph relative Gibbs free-energy values along a reaction path (requires matplotlib library to be installed)
 *   The `--cpu` option will add up all of the CPU time across all files (including single point calculations if requested).
 *   The `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
 *   The `--invertifreq` option will convert any low lying imaginary frequencies lying in a certain range to positive values (in wavenumbers). The default cutoff is to make imaginary frequencies above -50 cm<sup>-1</sup> positive.
 *	The `--freespace` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>5</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
-*	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out file. 
+*	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .tab formatted file. 
 *	The `--output` option is used to change the default output file name to a specified name instead. Use as  `--output NAME` to change the name of the output file of thermochemical data from "GoodVibes.dat" to "GoodVibes_NAME.dat"
 *	The `--ee` option takes a .yaml input file (see template) along with calculation output files and calculates percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
 *	The `--media` option
@@ -173,6 +173,14 @@ o  methylaniline                             -326.664901   0.142118   -326.51448
 ```
 
 The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case.
+
+#### File Naming Conventions
+Some options (--pes, --spc, -ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them properly. 
+
+pes
+
+#### .yaml File Formatting
+When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options.
 
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable
