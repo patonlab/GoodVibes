@@ -391,7 +391,8 @@ class get_pes:
                                         if os.path.splitext(os.path.basename(key))[0] == f.strip():
                                             match = key
                                     if match:
-                                        names.append(n.strip()); files.append(match)
+                                        names.append(n.strip())
+                                        files.append(match)
                                     else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                                 else:
@@ -400,11 +401,13 @@ class get_pes:
                                         if os.path.splitext(os.path.basename(key))[0].find(f.strip().strip('*')) == 0:
                                             match.append(key)
                                     if len(match) > 0:
-                                       names.append(n.strip()); files.append(match)
+                                       names.append(n.strip())
+                                       files.append(match)
                                     else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                             except ValueError:
-                                if len(line) > 2: log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
+                                if len(line) > 2: 
+                                    log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
 
             if line.strip().find('FORMAT') > -1:
                 for j, line in enumerate(data[i+1:]):
@@ -432,6 +435,9 @@ class get_pes:
         if options.gconf:
             log.Write('\n   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
 
+        for i in range(len(files)):
+            if len(files[i]) is 1:
+                files[i] = files[i][0]  
         species = dict(zip(names, files))
 
         self.path, self.species = [], []
@@ -508,9 +514,9 @@ class get_pes:
                         qg_corr = qh_tot - options.temperature * qs_tot
                     else:
                         qg_corr = h_tot - options.temperature * qs_tot
-                    self.qh_zero += qh_tot
-                    self.qhts_zero += qs_tot
-                    self.qhg_zero += qg_corr
+                    self.qh_zero = qh_tot
+                    self.qhts_zero = qs_tot
+                    self.qhg_zero = qg_corr
             except KeyError:
                 log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
                 log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
@@ -605,7 +611,6 @@ class get_pes:
                                                         qg_corr = qh_tot - options.temperature * qs_tot
                                                     else:
                                                         qg_corr = h_tot - options.temperature * qs_tot
-
                                     except KeyError:
                                         log.Write("   Warning! Structure "+structure+' has not been defined correctly in '+file+'\n')
                                         sys.exit("   Please edit "+file+" and try again\n")
@@ -619,6 +624,8 @@ class get_pes:
                                             conformers = True
                                     if conformers and single_structure:
                                         mix = True
+                                    
+                                    # print(point,conformers,single_structure,mix)
                                     if options.gconf and min_conf is not False:
                                         if mix:
                                             h_mix = h_tot+h_abs
