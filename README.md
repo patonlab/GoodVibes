@@ -41,6 +41,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `-f` option specifies the frequency cut-off for both entropy and enthalpy calculations (in wavenumbers) i.e. `-f 10` would use 10 cm<sup>-1</sup> when calculating thermochemical values. The default value is 100 cm<sup>-1</sup>. N.B. when set to zero all thermochemical values match standard (i.e. harmonic) Gaussian quantities.
 *	The `--fs` option specifies the frequency cut-off for only entropy calculations(in wavenumbers). `--fs 40` would use 40 cm<sup>-1</sup> when calculating entropies. The default value is 100 cm<sup>-1</sup>. 
 *	The `--fh` option specifies the frequency cut-off for only enthalpy calculations (in wavenumbers).`--fh 200` would use 200 cm<sup>-1</sup> when calculating enthalpies. The default value is 100 cm<sup>-1</sup>.
+*	The `--check` option applies the checks specified above to the calculation output files and displays a pass or fail message to the user.
 *	The `-t` option specifies temperature (in Kelvin). N.B. This does not have to correspond to the temperature used in the Gaussian calculation since all thermal quantities are reevalulated by GoodVibes at the requested temperature. The default value is 298.15 K.
 *	The `-c` option specifies concentration (in mol/l).  It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same as the Gaussian Pressure route line specification. The correction is applied to the Sackur-Tetrode equation of the translational entropy e.g. `-c 1` corrects to a solution-phase standard state of 1 mol/l. The default is 1 atmosphere.
 *	The `--ti` option specifies a temperature interval (for example to see how a free energy barrier changes with the temperature). Usage is `--ti 'initial_temperature, final_temperature, step_size'`. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) / 10
@@ -52,17 +53,15 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `--nogconf` option will turn off a correction to the Gibbs free-energy due to multiple conformations when constructing a potential energy surface (use only with --pes option). Default is to calculate Gconf correction.
 *	The `--graph` option takes a .yaml file input (see template) along with calculation output files and will compute and graph relative Gibbs free-energy values along a reaction path (requires matplotlib library to be installed)
 *   The `--cpu` option will add up all of the CPU time across all files (including single point calculations if requested).
-*	The `--xyz` option will write all Cartesian coordinates to a .xyz output file.
-*	The `--csv` option will write calculated thermochemical data to a .csv output file. 
 *   The `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
 *   The `--invertifreq` option will convert any low lying imaginary frequencies lying in a certain range to positive values (in wavenumbers). The default cutoff is to make imaginary frequencies above -50 cm<sup>-1</sup> positive.
 *	The `--freespace` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>5</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
 *	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out file. 
 *	The `--output` option is used to change the default output file name to a specified name instead. Use as  `--output NAME` to change the name of the output file of thermochemical data from "GoodVibes.dat" to "GoodVibes_NAME.dat"
 *	The `--ee` option takes a .yaml input file (see template) along with calculation output files and calculates percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
-*	The `--check` option applies the checks specified above to the calculation output files and displays a pass or fail message to the user.
 *	The `--media` option
-*	The `--custom_ext` option 
+*	The `--xyz` option will write all Cartesian coordinates to a .xyz output file.
+*	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file. 
 
 
 

@@ -437,7 +437,7 @@ class get_pes:
         self.path, self.species = [], []
         self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], [], [], []
         self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-
+        
         min_conf = False
         h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         zero_structures = zero.replace(' ','').split('+')
@@ -470,7 +470,7 @@ class get_pes:
                         boltz_prob = boltz_fac / boltz_sum
                         if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
                             self.spc_zero += thermo_data[conformer].sp_energy * boltz_prob
-                        if thermo_data[conformer].sp_energy is '!':
+                        if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is '!':
                             sys.exit("Not all files contain a SPC value, relative values will not be calculated.")
                         self.e_zero += thermo_data[conformer].scf_energy * boltz_prob
                         self.zpe_zero += thermo_data[conformer].zpe * boltz_prob
@@ -490,28 +490,27 @@ class get_pes:
                             self.qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
                             self.qhts_zero += thermo_data[conformer].qh_entropy * boltz_prob
                             self.qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
+                if options.gconf and isinstance(species[structure], list):
+                    h_adj = h_conf - min_conf.enthalpy
+                    h_tot = min_conf.enthalpy + h_adj
+                    s_adj = s_conf - min_conf.entropy
+                    s_tot = min_conf.entropy + s_adj
+                    g_corr = h_tot - options.temperature * s_tot
+                    self.h_zero += h_tot
+                    self.ts_zero += s_tot
+                    self.g_zero += g_corr
 
-                    if options.gconf:
-                        h_adj = h_conf - min_conf.enthalpy
-                        h_tot = min_conf.enthalpy + h_adj
-                        s_adj = s_conf - min_conf.entropy
-                        s_tot = min_conf.entropy + s_adj
-                        g_corr = h_tot - options.temperature * s_tot
-                        self.h_zero = h_tot
-                        self.ts_zero = s_tot
-                        self.g_zero = g_corr
-
-                        qh_adj = qh_conf - min_conf.qh_enthalpy
-                        qh_tot = min_conf.qh_enthalpy + qh_adj
-                        qs_adj = qs_conf - min_conf.qh_entropy
-                        qs_tot = min_conf.qh_entropy + qs_adj
-                        if options.QH:
-                            qg_corr = qh_tot - options.temperature * qs_tot
-                        else:
-                            qg_corr = h_tot - options.temperature * qs_tot
-                        self.qh_zero = qh_tot
-                        self.qhts_zero = qs_tot
-                        self.qhg_zero = qg_corr
+                    qh_adj = qh_conf - min_conf.qh_enthalpy
+                    qh_tot = min_conf.qh_enthalpy + qh_adj
+                    qs_adj = qs_conf - min_conf.qh_entropy
+                    qs_tot = min_conf.qh_entropy + qs_adj
+                    if options.QH:
+                        qg_corr = qh_tot - options.temperature * qs_tot
+                    else:
+                        qg_corr = h_tot - options.temperature * qs_tot
+                    self.qh_zero += qh_tot
+                    self.qhts_zero += qs_tot
+                    self.qhg_zero += qg_corr
             except KeyError:
                 log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
                 log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
@@ -541,7 +540,7 @@ class get_pes:
                                 if point != '':
                                     point_structures = point.replace(' ','').split('+')
                                     e_abs, spc_abs, zpe_abs, h_abs, qh_abs, s_abs, g_abs, qs_abs, qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                                    qh_conf, qh_tot, qs_conf, qs_tot, h_conf, h_tot, s_conf, s_tot,= 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                                    qh_conf, qh_tot, qs_conf, qs_tot, h_conf, h_tot, s_conf, s_tot, g_corr, qg_corr = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                     min_conf = False
                                     try:
                                         for structure in point_structures:#loop over structures, structures are species specified
@@ -572,7 +571,7 @@ class get_pes:
                                                     boltz_prob = boltz_fac / boltz_sum
                                                     if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
                                                         spc_abs += thermo_data[conformer].sp_energy * boltz_prob
-                                                    if thermo_data[conformer].sp_energy is '!':
+                                                    if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is '!':
                                                         sys.exit("\n   Not all files contain a SPC value, relative values will not be calculated.\n")
                                                     e_abs += thermo_data[conformer].scf_energy * boltz_prob
                                                     zpe_abs += thermo_data[conformer].zpe * boltz_prob
@@ -598,7 +597,6 @@ class get_pes:
                                                     s_adj = s_conf - min_conf.entropy
                                                     s_tot = min_conf.entropy + s_adj
                                                     g_corr = h_tot - options.temperature * s_tot
-
                                                     qh_adj = qh_conf - min_conf.qh_enthalpy
                                                     qh_tot = min_conf.qh_enthalpy + qh_adj
                                                     qs_adj = qs_conf - min_conf.qh_entropy
@@ -613,14 +611,35 @@ class get_pes:
                                         sys.exit("   Please edit "+file+" and try again\n")
 
                                     self.species[n].append(point); self.e_abs[n].append(e_abs); self.spc_abs[n].append(spc_abs); self.zpe_abs[n].append(zpe_abs)
-                                    if options.gconf:
-                                        self.h_abs[n].append(h_tot)
-                                        self.s_abs[n].append(s_tot)
-                                        self.g_abs[n].append(g_corr);
-
-                                        self.qh_abs[n].append(qh_tot)
-                                        self.qs_abs[n].append(qs_tot)
-                                        self.qhg_abs[n].append(qg_corr)
+                                    conformers, single_structure, mix = False,False,False
+                                    for structure in point_structures:
+                                        if not isinstance(species[structure], list):
+                                            single_structure = True
+                                        else:
+                                            conformers = True
+                                    if conformers and single_structure:
+                                        mix = True
+                                    if options.gconf and min_conf is not False:
+                                        if mix:
+                                            h_mix = h_tot+h_abs
+                                            s_mix = s_tot+s_abs
+                                            g_mix = g_corr+g_abs
+                                            qh_mix = qh_tot+qh_abs
+                                            qs_mix = qs_tot+qs_abs
+                                            qg_mix = qg_corr+qhg_abs
+                                            self.h_abs[n].append(h_mix)
+                                            self.s_abs[n].append(s_mix)
+                                            self.g_abs[n].append(g_mix)
+                                            self.qh_abs[n].append(qh_mix)
+                                            self.qs_abs[n].append(qs_mix)
+                                            self.qhg_abs[n].append(qg_mix)
+                                        elif conformers:
+                                            self.h_abs[n].append(h_tot)
+                                            self.s_abs[n].append(s_tot)
+                                            self.g_abs[n].append(g_corr)
+                                            self.qh_abs[n].append(qh_tot)
+                                            self.qs_abs[n].append(qs_tot)
+                                            self.qhg_abs[n].append(qg_corr)
                                     else:
                                         self.h_abs[n].append(h_abs)
                                         self.s_abs[n].append(s_abs)
@@ -629,7 +648,6 @@ class get_pes:
                                         self.qh_abs[n].append(qh_abs)
                                         self.qs_abs[n].append(qs_abs)
                                         self.qhg_abs[n].append(qhg_abs)
-
                                 else:
                                     self.species[n].append('none')
                                     self.e_abs[n].append(float('nan'))
