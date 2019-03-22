@@ -215,3 +215,25 @@ def test_scaling_factor_search(filename, freq_scale_factor, zpe):
     precision = 6
     bbe = GV.calc_bbe(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     assert zpe == round(bbe.zpe, precision)
+
+
+@pytest.mark.parametrize("QH, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT", [
+    (False, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295),
+    (True, -79.830421, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295)
+])
+def test_pes(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
+    temp = 298.15
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
+    precision = 6
+
+    pes = GV.get_pes(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+    if E_spc:
+        assert E_spc == round(bbe.sp_energy, precision)
+    assert E == round(bbe.scf_energy, precision)
+    assert ZPE == round(bbe.zpe, precision)
+    assert H == round(bbe.enthalpy, precision)
+    assert TS == round(temp * bbe.entropy, precision)
+    assert TqhS == round(temp * bbe.qh_entropy, precision)
+    assert GT == round(bbe.gibbs_free_energy, precision)
+    assert qhGT == round(bbe.qh_gibbs_free_energy, precision)
