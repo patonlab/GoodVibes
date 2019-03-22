@@ -406,7 +406,7 @@ class get_pes:
                                     else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                             except ValueError:
-                                if len(line) > 2: 
+                                if len(line) > 2:
                                     log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
 
             if line.strip().find('FORMAT') > -1:
@@ -437,13 +437,13 @@ class get_pes:
 
         for i in range(len(files)):
             if len(files[i]) is 1:
-                files[i] = files[i][0]  
+                files[i] = files[i][0]
         species = dict(zip(names, files))
 
         self.path, self.species = [], []
         self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], [], [], []
         self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        
+
         min_conf = False
         h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         zero_structures = zero.replace(' ','').split('+')
@@ -624,7 +624,7 @@ class get_pes:
                                             conformers = True
                                     if conformers and single_structure:
                                         mix = True
-                                    
+
                                     # print(point,conformers,single_structure,mix)
                                     if options.gconf and min_conf is not False:
                                         if mix:
@@ -796,7 +796,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
             ax.add_patch(path_patch)
             plt.hlines(data[path][j],j-0.15,j+0.15)
         plt.hlines(data[path][-1],len(data[path])-1.15,len(data[path])-.85)
-    
+
     if legend:
         plt.legend()
     if label_g:
@@ -1726,7 +1726,7 @@ def main():
                     else:
                         log.Write("\no  ")
                         log.Write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]),thermodata=True)
-                
+
                 if hasattr(bbe, "scf_energy") and not hasattr(bbe,"gibbs_free_energy"):#gaussian spc files
                     log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 elif not hasattr(bbe, "scf_energy") and not hasattr(bbe,"gibbs_free_energy"): #orca spc files
@@ -1821,6 +1821,7 @@ def main():
                     if version_check[i] != version_check[0] and i != 0:
                         version_check_print += ", " + version_check[i] + " (" + file_version[i] + ")"
                 log.Write("\nx  " + version_check_print + ".")
+            # Check for solvent models
             solvent_check = [sp_energy(file)[3] for file in files]
             if all_same(solvent_check) != False:
                 log.Write("\no  Using "+solvent_check[0]+" in all the calculations.")
@@ -1852,7 +1853,22 @@ def main():
                 for i in range(len(solvent_different)):
                     solvent_check_print += ", " + solvent_different[i] + " (" + file_different[i] + ")"
                 log.Write("\nx  " + solvent_check_print + '.')
-
+            # Check for -c 1 when solvent is added
+            if all_same(solvent_check) != False:
+                if solvent_check[0] == "gas phase" and str(options.conc) == str(0.0408740470708):
+                    log.Write("\no  Using a standard concentration of 1 atm for gas phase.")
+                if solvent_check[0] == "gas phase" and str(options.conc) != str(0.0408740470708):
+                    log.Write("\nx  Caution! Standard concentration is not 1 atm for gas phase (using " + str(options.conc) + " M).")
+                if solvent_check[0] != "gas phase" and str(options.conc) == str(0.0408740470708):
+                    log.Write("\nx  Using a standard concentration of 1 atm for solvent phase (option -c 1 should be included for 1 M).")
+                if solvent_check[0] != "gas phase" and str(options.conc) == str(1.0):
+                    log.Write("\no  Using a standard concentration of 1 M for solvent phase.")
+                if solvent_check[0] != "gas phase" and str(options.conc) != str(0.0408740470708) and str(options.conc) != str(1.0):
+                    log.Write("\nx  Caution! Standard concentration is not 1 M for solvent phase (using " + str(options.conc) + " M).")
+            if all_same(solvent_check) == False and "gas phase" in solvent_check:
+                log.Write("\nx  Caution! The right standard concentration cannot be determined because the calculations use gas and solvent phase.")
+            if all_same(solvent_check) == False and "gas phase" not in solvent_check:
+                log.Write("\nx  Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
             # Check level of theory
             if all_same(l_o_t) is not False:
                 log.Write("\no  Using "+l_o_t[0]+" in all the calculations.")
