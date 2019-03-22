@@ -58,8 +58,8 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `--freespace` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>5</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
 *	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .tab formatted file. 
 *	The `--output` option is used to change the default output file name to a specified name instead. Use as  `--output NAME` to change the name of the output file of thermochemical data from "GoodVibes.dat" to "GoodVibes_NAME.dat"
-*	The `--ee` option takes a .yaml input file (see template) along with calculation output files and calculates percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
-*	The `--media` option
+*	The `--ee` option takes the name of the stereo-determining step along with calculation output files to calculate percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
+*	The `--media` option applies an entropy correction to calculations done on solvent molecules calculated from their standard concentration.
 *	The `--xyz` option will write all Cartesian coordinates to a .xyz output file.
 *	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file. 
 
@@ -175,9 +175,25 @@ o  methylaniline                             -326.664901   0.142118   -326.51448
 The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case.
 
 #### File Naming Conventions
-Some options (--pes, --spc, -ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them properly. 
+Some options (--pes, --graph, --spc, -ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly. 
 
-pes
+* **PES & Graph**
+
+    PES and graphing file names need correlate with the file names specified in the `# SPECIES` block of the .yaml file (see below for .yaml formatting)
+    
+* **SPC**
+
+    To link a frequency output file to a separately performed single point energy calculation file, the single point calculation file should have the same common root as the frequency file, with an additional underscore and descriptor at the end, such as ethane.out and ethane_TZ.out shown above, where ethane_TZ.out is the separate single point calculation file. When running GoodVibes in this case, the descriptor TZ should be passed as an argument, as `--spc TZ`
+    
+* **EE**
+
+    To calculate enantiomeric excess, file names should begin with the root of the stereo-determining step, and end with either `_R` or `_S`. 
+    
+    **EXAMPLE NEEDED**
+    
+* **Media**
+
+    To apply the media correction to calculations performed on solvent molecules, the calculation output file should match the name passed in the media argument, for example, if performing the correction on water, the output file should be named H2O.log and the command line option should be `--media H2O`.
 
 #### .yaml File Formatting
 When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options.

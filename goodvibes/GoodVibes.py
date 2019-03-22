@@ -1454,7 +1454,7 @@ def main():
     parser.add_argument("--check", dest="check", action="store_true", default=False,
                         help="Checks if calculations were done with the same program, level of theory and solvent, as well as detects potential duplicates")
     parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
-                        help="Correction for standard concentration of solvents")
+                        help="Entropy correction for standard concentration of solvents")
     parser.add_argument("--custom_ext", type=str, default='',
                         help="List of additional file extensions to support, separated by commas (ie, '.qfi,.gaussian'). " +
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
