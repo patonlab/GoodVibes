@@ -220,6 +220,7 @@ def test_scaling_factor_search(filename, freq_scale_factor, zpe):
 @pytest.mark.parametrize("QH, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT", [
     (False, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295),
     (True, -79.830421, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295)
+    #do with spc and without
 ])
 def test_pes(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
@@ -227,13 +228,33 @@ def test_pes(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
     precision = 6
 
-    pes = GV.get_pes(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
-    if E_spc:
-        assert E_spc == round(bbe.sp_energy, precision)
-    assert E == round(bbe.scf_energy, precision)
-    assert ZPE == round(bbe.zpe, precision)
-    assert H == round(bbe.enthalpy, precision)
-    assert TS == round(temp * bbe.entropy, precision)
-    assert TqhS == round(temp * bbe.qh_entropy, precision)
-    assert GT == round(bbe.gibbs_free_energy, precision)
-    assert qhGT == round(bbe.qh_gibbs_free_energy, precision)
+    pes = GV.get_pes(datapath('pes/Cis_complete_pathway.yaml'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+    if QH:
+        zero_vals = [pes.spc_zero, pes.e_zero, pes.zpe_zero, pes.h_zero, pes.qh_zero, options.temperature * pes.ts_zero, options.temperature * pes.qhts_zero, pes.g_zero, pes.qhg_zero]
+    else:
+        zero_vals = [pes.spc_zero, pes.e_zero, pes.zpe_zero, pes.h_zero, options.temperature * pes.ts_zero, options.temperature * pes.qhts_zero, pes.g_zero, pes.qhg_zero]
+
+
+@pytest.mark.parametrize("path, c, QS, E, ZPE, H, T.S, T.qh-S, G(T), qh-G(T)", [
+    #with c correction = 1
+    ("Benzene.log", 1, "grimme", -232.227201,0.101377,-232.120521,0.029723,0.029726,-232.150244,-232.150247),
+    ("H2O.log", 1, "grimme", -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041),
+    ("MeOH.log", 1, "grimme", -114.179050,0.054749,-114.120139,0.023890,0.023891,-114.144029,-114.144030),
+    ("Benzene.log", 1, "truhlar", -232.227201,0.101377,-232.120521,0.029723,0.029723,-232.150244,-232.150244)
+    ("H2O.log", 1, "truhlar", -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041)
+    ("MeOH.log", 1, "truhlar", -114.179050,0.054749,-114.120139,0.023890,0.023890,-114.144029,-114.144029)
+
+    #no c correction applied
+    ("Benzene.log", 0, "grimme", -232.227201,0.101377,-232.120521,0.032742,0.032745,-232.153263,-232.153265),
+    ("H2O.log", 0, "grimme", -75.322774,0.021564,-75.297433,0.021627,0.021627,-75.319060,-75.319060),
+    ("MeOH.log", 0, "grimme", -114.179050,0.054749,-114.120139,0.026909,0.026910,-114.147048,-114.147049),
+    ("Benzene.log", 0, "truhlar", -232.227201,0.101377,-232.120521,0.032742,0.032742,-232.153263,-232.153263)
+    ("H2O.log", 0, "truhlar", -75.322774,0.021564,-75.297433,0.021627,0.021627,-75.319060,-75.319060)
+    ("MeOH.log", 0, "truhlar", -114.179050,0.054749,-114.120139,0.026909,0.026909,-114.147048,-114.147048)
+])
+def test_concentration_correction(path, c, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
+    temp = 298.15
+    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
+    precision = 6
+
