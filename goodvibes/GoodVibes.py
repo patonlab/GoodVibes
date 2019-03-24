@@ -2305,7 +2305,6 @@ def main():
             zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, PES.qh_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
         else:
             zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
-        print("Zeros: ",zero_vals)
         for i, path in enumerate(PES.path):
             if PES.boltz != False:
                 e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0; sels = []
@@ -2371,7 +2370,6 @@ def main():
                     selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
                     log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
                     sels.append(selectivity)
-                print("\nFormatted list: ", formatted_list)
             if PES.boltz == 'ee' and len(sels) == 2:
                 ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
                 if options.spc is False:
