@@ -323,3 +323,4 @@ def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
             assert  TqhS[j] == round(formatted_list[4], precision)
             assert  GT[j] == round(formatted_list[5], precision)
             assert  qhGT[j] == round(formatted_list[6], precision)
+    log.Finalize()
