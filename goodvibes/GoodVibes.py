@@ -538,7 +538,7 @@ class get_pes:
                         try:
                             self.species.append([]); self.e_abs.append([]); self.spc_abs.append([]); self.zpe_abs.append([]); self.h_abs.append([])
                             self.qh_abs.append([]); self.s_abs.append([]); self.g_abs.append([]); self.qs_abs.append([]); self.qhg_abs.append([])
-                            print("line",j,line)
+                            print("line",j,line,len(line))
                             pathway, pes = line.strip().replace(':','=').split("=")
                             pes = pes.strip()
                             points = [entry.strip() for entry in pes.lstrip('[').rstrip(']').split(',')]
