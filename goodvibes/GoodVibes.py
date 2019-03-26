@@ -114,7 +114,7 @@ class Logger:
             suffix = 'dat'
         else:
             suffix = 'csv'
-        self.log = open('{}_{}.{}'.format(filein, append, suffix), 'w' )
+        self.log = open('{0}_{1}.{2}'.format(filein, append, suffix), 'w' )
 
     def Write(self, message, thermodata=False):
         self.thermodata = thermodata
