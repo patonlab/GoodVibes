@@ -361,7 +361,7 @@ class calc_bbe:
 
 # Obtain relative thermochemistry between species and for reactions
 class get_pes:
-    def __init__(self, file, thermo_data, log, options):
+    def __init__(self, file, thermo_data, log, temperature, gconf, QH):
         # defaults
         self.dec = 2
         self.units = 'kcal/mol'
@@ -432,7 +432,7 @@ class get_pes:
                         except IndexError:
                             pass
 
-        if options.gconf:
+        if gconf:
             log.Write('\n   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
 
         for i in range(len(files)):
@@ -468,11 +468,11 @@ class get_pes:
                             g_min = thermo_data[conformer].qh_gibbs_free_energy
                     for conformer in species[structure]:#get a Boltzmann sum for conformers
                         g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                        boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
+                        boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
                         boltz_sum += boltz_fac
                     for conformer in species[structure]:#calculate relative data based on Gmin and the Boltzmann sum
                         g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                        boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
+                        boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
                         boltz_prob = boltz_fac / boltz_sum
                         if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
                             self.spc_zero += thermo_data[conformer].sp_energy * boltz_prob
@@ -480,7 +480,7 @@ class get_pes:
                             sys.exit("Not all files contain a SPC value, relative values will not be calculated.")
                         self.e_zero += thermo_data[conformer].scf_energy * boltz_prob
                         self.zpe_zero += thermo_data[conformer].zpe * boltz_prob
-                        if options.gconf: #default calculate gconf correction for conformers
+                        if gconf: #default calculate gconf correction for conformers
                             h_conf += thermo_data[conformer].enthalpy * boltz_prob
                             s_conf += thermo_data[conformer].entropy * boltz_prob
                             s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
@@ -496,12 +496,12 @@ class get_pes:
                             self.qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
                             self.qhts_zero += thermo_data[conformer].qh_entropy * boltz_prob
                             self.qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
-                if options.gconf and isinstance(species[structure], list):
+                if gconf and isinstance(species[structure], list):
                     h_adj = h_conf - min_conf.enthalpy
                     h_tot = min_conf.enthalpy + h_adj
                     s_adj = s_conf - min_conf.entropy
                     s_tot = min_conf.entropy + s_adj
-                    g_corr = h_tot - options.temperature * s_tot
+                    g_corr = h_tot - temperature * s_tot
                     self.h_zero += h_tot
                     self.ts_zero += s_tot
                     self.g_zero += g_corr
@@ -510,10 +510,10 @@ class get_pes:
                     qh_tot = min_conf.qh_enthalpy + qh_adj
                     qs_adj = qs_conf - min_conf.qh_entropy
                     qs_tot = min_conf.qh_entropy + qs_adj
-                    if options.QH:
-                        qg_corr = qh_tot - options.temperature * qs_tot
+                    if QH:
+                        qg_corr = qh_tot - temperature * qs_tot
                     else:
-                        qg_corr = h_tot - options.temperature * qs_tot
+                        qg_corr = h_tot - temperature * qs_tot
                     self.qh_zero = qh_tot
                     self.qhts_zero = qs_tot
                     self.qhg_zero = qg_corr
@@ -569,11 +569,11 @@ class get_pes:
                                                         g_min = thermo_data[conformer].qh_gibbs_free_energy
                                                 for conformer in species[structure]:#get a Boltzmann sum for conformers
                                                     g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                                                    boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
+                                                    boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
                                                     boltz_sum += boltz_fac
                                                 for conformer in species[structure]:#calculate relative data based on Gmin and the Boltzmann sum
                                                     g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                                                    boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/options.temperature)
+                                                    boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
                                                     boltz_prob = boltz_fac / boltz_sum
                                                     if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
                                                         spc_abs += thermo_data[conformer].sp_energy * boltz_prob
@@ -581,7 +581,7 @@ class get_pes:
                                                         sys.exit("\n   Not all files contain a SPC value, relative values will not be calculated.\n")
                                                     e_abs += thermo_data[conformer].scf_energy * boltz_prob
                                                     zpe_abs += thermo_data[conformer].zpe * boltz_prob
-                                                    if options.gconf: #default calculate gconf correction for conformers
+                                                    if gconf: #default calculate gconf correction for conformers
                                                         h_conf += thermo_data[conformer].enthalpy * boltz_prob
                                                         s_conf += thermo_data[conformer].entropy *  boltz_prob
                                                         s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
@@ -597,20 +597,20 @@ class get_pes:
                                                         qh_abs += thermo_data[conformer].qh_enthalpy * boltz_prob
                                                         qs_abs += thermo_data[conformer].qh_entropy * boltz_prob
                                                         qhg_abs += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
-                                                if options.gconf:
+                                                if gconf:
                                                     h_adj = h_conf - min_conf.enthalpy
                                                     h_tot = min_conf.enthalpy + h_adj
                                                     s_adj = s_conf - min_conf.entropy
                                                     s_tot = min_conf.entropy + s_adj
-                                                    g_corr = h_tot - options.temperature * s_tot
+                                                    g_corr = h_tot - temperature * s_tot
                                                     qh_adj = qh_conf - min_conf.qh_enthalpy
                                                     qh_tot = min_conf.qh_enthalpy + qh_adj
                                                     qs_adj = qs_conf - min_conf.qh_entropy
                                                     qs_tot = min_conf.qh_entropy + qs_adj
-                                                    if options.QH:
-                                                        qg_corr = qh_tot - options.temperature * qs_tot
+                                                    if QH:
+                                                        qg_corr = qh_tot - temperature * qs_tot
                                                     else:
-                                                        qg_corr = h_tot - options.temperature * qs_tot
+                                                        qg_corr = h_tot - temperature * qs_tot
                                     except KeyError:
                                         log.Write("   Warning! Structure "+structure+' has not been defined correctly in '+file+'\n')
                                         sys.exit("   Please edit "+file+" and try again\n")
@@ -624,9 +624,7 @@ class get_pes:
                                             conformers = True
                                     if conformers and single_structure:
                                         mix = True
-
-                                    # print(point,conformers,single_structure,mix)
-                                    if options.gconf and min_conf is not False:
+                                    if gconf and min_conf is not False:
                                         if mix:
                                             h_mix = h_tot+h_abs
                                             s_mix = s_tot+s_abs
@@ -2299,7 +2297,7 @@ def main():
                 sys.exit(pes_error)
 
 
-        PES = get_pes(options.pes, thermo_data, log, options)
+        PES = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
         # Output the relative energy data
         if options.QH:
             zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, PES.qh_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
@@ -2370,6 +2368,8 @@ def main():
                     selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
                     log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
                     sels.append(selectivity)
+                # formatted_list = [round(formatted_list[x],6) for x in range(len(formatted_list))]
+                # print('\n',formatted_list,j)
             if PES.boltz == 'ee' and len(sels) == 2:
                 ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
                 if options.spc is False:
@@ -2406,7 +2406,7 @@ def main():
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
                 sys.exit(pes_error)
 
-        graph_data = get_pes(options.graph, thermo_data, log, options)
+        graph_data = get_pes(options.graph, thermo_data, log, options.temperature, options.gconf, options.QH)
         graph_reaction_profile(graph_data,log,options,plt)
 
 

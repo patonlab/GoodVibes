@@ -3,9 +3,10 @@
 
 import os
 import pytest
+import math
 from goodvibes import GoodVibes as GV
 from conftest import datapath
-
+from goodvibes.media import solvents
 
 @pytest.mark.parametrize("path, QS, temp, E, ZPE, H, TS, TqhS, G, qhG", [
     # Grimme, 298.15K
@@ -217,44 +218,108 @@ def test_scaling_factor_search(filename, freq_scale_factor, zpe):
     assert zpe == round(bbe.zpe, precision)
 
 
-@pytest.mark.parametrize("QH, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT", [
-    (False, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295),
-    (True, -79.830421, -79.830421, 0.075238, -79.750770, 0.027523, 0.027525, -79.778293, -79.778295)
-    #do with spc and without
-])
-def test_pes(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
-    temp = 298.15
-    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
-    precision = 6
-
-    pes = GV.get_pes(datapath('pes/Cis_complete_pathway.yaml'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
-    if QH:
-        zero_vals = [pes.spc_zero, pes.e_zero, pes.zpe_zero, pes.h_zero, pes.qh_zero, options.temperature * pes.ts_zero, options.temperature * pes.qhts_zero, pes.g_zero, pes.qhg_zero]
-    else:
-        zero_vals = [pes.spc_zero, pes.e_zero, pes.zpe_zero, pes.h_zero, options.temperature * pes.ts_zero, options.temperature * pes.qhts_zero, pes.g_zero, pes.qhg_zero]
-
-
-@pytest.mark.parametrize("path, c, QS, E, ZPE, H, T.S, T.qh-S, G(T), qh-G(T)", [
-    #with c correction = 1
-    ("Benzene.log", 1, "grimme", -232.227201,0.101377,-232.120521,0.029723,0.029726,-232.150244,-232.150247),
-    ("H2O.log", 1, "grimme", -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041),
-    ("MeOH.log", 1, "grimme", -114.179050,0.054749,-114.120139,0.023890,0.023891,-114.144029,-114.144030),
-    ("Benzene.log", 1, "truhlar", -232.227201,0.101377,-232.120521,0.029723,0.029723,-232.150244,-232.150244)
-    ("H2O.log", 1, "truhlar", -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041)
-    ("MeOH.log", 1, "truhlar", -114.179050,0.054749,-114.120139,0.023890,0.023890,-114.144029,-114.144029)
-
+@pytest.mark.parametrize("path, conc, QS, E, ZPE, H, TS, TqhS, G, qhG", [
     #no c correction applied
-    ("Benzene.log", 0, "grimme", -232.227201,0.101377,-232.120521,0.032742,0.032745,-232.153263,-232.153265),
-    ("H2O.log", 0, "grimme", -75.322774,0.021564,-75.297433,0.021627,0.021627,-75.319060,-75.319060),
-    ("MeOH.log", 0, "grimme", -114.179050,0.054749,-114.120139,0.026909,0.026910,-114.147048,-114.147049),
-    ("Benzene.log", 0, "truhlar", -232.227201,0.101377,-232.120521,0.032742,0.032742,-232.153263,-232.153263)
-    ("H2O.log", 0, "truhlar", -75.322774,0.021564,-75.297433,0.021627,0.021627,-75.319060,-75.319060)
-    ("MeOH.log", 0, "truhlar", -114.179050,0.054749,-114.120139,0.026909,0.026909,-114.147048,-114.147048)
+    ("media_conc/Benzene.log", 0, "grimme", -232.227201,0.101377,-232.120521,0.032742,0.032745,-232.153263,-232.153265),
+    ("media_conc/H2O.log", 0, "grimme", -75.322774,0.021564,-75.297433,0.021627,0.021627,-75.319060,-75.319060),
+    ("media_conc/MeOH.log", 0, "grimme", -114.179050,0.054749,-114.120139,0.026909,0.026910,-114.147048,-114.147049),
+    ("media_conc/Benzene.log", 0, "truhlar", -232.227201,0.101377,-232.120521,0.032742,0.032742,-232.153263,-232.153263),
+    ("media_conc/H2O.log", 0, "truhlar", -75.322774,0.021564,-75.297433,0.021627,0.021627,-75.319060,-75.319060),
+    ("media_conc/MeOH.log", 0, "truhlar", -114.179050,0.054749,-114.120139,0.026909,0.026909,-114.147048,-114.147048),
+    
+    #with c correction = 1M
+    ("media_conc/Benzene.log", 1, "grimme", -232.227201,0.101377,-232.120521,0.029723,0.029726,-232.150244,-232.150247),
+    ("media_conc/H2O.log", 1, "grimme", -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041),
+    ("media_conc/MeOH.log", 1, "grimme", -114.179050,0.054749,-114.120139,0.023890,0.023891,-114.144029,-114.144030),
+    ("media_conc/Benzene.log", 1, "truhlar", -232.227201,0.101377,-232.120521,0.029723,0.029723,-232.150244,-232.150244),
+    ("media_conc/H2O.log", 1, "truhlar", -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041),
+    ("media_conc/MeOH.log", 1, "truhlar", -114.179050,0.054749,-114.120139,0.023890,0.023890,-114.144029,-114.144029)
 ])
-def test_concentration_correction(path, c, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
+def test_concentration_correction(path, conc, QS, E, ZPE, H, TS, TqhS, G, qhG):
+        path = datapath(path)
+        QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert = False, 100.0, 100.0,1.0, 298.15, 'none', False, False
+        if conc == False:
+            conc = GV.ATMOS/(GV.GAS_CONSTANT*temp)
+        bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+        precision = 6 
+        assert E == round(bbe.scf_energy, precision)
+        if hasattr(bbe, "gibbs_free_energy"):
+            assert ZPE == round(bbe.zpe, precision)
+            assert H == round(bbe.enthalpy, precision)
+            assert TS == round(temp * bbe.entropy, precision)
+            assert TqhS == round(temp * bbe.qh_entropy, precision)
+            assert G == round(bbe.gibbs_free_energy, precision)
+            assert qhG == round(bbe.qh_gibbs_free_energy, precision)
+
+
+@pytest.mark.parametrize("path, conc, media, E, ZPE, H, TS, TqhS, G, qhG", [
+    #no media correction applied
+    ("media_conc/Benzene.log", 1, False, -232.227201,0.101377,-232.120521,0.029723,0.029726,-232.150244,-232.150247),
+    ("media_conc/H2O.log", 1, False, -75.322774,0.021564,-75.297433,0.018608,0.018608,-75.316041,-75.316041),
+    ("media_conc/MeOH.log", 1, False, -114.179050,0.054749,-114.120139,0.023890,0.023891,-114.144029,-114.144030),
+    
+    #corresponding media correction applied
+    ("media_conc/Benzene.log", 1, "benzene", -232.227201,0.101377,-232.120521,0.027440,0.027443,-232.147961,-232.147964),
+    ("media_conc/H2O.log", 1, "h2o", -75.322774,0.021564,-75.297433,0.014818,0.014818,-75.312251,-75.312251),
+    ("media_conc/MeOH.log", 1, "meoh", -114.179050,0.054749,-114.120139,0.020863,0.020864,-114.141002,-114.141003)
+])
+def test_media_correction(path,conc, media, E, ZPE, H, TS, TqhS, G, qhG):
+        path = datapath(path)
+        QH, QS, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert = False,"grimme", 100.0, 100.0,1.0, 298.15, 'none', False, False
+        bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+        precision = 6 
+        
+        media_correction = 0.0
+        if media is not False:
+            MW_solvent = solvents[media][0]
+            density_solvent = solvents[media][1]
+            concentration_solvent = (density_solvent*1000)/MW_solvent
+            media_correction = -(GV.GAS_CONSTANT/GV.J_TO_AU)*math.log(concentration_solvent)
+            
+        assert E == round(bbe.scf_energy, precision)
+        if hasattr(bbe, "gibbs_free_energy"):
+            assert ZPE == round(bbe.zpe, precision)
+            assert H == round(bbe.enthalpy, precision)
+            assert TS == round(temp * (bbe.entropy+media_correction), precision)
+            assert TqhS == round(temp * (bbe.qh_entropy+media_correction), precision)
+            assert G == round(bbe.gibbs_free_energy+(temp * (-media_correction)), precision)
+            assert qhG == round(bbe.qh_gibbs_free_energy+(temp * (-media_correction)), precision)
+            
+
+@pytest.mark.parametrize("E, ZPE, H, TS, TqhS, GT, qhGT", [
+    ([0.0,-8.010593,-50.343643],[0.0,0.857809,4.274332],[0.0,-7.098337,-45.991496],[0.0,-14.538013,-26.247791],[0.0,-15.211892,-29.598903],[0.0,7.439676,-19.743705],[0.0,8.113555,-16.392593])
+])
+def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
+    invert, spc, gconf = False, False, True
     precision = 6
+    files = ['pes/Int-III_Oax_cis_a.log', 'pes/Int-II_Oax_cis_a.log', 'pes/Int-I_Oax.log', 'pes/TolS.log', 'pes/TolSH.log']
+    files = [datapath(file) for file in files]
+    log = GV.Logger("GoodVibes",'test',False)
 
+    bbe_vals = []
+    for file in files: # loop over all specified output files and compute thermochemistry
+        bbe = GV.calc_bbe(file, QS, QH, s_freq_cutoff, h_freq_cutoff, temp,
+                        conc, freq_scale_factor, solv, spc, invert)
+        bbe_vals.append(bbe)
+    fileList = [file for file in files]
+    thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
+
+    pes = GV.get_pes(datapath('pes/Cis_complete_pathway.yaml'),thermo_data,log,temp,gconf,QH)
+
+    zero_vals = [pes.e_zero, pes.zpe_zero, pes.h_zero, temp * pes.ts_zero, temp * pes.qhts_zero, pes.g_zero, pes.qhg_zero]
+
+    for i, path in enumerate(pes.path):
+        for j, e_abs in enumerate(pes.e_abs[i]):
+            species = [pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j], temp * pes.s_abs[i][j], temp * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
+            relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+            formatted_list = [GV.KCAL_TO_AU * x for x in relative]
+            assert  E[j] == round(formatted_list[0], precision)
+            assert  ZPE[j] == round(formatted_list[1], precision)
+            assert  H[j] == round(formatted_list[2], precision)
+            assert  TS[j] == round(formatted_list[3], precision)
+            assert  TqhS[j] == round(formatted_list[4], precision)
+            assert  GT[j] == round(formatted_list[5], precision)
+            assert  qhGT[j] == round(formatted_list[6], precision)
