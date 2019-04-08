@@ -324,3 +324,50 @@ def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
             assert  GT[j] == round(formatted_list[5], precision)
             assert  qhGT[j] == round(formatted_list[6], precision)
     log.Finalize()
+    
+    
+# @pytest.mark.parametrize("yaml, gconf, E, ZPE, H, TS, TqhS, GT, qhGT", [
+#     #test cat conformers
+#     ('gconf_ee_boltz/gconf_TS.yaml', True, [0.0,5.053763],[0.0,-0.497994],[0.0,3.936414],[0.0,-14.426341],[0.0,-15.107289],[0.0,18.362755],[0.0,19.043703]),
+#     ('gconf_ee_boltz/gconf_TS.yaml', False, [0.0,5.053763],[0.0,-0.497994],[0.0,3.936414],[0.0,-14.823888],[0.0,-15.504836],[0.0,18.760302],[0.0,19.44125]),
+#     #test TS conformers 
+#     ('gconf_ee_boltz/gconf_aminox_cat.yaml', True, [0.0,4.716292],[0.0,-0.460919],[0.0,3.534549],[0.0,-15.852617],[0.0,-16.367881],[0.0,19.387166],[0.0,19.90243]),
+#     ('gconf_ee_boltz/gconf_aminox_cat.yaml', False, [0.0,4.716292],[0.0,-0.460919],[0.0,3.534549],[0.0,-15.245404],[0.0,-15.760668],[0.0,18.779954],[0.0,19.295218])
+# 
+# ])
+# def test_gconf(yaml, gconf, E, ZPE, H, TS, TqhS, GT, qhGT):
+#     temp = 298.15
+#     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
+#     QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
+#     invert, spc = False, False
+#     precision = 6
+#     files = ['gconf_ee_boltz/Aminoxylation_TS1_R.log', 'gconf_ee_boltz/Aminoxylation_TS2_S.log', 'gconf_ee_boltz/aminox_cat_conf212_S.log', 'gconf_ee_boltz/aminox_cat_conf280_R.log', 'gconf_ee_boltz/aminox_cat_conf65_S.log','gconf_ee_boltz/aminox_subs_conf713.log']
+#     files = [datapath(file) for file in files]
+#     log = GV.Logger("GoodVibes",'test',False)
+#     yaml = datapath(yaml)
+# 
+#     bbe_vals = []
+#     for file in files: # loop over all specified output files and compute thermochemistry
+#         bbe = GV.calc_bbe(file, QS, QH, s_freq_cutoff, h_freq_cutoff, temp,
+#                         conc, freq_scale_factor, solv, spc, invert)
+#         bbe_vals.append(bbe)
+#     fileList = [file for file in files]
+#     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
+# 
+#     pes = GV.get_pes(yaml,thermo_data,log,temp,gconf,QH)
+# 
+#     zero_vals = [pes.e_zero, pes.zpe_zero, pes.h_zero, temp * pes.ts_zero, temp * pes.qhts_zero, pes.g_zero, pes.qhg_zero]
+# 
+#     for i, path in enumerate(pes.path):
+#         for j, e_abs in enumerate(pes.e_abs[i]):
+#             species = [pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j], temp * pes.s_abs[i][j], temp * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
+#             relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+#             formatted_list = [GV.KCAL_TO_AU * x for x in relative]
+#             assert  E[j] == round(formatted_list[0], precision)
+#             assert  ZPE[j] == round(formatted_list[1], precision)
+#             assert  H[j] == round(formatted_list[2], precision)
+#             assert  TS[j] == round(formatted_list[3], precision)
+#             assert  TqhS[j] == round(formatted_list[4], precision)
+#             assert  GT[j] == round(formatted_list[5], precision)
+#             assert  qhGT[j] == round(formatted_list[6], precision)
+#     log.Finalize()

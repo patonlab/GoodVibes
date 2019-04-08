@@ -433,7 +433,7 @@ class get_pes:
                             pass
 
         if gconf:
-            log.Write('\n   Gconf correction applied to below values using quasi-harmonic Boltzmann factors\n')
+            log.Write('\n   Gconf correction requested to be applied to below values using quasi-harmonic Boltzmann factors\n')
 
         for i in range(len(files)):
             if len(files[i]) is 1:
@@ -514,9 +514,9 @@ class get_pes:
                         qg_corr = qh_tot - temperature * qs_tot
                     else:
                         qg_corr = h_tot - temperature * qs_tot
-                    self.qh_zero = qh_tot
-                    self.qhts_zero = qs_tot
-                    self.qhg_zero = qg_corr
+                    self.qh_zero += qh_tot
+                    self.qhts_zero += qs_tot
+                    self.qhg_zero += qg_corr
             except KeyError:
                 log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
                 log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
@@ -731,7 +731,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #grab any other formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
-    folder, program, names, files, label_g, dpi, dec, legend = None, None, [], [], True, False, 2, True
+    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend = None, None, [], [], True, True, False, 2, True
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -750,11 +750,18 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         dec = int(line.strip().replace(':','=').split("=")[1].strip().split(',')[0])
                     except IndexError:
                         pass
-                if line.strip().find('label') > -1:
+                if line.strip().find('pointlabel') > -1:
                     try:
                         label_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
                         if label_input == 'false':
-                            label_g = False
+                            label_point = False
+                    except IndexError:
+                        pass
+                if line.strip().find('xlabel') > -1:
+                    try:
+                        label_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if label_input == 'false':
+                            label_xaxis = False
                     except IndexError:
                         pass
                 if line.strip().find('dpi') > -1:
@@ -797,7 +804,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
 
     if legend:
         plt.legend()
-    if label_g:
+    if label_point:
         for i, path in enumerate(graph_data.path):
             #annotate points with energy level
             for i, point in enumerate(data[path]):
@@ -809,14 +816,10 @@ def graph_reaction_profile(graph_data,log,options,plt):
     if yaxis is not None:
         ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
-
-    #label structureswas
-    plt.subplots_adjust(bottom=0.1*(len(data)-1))
-
+    
     ax_label = []
     xaxis_text=[]
     newax_text_list=[]
-
     for i, path in enumerate(graph_data.path):
         newax_text = []
         ax_label.append(path)
@@ -827,26 +830,34 @@ def graph_reaction_profile(graph_data,log,options,plt):
                 newax_text.append(graph_data.species[i][j])
         newax_text_list.append(newax_text)
 
-    plt.xticks(range(len(xaxis_text)),xaxis_text)
-    locs,labels = plt.xticks()
-    newax = []
-    for i in range(len(ax_label)):
-        if i > 0:
-            y = ax.twiny()
-            newax.append(y)
+    if label_xaxis:
+        plt.xticks(range(len(xaxis_text)),xaxis_text,color=colors[0])
+        #label structures
+        if len(data) > 1:
+            plt.subplots_adjust(bottom=0.1*(len(data)-1))
+        
+        locs,labels = plt.xticks()
+        newax = []
+        for i in range(len(ax_label)):
+            if i > 0:
+                y = ax.twiny()
+                newax.append(y)
 
-    for i in range(len(newax)):
-        newax[i].set_xticks(locs)
-        newax[i].set_xlim(ax.get_xlim())
-        if color is not None:
-            newax[i].tick_params(axis='x',colors=colors[i+1])
-        newax[i].set_xticklabels(newax_text_list[i+1])
-        newax[i].xaxis.set_ticks_position('bottom')
-        newax[i].xaxis.set_label_position('bottom')
-        newax[i].xaxis.set_ticks_position('none')
-        newax[i].spines['bottom'].set_position(('outward', 15*(i+1)))
-        newax[i].spines['bottom'].set_visible(False)
-
+        for i in range(len(newax)):
+            newax[i].set_xticks(locs)
+            newax[i].set_xlim(ax.get_xlim())
+            if color is not None:
+                newax[i].tick_params(axis='x',colors=colors[i+1])
+            newax[i].set_xticklabels(newax_text_list[i+1])
+            newax[i].xaxis.set_ticks_position('bottom')
+            newax[i].xaxis.set_label_position('bottom')
+            newax[i].xaxis.set_ticks_position('none')
+            newax[i].spines['bottom'].set_position(('outward', 15*(i+1)))
+            newax[i].spines['bottom'].set_visible(False)
+    else:
+        plt.xticks(range(len(xaxis_text)))
+        ax.xaxis.set_ticklabels([])
+        
     ax.set_title("Reaction Profile")
     if dpi is not False:
         plt.savefig('Rxn_profile_'+options.graph.split('.')[0]+'.png', dpi=dpi)
@@ -2368,8 +2379,7 @@ def main():
                     selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
                     log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
                     sels.append(selectivity)
-                # formatted_list = [round(formatted_list[x],6) for x in range(len(formatted_list))]
-                # print('\n',formatted_list,j)
+                formatted_list = [round(formatted_list[x],6) for x in range(len(formatted_list))]
             if PES.boltz == 'ee' and len(sels) == 2:
                 ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
                 if options.spc is False:
@@ -2408,7 +2418,6 @@ def main():
 
         graph_data = get_pes(options.graph, thermo_data, log, options.temperature, options.gconf, options.QH)
         graph_reaction_profile(graph_data,log,options,plt)
-
 
     # Close the log
     log.Finalize()
