@@ -731,7 +731,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #grab any other formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
-    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend = None, None, [], [], True, True, False, 2, True
+    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, gridlines, graphtitle = None, None, [], [], True, True, False, 2, True, True, True
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -776,6 +776,20 @@ def graph_reaction_profile(graph_data,log,options,plt):
                             legend = False
                     except IndexError:
                         pass
+                if line.strip().find('gridlines') > -1:
+                    try:
+                        gridlines_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if gridlines_input == 'false':
+                            gridlines = False
+                    except IndexError:
+                        pass
+                if line.strip().find('graphtitle') > -1:
+                    try:
+                        graphtitle_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if graphtitle_input == 'false':
+                            graphtitle = False
+                    except IndexError:
+                        pass
     #do some graphing
     Path = mpath.Path
     fig, ax = plt.subplots()
@@ -816,7 +830,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     if yaxis is not None:
         ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
-    
+
     ax_label = []
     xaxis_text=[]
     newax_text_list=[]
@@ -835,7 +849,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
         #label structures
         if len(data) > 1:
             plt.subplots_adjust(bottom=0.1*(len(data)-1))
-        
+
         locs,labels = plt.xticks()
         newax = []
         for i in range(len(ax_label)):
@@ -857,8 +871,10 @@ def graph_reaction_profile(graph_data,log,options,plt):
     else:
         plt.xticks(range(len(xaxis_text)))
         ax.xaxis.set_ticklabels([])
-        
-    ax.set_title("Reaction Profile")
+    if graphtitle is not False:
+        ax.set_title("Reaction Profile")
+    if gridlines is not False:
+        plt.grid(linestyle='--', linewidth=0.5)
     if dpi is not False:
         plt.savefig('Rxn_profile_'+options.graph.split('.')[0]+'.png', dpi=dpi)
     plt.show()
