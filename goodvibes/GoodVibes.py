@@ -369,8 +369,20 @@ class get_pes:
 
         with open(file) as f:
             data = f.readlines()
-        folder, program, names, files = None, None, [], []
+        folder, program, names, files, zeros = None, None, [], [], []
         for i, line in enumerate(data):
+            if line.strip().find('PES') > -1:
+                n = 0
+                for j, line in enumerate(data[i+1:]):
+                    if line.strip().startswith('#') == True:
+                        pass
+                    elif len(line) <= 2:
+                        pass
+                    elif line.strip().startswith('---') == True:
+                        break
+                    elif line.strip() != '':
+                        pathway,pes = line.strip().replace(':','=').split("=")
+                        zeros.append(pes.strip().lstrip('[').rstrip(']').split(',')[0])
             if line.strip().find('SPECIES') > -1:
                 for j, line in enumerate(data[i+1:]):
                     if line.strip().startswith('---') == True:
@@ -411,11 +423,15 @@ class get_pes:
 
             if line.strip().find('FORMAT') > -1:
                 for j, line in enumerate(data[i+1:]):
-                    if line.strip().find('zero') > -1:
-                        try:
-                            zero = line.strip().replace(':','=').split("=")[1].strip()
-                        except IndexError:
-                            pass
+                    # if line.strip().find('zero') > -1:
+                    #     try:
+                    #         zero = line.strip().replace(':','=').split("=")[1].strip().split(',')
+                    #         if isinstance(zero,list):
+                    # 
+                    #             for i in range(len(zero)):
+                    #                 zero[i] = zero[i].strip()    
+                    #     except IndexError:
+                    #         pass
                     if line.strip().find('dec') > -1:
                         try:
                             self.dec = int(line.strip().replace(':','=').split("=")[1].strip())
@@ -442,85 +458,83 @@ class get_pes:
 
         self.path, self.species = [], []
         self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs =  [], [], [], [], [], [], [], [], []
-        self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero =  [], [], [], [], [], [], [], [], []
 
-        min_conf = False
-        h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        zero_structures = zero.replace(' ','').split('+')
-        for structure in zero_structures:
-            try:
-                if not isinstance(species[structure], list):
-                    if hasattr(thermo_data[species[structure]], "sp_energy"):
-                        self.spc_zero += thermo_data[species[structure]].sp_energy
-                    self.e_zero += thermo_data[species[structure]].scf_energy
-                    self.zpe_zero += thermo_data[species[structure]].zpe
-                    self.h_zero += thermo_data[species[structure]].enthalpy
-                    self.qh_zero += thermo_data[species[structure]].qh_enthalpy
-                    self.ts_zero += thermo_data[species[structure]].entropy
-                    self.g_zero += thermo_data[species[structure]].gibbs_free_energy
-                    self.qhts_zero += thermo_data[species[structure]].qh_entropy
-                    self.qhg_zero += thermo_data[species[structure]].qh_gibbs_free_energy
-                else: #if we have a list of different kinds of structures: loop over conformers
-                    g_min, boltz_sum = sys.float_info.max, 0.0
-                    for conformer in species[structure]:#find minimum G, along with associated enthalpy and entropy
-                        if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
-                            min_conf = thermo_data[conformer]
-                            g_min = thermo_data[conformer].qh_gibbs_free_energy
-                    for conformer in species[structure]:#get a Boltzmann sum for conformers
-                        g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                        boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
-                        boltz_sum += boltz_fac
-                    for conformer in species[structure]:#calculate relative data based on Gmin and the Boltzmann sum
-                        g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                        boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
-                        boltz_prob = boltz_fac / boltz_sum
-                        if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
-                            self.spc_zero += thermo_data[conformer].sp_energy * boltz_prob
-                        if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is '!':
-                            sys.exit("Not all files contain a SPC value, relative values will not be calculated.")
-                        self.e_zero += thermo_data[conformer].scf_energy * boltz_prob
-                        self.zpe_zero += thermo_data[conformer].zpe * boltz_prob
-                        if gconf: #default calculate gconf correction for conformers
-                            h_conf += thermo_data[conformer].enthalpy * boltz_prob
-                            s_conf += thermo_data[conformer].entropy * boltz_prob
-                            s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
-
-                            qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
-                            qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
-                            qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
-                        else:
-                            self.h_zero += thermo_data[conformer].enthalpy * boltz_prob
-                            self.ts_zero += thermo_data[conformer].entropy * boltz_prob
-                            self.g_zero += thermo_data[conformer].gibbs_free_energy * boltz_prob
-
-                            self.qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
-                            self.qhts_zero += thermo_data[conformer].qh_entropy * boltz_prob
-                            self.qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
-                if gconf and isinstance(species[structure], list):
-                    h_adj = h_conf - min_conf.enthalpy
-                    h_tot = min_conf.enthalpy + h_adj
-                    s_adj = s_conf - min_conf.entropy
-                    s_tot = min_conf.entropy + s_adj
-                    g_corr = h_tot - temperature * s_tot
-                    self.h_zero += h_tot
-                    self.ts_zero += s_tot
-                    self.g_zero += g_corr
-
-                    qh_adj = qh_conf - min_conf.qh_enthalpy
-                    qh_tot = min_conf.qh_enthalpy + qh_adj
-                    qs_adj = qs_conf - min_conf.qh_entropy
-                    qs_tot = min_conf.qh_entropy + qs_adj
-                    if QH:
-                        qg_corr = qh_tot - temperature * qs_tot
-                    else:
-                        qg_corr = h_tot - temperature * qs_tot
-                    self.qh_zero += qh_tot
-                    self.qhts_zero += qs_tot
-                    self.qhg_zero += qg_corr
-            except KeyError:
-                log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
-                log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
-                sys.exit("   Please edit "+file+" and try again\n")
+        # zero_structures = zero.replace(' ','').split('+')
+        # for structure in zero_structures:
+        #     try:
+        #         if not isinstance(species[structure], list):
+        #             if hasattr(thermo_data[species[structure]], "sp_energy"):
+        #                 self.spc_zero += thermo_data[species[structure]].sp_energy
+        #             self.e_zero += thermo_data[species[structure]].scf_energy
+        #             self.zpe_zero += thermo_data[species[structure]].zpe
+        #             self.h_zero += thermo_data[species[structure]].enthalpy
+        #             self.qh_zero += thermo_data[species[structure]].qh_enthalpy
+        #             self.ts_zero += thermo_data[species[structure]].entropy
+        #             self.g_zero += thermo_data[species[structure]].gibbs_free_energy
+        #             self.qhts_zero += thermo_data[species[structure]].qh_entropy
+        #             self.qhg_zero += thermo_data[species[structure]].qh_gibbs_free_energy
+        #         else: #if we have a list of different kinds of structures: loop over conformers
+        #             g_min, boltz_sum = sys.float_info.max, 0.0
+        #             for conformer in species[structure]:#find minimum G, along with associated enthalpy and entropy
+        #                 if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
+        #                     min_conf = thermo_data[conformer]
+        #                     g_min = thermo_data[conformer].qh_gibbs_free_energy
+        #             for conformer in species[structure]:#get a Boltzmann sum for conformers
+        #                 g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+        #                 boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
+        #                 boltz_sum += boltz_fac
+        #             for conformer in species[structure]:#calculate relative data based on Gmin and the Boltzmann sum
+        #                 g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+        #                 boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
+        #                 boltz_prob = boltz_fac / boltz_sum
+        #                 if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
+        #                     self.spc_zero += thermo_data[conformer].sp_energy * boltz_prob
+        #                 if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is '!':
+        #                     sys.exit("Not all files contain a SPC value, relative values will not be calculated.")
+        #                 self.e_zero += thermo_data[conformer].scf_energy * boltz_prob
+        #                 self.zpe_zero += thermo_data[conformer].zpe * boltz_prob
+        #                 if gconf: #default calculate gconf correction for conformers
+        #                     h_conf += thermo_data[conformer].enthalpy * boltz_prob
+        #                     s_conf += thermo_data[conformer].entropy * boltz_prob
+        #                     s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
+        # 
+        #                     qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
+        #                     qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
+        #                     qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
+        #                 else:
+        #                     self.h_zero += thermo_data[conformer].enthalpy * boltz_prob
+        #                     self.ts_zero += thermo_data[conformer].entropy * boltz_prob
+        #                     self.g_zero += thermo_data[conformer].gibbs_free_energy * boltz_prob
+        # 
+        #                     self.qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
+        #                     self.qhts_zero += thermo_data[conformer].qh_entropy * boltz_prob
+        #                     self.qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
+        #         if gconf and isinstance(species[structure], list):
+        #             h_adj = h_conf - min_conf.enthalpy
+        #             h_tot = min_conf.enthalpy + h_adj
+        #             s_adj = s_conf - min_conf.entropy
+        #             s_tot = min_conf.entropy + s_adj
+        #             g_corr = h_tot - temperature * s_tot
+        #             self.h_zero += h_tot
+        #             self.ts_zero += s_tot
+        #             self.g_zero += g_corr
+        # 
+        #             qh_adj = qh_conf - min_conf.qh_enthalpy
+        #             qh_tot = min_conf.qh_enthalpy + qh_adj
+        #             qs_adj = qs_conf - min_conf.qh_entropy
+        #             qs_tot = min_conf.qh_entropy + qs_adj
+        #             if QH:
+        #                 qg_corr = qh_tot - temperature * qs_tot
+        #             else:
+        #                 qg_corr = h_tot - temperature * qs_tot
+        #             self.qh_zero += qh_tot
+        #             self.qhts_zero += qs_tot
+        #             self.qhg_zero += qg_corr
+        #     except KeyError:
+        #         log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
+        #         log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
+        #         sys.exit("   Please edit "+file+" and try again\n")
 
         with open(file) as f:
             data = f.readlines()
@@ -534,8 +548,100 @@ class get_pes:
                         pass
                     elif line.strip().startswith('---') == True:
                         break
-                    else:
+                    elif line.strip() != '':
                         try:
+                            self.e_zero.append([]); self.spc_zero.append([]); self.zpe_zero.append([]); self.h_zero.append([])
+                            self.qh_zero.append([]); self.ts_zero.append([]); self.g_zero.append([]); self.qhts_zero.append([]); self.qhg_zero.append([])
+                            min_conf = False
+                            spc_zero, e_zero, zpe_zero, h_zero, qh_zero, ts_zero, g_zero, qhts_zero, qhg_zero = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                            h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                            zero_structures = zeros[n].replace(' ','').split('+')
+                            for structure in zero_structures:
+                                try:
+                                    if not isinstance(species[structure], list):
+                                        if hasattr(thermo_data[species[structure]], "sp_energy"):
+                                            spc_zero += thermo_data[species[structure]].sp_energy
+                                        e_zero += thermo_data[species[structure]].scf_energy
+                                        zpe_zero += thermo_data[species[structure]].zpe
+                                        h_zero += thermo_data[species[structure]].enthalpy
+                                        qh_zero += thermo_data[species[structure]].qh_enthalpy
+                                        ts_zero += thermo_data[species[structure]].entropy
+                                        g_zero += thermo_data[species[structure]].gibbs_free_energy
+                                        qhts_zero += thermo_data[species[structure]].qh_entropy
+                                        qhg_zero += thermo_data[species[structure]].qh_gibbs_free_energy
+                                    else: #if we have a list of different kinds of structures: loop over conformers
+                                        g_min, boltz_sum = sys.float_info.max, 0.0
+                                        for conformer in species[structure]:#find minimum G, along with associated enthalpy and entropy
+                                            if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
+                                                min_conf = thermo_data[conformer]
+                                                g_min = thermo_data[conformer].qh_gibbs_free_energy
+                                        for conformer in species[structure]:#get a Boltzmann sum for conformers
+                                            g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+                                            boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
+                                            boltz_sum += boltz_fac
+                                        for conformer in species[structure]:#calculate relative data based on Gmin and the Boltzmann sum
+                                            g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+                                            boltz_fac = math.exp(-g_rel*J_TO_AU/GAS_CONSTANT/temperature)
+                                            boltz_prob = boltz_fac / boltz_sum
+                                            if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is not '!':
+                                                spc_zero += thermo_data[conformer].sp_energy * boltz_prob
+                                            if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy is '!':
+                                                sys.exit("Not all files contain a SPC value, relative values will not be calculated.")
+                                            e_zero += thermo_data[conformer].scf_energy * boltz_prob
+                                            zpe_zero += thermo_data[conformer].zpe * boltz_prob
+                                            if gconf: #default calculate gconf correction for conformers
+                                                h_conf += thermo_data[conformer].enthalpy * boltz_prob
+                                                s_conf += thermo_data[conformer].entropy * boltz_prob
+                                                s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
+
+                                                qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
+                                                qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
+                                                qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
+                                            else:
+                                                h_zero += thermo_data[conformer].enthalpy * boltz_prob
+                                                ts_zero += thermo_data[conformer].entropy * boltz_prob
+                                                g_zero += thermo_data[conformer].gibbs_free_energy * boltz_prob
+
+                                                qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
+                                                qhts_zero += thermo_data[conformer].qh_entropy * boltz_prob
+                                                qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
+                                    if gconf and isinstance(species[structure], list):
+                                        h_adj = h_conf - min_conf.enthalpy
+                                        h_tot = min_conf.enthalpy + h_adj
+                                        s_adj = s_conf - min_conf.entropy
+                                        s_tot = min_conf.entropy + s_adj
+                                        g_corr = h_tot - temperature * s_tot
+                                        h_zero += h_tot
+                                        ts_zero += s_tot
+                                        g_zero += g_corr
+
+                                        qh_adj = qh_conf - min_conf.qh_enthalpy
+                                        qh_tot = min_conf.qh_enthalpy + qh_adj
+                                        qs_adj = qs_conf - min_conf.qh_entropy
+                                        qs_tot = min_conf.qh_entropy + qs_adj
+                                        if QH:
+                                            qg_corr = qh_tot - temperature * qs_tot
+                                        else:
+                                            qg_corr = h_tot - temperature * qs_tot
+                                        qh_zero += qh_tot
+                                        qhts_zero += qs_tot
+                                        qhg_zero += qg_corr
+                                except KeyError:
+                                    log.Write("   Warning! Structure "+structure+' has not been defined correctly as energy-zero in '+file+'\n')
+                                    log.Write("   Make sure this structure matches one of the SPECIES defined in the same file\n")
+                                    sys.exit("   Please edit "+file+" and try again\n")
+                            #set zero vals here 
+                            self.spc_zero[n].append(spc_zero)
+                            self.e_zero[n].append(e_zero)
+                            self.zpe_zero[n].append(zpe_zero)
+                            self.h_zero[n].append(h_zero)
+                            self.qh_zero[n].append(qh_zero)
+                            self.ts_zero[n].append(ts_zero)
+                            self.g_zero[n].append(g_zero)
+                            self.qhts_zero[n].append(qhts_zero)
+                            self.qhg_zero[n].append(qhg_zero)
+                            
+                            
                             self.species.append([]); self.e_abs.append([]); self.spc_abs.append([]); self.zpe_abs.append([]); self.h_abs.append([])
                             self.qh_abs.append([]); self.s_abs.append([]); self.g_abs.append([]); self.qs_abs.append([]); self.qhg_abs.append([])
                             pathway, pes = line.strip().replace(':','=').split("=")
@@ -717,7 +823,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #get pes data
     for i, path in enumerate(graph_data.path):
         g_data = []
-        zero_val = graph_data.qhg_zero
+        zero_val = graph_data.qhg_zero[i][0]
         for j, e_abs in enumerate(graph_data.e_abs[i]):
             species = graph_data.qhg_abs[i][j]
             relative = species-zero_val
@@ -731,7 +837,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #grab any other formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
-    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, gridlines, graphtitle = None, None, [], [], True, True, False, 2, True, True, True
+    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, colors = None, None, [], [], True, True, False, 2, True, None
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -776,20 +882,6 @@ def graph_reaction_profile(graph_data,log,options,plt):
                             legend = False
                     except IndexError:
                         pass
-                if line.strip().find('gridlines') > -1:
-                    try:
-                        gridlines_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
-                        if gridlines_input == 'false':
-                            gridlines = False
-                    except IndexError:
-                        pass
-                if line.strip().find('graphtitle') > -1:
-                    try:
-                        graphtitle_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
-                        if graphtitle_input == 'false':
-                            graphtitle = False
-                    except IndexError:
-                        pass
     #do some graphing
     Path = mpath.Path
     fig, ax = plt.subplots()
@@ -801,6 +893,8 @@ def graph_reaction_profile(graph_data,log,options,plt):
                     color = colors[i]
                 else:
                     color = colors[0]
+            else:
+                color = 'k'
             if j == 0:
                 path_patch = mpatches.PathPatch(
                     Path([(j, data[path][j]), (j+0.5,data[path][j]), (j+0.5,data[path][j+1]), (j+1,data[path][j+1])],
@@ -830,7 +924,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     if yaxis is not None:
         ax.set_ylim(float(yaxis[0]),float(yaxis[1]))
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
-
+    
     ax_label = []
     xaxis_text=[]
     newax_text_list=[]
@@ -845,11 +939,14 @@ def graph_reaction_profile(graph_data,log,options,plt):
         newax_text_list.append(newax_text)
 
     if label_xaxis:
-        plt.xticks(range(len(xaxis_text)),xaxis_text,color=colors[0])
+        if colors is not None:
+            plt.xticks(range(len(xaxis_text)),xaxis_text,color=colors[0])
+        else:
+            plt.xticks(range(len(xaxis_text)),xaxis_text,color='k')
         #label structures
         if len(data) > 1:
             plt.subplots_adjust(bottom=0.1*(len(data)-1))
-
+        
         locs,labels = plt.xticks()
         newax = []
         for i in range(len(ax_label)):
@@ -860,8 +957,10 @@ def graph_reaction_profile(graph_data,log,options,plt):
         for i in range(len(newax)):
             newax[i].set_xticks(locs)
             newax[i].set_xlim(ax.get_xlim())
-            if color is not None:
+            if colors is not None:
                 newax[i].tick_params(axis='x',colors=colors[i+1])
+            else:
+                newax[i].tick_params(axis='x',colors='k')
             newax[i].set_xticklabels(newax_text_list[i+1])
             newax[i].xaxis.set_ticks_position('bottom')
             newax[i].xaxis.set_label_position('bottom')
@@ -871,10 +970,8 @@ def graph_reaction_profile(graph_data,log,options,plt):
     else:
         plt.xticks(range(len(xaxis_text)))
         ax.xaxis.set_ticklabels([])
-    if graphtitle is not False:
-        ax.set_title("Reaction Profile")
-    if gridlines is not False:
-        plt.grid(linestyle='--', linewidth=0.5)
+        
+    ax.set_title("Reaction Profile")
     if dpi is not False:
         plt.savefig('Rxn_profile_'+options.graph.split('.')[0]+'.png', dpi=dpi)
     plt.show()
@@ -2326,11 +2423,11 @@ def main():
 
         PES = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
         # Output the relative energy data
-        if options.QH:
-            zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, PES.qh_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
-        else:
-            zero_vals = [PES.spc_zero, PES.e_zero, PES.zpe_zero, PES.h_zero, options.temperature * PES.ts_zero, options.temperature * PES.qhts_zero, PES.g_zero, PES.qhg_zero]
         for i, path in enumerate(PES.path):
+            if options.QH:
+                zero_vals = [PES.spc_zero[i][0], PES.e_zero[i][0], PES.zpe_zero[i][0], PES.h_zero[i][0], PES.qh_zero[i][0], options.temperature * PES.ts_zero[i][0], options.temperature * PES.qhts_zero[i][0], PES.g_zero[i][0], PES.qhg_zero[i][0]]
+            else:
+                zero_vals = [PES.spc_zero[i][0], PES.e_zero[i][0], PES.zpe_zero[i][0], PES.h_zero[i][0], options.temperature * PES.ts_zero[i][0], options.temperature * PES.qhts_zero[i][0], PES.g_zero[i][0], PES.qhg_zero[i][0]]
             if PES.boltz != False:
                 e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0; sels = []
                 for j, e_abs in enumerate(PES.e_abs[i]):
