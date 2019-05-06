@@ -809,7 +809,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     with open(options.graph) as f:
         yaml= f.readlines()
         
-    ylim,color,show_conf, show_gconf = None,None,True,False
+    ylim,color,show_conf, show_gconf show_title= None,None,True,False,True
     folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, colors, gridlines = None, None, [], [], True, True, False, 2, True, None,False
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
@@ -824,6 +824,13 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         colors = line.strip().replace(':','=').split("=")[1].strip().split(',')
                     except IndexError:
                         pass
+               if line.strip().find('graphtitle') > -1:
+                   try:
+                       title_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if title_input == 'false':
+                            show_title = False
+                   except IndexError:
+                       pass
                 if line.strip().find('dec') > -1:
                     try:
                         dec = int(line.strip().replace(':','=').split("=")[1].strip().split(',')[0])
@@ -933,7 +940,8 @@ def graph_reaction_profile(graph_data,log,options,plt):
     if ylim is not None:
         ax.set_ylim(float(ylim[0]),float(ylim[1]))
     
-    ax.set_title("Reaction Profile")
+    if show_title:
+        ax.set_title("Reaction Profile")
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
     plt.minorticks_on()
     ax.tick_params(axis='x', which='minor', bottom=False)
@@ -964,8 +972,8 @@ def graph_reaction_profile(graph_data,log,options,plt):
         else:
             plt.xticks(range(len(xaxis_text)),xaxis_text,color='k')
     
-        if len(data) > 1:
-            plt.subplots_adjust(bottom=0.1*(len(data)-1))
+        # if len(data) > 1:
+        #     plt.subplots_adjust(bottom=0.1*(len(data)-1))
         
         locs,labels = plt.xticks()
         newax = []
@@ -976,7 +984,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
         for i in range(len(newax)):
             newax[i].set_xticks(locs)
             newax[i].set_xlim(ax.get_xlim())
-            if colors is not None:
+            if len(colors) > 1:
                 newax[i].tick_params(axis='x',colors=colors[i+1])
             else:
                 newax[i].tick_params(axis='x',colors='k')
