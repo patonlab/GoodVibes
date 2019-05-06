@@ -809,7 +809,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
     with open(options.graph) as f:
         yaml= f.readlines()
         
-    ylim,color,show_conf, show_gconf show_title= None,None,True,False,True
+    ylim,color,show_conf, show_gconf, show_title= None,None,True,False,True
     folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, colors, gridlines = None, None, [], [], True, True, False, 2, True, None,False
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
@@ -824,13 +824,13 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         colors = line.strip().replace(':','=').split("=")[1].strip().split(',')
                     except IndexError:
                         pass
-               if line.strip().find('graphtitle') > -1:
-                   try:
-                       title_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                if line.strip().find('graphtitle') > -1:
+                    try:
+                        title_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
                         if title_input == 'false':
                             show_title = False
-                   except IndexError:
-                       pass
+                    except IndexError:
+                        pass
                 if line.strip().find('dec') > -1:
                     try:
                         dec = int(line.strip().replace(':','=').split("=")[1].strip().split(',')[0])
