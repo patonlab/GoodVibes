@@ -429,7 +429,9 @@ class get_pes:
                         except IndexError:
                             pass
                     if line.strip().find('zero') > -1:
-                        try: zeros = line.strip().replace(':','=').split("=")[1].strip()
+                        zeros = []
+                        try: 
+                            zeros.append(line.strip().replace(':','=').split("=")[1].strip())
                         except IndexError: pass
                     if line.strip().find('units') > -1:
                         try:
@@ -807,8 +809,8 @@ def graph_reaction_profile(graph_data,log,options,plt):
     with open(options.graph) as f:
         yaml= f.readlines()
         
-    ylim,color,show_conf = None,None,True    
-    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, colors,gridlines = None, None, [], [], True, True, False, 2, True, None,False
+    ylim,color,show_conf, show_gconf = None,None,True,False
+    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, colors, gridlines = None, None, [], [], True, True, False, 2, True, None,False
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -839,6 +841,13 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         conformers = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
                         if conformers == 'false':
                             show_conf = False
+                    except IndexError:
+                        pass
+                if line.strip().find('show_gconf') > -1:
+                    try:
+                        gconf_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
+                        if gconf_input == 'true':
+                            show_gconf = True
                     except IndexError:
                         pass
                 if line.strip().find('xlabel') > -1:
@@ -909,7 +918,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         jitter(points,colors[i],ax,j,markers[k])
                     else:
                         jitter(points,color,ax,j,markers[k])
-                    if options.gconf:  
+                    if show_gconf:  
                         plt.hlines( (graph_data.g_rel_val[i][j]-graph_data.qhg_zero[i][0]) * KCAL_TO_AU,j-0.15,j+0.15,linestyles='dashed')
     
     #annotate points with energy level
