@@ -23,7 +23,7 @@ else:
     Str_char = "S%d"
 
 '''
-Frequency scaling factors, taken from the beta 2 version of version 3 of The Trhular group database (https://t1.chem.umn.edu/freqscale/index.html
+Frequency scaling factors, taken from version 4 of The Truhlar group database (https://t1.chem.umn.edu/freqscale/index.html
 I. M. Alecu, J. Zheng, Y. Zhao, and D. G. Truhlar, J. Chem. Theory Comput. 6, 2872-2887 (2010).
 
 The array is ordered as:
@@ -31,7 +31,7 @@ The array is ordered as:
 where zpe_fac, harm_fac and fund_fac are the scaling factors for ZPEs, harmonic frequencies, and fundamentals, respectively.
 
 The ref and meth elements refer to original references and method of determinantion by the Truhlar group. All information taken from
-https://comp.chem.umn.edu/freqscale/version3b2.htm
+https://comp.chem.umn.edu/freqscale/190107_Database_of_Freq_Scale_Factors_v4.pdf
 
 Methods
 D: The scale factor was directly obtained from the ZPVE15/10 or F38/10 databases given in Ref. 1.

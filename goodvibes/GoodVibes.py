@@ -400,13 +400,15 @@ class get_pes:
                                 if f.find('*') == -1:
                                     match = None
                                     for key in thermo_data:
-                                        if os.path.splitext(os.path.basename(key))[0] == f.strip():
+                                        if os.path.splitext(os.path.basename(key))[0] in f.strip().lstrip('[').rstrip(']').split('+'):
                                             match = key
+                                        
                                     if match:
                                         names.append(n.strip())
                                         files.append(match)
                                     else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
+                
                                 else:
                                     match = []
                                     for key in thermo_data:
@@ -418,8 +420,14 @@ class get_pes:
                                     else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
                             except ValueError:
-                                if len(line) > 2:
-                                    log.Write("   Warning! "+file+' input is incorrectly formatted!\n')
+                                if line.isspace():
+                                    pass
+                                elif line.strip().find('#') > -1:
+                                    pass
+                                elif len(line) > 2:
+                                    warn = "   Warning! "+file+' input is incorrectly formatted for line:\n\t'+line
+                                    log.Write(warn)
+                                    
 
             if line.strip().find('FORMAT') > -1:
                 for j, line in enumerate(data[i+1:]):
@@ -443,9 +451,6 @@ class get_pes:
                             self.boltz = line.strip().replace(':','=').split("=")[1].strip()
                         except IndexError:
                             pass
-
-        if gconf:
-            log.Write('\n   Gconf correction requested to be applied to below values using quasi-harmonic Boltzmann factors\n')
 
         for i in range(len(files)):
             if len(files[i]) is 1:
@@ -810,7 +815,7 @@ def graph_reaction_profile(graph_data,log,options,plt):
         yaml= f.readlines()
         
     ylim,color,show_conf, show_gconf, show_title= None,None,True,False,True
-    folder, program, names, files, label_point, label_xaxis, dpi, dec, legend, colors, gridlines = None, None, [], [], True, True, False, 2, True, None,False
+    label_point, label_xaxis, dpi, dec, legend, colors, gridlines,title = True, True, False, 2, True, None,False,None
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
@@ -824,11 +829,13 @@ def graph_reaction_profile(graph_data,log,options,plt):
                         colors = line.strip().replace(':','=').split("=")[1].strip().split(',')
                     except IndexError:
                         pass
-                if line.strip().find('graphtitle') > -1:
+                if line.strip().find('title') > -1:
                     try:
-                        title_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0].lower()
-                        if title_input == 'false':
+                        title_input = line.strip().replace(':','=').split("=")[1].strip().split(',')[0]
+                        if title_input == 'false' or title_input == 'False':
                             show_title = False
+                        else:
+                            title = title_input
                     except IndexError:
                         pass
                 if line.strip().find('dec') > -1:
@@ -888,7 +895,6 @@ def graph_reaction_profile(graph_data,log,options,plt):
     #do some graphing
     Path = mpath.Path
     fig, ax = plt.subplots()
-        
     for i, path in enumerate(graph_data.path):
         for j in range(len(data[path])-1):
             if colors is not None:
@@ -941,7 +947,10 @@ def graph_reaction_profile(graph_data,log,options,plt):
         ax.set_ylim(float(ylim[0]),float(ylim[1]))
     
     if show_title:
-        ax.set_title("Reaction Profile")
+        if title is not None:
+            ax.set_title(title)
+        else:
+            ax.set_title("Reaction Profile")
     ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
     plt.minorticks_on()
     ax.tick_params(axis='x', which='minor', bottom=False)
@@ -1777,10 +1786,18 @@ def main():
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
         bbe_vals.append(bbe)
-
+    
+    '''
+    For ranking files in terms of energy:
+    zip / izip reorder the file names in terms of lowest energy
+    RANK files
+    '''
+    
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
-
+    interval_bbe_data = [] 
+    interval_thermo_data = []
+    
     inverted_freqs, inverted_files = [], []
     for file in files:
         if len(thermo_data[file].inverted_freqs) > 0:
@@ -1796,7 +1813,7 @@ def main():
                 log.Write("\n\n   The following frequencies were made positive and used in calculations: " + str(inverted_freqs[i]) + " from " + file)
 
     # Adjust printing according to options requested
-    if options.spc is not False:
+    if options.spc is not False: 
         STARS += '*' * 14
     if options.cosmo is not False:
         STARS += '*' * 30
@@ -2361,7 +2378,7 @@ def main():
             temperature_interval.append((temperature_interval[1]-temperature_interval[0])/10.0)
 
         log.Write("\n\n   Variable-Temperature analysis of the enthalpy, entropy and the entropy at a constant pressure between")
-        log.Write("\n   T_init:  %.1f,  T_final:  %.1f,  T_interval: %.1f" % (temperature_interval[0], temperature_interval[1], temperature_interval[2]))
+        log.Write("\n   T init:  %.1f,  T final:  %.1f,  T interval: %.1f" % (temperature_interval[0], temperature_interval[1], temperature_interval[2]))
         if options.QH:
             if options.spc is False:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
@@ -2373,12 +2390,16 @@ def main():
             else:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
 
-        for file in files: # loop over the output files
+        for h,file in enumerate(files): # Temperature interval
             log.Write("\n"+STARS)
+            interval_bbe_data.append([])
             for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])): # run through the temperature range
                 temp, conc,linear_warning = float(i), ATMOS / GAS_CONSTANT / float(i),[]
                 bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff,options.H_freq_cutoff, temp,
                                 conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+                
+                interval_bbe_data[h].append(bbe)
+                
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
                     log.Write("\nx  ")
@@ -2443,6 +2464,9 @@ def main():
 
     # Tabulate relative values
     if options.pes != False:
+        if options.gconf:
+            log.Write('\n   Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors\n')
+            
         for key in thermo_data:
             if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
@@ -2450,87 +2474,180 @@ def main():
             if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
                 sys.exit(pes_error)
+        
+        if options.temperature_interval:
+            for i in range(len(range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])))):
+                bbe_vals = []
+                for j in range(len(interval_bbe_data)):
+                    bbe_vals.append(interval_bbe_data[j][i])
+                interval_thermo_data.append(dict(zip(fileList, bbe_vals)))
+            j = 0
+            for i in range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2])):
+                temp = float(i)
+                PES = get_pes(options.pes, interval_thermo_data[j], log, temp, options.gconf, options.QH)
+                for k, path in enumerate(PES.path):
+                    if options.QH:
+                        zero_vals = [PES.spc_zero[k][0], PES.e_zero[k][0], PES.zpe_zero[k][0], PES.h_zero[k][0], PES.qh_zero[k][0], options.temperature * PES.ts_zero[k][0], options.temperature * PES.qhts_zero[k][0], PES.g_zero[k][0], PES.qhg_zero[k][0]]
+                    else:
+                        zero_vals = [PES.spc_zero[k][0], PES.e_zero[k][0], PES.zpe_zero[k][0], PES.h_zero[k][0], options.temperature * PES.ts_zero[k][0], options.temperature * PES.qhts_zero[k][0], PES.g_zero[k][0], PES.qhg_zero[k][0]]
+                    if PES.boltz != False:
+                        e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0; sels = []
+                        for l, e_abs in enumerate(PES.e_abs[k]):
+                            if options.QH:
+                                species = [PES.spc_abs[k][l], PES.e_abs[k][l], PES.zpe_abs[k][l], PES.h_abs[k][l], PES.qh_abs[k][l], options.temperature * PES.s_abs[k][l], options.temperature * PES.qs_abs[k][l], PES.g_abs[k][l], PES.qhg_abs[k][l]]
+                            else:
+                                species = [PES.spc_abs[k][l], PES.e_abs[k][l], PES.zpe_abs[k][l], PES.h_abs[k][l], options.temperature * PES.s_abs[k][l], options.temperature * PES.qs_abs[k][l], PES.g_abs[k][l], PES.qhg_abs[k][l]]
+                            relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+                            e_sum += math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                            h_sum += math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                            g_sum += math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                            qhg_sum += math.exp(-relative[8]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                    if options.spc is False:
+                        log.Write("\n   " + '{:<40}'.format("RXN: " + path + " (" + PES.units + ") "+ 'TEMP/K: '+str(temp)))
+                        if options.QH:
+                            log.Write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format(" DE", "DZPE","DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
+                        else:
+                            log.Write('{:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format(" DE", "DZPE","DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
+                    else:
+                        log.Write("\n   " + '{:<40}'.format("RXN: " + path + " (" + PES.units + ") "+'TEMP/K: '+str(temp)))
+                        if options.QH:
+                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                        else:
+                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                    log.Write("\n"+STARS)
 
+                    for l, e_abs in enumerate(PES.e_abs[k]):
+                        if options.QH:
+                            species = [PES.spc_abs[k][l], PES.e_abs[k][l], PES.zpe_abs[k][l], PES.h_abs[k][l], PES.qh_abs[k][l], options.temperature * PES.s_abs[k][l], options.temperature * PES.qs_abs[k][l], PES.g_abs[k][l], PES.qhg_abs[k][l]]
+                        else:
+                            species = [PES.spc_abs[k][l], PES.e_abs[k][l], PES.zpe_abs[k][l], PES.h_abs[k][l], options.temperature * PES.s_abs[k][l], options.temperature * PES.qs_abs[k][l], PES.g_abs[k][l], PES.qhg_abs[k][l]]
+                        relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+                        if PES.units == 'kJ/mol':
+                            formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
+                        else:
+                            formatted_list = [KCAL_TO_AU * x for x in relative] # defaults to kcal/mol
+                        log.Write("\no  ")
+                        if options.spc is False:
+                            formatted_list = formatted_list[1:]
+                            if options.QH:
+                                if PES.dec == 1:
+                                    log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                                if PES.dec == 2:
+                                    log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                            else:
+                                if PES.dec == 1:
+                                    log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                                if PES.dec == 2:
+                                    log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                        else:
+                            if options.QH:
+                                if PES.dec == 1:
+                                    log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                                if PES.dec == 2:
+                                    log.Write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                            else:
+                                if PES.dec == 1:
+                                    log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                                if PES.dec == 2:
+                                    log.Write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[k][l], *formatted_list), thermodata=True)
+                        if PES.boltz != False:
+                            boltz = [math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)/e_sum, math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)/h_sum, math.exp(-relative[6]*J_TO_AU/GAS_CONSTANT/options.temperature)/g_sum, math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)/qhg_sum]
+                            selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
+                            log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
+                            sels.append(selectivity)
+                        formatted_list = [round(formatted_list[x],6) for x in range(len(formatted_list))]
+                    if PES.boltz == 'ee' and len(sels) == 2:
+                        ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
+                        if options.spc is False:
+                            log.Write("\n"+STARS+"\n   "+'{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)', *ee))
+                        else:
+                            log.Write("\n"+STARS+"\n   "+'{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
+                    log.Write("\n"+STARS+"\n")
+                j+=1
+    
+    
+        else:
+            PES = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
+            # Output the relative energy data
+            for i, path in enumerate(PES.path):
+                if options.QH:
+                    zero_vals = [PES.spc_zero[i][0], PES.e_zero[i][0], PES.zpe_zero[i][0], PES.h_zero[i][0], PES.qh_zero[i][0], options.temperature * PES.ts_zero[i][0], options.temperature * PES.qhts_zero[i][0], PES.g_zero[i][0], PES.qhg_zero[i][0]]
+                else:
+                    zero_vals = [PES.spc_zero[i][0], PES.e_zero[i][0], PES.zpe_zero[i][0], PES.h_zero[i][0], options.temperature * PES.ts_zero[i][0], options.temperature * PES.qhts_zero[i][0], PES.g_zero[i][0], PES.qhg_zero[i][0]]
+                if PES.boltz != False:
+                    e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0; sels = []
+                    for j, e_abs in enumerate(PES.e_abs[i]):
+                        if options.QH:
+                            species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], PES.qh_abs[i][j], options.temperature * PES.s_abs[i][j], options.temperature * PES.qs_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
+                        else:
+                            species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], options.temperature * PES.s_abs[i][j], options.temperature * PES.qs_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
+                        relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
+                        e_sum += math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                        h_sum += math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                        g_sum += math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)
+                        qhg_sum += math.exp(-relative[8]*J_TO_AU/GAS_CONSTANT/options.temperature)
 
-        PES = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
-        # Output the relative energy data
-        for i, path in enumerate(PES.path):
-            if options.QH:
-                zero_vals = [PES.spc_zero[i][0], PES.e_zero[i][0], PES.zpe_zero[i][0], PES.h_zero[i][0], PES.qh_zero[i][0], options.temperature * PES.ts_zero[i][0], options.temperature * PES.qhts_zero[i][0], PES.g_zero[i][0], PES.qhg_zero[i][0]]
-            else:
-                zero_vals = [PES.spc_zero[i][0], PES.e_zero[i][0], PES.zpe_zero[i][0], PES.h_zero[i][0], options.temperature * PES.ts_zero[i][0], options.temperature * PES.qhts_zero[i][0], PES.g_zero[i][0], PES.qhg_zero[i][0]]
-            if PES.boltz != False:
-                e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0; sels = []
+                if options.spc is False:
+                    log.Write("\n   " + '{:<40}'.format("RXN: " + path + " (" + PES.units + ") ",))
+                    if options.QH:
+                        log.Write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
+                    else:
+                        log.Write('{:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format(" DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
+                else:
+                    log.Write("\n   " + '{:<40}'.format("RXN: " + path + " (" + PES.units + ") ",))
+                    if options.QH:
+                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                    else:
+                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                log.Write("\n"+STARS)
+
                 for j, e_abs in enumerate(PES.e_abs[i]):
                     if options.QH:
                         species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], PES.qh_abs[i][j], options.temperature * PES.s_abs[i][j], options.temperature * PES.qs_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
                     else:
                         species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], options.temperature * PES.s_abs[i][j], options.temperature * PES.qs_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
                     relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
-                    e_sum += math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)
-                    h_sum += math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)
-                    g_sum += math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)
-                    qhg_sum += math.exp(-relative[8]*J_TO_AU/GAS_CONSTANT/options.temperature)
-
-            if options.spc is False:
-                if options.QH:
-                    log.Write("\n   " + '{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("RXN:" + path + "(" + PES.units + ")", "DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
-                else:
-                    log.Write("\n   " + '{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("RXN:" + path + "(" + PES.units + ")", "DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)" ), thermodata=True)
-            else:
-                if options.QH:
-                    log.Write("\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format("RXN: "+path+" ("+PES.units+")", "DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
-                else:
-                    log.Write("\n   " + '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format("RXN: "+path+" ("+PES.units+")", "DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
-            log.Write("\n"+STARS)
-
-            for j, e_abs in enumerate(PES.e_abs[i]):
-                if options.QH:
-                    species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], PES.qh_abs[i][j], options.temperature * PES.s_abs[i][j], options.temperature * PES.qs_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
-                else:
-                    species = [PES.spc_abs[i][j], PES.e_abs[i][j], PES.zpe_abs[i][j], PES.h_abs[i][j], options.temperature * PES.s_abs[i][j], options.temperature * PES.qs_abs[i][j], PES.g_abs[i][j], PES.qhg_abs[i][j]]
-                relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
-                if PES.units == 'kJ/mol':
-                    formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
-                else:
-                    formatted_list = [KCAL_TO_AU * x for x in relative] # defaults to kcal/mol
-                log.Write("\no  ")
-                if options.spc is False:
-                    formatted_list = formatted_list[1:]
-                    if options.QH:
-                        if PES.dec == 1:
-                            log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dec == 2:
-                            log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                    if PES.units == 'kJ/mol':
+                        formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
                     else:
-                        if PES.dec == 1:
-                            log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dec == 2:
-                            log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                else:
-                    if options.QH:
-                        if PES.dec == 1:
-                            log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dec == 2:
-                            log.Write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                        formatted_list = [KCAL_TO_AU * x for x in relative] # defaults to kcal/mol
+                    log.Write("\no  ")
+                    if options.spc is False:
+                        formatted_list = formatted_list[1:]
+                        if options.QH:
+                            if PES.dec == 1:
+                                log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                            if PES.dec == 2:
+                                log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                        else:
+                            if PES.dec == 1:
+                                log.Write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                            if PES.dec == 2:
+                                log.Write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
                     else:
-                        if PES.dec == 1:
-                            log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                        if PES.dec == 2:
-                            log.Write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
-                if PES.boltz != False:
-                    boltz = [math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)/e_sum, math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)/h_sum, math.exp(-relative[6]*J_TO_AU/GAS_CONSTANT/options.temperature)/g_sum, math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)/qhg_sum]
-                    selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
-                    log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
-                    sels.append(selectivity)
-                formatted_list = [round(formatted_list[x],6) for x in range(len(formatted_list))]
-            if PES.boltz == 'ee' and len(sels) == 2:
-                ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
-                if options.spc is False:
-                    log.Write("\n"+STARS+"\n   "+'{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)', *ee))
-                else:
-                    log.Write("\n"+STARS+"\n   "+'{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
-            log.Write("\n"+STARS+"\n")
+                        if options.QH:
+                            if PES.dec == 1:
+                                log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                            if PES.dec == 2:
+                                log.Write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                        else:
+                            if PES.dec == 1:
+                                log.Write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                            if PES.dec == 2:
+                                log.Write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(PES.species[i][j], *formatted_list), thermodata=True)
+                    if PES.boltz != False:
+                        boltz = [math.exp(-relative[1]*J_TO_AU/GAS_CONSTANT/options.temperature)/e_sum, math.exp(-relative[3]*J_TO_AU/GAS_CONSTANT/options.temperature)/h_sum, math.exp(-relative[6]*J_TO_AU/GAS_CONSTANT/options.temperature)/g_sum, math.exp(-relative[7]*J_TO_AU/GAS_CONSTANT/options.temperature)/qhg_sum]
+                        selectivity = [boltz[x]*100.0 for x in range(len(boltz))]
+                        log.Write("\n  "+'{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
+                        sels.append(selectivity)
+                    formatted_list = [round(formatted_list[x],6) for x in range(len(formatted_list))]
+                if PES.boltz == 'ee' and len(sels) == 2:
+                    ee = [sels[0][x]-sels[1][x] for x in range(len(sels[0]))]
+                    if options.spc is False:
+                        log.Write("\n"+STARS+"\n   "+'{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)', *ee))
+                    else:
+                        log.Write("\n"+STARS+"\n   "+'{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
+                log.Write("\n"+STARS+"\n")
 
     if options.ee is not False:#compute enantiomeric excess
         EE_STARS = "   " + '*' * 81
