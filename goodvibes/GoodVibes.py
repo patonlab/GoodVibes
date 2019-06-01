@@ -48,6 +48,7 @@ from __future__ import print_function, absolute_import
 #######################################################################
 #######  Written by:  Rob Paton, Ignacio Funes-Ardoiz  ################
 #######               Guilian Luchini, Juanvi Alegre   ################
+#######               Yanfei Guan                      ################
 #######  Last modified:  2019                          ################
 #######################################################################
 
@@ -58,6 +59,8 @@ import time
 from datetime import datetime, timedelta
 from glob import glob
 from argparse import ArgumentParser
+import ctypes
+import numpy as np
 
 # Importing regardless of relative import
 try:
@@ -96,6 +99,143 @@ periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na",
     "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu",
     "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
     "Rg", "Uub", "Uut", "Uuq", "Uup", "Uuh", "Uus", "Uuo"]
+
+pg_sm = {
+    "C1"   : 1,     
+    "Cs"   : 1,    
+    "Ci"   : 1,    
+    "C2"   : 2,    
+    "C3"   : 3,    
+    "C4"   : 4,    
+    "C5"   : 5,    
+    "C6"   : 6,    
+    "C7"   : 7,    
+    "C8"   : 8,    
+    "D2"   : 4,    
+    "D3"   : 6,    
+    "D4"   : 8,    
+    "D5"   : 10,    
+    "D6"   : 12,    
+    "D7"   : 14,    
+    "D8"   : 16,    
+    "C2v"  : 2,    
+    "C3v"  : 3,    
+    "C4v"  : 4,    
+    "C5v"  : 5,    
+    "C6v"  : 6,    
+    "C7v"  : 7,    
+    "C8v"  : 8,    
+    "C2h"  : 2,    
+    "C3h"  : 3,    
+    "C4h"  : 4,    
+    "C5h"  : 5,    
+    "C6h"  : 6,    
+    "C7h"  : 7,    
+    "C8h"  : 8,    
+    "D2h"  : 4,    
+    "D3h"  : 6,    
+    "D4h"  : 8,    
+    "D5h"  : 10,    
+    "D6h"  : 12,   
+    "D7h"  : 14,    
+    "D8h"  : 16,    
+    "D2d"  : 4,    
+    "D3d"  : 6,    
+    "D4d"  : 8,    
+    "D5d"  : 10,    
+    "D6d"  : 12,    
+    "D7d"  : 14,    
+    "D8d"  : 16,    
+    "S4"   : 4,    
+    "S6"   : 6,    
+    "S8"   : 8,    
+    "T"    : 6,    
+    "Th"   : 12,    
+    "Td"   : 12,    
+    "O"    : 12,    
+    "Oh"   : 24,    
+    "Cinfv": 1,     
+    "Dinfh": 2,    
+    "I"    : 30,    
+    "Ih"   : 60,    
+    "Kh"   : 1,    
+}
+
+RADII = {
+    'H' : 0.32, 
+    'He': 0.93, 
+    'Li': 1.23, 
+    'Be': 0.90, 
+    'B' : 0.82, 
+    'C' : 0.77, 
+    'N' : 0.75, 
+    'O' : 0.73, 
+    'F' : 0.72, 
+    'Ne': 0.71, 
+    'Na': 1.54, 
+    'Mg': 1.36, 
+    'Al': 1.18, 
+    'Si': 1.11, 
+    'P' : 1.06, 
+    'S' : 1.02, 
+    'Cl': 0.99, 
+    'Ar': 0.98, 
+    'K' : 2.03, 
+    'Ca': 1.74, 
+    'Sc': 1.44, 
+    'Ti': 1.32, 
+    'V' : 1.22, 
+    'Cr': 1.18, 
+    'Mn': 1.17, 
+    'Fe': 1.17, 
+    'Co': 1.16, 
+    'Ni': 1.15, 
+    'Cu': 1.17, 
+    'Zn': 1.25, 
+    'Ga': 1.26, 
+    'Ge': 1.22, 
+    'As': 1.20, 
+    'Se': 1.16, 
+    'Br': 1.14, 
+    'Kr': 1.12, 
+    'Rb': 2.16, 
+    'Sr': 1.91, 
+    'Y' : 1.62, 
+    'Zr': 1.45, 
+    'Nb': 1.34, 
+    'Mo': 1.30, 
+    'Tc': 1.27, 
+    'Ru': 1.25, 
+    'Rh': 1.25, 
+    'Pd': 1.28, 
+    'Ag': 1.34, 
+    'Cd': 1.48, 
+    'In': 1.44, 
+    'Sn': 1.41, 
+    'Sb': 1.40, 
+    'Te': 1.36, 
+    'I' : 1.33, 
+    'Xe': 1.31, 
+    'Cs': 2.35, 
+    'Ba': 1.98, 
+    'La': 1.69, 
+    'Lu': 1.60, 
+    'Hf': 1.44, 
+    'Ta': 1.34, 
+    'W' : 1.30, 
+    'Re': 1.28, 
+    'Os': 1.26, 
+    'Ir': 1.27, 
+    'Pt': 1.30, 
+    'Au': 1.34, 
+    'Hg': 1.49, 
+    'Tl': 1.48, 
+    'Pb': 1.47, 
+    'Bi': 1.46, 
+    'X' : 0,
+}
+
+
 
 def elementID(massno):
     try:
@@ -159,6 +299,8 @@ class calc_bbe:
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
         inverted_freqs = []
+        self.xyz = getoutData(file)
+
         with open(file) as f:
             g_output = f.readlines()
 
@@ -342,6 +484,11 @@ class calc_bbe:
             self.entropy = (Strans + Srot + h_Svib + Selec) / J_TO_AU
             self.qh_entropy = (Strans + Srot + qh_Svib + Selec) / J_TO_AU
 
+            #entropy correction for molecular cymmetry
+            sym_entropy_correction = self.sym_correction()
+            self.entropy += sym_entropy_correction
+            self.qh_entropy += sym_entropy_correction
+
             #Calculate Free Energy
             if QH:
                 self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
@@ -357,8 +504,54 @@ class calc_bbe:
         self.frequency_wn = frequency_wn
         self.im_frequency_wn = im_frequency_wn
         self.linear_warning = linear_warning
+    
+    #get external symmetry number
+    def ex_sym(self):
+        
+        coords_string = self.xyz.coords_string()
+        coords = coords_string.encode('utf-8')
+        c_coords = ctypes.c_char_p(coords)
 
+        symmetry = ctypes.CDLL('symmetry.so')
+        symmetry.symmetry.restype = ctypes.c_char_p
 
+        pgroup = symmetry.symmetry(c_coords).decode('utf-8')
+        ex_sym = pg_sm.get(pgroup)
+
+        return ex_sym
+
+    def int_sym(self):
+
+        self.xyz.get_connectivity()
+
+        cap = [1, 9, 17]
+        neighbor = [5, 6, 7, 8, 14, 15, 16]
+
+        int_sym = 1
+        for i,row in enumerate(self.xyz.connectivity):
+            if self.xyz.ATOMNUMS[i] != 6: continue
+            As = np.array(self.xyz.ATOMNUMS)[row]
+            if len(As == 4):
+                neighbors = [x for x in As if x in neighbor]
+                caps = [x for x in As if x in cap]
+
+                if (len(neighbors) == 1) and (len(set(caps)) == 1):
+                    int_sym *= 3
+
+        return int_sym
+
+    def sym_correction(self):
+        ex_sym = self.ex_sym()
+        int_sym = self.int_sym()
+
+        sym_num = ex_sym * int_sym
+
+        sym_correction = (-GAS_CONSTANT * math.log(sym_num))/J_TO_AU
+
+        return sym_correction
+
+        
+            
 # Obtain relative thermochemistry between species and for reactions
 class get_pes:
     def __init__(self, file, thermo_data, log, temperature, gconf, QH):
@@ -753,10 +946,11 @@ class getoutData:
             if program == "Gaussian":
                 for i, line in enumerate(outlines):
                     if "Input orientation" in line or "Standard orientation" in line:
-                        self.ATOMTYPES, self.CARTESIANS, self.ATOMICTYPES, carts = [], [], [], outlines[i+5:]
+                        self.ATOMNUMS, self.ATOMTYPES, self.CARTESIANS, self.ATOMICTYPES, carts = [], [], [], [], outlines[i+5:]
                         for j, line in enumerate(carts):
                             if "-------" in line :
                                 break
+                            self.ATOMNUMS.append(int(line.split()[1]))
                             self.ATOMTYPES.append(elementID(int(line.split()[1])))
                             self.ATOMICTYPES.append(int(line.split()[2]))
                             if len(line.split()) > 5:
@@ -773,11 +967,45 @@ class getoutData:
                             if len(line.split()) > 5:
                                 self.CARTESIANS.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
                                 self.ATOMTYPES.append(line.split()[2])
+                                self.ATOMNUMS.append(elementID.index(line.split()[2]))
                             else:
                                 self.CARTESIANS.append([float(line.split()[2]),float(line.split()[3]),float(line.split()[4])])
                                 self.ATOMTYPES.append(line.split()[1])
+                                self.ATOMNUMS.append(elementID.index(line.split()[1]))
 
         getATOMTYPES(self, data, program)
+
+    #convert cooredinates to string that can be used by the symmetry.c program
+    def coords_string(self):
+        xyzstring = str(len(self.ATOMNUMS))+'\n'
+        for atom,xyz in zip(self.ATOMNUMS, self.CARTESIANS):
+            xyzstring += "{0} {1:.6f} {2:.6f} {3:.6f}\n".format(atom, *xyz)
+        
+        return xyzstring
+
+    def get_connectivity(self):
+        connectivity = []
+        tolerance = 0.2
+
+        for i,ai in enumerate(self.ATOMTYPES):
+            row = []
+            for j,aj in enumerate(self.ATOMTYPES):
+                if i==j:
+                    continue
+
+                cutoff = RADII[ai] + RADII[aj] + tolerance
+
+            distance = np.linalg.norm(np.array(self.CARTESIANS[i])-np.array(self.CARTESIANS[j]))
+            if distance < cutoff:
+                row.append(j)
+
+            connectivity.append(row)
+
+        self.connectivity = connectivity
+
+  
+
+        
 
 
 #scattering points that may overlap
