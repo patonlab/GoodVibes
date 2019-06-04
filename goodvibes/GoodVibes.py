@@ -235,6 +235,9 @@ RADII = {
     'X' : 0,
 }
 
+def sharepath(filename):
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, 'share', filename)
 
 
 def elementID(massno):
@@ -294,7 +297,7 @@ class XYZout:
 
 # The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
 class calc_bbe:
-    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert):
+    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, symmetryoff=False):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
@@ -485,9 +488,11 @@ class calc_bbe:
             self.qh_entropy = (Strans + Srot + qh_Svib + Selec) / J_TO_AU
 
             #entropy correction for molecular cymmetry
-            sym_entropy_correction = self.sym_correction()
-            self.entropy += sym_entropy_correction
-            self.qh_entropy += sym_entropy_correction
+
+            if not symmetryoff:
+                sym_entropy_correction = self.sym_correction()
+                self.entropy += sym_entropy_correction
+                self.qh_entropy += sym_entropy_correction
 
             #Calculate Free Energy
             if QH:
@@ -512,9 +517,8 @@ class calc_bbe:
         coords = coords_string.encode('utf-8')
         c_coords = ctypes.c_char_p(coords)
 
-        symmetry = ctypes.CDLL('symmetry.so')
+        symmetry = ctypes.CDLL(sharepath('symmetry.so'))
         symmetry.symmetry.restype = ctypes.c_char_p
-
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
         ex_sym = pg_sm.get(pgroup)
 
@@ -1851,6 +1855,8 @@ def main():
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
     parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
                         help="Graph a reaction profile based on free energies calculated. ")
+    parser.add_argument("--symmetryoff", action="strore_true", default=False,
+                        help="turn off the symmetry correction")
 
     # Parse Arguments
     (options, args) = parser.parse_known_args()
@@ -2013,7 +2019,7 @@ def main():
     inverted_freqs, inverted_files = [], []
     for file in files: # loop over all specified output files and compute thermochemistry
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert, options.symmetryoff)
         bbe_vals.append(bbe)
     
     '''

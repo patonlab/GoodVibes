@@ -1646,12 +1646,8 @@ identify_point_group( void )
     }
   }
   if( matching_count == 0 ){
-    printf( "These symmetry elements match no point group I know of. Sorry.\n" ) ;
   }
   if( matching_count >  1 ){
-    printf( "These symmetry elements match more than one group I know of.\n"
-	    "SOMETHING IS VERY WRONG\n" ) ;
-    printf( "Matching groups are:\n" ) ;
     for( i = 0 ; i < PointGroupsCount ; i++ ){
       if( ( strcmp( SymmetryCode, PointGroups[i].symmetry_code ) == 0 ) && ( PointGroups[i].check() == 1 ) ){
 	printf( "    %s\n", PointGroups[i].group_name ) ;
@@ -1659,7 +1655,6 @@ identify_point_group( void )
     }
   }
   if( matching_count == 1 ){
-    printf( "It seems to be the %s point group\n", PointGroups[last_matching].group_name ) ;
     pgroup = malloc( sizeof(char) * strlen(PointGroups[last_matching].group_name));
     strcpy(pgroup, PointGroups[last_matching].group_name);
   }
