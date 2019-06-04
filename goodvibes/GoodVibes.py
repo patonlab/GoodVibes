@@ -528,6 +528,7 @@ class calc_bbe:
         neighbor = [5, 6, 7, 8, 14, 15, 16]
 
         int_sym = 1
+
         for i,row in enumerate(self.xyz.connectivity):
             if self.xyz.ATOMNUMS[i] != 6: continue
             As = np.array(self.xyz.ATOMNUMS)[row]
@@ -995,13 +996,13 @@ class getoutData:
 
                 cutoff = RADII[ai] + RADII[aj] + tolerance
 
-            distance = np.linalg.norm(np.array(self.CARTESIANS[i])-np.array(self.CARTESIANS[j]))
-            if distance < cutoff:
-                row.append(j)
+                distance = np.linalg.norm(np.array(self.CARTESIANS[i])-np.array(self.CARTESIANS[j]))
+                if distance < cutoff:
+                    row.append(j)
 
             connectivity.append(row)
 
-        self.connectivity = connectivity
+            self.connectivity = connectivity
 
   
 
