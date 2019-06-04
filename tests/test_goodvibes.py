@@ -206,6 +206,29 @@ def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     assert qhGT == round(bbe.qh_gibbs_free_energy, precision)
 
 
+@pytest.mark.parametrize("path, ti, H, TS, TqhS, GT, qhGT", [
+    ('allene.out','200,300,40',[-116.512865,-116.512128,-116.511313],[0.016953,0.021149,0.025552],[0.016955,0.021151,0.025555],[-116.529818,-116.533277,-116.536865],[-116.529821,-116.533280,-116.536868]),
+    ('ethane.out','200,300,40',[-79.752458,-79.751811,-79.751109],[0.017099,0.021225,0.025519],[0.017101,0.021227,0.025521],[-79.769556,-79.773036,-79.776628],[-79.769558,-79.773038,-79.776630]),
+    ('methylaniline.out','200,300,40',[-326.518529,-326.51706,-326.515348],[0.023362,0.029637,0.036421],[0.023345,0.029579,0.036313],[-326.541891,-326.546698,-326.551769],[-326.541875,-326.546639,-326.551661]),
+])
+def test_temperature_interval(path, ti, H, TS, TqhS, GT, qhGT):
+    
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False, False
+    precision = 6
+    temperature_interval = [float(temp) for temp in ti.split(',')]
+    interval = range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2]))
+    for i in range(len(interval)):
+        temp = float(interval[i])
+        conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
+        bbe = GV.calc_bbe(datapath(path), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+
+        assert H[i] == round(bbe.enthalpy, precision)
+        assert TS[i] == round(temp * bbe.entropy, precision)
+        assert TqhS[i] == round(temp * bbe.qh_entropy, precision)
+        assert GT[i] == round(bbe.gibbs_free_energy, precision)
+        assert qhGT[i] == round(bbe.qh_gibbs_free_energy, precision)
+
+
 @pytest.mark.parametrize("filename, freq_scale_factor, zpe", [
     ('ethane.out', 0.977, 0.073508)
 ])
@@ -370,3 +393,4 @@ def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
 #             assert  '{:13.2f}'.format(GT[j]) == '{:13.2f}'.format(formatted_list[5])
 #             assert  '{:13.2f}'.format(qhGT[j]) == '{:13.2f}'.format(formatted_list[6])
 #     log.Finalize()
+
