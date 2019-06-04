@@ -235,6 +235,9 @@ RADII = {
     'X' : 0,
 }
 
+def sharepath(filename):
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, 'share', filename)
 
 
 def elementID(massno):
@@ -294,7 +297,7 @@ class XYZout:
 
 # The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
 class calc_bbe:
-    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert,cosmo=None):
+    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, symmetryoff=False,cosmo=None):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
@@ -484,9 +487,11 @@ class calc_bbe:
             self.qh_entropy = (Strans + Srot + qh_Svib + Selec) / J_TO_AU
 
             #entropy correction for molecular cymmetry
-            sym_entropy_correction = self.sym_correction()
-            self.entropy += sym_entropy_correction
-            self.qh_entropy += sym_entropy_correction
+
+            if not symmetryoff:
+                sym_entropy_correction = self.sym_correction()
+                self.entropy += sym_entropy_correction
+                self.qh_entropy += sym_entropy_correction
 
             #Calculate Free Energy
             if QH:
@@ -516,9 +521,8 @@ class calc_bbe:
         coords = coords_string.encode('utf-8')
         c_coords = ctypes.c_char_p(coords)
 
-        symmetry = ctypes.CDLL('symmetry.so')
+        symmetry = ctypes.CDLL(sharepath('symmetry.so'))
         symmetry.symmetry.restype = ctypes.c_char_p
-
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
         ex_sym = pg_sm.get(pgroup)
 
@@ -532,6 +536,7 @@ class calc_bbe:
         neighbor = [5, 6, 7, 8, 14, 15, 16]
 
         int_sym = 1
+
         for i,row in enumerate(self.xyz.connectivity):
             if self.xyz.ATOMNUMS[i] != 6: continue
             As = np.array(self.xyz.ATOMNUMS)[row]
@@ -1040,13 +1045,13 @@ class getoutData:
 
                 cutoff = RADII[ai] + RADII[aj] + tolerance
 
-            distance = np.linalg.norm(np.array(self.CARTESIANS[i])-np.array(self.CARTESIANS[j]))
-            if distance < cutoff:
-                row.append(j)
+                distance = np.linalg.norm(np.array(self.CARTESIANS[i])-np.array(self.CARTESIANS[j]))
+                if distance < cutoff:
+                    row.append(j)
 
             connectivity.append(row)
 
-        self.connectivity = connectivity
+            self.connectivity = connectivity
 
   
 
@@ -1941,7 +1946,9 @@ def main():
                         help="List of additional file extensions to support, separated by commas (ie, '.qfi, .gaussian')." +
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
     parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
-                        help="Graph a reaction profile based on free energies calculated.")
+                        help="Graph a reaction profile based on free energies calculated. ")
+    parser.add_argument("--symmetryoff", action="store_true", default=False,
+                        help="turn off the symmetry correction")
 
     # Parse Arguments
     (options, args) = parser.parse_known_args()
@@ -2115,12 +2122,19 @@ def main():
 
     inverted_freqs, inverted_files = [], []
     for file in files: # loop over all specified output files and compute thermochemistry
-        if options.cosmo is not False:
+        if options.cosmo is not False and options.symmetryoff:
+            bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_solv[file],symmetryoff=options.symmetryoff)
+        elif options.cosmo is False and options.symmetryoff:
+            bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,symmetryoff=options.symmetryoff)
+        elif options.cosmo is not False and options.symmetryoff is False:
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                             options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_solv[file])
         else:
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+        
         bbe_vals.append(bbe)
     
     '''
