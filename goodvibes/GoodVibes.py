@@ -298,7 +298,7 @@ class XYZout:
 
 # The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
 class calc_bbe:
-    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, symmetryoff=False,cosmo=None):
+    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, ssymm=False,cosmo=None):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, linear_mol, link, freqloc, linkmax, symmno, self.cpu = 0.0, [], [], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0]
         linear_warning = ""
@@ -487,9 +487,9 @@ class calc_bbe:
             self.entropy = (Strans + Srot + h_Svib + Selec) / J_TO_AU
             self.qh_entropy = (Strans + Srot + qh_Svib + Selec) / J_TO_AU
 
-            #entropy correction for molecular symmetry
-            if symmetryoff is False:
-                print('\nFile:',file.split('.')[0].replace('/','_'))
+            #Symmetry - entropy correction for molecular symmetry
+            if ssymm:
+                #print('\nFile:',file.split('.')[0].replace('/','_'))
                 sym_entropy_correction = self.sym_correction(file.split('.')[0].replace('/','_'))
                 self.entropy += sym_entropy_correction
                 self.qh_entropy += sym_entropy_correction
@@ -548,7 +548,7 @@ class calc_bbe:
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
         #maybe store point group and return to user at some point?
         ex_sym = pg_sm.get(pgroup)
-        print('Point Group:', pgroup, 'Symmetry Number:',ex_sym)
+        #print('Point Group:', pgroup, 'Symmetry Number:',ex_sym)
         
         #remove file
         if platform.startswith('linux'): #linux - .so file
@@ -1970,8 +1970,8 @@ def main():
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
     parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
                         help="Graph a reaction profile based on free energies calculated. ")
-    parser.add_argument("--symmetryoff", action="store_true", default=False,
-                        help="turn off the symmetry correction")
+    parser.add_argument("--ssymm", dest='ssymm',action="store_true", default=False,
+                        help="Turn on the symmetry correction.")
 
     # Parse Arguments
     (options, args) = parser.parse_known_args()
@@ -2145,13 +2145,13 @@ def main():
 
     inverted_freqs, inverted_files = [], []
     for file in files: # loop over all specified output files and compute thermochemistry
-        if options.cosmo is not False and options.symmetryoff:
+        if options.cosmo is not False and options.ssymm:
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_solv[file],symmetryoff=options.symmetryoff)
-        elif options.cosmo is False and options.symmetryoff:
+                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_solv[file],ssymm=options.ssymm)
+        elif options.cosmo is False and options.ssymm:
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,symmetryoff=options.symmetryoff)
-        elif options.cosmo is not False and options.symmetryoff is False:
+                            options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,ssymm=options.ssymm)
+        elif options.cosmo is not False and options.ssymm is False:
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                             options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_solv[file])
         else:
