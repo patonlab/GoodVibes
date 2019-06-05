@@ -89,7 +89,7 @@ typedef struct {
 
 double                 ToleranceSame         = 1e-3 ;
 double                 TolerancePrimary      = 5e-2 ;
-double                 ToleranceFinal        = 0.1 ;
+double                 ToleranceFinal        = 0.1 ;    //edited this value from 1e-4
 double                 MaxOptStep            = 5e-1 ;
 double                 MinOptStep            = 1e-7 ;
 double                 GradientStep          = 1e-7 ;

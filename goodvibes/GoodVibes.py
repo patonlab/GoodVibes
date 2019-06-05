@@ -276,6 +276,7 @@ class Logger:
     def Finalize(self):
         self.log.close()
 
+
 # Enables output of optimized coordinates to a single xyz-formatted file
 class XYZout:
     def __init__(self, filein, suffix, append):
@@ -486,10 +487,10 @@ class calc_bbe:
             self.entropy = (Strans + Srot + h_Svib + Selec) / J_TO_AU
             self.qh_entropy = (Strans + Srot + qh_Svib + Selec) / J_TO_AU
 
-            #entropy correction for molecular cymmetry
-
-            if not symmetryoff:
-                sym_entropy_correction = self.sym_correction()
+            #entropy correction for molecular symmetry
+            if symmetryoff is False:
+                print('\nFile:',file.split('.')[0].replace('/','_'))
+                sym_entropy_correction = self.sym_correction(file.split('.')[0].replace('/','_'))
                 self.entropy += sym_entropy_correction
                 self.qh_entropy += sym_entropy_correction
 
@@ -503,9 +504,6 @@ class calc_bbe:
             
             if cosmo:
                 self.cosmo_qhg = self.qh_gibbs_free_energy + cosmo
-                # print("\nCOSMO detected: G=",self.qh_gibbs_free_energy, '+',cosmo,'=',str(self.qh_gibbs_free_energy + cosmo),'at T',temperature)
-            #else:
-                # print("\nno COSMO detected: G=",self.qh_gibbs_free_energy, 'at T',temperature)
             self.im_freq = []
             for freq in im_frequency_wn:
                 if freq < -1 * im_freq_cutoff:
@@ -515,26 +513,60 @@ class calc_bbe:
         self.linear_warning = linear_warning
     
     #get external symmetry number
-    def ex_sym(self):
-        
+    def ex_sym(self,file):
         coords_string = self.xyz.coords_string()
         coords = coords_string.encode('utf-8')
         c_coords = ctypes.c_char_p(coords)
-
-        symmetry = ctypes.CDLL(sharepath('symmetry.so'))
+        
+        #determine OS with sys.platform to see what compiled symmetry file to use
+        platform = sys.platform
+        if platform.startswith('linux'): #linux - .so file
+            path1 = sharepath('symmetry_linux.so')
+            newlib = 'lib_'+file+'.so'
+            path2 = sharepath(newlib)
+            copy = 'cp '+path1+' '+path2
+            os.popen(copy).close()
+            symmetry = ctypes.CDLL(path2)
+        elif platform.startswith('darwin'): #macOS - .dylib file
+            path1 = sharepath('symmetry_mac.dylib')
+            newlib = 'lib_'+file+'.dylib'
+            path2 = sharepath(newlib)
+            copy = 'cp '+path1+' '+path2
+            os.popen(copy).close()
+            symmetry = ctypes.CDLL(path2)
+        elif platform.startswith('win'): #windows - .dll file
+            return 0.0
+            #need .dll file
+            path1 = sharepath('symmetry_windows.dll')
+            newlib = 'lib_'+file+'.dll'
+            path2 = sharepath(newlib)
+            copy = 'copy '+path1+' '+path2
+            os.popen(copy).close()
+            symmetry = ctypes.WinDLL(path2)
+        
         symmetry.symmetry.restype = ctypes.c_char_p
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
+        #maybe store point group and return to user at some point?
         ex_sym = pg_sm.get(pgroup)
-
+        print('Point Group:', pgroup, 'Symmetry Number:',ex_sym)
+        
+        #remove file
+        if platform.startswith('linux'): #linux - .so file
+            remove = 'rm '+path2
+            os.popen(remove).close()
+        elif platform.startswith('darwin'): #macOS - .dylib file
+            remove = 'rm '+path2
+            os.popen(remove).close()
+        elif platform.startswith('win'): #windows - .dll file
+            remove = 'del '+path2
+            os.popen(remove).close()
+        
         return ex_sym
 
     def int_sym(self):
-
         self.xyz.get_connectivity()
-
         cap = [1, 9, 17]
         neighbor = [5, 6, 7, 8, 14, 15, 16]
-
         int_sym = 1
 
         for i,row in enumerate(self.xyz.connectivity):
@@ -543,23 +575,17 @@ class calc_bbe:
             if len(As == 4):
                 neighbors = [x for x in As if x in neighbor]
                 caps = [x for x in As if x in cap]
-
                 if (len(neighbors) == 1) and (len(set(caps)) == 1):
                     int_sym *= 3
-
         return int_sym
 
-    def sym_correction(self):
-        ex_sym = self.ex_sym()
+    def sym_correction(self,file):
+        ex_sym = self.ex_sym(file)
         int_sym = self.int_sym()
-
         sym_num = ex_sym * int_sym
-
         sym_correction = (-GAS_CONSTANT * math.log(sym_num))/J_TO_AU
-
         return sym_correction
 
-        
             
 # Obtain relative thermochemistry between species and for reactions
 class get_pes:
@@ -1053,10 +1079,6 @@ class getoutData:
 
             self.connectivity = connectivity
 
-  
-
-        
-
 
 #scattering points that may overlap
 def jitter(datasets, color, ax, nx,marker,edgecol='black'):     
@@ -1066,6 +1088,7 @@ def jitter(datasets, color, ax, nx,marker,edgecol='black'):
         x = np.random.normal(nx, 0.015, size=len(y))
         ax.plot(x, y, alpha=0.5, markersize=7, color=color,marker=marker, markeredgecolor=color, 
         markeredgewidth=1, linestyle='None')
+    
         
 #graph a reaction profile
 def graph_reaction_profile(graph_data,log,options,plt):
@@ -2221,10 +2244,10 @@ def main():
                     xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-            warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
+            # warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+            #                             options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
             linear_warning = []
-            linear_warning.append(warning_linear.linear_warning)
+            linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
                 log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 log.Write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
