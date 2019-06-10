@@ -1,4 +1,3 @@
-
 #!/usr/bin/python
 from __future__ import print_function, absolute_import
 
@@ -47,7 +46,7 @@ from __future__ import print_function, absolute_import
 
 #######################################################################
 #######  Written by:  Rob Paton, Ignacio Funes-Ardoiz  ################
-#######               Guilian Luchini, Juanvi Alegre   ################
+#######               Guilian Luchini, Juanvi Alegre,  ################
 #######               Yanfei Guan                      ################
 #######  Last modified:  2019                          ################
 #######################################################################
@@ -296,7 +295,8 @@ class XYZout:
         self.xyz.close()
 
 
-# The funtion to compute the "black box" entropy and enthalpy values (along with all other thermochemical quantities)
+# The funtion to compute the "black box" entropy and enthalpy values 
+# along with all other thermochemical quantities
 class calc_bbe:
     def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, ssymm=False,cosmo=None):
         # List of frequencies and default values
@@ -490,7 +490,8 @@ class calc_bbe:
             #Symmetry - entropy correction for molecular symmetry
             if ssymm:
                 #print('\nFile:',file.split('.')[0].replace('/','_'))
-                sym_entropy_correction = self.sym_correction(file.split('.')[0].replace('/','_'))
+                sym_entropy_correction,pgroup = self.sym_correction(file.split('.')[0].replace('/','_'))
+                self.point_group = pgroup
                 self.entropy += sym_entropy_correction
                 self.qh_entropy += sym_entropy_correction
 
@@ -547,6 +548,7 @@ class calc_bbe:
         symmetry.symmetry.restype = ctypes.c_char_p
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
         #maybe store point group and return to user at some point?
+        
         ex_sym = pg_sm.get(pgroup)
         #print('Point Group:', pgroup, 'Symmetry Number:',ex_sym)
         
@@ -561,7 +563,7 @@ class calc_bbe:
             remove = 'del '+path2
             os.popen(remove).close()
         
-        return ex_sym
+        return ex_sym,pgroup
 
     def int_sym(self):
         self.xyz.get_connectivity()
@@ -580,11 +582,11 @@ class calc_bbe:
         return int_sym
 
     def sym_correction(self,file):
-        ex_sym = self.ex_sym(file)
+        ex_sym,pgroup = self.ex_sym(file)
         int_sym = self.int_sym()
         sym_num = ex_sym * int_sym
         sym_correction = (-GAS_CONSTANT * math.log(sym_num))/J_TO_AU
-        return sym_correction
+        return sym_correction,pgroup
 
             
 # Obtain relative thermochemistry between species and for reactions
@@ -1080,7 +1082,7 @@ class getoutData:
             self.connectivity = connectivity
 
 
-#scattering points that may overlap
+# Scatter points that may overlap when graphing
 def jitter(datasets, color, ax, nx,marker,edgecol='black'):     
     import numpy as np    
     for i, p in enumerate(datasets):
@@ -1647,7 +1649,8 @@ def addTime(tm, cpu):
     return fulldate
 
 
-# Translational energy evaluation (depends on temperature)
+# Translational energy evaluation 
+# depends on temperature
 def calc_translational_energy(temperature):
     """
     Calculates the translational energy (J/mol) of an ideal gas
@@ -1659,7 +1662,8 @@ def calc_translational_energy(temperature):
     return energy
 
 
-# Rotational energy evaluation (depends on molecular shape and temperature)
+# Rotational energy evaluation 
+# depends on molecular shape and temperature
 def calc_rotational_energy(zpe, symmno, temperature, linear):
     """
     Calculates the rotaional energy (J/mol)
@@ -1675,7 +1679,8 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
     return energy
 
 
-# Vibrational energy evaluation (depends on frequencies, temperature and scaling factor: default = 1.0)
+# Vibrational energy evaluation 
+# depends on frequencies, temperature and scaling factor: default = 1.0
 def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
     """
     Calculates the vibrational energy contribution (J/mol). Includes ZPE (0K) and thermal contributions
@@ -1689,7 +1694,8 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
     return sum(energy)
 
 
-# Vibrational Zero point energy evaluation (depends on frequencies and scaling factor: default = 1.0)
+# Vibrational Zero point energy evaluation 
+# depends on frequencies and scaling factor: default = 1.0
 def calc_zeropoint_energy(frequency_wn, freq_scale_factor):
     """
     Calculates the vibrational ZPE (J/mol)
@@ -1732,7 +1738,8 @@ def get_free_space(solv):
     return freespace
 
 
-# Translational entropy evaluation (depends on mass, concentration, temperature, solvent free space: default = 1000.0)
+# Translational entropy evaluation 
+# depends on mass, concentration, temperature, solvent free space: default = 1000.0
 def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     """
     Calculates the translational entropic contribution (J/(mol*K)) of an ideal gas.
@@ -1747,7 +1754,8 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     return entropy
 
 
-# Electronic entropy evaluation (depends on multiplicity)
+# Electronic entropy evaluation 
+# depends on multiplicity
 def calc_electronic_entropy(multiplicity):
     """
     Calculates the electronic entropic contribution (J/(mol*K)) of the molecule
@@ -1757,7 +1765,8 @@ def calc_electronic_entropy(multiplicity):
     return entropy
 
 
-# Rotational entropy evaluation (depends on molecular shape and temp.)
+# Rotational entropy evaluation 
+# depends on molecular shape and temp.
 def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
     """
     Calculates the rotational entropy (J/(mol*K))
@@ -1800,7 +1809,8 @@ def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor):
     return entropy
 
 
-# Quasi-rigid rotor harmonic oscillator energy evaluation used for calculating quasi-harmonic enthalpy
+# Quasi-rigid rotor harmonic oscillator energy evaluation
+# used for calculating quasi-harmonic enthalpy
 def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     """
     Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of
@@ -1817,7 +1827,8 @@ def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     return energy
 
 
-# Free rotor entropy evaluation - used for low frequencies below the cut-off if qs=grimme is specified
+# Free rotor entropy evaluation 
+# used for low frequencies below the cut-off if qs=grimme is specified
 def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor):
     """
     Entropic contributions (J/(mol*K)) according to a free-rotor
@@ -1840,7 +1851,8 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
     return damp
 
 
-# Calculate enantioselectivity based on boltzmann factors of given R and S enantiomers
+# Calculate enantioselectivity 
+# based on boltzmann factors of given R and S enantiomers
 def get_ee(name,files,boltz_facs,boltz_sum,temperature,log):
     R_files,S_files = [], []
     R_sum,S_sum = 0.0, 0.0
@@ -1874,7 +1886,8 @@ def get_ee(name,files,boltz_facs,boltz_sum,temperature,log):
     return abs(ee), dd_free_energy, failed, RS_pref
 
 
-# Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values, used for --ee and --boltz options
+# Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values
+# used for --ee and --boltz options
 def get_boltz(files,thermo_data,clustering,temperature):
     boltz_facs, weighted_free_energy, e_rel, e_min, boltz_sum = {}, {}, {}, sys.float_info.max, 0.0
 
@@ -2132,8 +2145,11 @@ def main():
         log.Write("\n   QH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy.")
         qh_ref = head_gordon_ref
         log.Write("\n   REF: " + qh_ref)
-    else:
-        log.Write("\n\n   No quasi-harmonic enthalpy correction will be applied.")
+        
+    #Check if entropy symmetry correction should be applied
+    if options.ssymm:
+        log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
+        log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')  
 
     # Whether linked single-point energies are to be used
     if options.spc is "True":
@@ -2194,6 +2210,8 @@ def main():
         STARS += '*' * 9
     if options.boltz is True:
         STARS += '*' * 7
+    if options.ssymm is True:
+        STARS += '*' * 13
 
     # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
     if options.temperature_interval is False and options.conc_interval is False:
@@ -2210,11 +2228,13 @@ def main():
             else:
                 log.Write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_"+options.spc, "E", "ZPE", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
         if options.cosmo is not False:
-            log.Write('{:>13} {:>16}'.format("COSMO-RS","COSMO-qh-G(T)"))
+            log.Write('{:>13} {:>16}'.format("COSMO-RS","COSMO-qh-G(T)"),thermodata=True)
         if options.boltz is True:
             log.Write('{:>7}'.format("Boltz"),thermodata=True)
         if options.imag_freq is True:
             log.Write('{:>9}'.format("im freq"),thermodata=True)
+        if options.ssymm:
+            log.Write('{:>13}'.format("Point Group"),thermodata=True)
         log.Write("\n"+STARS+"")
 
         # Boltzmann factors and averaging over clusters
@@ -2244,8 +2264,6 @@ def main():
                     xyz.Writetext('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                 if hasattr(xyzdata, 'CARTESIANS') and hasattr(xyzdata, 'ATOMTYPES'):
                     xyz.Writecoords(xyzdata.ATOMTYPES, xyzdata.CARTESIANS)
-            # warning_linear = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-            #                             options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert)
             linear_warning = []
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -2333,6 +2351,8 @@ def main():
             if options.imag_freq is True and hasattr(bbe, "im_frequency_wn") == True:
                 for freq in bbe.im_frequency_wn:
                     log.Write('{:9.2f}'.format(freq),thermodata=True)
+            if options.ssymm:
+                log.Write('{:>13}'.format(bbe.point_group))
 
             if clustering == True:
                 for n, cluster in enumerate(clusters):
