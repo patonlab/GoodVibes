@@ -2,21 +2,48 @@ GoodVibes
 ===
 
 [![Build Status](https://travis-ci.com/luchini18/GoodVibes.svg?branch=master)](https://travis-ci.org/luchini18/GoodVibes)
-[![codecov](https://codecov.io/gh/luchini18/GoodVibes/branch/master/graph/badge.svg)](https://codecov.io/gh/luchini18/GoodVibes)
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg)](https://conda.anaconda.org/patonlab)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
 [![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
 
-A Python program to compute corrections to thermochemical data from Gaussian frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Robert Paton](https://www.chem.colostate.edu/person/?id=234D5F1C7E4CBA9E192AB2B2837D6360) (Colorado State & Oxford), [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ), Guilian Luchini, Juan Alegre-Requena, and Yanfei Guan (Paton Research Group, Colorado State). Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://github.com/jaimergp).
+A Python program to compute corrections to thermochemical data from frequency calculations at a given temperature/concentration, corrected for the effects of vibrational scaling-factors and available free space in solvent. Developed by [Robert Paton](https://www.chem.colostate.edu/person/?id=234D5F1C7E4CBA9E192AB2B2837D6360) (Colorado State & Oxford), [Ignacio Funes-Ardoiz](http://www.iciq.org/staff/funes-ignacio/) (ICIQ), Guilian Luchini, Juan Alegre-Requena, and Yanfei Guan ([Paton Research Group, Colorado State](http://patonlab.com/)). Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://github.com/jaimergp) with additions from Guilian Luchini.
 
 All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 K and 1 atmosphere.
 
-Two types of quasi-harmonic approximation are applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
-
-The second type of quasi-harmonic approximation is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. 
-
 The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the [Truhlar group database](https://t1.chem.umn.edu/freqscale/index.html).
+
+#### Quasi-Harmonic Approximation
+Two types of quasi-harmonic approximation are readily applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
+
+The second type of quasi-harmonic approximation available is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. This correction is appropriate for use in zeolitic adsorption reactions and is only applied if requested. 
+
+#### Symmetry
+Symmetry corrections to entropy 
+
+#### Checks
+A computational workflow can become less effective without consistency throughout the process. By using the `--check` option, GoodVibes will enforce a number of pass/fail checks on the input files given to make sure uniform options were used. Checks employed are:
+
+###### Gaussian Output Checks 
+*   Same version of Gaussian used across all output files
+*   Same solvation state/gas phase used across all output files
+*   Same level of theory and basis set used 
+*   Same charge and multiplicity used
+*   Check if standard concenctration of 1 atm was used in calculation 
+*   Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol 
+*   Check for potential calculation error in linear molecules by Gaussian
+*   Check for transition states (one imaginary frequency in output file)
+*   Check if empirical dispersion is used and consistent across all output files
+
+###### Single Point Calculation Checks
+*   Same version and program used for all single point calculations
+*   Same solvation model used across output files 
+*   Same level of theory used across all output files
+*   Same charge and multiplicity used
+*   Same geometry coordinates for SPC and associated geometry optimized and frequency calculation output file
+*   Check if empirical dispersion is used and consistent across all output files
+
+
 
 #### Installation
 *  With pypi: `pip install goodvibes`
@@ -30,8 +57,8 @@ The program will attempt to parse the level of theory and basis set used in the 
 ```python
 python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq] 
                     [-t temperature] [-c concentration] [-v frequency_scale_factor] [--freespace solvent_name] 
-                    [--spc link/filename] [--boltz] [--cpu] [--imag] [--ti 't_initial, t_final, step']
-                    [--ci 'c_initial, c_final, step'] [--xyz] [--csv] [--invertifreq] [--cosmo cosmo_filename] 
+                    [--spc link/filename] [--boltz] [--cpu] [--imag] [--ti 't_initial, t_final, step'] [--ssymm]
+                    [--cosmo cosmo_filename] [--cosmoint cosmo_filename,initial_temp,final_temp] [--xyz] [--csv] [--invertifreq] 
                     [--output output_name] [--pes pes_filename] [--nogconf] [--ee] [--check] [--media solvent_name] 
                     [--custom_ext file_extension] <gaussian_output_file(s)>
 ```
@@ -46,8 +73,11 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `-t` option specifies temperature (in Kelvin). N.B. This does not have to correspond to the temperature used in the Gaussian calculation since all thermal quantities are reevalulated by GoodVibes at the requested temperature. The default value is 298.15 K.
 *	The `-c` option specifies concentration (in mol/l).  It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same as the Gaussian Pressure route line specification. The correction is applied to the Sackur-Tetrode equation of the translational entropy e.g. `-c 1` corrects to a solution-phase standard state of 1 mol/l. The default is 1 atmosphere.
 *	The `--ti` option specifies a temperature interval (for example to see how a free energy barrier changes with the temperature). Usage is `--ti 'initial_temperature, final_temperature, step_size'`. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) / 10
-*	The `--ci` option specifies a concentration interval (for example to see how a free energy barrier changes with varying concentration). Usage is `--ci 'initial_concentration, final_concentration, step_size'`. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) / 10
+*	The `--ee` option takes the name of the stereo-determining step along with calculation output files to calculate percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
+*	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out formatted file.
+*   The `--cosmo_int` option allows for Gibbs Free Energy of Solvation calculated using COSMO-RS with a temperature interval to be applied at a range of temperatures. Since temperature gaps may not be consistent, the interval is automatically detected. Usage is `--cosmoint cosmo_gsolv.out,initial_temp,final_temp`. GoodVibes will detect temperatures within the range provided.
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by `-v 1.0`
+*   The `--ssymm` option will apply a symmetry correction to the entropy by detecting a molecule's internal and external symmetry. 
 *   The `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
 *   The `--boltz` option will display the Boltzmann weighted factors based on free energy of each specified output file. 
 *	The `--pes` option takes a .yaml file input (see template below) along with calculation output files to allow for the construction of a potential energy surface from relative computed Gibbs free-energy values.
@@ -57,9 +87,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *   The `--imag` option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see [pyQRC](https://github.com/bobbypaton/pyQRC)
 *   The `--invertifreq` option will convert any low lying imaginary frequencies lying in a certain range to positive values (in wavenumbers). The default cutoff is to make imaginary frequencies above -50 cm<sup>-1</sup> positive.
 *	The `--freespace` option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent's molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by [Shakhnovich and Whitesides](http://pubs.acs.org/doi/abs/10.1021/jo970944f).<sup>5</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.
-*	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .tab formatted file. 
 *	The `--output` option is used to change the default output file name to a specified name instead. Use as  `--output NAME` to change the name of the output file of thermochemical data from "GoodVibes.dat" to "GoodVibes_NAME.dat"
-*	The `--ee` option takes the name of the stereo-determining step along with calculation output files to calculate percent enantiomeric excess as well as ddG free-energy, displaying preference for R or S conformation.
 *	The `--media` option applies an entropy correction to calculations done on solvent molecules calculated from their standard concentration.
 *	The `--xyz` option will write all Cartesian coordinates to a .xyz output file.
 *	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file. 
@@ -195,9 +223,47 @@ Some options (--pes, --graph, --spc, -ee, --media) require the calculation outpu
 * **Media**
 
     To apply the media correction to calculations performed on solvent molecules, the calculation output file should match the name passed in the media argument, for example, if performing the correction on water, the output file should be named H2O.log and the command line option should be `--media H2O`.
+    GoodVibes will recognize the following solvent molecule names:
+        meco2h / aceticacid, acetone, mecn / acetonitrile, benzene, 1buoh / 1butanol, 2buoh / 2butanol, 2butanone, tbuoh / tbutylalcohol, ccl4 / carbontetrachloride,
+        phcl / chlorobenzene, chcl3 / chloroform, cyclohexane, 12dce  / 12dichloroethane, diethyleneglycol, et2o / diethylether, diglyme, dme / 12dimethoxyethane, 
+        dmf / dimethylformamide, dmso / dimethylsulfoxide, 14dioxane, etoh / ethanol, etoac / acoet / ethylacetate, ethyleneglycol, glycerin, hmpa / hexamethylphosphoramide,
+        hmpt / hexamethylphosphoroustriamide, hexane, meoh / methanol, mtbe / methyltbutylether, ch2cl2 / methylenechloride, dcm / dichloromethane, nmp / nmethyl2pyrrolidinone,
+        meno2 / nitromethane, pentane, 1propanol, 2propanol, pyridine, thf / tetrahydrofuran, toluene, et3n / triethylamine, h2o / water, oxylene, mxylene, pxylene
 
 #### .yaml File Formatting
-When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options.
+When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options. An example .yaml file is shown below: 
+    
+    --- # PES
+    # Double S addition
+       Reaction: [Int-I+TolS+TolSH, Int-II+TolSH, Int-III] 
+
+    --- # SPECIES
+       Int-I     : Int-I_*
+       TolS      : TolS
+       TolSH     : TolSH
+       Int-II    : Int-II_*
+       Int-III   : Int-III_*
+
+    --- # FORMAT
+       dec : 1
+       units: kcal/mol
+       
+options in the # FORMAT block are not necessary, but allow for stylistic choices to be employed. Current options that can be specified for either --pes or --graph options are:
+    
+        dec : either 1 or 2 (decimal points in output)
+        units : either kcal/mol or kJ/mol
+        legend : True or False (puts legend on graph)
+        ylim : y_min,y_max (y axis limits on graph)
+        color : Color (color of line for a reaction pathway, multiple pathways can have different colors i.e. color1,color2,color3 etc.)
+        pointlabel : True or False (labels relative energy on graph at point)
+        xlabel : True or False (displays structure labels at pathway points on x axis)
+        title : Title (title displayed on graph)
+        gridlines: True or False (displays gridlines on graph)
+        dpi : number (specify dpi (dots per inch) of an image, will automatically save output image at specified dpi)
+        show_conformers : True or False (displays a point for each conformer of a certain compound at its relative energy on graph)
+        show_gconf : True or False (displays the effect of multiple accessible conformers correction if applied)
+    
+    
 
 **Tips and Troubleshooting**
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the $PATH variable

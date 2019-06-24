@@ -2710,8 +2710,6 @@ def main():
                     geom_duplic_files.append(file)
                 geom_duplic_list.append(geom_duplic_cart)
                 geom_duplic_list.append(geom_duplic_files)
-
-                   #geom_duplic_list.append(round(geom_duplic.CARTESIANS, 4))
                 for name in names_spc:
                     geom_duplic_spc = getoutData(name)
                     geom_duplic_cart_spc.append(geom_duplic_spc.CARTESIANS)
