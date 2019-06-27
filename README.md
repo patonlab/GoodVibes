@@ -214,16 +214,17 @@ Some options (--pes, --graph, --spc, -ee, --media) require the calculation outpu
 
     To link a frequency output file to a separately performed single point energy calculation file, the single point calculation file should have the same common root as the frequency file, with an additional underscore and descriptor at the end, such as ethane.out and ethane_TZ.out shown above, where ethane_TZ.out is the separate single point calculation file. When running GoodVibes in this case, the descriptor TZ should be passed as an argument, as `--spc TZ`
     
-* **EE**
+* **Selectivity**
 
-    To calculate enantiomeric excess, file names should begin with the root of the stereo-determining step, and end with either `_R` or `_S`. 
+    To calculate enantiomeric excess, enantiomeric ratio, or diastereomeric ratios,
+    file names should begin with the root of the stereo-determining step, and end with either `_R` or `_S`. 
     
-    **EXAMPLE NEEDED**
     
 * **Media**
 
     To apply the media correction to calculations performed on solvent molecules, the calculation output file should match the name passed in the media argument, for example, if performing the correction on water, the output file should be named H2O.log and the command line option should be `--media H2O`.
     GoodVibes will recognize the following solvent molecule names:
+    
         meco2h / aceticacid, acetone, mecn / acetonitrile, benzene, 1buoh / 1butanol, 2buoh / 2butanol, 2butanone, tbuoh / tbutylalcohol, ccl4 / carbontetrachloride,
         phcl / chlorobenzene, chcl3 / chloroform, cyclohexane, 12dce  / 12dichloroethane, diethyleneglycol, et2o / diethylether, diglyme, dme / 12dimethoxyethane, 
         dmf / dimethylformamide, dmso / dimethylsulfoxide, 14dioxane, etoh / ethanol, etoac / acoet / ethylacetate, ethyleneglycol, glycerin, hmpa / hexamethylphosphoramide,

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 from __future__ import print_function, absolute_import
 
-#######################################################################
+"""####################################################################
 #                              GoodVibes.py                           #
 #  Evaluation of quasi-harmonic thermochemistry from Gaussian.        #
 #  Partion functions are evaluated from vibrational frequencies       #
@@ -45,11 +45,11 @@ from __future__ import print_function, absolute_import
 
 
 #######################################################################
-#######  Written by:  Rob Paton, Ignacio Funes-Ardoiz  ################
+#######  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ################
 #######               Guilian Luchini, Juanvi Alegre,  ################
 #######               Yanfei Guan                      ################
 #######  Last modified:  2019                          ################
-#######################################################################
+####################################################################"""
 
 import ctypes, math, os.path, sys, time
 from datetime import datetime, timedelta
@@ -216,7 +216,9 @@ class calc_bbe:
             if "Normal termination" in line:
                 link += 1
                 # reset frequencies if in final freq link
-                if link == freqloc: frequency_wn = []
+                if link == freqloc: 
+                    frequency_wn = []
+                    im_frequency_wn = []
             # if spc specified will take last Energy from file, otherwise will break after freq calc
             if link > freqloc:
                 break
@@ -296,7 +298,6 @@ class calc_bbe:
                 msecs = int(float(line.split()[9])*1000.0) + self.cpu[4]
                 self.cpu = [days,hours,mins,secs,msecs]
         self.inverted_freqs = inverted_freqs
-
         # skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             # create a list of frequencies equal to cut-off value
@@ -359,7 +360,7 @@ class calc_bbe:
             if QH:
                 self.qh_enthalpy = self.scf_energy + (Utrans + Urot + qh_Uvib + GAS_CONSTANT * temperature) / J_TO_AU
             # single point correction replaces energy from optimization with single point value
-            if hasattr(self, 'sp_energy'):
+            if spc is not False:
                 try:
                     self.enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
                 except TypeError:
@@ -375,7 +376,6 @@ class calc_bbe:
 
             #Symmetry - entropy correction for molecular symmetry
             if ssymm:
-                #print('\nFile:',file.split('.')[0].replace('/','_'))
                 sym_entropy_correction,pgroup = self.sym_correction(file.split('.')[0].replace('/','_'))
                 self.point_group = pgroup
                 self.entropy += sym_entropy_correction
@@ -433,10 +433,7 @@ class calc_bbe:
 
         symmetry.symmetry.restype = ctypes.c_char_p
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
-        #maybe store point group and return to user at some point?
-
         ex_sym = pg_sm.get(pgroup)
-        #print('Point Group:', pgroup, 'Symmetry Number:',ex_sym)
 
         #remove file
         if platform.startswith('linux'): #linux - .so file
@@ -1573,7 +1570,8 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
 # Depends on frequencies, temperature and scaling factor: default = 1.0
 def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
     """
-    Calculates the vibrational energy contribution (J/mol). Includes ZPE (0K) and thermal contributions
+    Calculates the vibrational energy contribution (J/mol). 
+    Includes ZPE (0K) and thermal contributions
     Evib = R * Sum(0.5 hv/k + (hv/k)/(e^(hv/KT)-1))
     """
     factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
@@ -1726,40 +1724,62 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
     damp = [1 / (1+(FREQ_CUTOFF/entry)**alpha) for entry in frequency_wn]
     return damp
 
-# Calculate enantioselectivity
-# based on boltzmann factors of given R and S enantiomers
-def get_ee(name,files,boltz_facs,boltz_sum,temperature,log, dup_list):
-    R_files,S_files, R_sum, S_sum, failed, RS_pref = [], [], 0.0, 0.0, False, ''
+# Calculate selectivity - enantioselectivity/diastereomeric ratio
+# based on boltzmann factors of given stereoisomers
+def get_selectivity(type,pattern,files,boltz_facs,boltz_sum,temperature,log, dup_list):
+    from fractions import Fraction    # for ratios
+    
+    # grab files for selectivity calcs
+    A_files,B_files, A_sum, B_sum, failed, pref = [],[],0.0,0.0,False,''
+    pattern = pattern.split(',')
+    A = ''.join(a for a in pattern[0] if a.isalnum())
+    B = ''.join(b for b in pattern[1] if b.isalnum())
+    A_files.extend(glob(pattern[0]))
+    B_files.extend(glob(pattern[1]))
 
+    if len(A_files) is 0 or len(B_files) is 0:
+        log.Write("\n   Warning! Filenames have not been formatted correctly for determining selectivity\n")
+        log.Write("   Make sure the filename contains either "+A+" or "+B+"\n")
+        sys.exit("   Please edit either your filenames or selectivity pattern argument and try again\n")
+    
+    # grab boltzmann sums 
     for file in files:
         duplicate = False
         if len(dup_list) != 0:
             for dup in dup_list:
                 if dup[0] == file: duplicate = True
         if duplicate == False:
-            if file.lower().startswith(name.lower()):
-                if file.find('_R.') > -1:
-                    R_files.append(file)
-                    R_sum += boltz_facs[file]/boltz_sum
-                elif file.find('_S.') > -1:
-                    S_files.append(file)
-                    S_sum += boltz_facs[file]/boltz_sum
-                else:
-                    log.Write("\n   Warning! Filename "+file+' has not been formatted correctly for determining enantioselectivity\n')
-                    log.Write("   Make sure the filename ends in either '_R' or '_S' \n")
-                    sys.exit("   Please edit "+file+" and try again\n")
-
-    ee = (R_sum - S_sum) * 100.
-
-    #if ee is negative, more in favor of S
+            if file in A_files:
+                A_sum += boltz_facs[file]/boltz_sum
+            elif file in B_files:
+                B_sum += boltz_facs[file]/boltz_sum
+                
+    # get ratios
+    A_round = round(A_sum*100)
+    B_round = round(B_sum*100)
+    r = str(A_round)+':'+str(B_round)
+    if A_round > B_round:
+        pref = A
+        ratio = A_round/B_round
+        if ratio < 3:
+            ratio = str(round(ratio,1))+':1'
+        else:
+            ratio = str(round(ratio))+':1'
+    else:
+        pref = B
+        ratio = B_round/A_round
+        if ratio < 3:
+            ratio = '1:'+str(round(ratio,1))
+        else:
+            ratio = '1:'+str(round(ratio))
+    
+    ee = (A_sum - B_sum) * 100.
     if ee == 0:
         log.Write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
         failed = True
-    elif ee > 0: RS_pref = 'R'
-    else: RS_pref = 'S'
-
+    ee = abs(ee)
     dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(ee) / 2.0) / (50 - abs(ee) / 2.0)) * KCAL_TO_AU
-    return abs(ee), dd_free_energy, failed, RS_pref
+    return ee, r, ratio, dd_free_energy, failed, pref
 
 # Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values
 # used for --ee and --boltz options
@@ -2221,13 +2241,15 @@ def main():
     parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
                         help="Calculate a free-energy correction related to multi-configurational space (default calculate Gconf)")
     parser.add_argument("--ee", dest="ee", default=False, type=str,
-                        help="Tabulate %% enantiomeric excess value of a mixture, provide name of stereodetermining step")
+                        help="Tabulate %% enantiomeric excess value of a mixture, provide pattern for two types such as *_R*,*_S*")
+    parser.add_argument("--dr", dest="dr", default=False, type=str,
+                        help="Tabulate diastereomeric ratio of a mixture, provide pattern for two types such as Z_*,E_*")
     parser.add_argument("--check", dest="check", action="store_true", default=False,
                         help="Checks if calculations were done with the same program, level of theory and solvent, as well as detects potential duplicates")
     parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
                         help="Entropy correction for standard concentration of solvents")
     parser.add_argument("--custom_ext", type=str, default='',
-                        help="List of additional file extensions to support, separated by commas (ie, '.qfi, .gaussian')." +
+                        help="List of additional file extensions to support, beyond .log or .out, use separated by commas (ie, '.qfi, .gaussian')." +
                             "It can also be specified with environment variable GOODVIBES_CUSTOM_EXT")
     parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
                         help="Graph a reaction profile based on free energies calculated. ")
@@ -2236,6 +2258,7 @@ def main():
 
     # Parse Arguments
     (options, args) = parser.parse_known_args()
+            
     # If requested, turn on head-gordon enthalpy correction
     if options.Q: options.QH = True
     if options.QH: STARS = "   " + "*" * 142
@@ -2255,13 +2278,12 @@ def main():
 
     # Initialize the total CPU time
     total_cpu_time, add_days = datetime(100, 1, 1, 00, 00, 00, 00), 0
-
     if len(args) > 1:
         for elem in args:
             if elem == 'clust:':
                 clustering = True; options.boltz = True
                 nclust = -1
-
+    
     # Get the filenames from the command line prompt
     args = sys.argv[1:]
     for elem in args:
@@ -2286,7 +2308,10 @@ def main():
                 command += elem + ' '
         except IndexError:
             pass
-
+    # Check if user has specified any files, if not quit now
+    if len(files) == 0:
+        sys.exit("\nPlease provide GoodVibes with calculation output files on the command line.\nFor help, use option '-h'\n")
+        
     # Start printing results
     start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
     log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
@@ -2335,6 +2360,8 @@ def main():
                     l_o_t_freq_print += ", " + filtered_calcs_l_o_t[1][i] + " (" + filtered_calcs_l_o_t[0][i] + ")"
                     filter_of_scaling_f = filter_of_scaling_f + 1
             log.Write("\nx  " + l_o_t_freq_print)
+            if options.boltz is not False or options.ee is not False or options.dr is not False:
+                sys.exit("\n\nERROR: When comparing files with Boltzmann factors (with bolts, ee, dr options), the level of theory used should be the same for all files.\n ")
 
     if options.freq_scale_factor is False:
         options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
@@ -2360,7 +2387,6 @@ def main():
     elif options.cosmo is not False:# read from COSMO-RS output
         try:
             cosmo_solv = COSMORSout(options.cosmo, files)
-            print('\ncosmosolv',cosmo_solv)
             log.Write('\n\n   Reading COSMO-RS file: '+options.cosmo)
         except ValueError:
             cosmo_solv = None
@@ -2397,10 +2423,6 @@ def main():
     # Whether linked single-point energies are to be used
     if options.spc is "True":
         log.Write("\n   Link job: combining final single point energy with thermal corrections.")
-
-    # Check if user has specified any files, if not quit now
-    if len(files) == 0:
-        sys.exit("\nWarning! No calculation output file specified to run with GoodVibes.\n")
 
     # Loop over all specified output files and compute thermochemistry
     inverted_freqs, inverted_files = [], []
@@ -2584,7 +2606,7 @@ def main():
                         if structure == file:
                             if id == len(cluster)-1:
                                 log.Write("\n   "+DASHES)
-                                log.Write("\n   "+'{name:<{var_width}} {gval:13.6f} {weight:6.2f}'.format(name='Boltzmann-weighted Cluster '+alphabet[n].upper(), var_width=len(STARS)-46, gval=weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , weight=100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum),thermodata=True)
+                                log.Write("\n   "+'{name:<{var_width}} {gval:13.6f} {weight:6.2f}'.format(name='Boltzmann-weighted Cluster '+alphabet[n].upper(), var_width=len(STARS)-24, gval=weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , weight=100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum),thermodata=True)
                                 log.Write("\n   "+DASHES)
         log.Write("\n"+STARS+"\n")
     
@@ -2938,17 +2960,25 @@ def main():
                 log.Write("\n"+STARS+"\n")
     
     # Compute enantiomeric excess
-    if options.ee is not False:
-        EE_STARS = "   " + '*' * 81
+    if options.ee is not False or options.dr is not False:
+        SELEC_STARS = "   " + '*' * 102
         boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files,thermo_data,clustering,clusters,options.temperature, dup_list)
-        ee, dd_free_energy,failed,RS_preference = get_ee(options.ee,files,boltz_facs,boltz_sum,options.temperature,log, dup_list)
+    if options.ee is not False:
+        ee,er,ratio, dd_free_energy,failed,preference = get_selectivity('e',options.ee,files,boltz_facs,boltz_sum,options.temperature,log, dup_list)
         if not failed:
-            log.Write("\n   " + '{:<39} {:>13} {:>13} {:>13}'.format("Enantioselectivity" , "%ee", "ddG", "Abs. Config."), thermodata=True)
-            log.Write("\n"+EE_STARS)
-            log.Write("\no  ")
-            log.Write('{:<39} {:13.2f} {:13.2f} {:>13}'.format(options.ee,ee,dd_free_energy,RS_preference), thermodata=True)
-            log.Write("\n"+EE_STARS+"\n")
-
+            log.Write("\n   " + '{:<39} {:>10} {:>10} {:>10} {:>18} {:>10}'.format("Enantioselectivity", "%ee", "er","ratio","Abs. Config.", "ddG"), thermodata=True)
+            log.Write("\n"+SELEC_STARS)
+            log.Write("\no  Stereodetermination")
+            log.Write('{:<20} {:10.2f} {:>10} {:>10} {:>18} {:10.2f}'.format('',ee,er,ratio,preference,dd_free_energy), thermodata=True)
+            log.Write("\n"+SELEC_STARS+"\n")
+    elif options.dr is not False:
+        ee,dr,ratio, dd_free_energy,failed,preference = get_selectivity('d',options.dr,files,boltz_facs,boltz_sum,options.temperature,log, dup_list)
+        if not failed:
+            log.Write("\n   " + '{:<39} {:>10} {:>10} {:>10} {:>18} {:>10}'.format("Diastereomeric Selectivity", "%ee", "dr", "ratio", "Abs. Config.", "ddG"), thermodata=True)
+            log.Write("\n"+SELEC_STARS)
+            log.Write("\no  Stereodetermination")
+            log.Write('{:<20} {:10.2f} {:>10} {:>10} {:>18} {:10.2f}'.format('',ee,dr,ratio,preference,dd_free_energy), thermodata=True)
+            log.Write("\n"+SELEC_STARS+"\n")
     # Graph reaction profiles
     if options.graph is not False:
         try:
