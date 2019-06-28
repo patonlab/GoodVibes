@@ -118,8 +118,10 @@ def sharepath(filename):
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(here, 'share', filename)
 
-def elementID(massno):
+def elementID(massno,num=False):
     try:
+        if num:
+            return periodictable.index(massno)
         return periodictable[massno]
     except IndexError:
         return "XX"
@@ -177,10 +179,15 @@ class XYZout:
 # The function to compute the "black box" entropy and enthalpy values
 # along with all other thermochemical quantities
 class calc_bbe:
-    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, ssymm=False,cosmo=None):
+    def __init__(self, file, QS, QH, S_FREQ_CUTOFF, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc, invert, ssymm=False,cosmo=None,mm_freq_scale_factor=False):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [0.0,0.0,0.0], [0.0,0.0,0.0], 0, 0, 0, 0, 1, [0,0,0,0,0], []
         linear_warning = False
+        if mm_freq_scale_factor is False:
+            fract_modelsys = False
+        else:
+            fract_modelsys = []
+            freq_scale_factor = [freq_scale_factor,mm_freq_scale_factor]
         self.xyz = getoutData(file)
         self.job_type = jobtype(file)
         #Parse some useful information from the file 
@@ -211,7 +218,7 @@ class calc_bbe:
         # Iterate over output
         if freqloc == 0:
             freqloc = len(g_output)
-        for line in g_output:
+        for i,line in enumerate(g_output):
             # link counter
             if "Normal termination" in line:
                 link += 1
@@ -219,17 +226,28 @@ class calc_bbe:
                 if link == freqloc: 
                     frequency_wn = []
                     im_frequency_wn = []
+                    if mm_freq_scale_factor is not False:
+                        fract_modelsys = []
             # if spc specified will take last Energy from file, otherwise will break after freq calc
             if link > freqloc:
                 break
           	# Iterate over output: look out for low frequencies
             if line.strip().startswith('Frequencies -- '):
-                for i in range(2,5):
+                if mm_freq_scale_factor is not False:
+                    newline=g_output[i+3]
+                for j in range(2,5):
                     try:
-                        x = float(line.strip().split()[i])
+                        x = float(line.strip().split()[j])
+                        #if given MM freq scale factor fill the fract_modelsys array:
+                        if mm_freq_scale_factor is not False:
+                            y = float(newline.strip().split()[j])/100.0
+                            y = float('{:.6f}'.format(y))
+                        else:
+                            y = 1.0
                         # only deal with real frequencies
                         if x > 0.00:
                             frequency_wn.append(x)
+                            if mm_freq_scale_factor is not False: fract_modelsys.append(y)
                         # check if we want to make any low lying imaginary frequencies positive
                         elif x < -1 * im_freq_cutoff:
                             if invert is not False:
@@ -310,16 +328,16 @@ class calc_bbe:
 
             # Rotational and Vibrational contributions to the energy entropy
             if len(frequency_wn) > 0:
-                ZPE = calc_zeropoint_energy(frequency_wn, freq_scale_factor)
+                ZPE = calc_zeropoint_energy(frequency_wn, freq_scale_factor,fract_modelsys)
                 Urot = calc_rotational_energy(self.zero_point_corr, symmno, temperature, linear_mol)
-                Uvib = calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor)
+                Uvib = calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
                 Srot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, rotemp, temperature)
 
                 # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
-                Svib_rrho = calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor)
+                Svib_rrho = calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor,fract_modelsys)
                 if S_FREQ_CUTOFF > 0.0:
-                    Svib_rrqho = calc_rrho_entropy(cutoffs, temperature, 1.0)
-                Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor)
+                    Svib_rrqho = calc_rrho_entropy(cutoffs, temperature, 1.0, fract_modelsys)
+                Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
                 S_damp = calc_damp(frequency_wn, S_FREQ_CUTOFF)
 
                 #check for qh
@@ -917,18 +935,18 @@ class getoutData:
             if program == "Orca":
                 for i, line in enumerate(outlines):
                     if "*" in line and ">" in line and "xyz" in line:
-                        self.ATOMTYPES, self.CARTESIANS, carts = [], [], outlines[i+1:]
+                        self.ATOMNUMS, self.ATOMTYPES, self.CARTESIANS, carts = [], [], [], outlines[i+1:]
                         for j, line in enumerate(carts):
                             if ">" in line and "*" in line:
                                 break
                             if len(line.split()) > 5:
                                 self.CARTESIANS.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
                                 self.ATOMTYPES.append(line.split()[2])
-                                self.ATOMNUMS.append(elementID.index(line.split()[2]))
+                                self.ATOMNUMS.append(elementID(line.split()[2],num=True))
                             else:
                                 self.CARTESIANS.append([float(line.split()[2]),float(line.split()[3]),float(line.split()[4])])
                                 self.ATOMTYPES.append(line.split()[1])
-                                self.ATOMNUMS.append(elementID.index(line.split()[1]))
+                                self.ATOMNUMS.append(elementID(line.split()[1],num=True))
 
         getATOMTYPES(self, data, program)
 
@@ -1261,7 +1279,7 @@ def COSMORSout(datfile, names, interval=False):
 # Read gaussian output and obtain single point energy, program type, 
 # program version, solvation_model, charge, empirical_dispersion, multiplicity
 def parse_data(file):
-    spe, program, data, version_program, solvation_model, keyword_line, a, charge, multiplicity = 'none', 'none', [], '', '', '', 0, None, None
+    spe, program, data, version_program, solvation_model, keyword_line, a, charge, multiplicity= 'none', 'none', [], '', '', '', 0, None, None
 
     if os.path.exists(os.path.splitext(file)[0]+'.log'):
         with open(os.path.splitext(file)[0]+'.log') as f:
@@ -1354,7 +1372,7 @@ def parse_data(file):
                     else:
                         end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
-        #For empirical dispersion
+        # Empirical dispersion
         empirical_dispersion = ''
         if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
@@ -1362,7 +1380,7 @@ def parse_data(file):
             start_empirical_dispersion = keyword_line.strip().find('empiricaldispersion') + 20
             if keyword_line[start_empirical_dispersion] == "(":
                 end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
-                empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+                empirical_dispersion = keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
                 if empirical_dispersion[-1] != ")":
                     empirical_dispersion = empirical_dispersion + ")"
             else:
@@ -1372,14 +1390,14 @@ def parse_data(file):
                 else:
                     end_empirical_dispersion = len(keyword_line)
                 if keyword_line[start_empirical_dispersion2] == "(":
-                    empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion-1]
+                    empirical_dispersion =  keyword_line[start_empirical_dispersion:end_empirical_dispersion-1]
                 else:
-                    empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
+                    empirical_dispersion =  keyword_line[start_empirical_dispersion:end_empirical_dispersion]
         elif keyword_line.strip().find('emp=') > -1:
             start_empirical_dispersion = keyword_line.strip().find('emp=') + 4
             if keyword_line[start_empirical_dispersion] == "(":
                 end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
-                empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+                empirical_dispersion =  keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
             else:
                 start_empirical_dispersion2 = keyword_line.strip().find('emp=') + 3
                 if keyword_line.find(" ",start_empirical_dispersion) > -1:
@@ -1389,11 +1407,11 @@ def parse_data(file):
                 if keyword_line[start_empirical_dispersion2] == "(":
                     empirical_dispersion2 = "empiricaldispersion=(" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
                 else:
-                    empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
+                    empirical_dispersion =  keyword_line[start_empirical_dispersion:end_empirical_dispersion]
         elif keyword_line.strip().find('emp(') > -1:
             start_empirical_dispersion = keyword_line.strip().find('emp(') + 3
             end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
-            empirical_dispersion = "empiricaldispersion=" + keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+            empirical_dispersion =  keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
 
 
     if 'ORCA' in version_program.strip():
@@ -1500,7 +1518,6 @@ def level_of_theory(file):
                 repeated_theory = 1
             except IndexError:
                 pass
-
     for line in data:
         if 'DLPNO BASED TRIPLES CORRECTION' in line.strip():
             level = 'DLPNO-CCSD(T)'
@@ -1512,7 +1529,6 @@ def level_of_theory(file):
         # remove the restricted R or unrestricted U label
         if level[0] in ('R', 'U'):
             level = level[1:]
-
     return '/'.join([level, bs])
 
 # Read output for the level of theory and basis set used
@@ -1568,14 +1584,20 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
 
 # Vibrational energy evaluation
 # Depends on frequencies, temperature and scaling factor: default = 1.0
-def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
+def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor,fract_modelsys):
     """
     Calculates the vibrational energy contribution (J/mol). 
     Includes ZPE (0K) and thermal contributions
     Evib = R * Sum(0.5 hv/k + (hv/k)/(e^(hv/KT)-1))
     """
-    factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
-                for freq in frequency_wn]
+    if fract_modelsys is not False:
+        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0-fract_modelsys[i]) 
+                                for i in range(len(fract_modelsys))]
+        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) / (BOLTZMANN_CONSTANT * temperature)
+                    for i in range(len(frequency_wn))]
+    else:
+        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
+                    for freq in frequency_wn]
     energy = [entry * GAS_CONSTANT * temperature * (0.5 + (1.0 / (math.exp(entry) - 1.0)))
                 for entry in factor]
 
@@ -1583,13 +1605,19 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor):
 
 # Vibrational Zero point energy evaluation
 # Depends on frequencies and scaling factor: default = 1.0
-def calc_zeropoint_energy(frequency_wn, freq_scale_factor):
+def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     """
     Calculates the vibrational ZPE (J/mol)
     EZPE = Sum(0.5 hv/k)
     """
-    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT
-                for freq in frequency_wn]
+    if fract_modelsys is not False:
+        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0-fract_modelsys[i]) 
+                                for i in range(len(fract_modelsys))]
+        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) / (BOLTZMANN_CONSTANT)
+                    for i in range(len(frequency_wn))]
+    else:
+        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT)
+                    for freq in frequency_wn]
     energy = [0.5 * entry * GAS_CONSTANT for entry in factor]
     return sum(energy)
 
@@ -1674,14 +1702,21 @@ def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
     return entropy
 
 # Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
-def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor):
+def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
     """
     Entropic contributions (J/(mol*K)) according to a rigid-rotor
     harmonic-oscillator description for a list of vibrational modes
     Sv = RSum(hv/(kT(e^(hv/kT)-1) - ln(1-e^(-hv/kT)))
     """
-    factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor / BOLTZMANN_CONSTANT / temperature
-                for freq in frequency_wn]
+    if fract_modelsys is not False:
+        freq_scale_factor = [1.,1.]
+        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0-fract_modelsys[i]) 
+                                for i in range(len(fract_modelsys))]
+        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) / (BOLTZMANN_CONSTANT * temperature)
+                    for i in range(len(frequency_wn))]
+    else:
+        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
+                    for freq in frequency_wn]
     entropy = [entry * GAS_CONSTANT / (math.exp(entry) - 1) - GAS_CONSTANT * math.log(1 - math.exp(-entry))
                 for entry in factor]
     return entropy
@@ -1704,7 +1739,7 @@ def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
 
 # Free rotor entropy evaluation
 # used for low frequencies below the cut-off if qs=grimme is specified
-def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor):
+def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
     """
     Entropic contributions (J/(mol*K)) according to a free-rotor
     description for a list of vibrational modes
@@ -1712,7 +1747,12 @@ def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor):
     """
     # This is the average moment of inertia used by Grimme
     Bav = 10.0e-44
-    mu = [PLANCK_CONSTANT / (8 * math.pi**2 * freq * SPEED_OF_LIGHT * freq_scale_factor) for freq in frequency_wn]
+    if fract_modelsys is not False:
+        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0-fract_modelsys[i]) 
+                                for i in range(len(fract_modelsys))]
+        mu = [PLANCK_CONSTANT / (8 * math.pi**2 * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) for i in range(len(frequency_wn))]
+    else:
+        mu = [PLANCK_CONSTANT / (8 * math.pi**2 * freq * SPEED_OF_LIGHT * freq_scale_factor) for freq in frequency_wn]
     mu_primed = [entry * Bav /(entry + Bav) for entry in mu]
     factor = [8 * math.pi**3 * entry * BOLTZMANN_CONSTANT * temperature / PLANCK_CONSTANT**2 for entry in mu_primed]
     entropy = [(0.5 + math.log(entry**0.5)) * GAS_CONSTANT for entry in factor]
@@ -1839,6 +1879,28 @@ def check_dup(files, thermo_data):
             if e_diff < e_cutoff and ro_diff < ro_cutoff and freq_diff < freq_cutoff:
                 dup_list.append([files[i], files[j]])
     return dup_list
+
+# Function for printing unique checks
+def print_check_fails(log,check_attribute,file,attribute,option2=False):
+    unique_attr = {}
+    for i,attr in enumerate(check_attribute):
+        if option2 is not False: attr = (attr,option2[i])
+        if attr not in unique_attr:
+            unique_attr[attr] = [file[i]]
+        else:
+            unique_attr[attr].append(file[i])
+    log.Write("\nx  Caution! Different {} found: ".format(attribute))
+    for attr in unique_attr:
+        if option2 is not False:
+            if float(attr[0]) < 0: log.Write('\n       {} {}: '.format(attr[0],attr[1]))
+            else: log.Write('\n        {} {}: '.format(attr[0],attr[1]))
+        else: log.Write('\n        -{}: '.format(attr))
+        for filename in unique_attr[attr]:
+            if filename is unique_attr[attr][-1]:
+                log.Write('{}'.format(filename))
+            else:
+                log.Write('{}, '.format(filename))
+    
     
 # Perform careful checks on calculation output files
 # Check for Gaussian version, solvation state/gas phase consistency, level of theory/basis set consistency,
@@ -1848,102 +1910,56 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
     log.Write("\n   Checks for thermochemistry calculations (frequency calculations):")
     log.Write("\n"+STARS)
     version_check = [thermo_data[key].version_program for key in thermo_data]
-    file_version = [thermo_data[key].file for key in thermo_data]
+    file_check = [thermo_data[key].file for key in thermo_data]
     if all_same(version_check) != False:
-        log.Write("\no  Using "+version_check[0]+" in all the calculations.")
+        log.Write("\no  Using {} in all the calculations.".format(version_check[0]))
     else:
-        version_check_print = "Caution! Different programs or versions found - " + version_check[0] + " (" + file_version[0]
-        for i in range(len(version_check)):
-            if version_check[i] == version_check[0] and i != 0:
-                version_check_print += ", " + file_version[i]
-        version_check_print += ")"
-        for i in range(len(version_check)):
-            if version_check[i] != version_check[0] and i != 0:
-                version_check_print += ", " + version_check[i] + " (" + file_version[i] + ")"
-        log.Write("\nx  " + version_check_print + ".")
+        print_check_fails(log,version_check,file_check,"programs or versions")
+        
     # Check for solvent models
     solvent_check = [thermo_data[key].solvation_model for key in thermo_data]
     if all_same(solvent_check) != False:
-        log.Write("\no  Using "+solvent_check[0]+" in all the calculations.")
+        log.Write("\no  Using {} in all the calculations.".format(solvent_check[0]))
     else:
-        solvent_check_print = "Caution! Different solvation models found - " + solvent_check[0] + " (" + file_version[0]
-        filtered_calcs = []
-        for i in range(len(solvent_check)):
-            if i != 0:
-                filter_num = 0
-                for j in range(len(solvent_check[0].replace("(",",").replace(")","").split(","))):
-                    for k in range(len(solvent_check[i].replace("(",",").replace(")","").split(","))):
-                        if solvent_check[0].replace("(",",").replace(")","").split(",")[j] == solvent_check[i].replace("(",",").replace(")","").split(",")[k]:
-                            filter_num = filter_num + 1
-                            if filter_num == len(solvent_check[0].replace("(",",").replace(")","").split(",")):
-                                solvent_check_print += ", " + file_version[i]
-                                filtered_calcs.append(solvent_check[i])
-        solvent_check_print += ")"
-        solvent_different,file_different = [],[]
-        for i in range(len(solvent_check)):
-            if solvent_check[i] != solvent_check[0]:
-                solvent_different.append(solvent_check[i])
-                file_different.append(file_version[i])
-        for i in range(len(solvent_different)):
-            for j in range(len(filtered_calcs)):
-                if solvent_different[i] == filtered_calcs[j]:
-                    solvent_different.remove(solvent_different[i])
-                    file_different.remove(file_different[i])
-                    break
-        for i in range(len(solvent_different)):
-            solvent_check_print += ", " + solvent_different[i] + " (" + file_different[i] + ")"
-        log.Write("\nx  " + solvent_check_print + '.')
+        print_check_fails(log,solvent_check,file_check,"solvation models")
+        
     # Check for -c 1 when solvent is added
     if all_same(solvent_check) != False:
-        if solvent_check[0] == "gas phase" and str(options.conc) == str(0.0408740470708):
+        if solvent_check[0] == "gas phase" and str(round(options.conc,4)) == str(round(0.0408740470708,4)):
             log.Write("\no  Using a standard concentration of 1 atm for gas phase.")
         if solvent_check[0] == "gas phase" and str(round(options.conc,4)) != str(round(0.0408740470708,4)):
-            log.Write("\nx  Caution! Standard concentration is not 1 atm for gas phase (using " + str(options.conc) + " M).")
+            log.Write("\nx  Caution! Standard concentration is not 1 atm for gas phase (using {} M).".format(options.conc))
         if solvent_check[0] != "gas phase" and str(round(options.conc,4)) == str(round(0.0408740470708,4)):
             log.Write("\nx  Using a standard concentration of 1 atm for solvent phase (option -c 1 should be included for 1 M).")
         if solvent_check[0] != "gas phase" and str(options.conc) == str(1.0):
             log.Write("\no  Using a standard concentration of 1 M for solvent phase.")
         if solvent_check[0] != "gas phase" and str(round(options.conc,4)) != str(round(0.0408740470708,4)) and str(options.conc) != str(1.0):
-            log.Write("\nx  Caution! Standard concentration is not 1 M for solvent phase (using " + str(options.conc) + " M).")
+            log.Write("\nx  Caution! Standard concentration is not 1 M for solvent phase (using {} M).".format(options.conc))
     if all_same(solvent_check) == False and "gas phase" in solvent_check:
-        log.Write("\nx  Caution! The right standard concentration cannot be determined because the calculations use gas and solvent phase.")
+        log.Write("\nx  Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
     if all_same(solvent_check) == False and "gas phase" not in solvent_check:
         log.Write("\nx  Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
     # Check level of theory
     if all_same(l_o_t) is not False:
-        log.Write("\no  Using "+l_o_t[0]+" in all the calculations.")
+        log.Write("\no  Using {} in all the calculations.".format(l_o_t[0]))
     elif all_same(l_o_t) is False:
-        l_o_t_print = "Caution! Different levels of theory found - " + l_o_t[0] + " (" + file_version[0]
-        for i in range(len(l_o_t)):
-            if l_o_t[i] == l_o_t[0] and i != 0:
-                l_o_t_print += ", " + file_version[i]
-        l_o_t_print += ")"
-        for i in range(len(l_o_t)):
-            if l_o_t[i] != l_o_t[0] and i != 0:
-                l_o_t_print += ", " + l_o_t[i] + " (" + file_version[i] + ")"
-        log.Write("\nx  " + l_o_t_print + '.')
+        print_check_fails(log,l_o_t,file_check,"levels of theory")
 
     # Check charge and multiplicity
-    charge_check, multiplicity_check = [thermo_data[key].charge for key in thermo_data], [thermo_data[file].multiplicity for file in files]
+    charge_check = [thermo_data[key].charge for key in thermo_data]
+    multiplicity_check = [thermo_data[key].multiplicity for key in thermo_data]
     if all_same(charge_check) != False and all_same(multiplicity_check) != False:
         log.Write("\no  Using charge {} and multiplicity {} in all the calculations.".format(charge_check[0], multiplicity_check[0]))
     else:
-        charge_check_print = "Caution! Different charge and multiplicity found - " + charge_check[0] + " " + str(multiplicity_check[0]) + " (" + file_version[0]
-        for i in range(len(charge_check)):
-            if charge_check[i] == charge_check[0] and multiplicity_check[i] == multiplicity_check[0] and i != 0:
-                charge_check_print += ", " + file_version[i]
-        charge_check_print += ")"
-        for i in range(len(charge_check)):
-            if charge_check[i] != charge_check[0] or multiplicity_check[i] != multiplicity_check[0] and i != 0:
-                charge_check_print += ", " + charge_check[i] + " " + str(multiplicity_check[i]) + " (" + file_version[i] + ")"
-        log.Write("\nx  " + charge_check_print+ '.')
+        print_check_fails(log,charge_check,file_check,"charge and multiplicity",multiplicity_check)
 
     # Check for duplicate structures
     dup_list = check_dup(files, thermo_data)
     if len(dup_list) == 0: log.Write("\no  No duplicates or enantiomers found")
     else:
-        log.Write("\nx  Caution! Possible duplicates or enantiomers found:\n")
-        for dup in dup_list: print('   {} and {}'.format(dup[0], dup[1]))
+        log.Write("\nx  Caution! Possible duplicates or enantiomers found:")
+        for dup in dup_list: 
+            log.Write('\n        {} and {}'.format(dup[0], dup[1]))
 
     # Check for linear molecules with incorrect number of vibrational modes
     linear_fails,linear_fails_atom,linear_fails_cart,linear_fails_files,linear_fails_list = [],[],[],[],[]
@@ -2004,14 +2020,12 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         if len(linear_mol_wrong) == 0:
             log.Write("\n-  No linear molecules found.")
         if len(linear_mol_wrong) >= 1:
-            log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found (correct number = 3N-5) -"
-                        + linear_wrong_print + ".")
+            log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found (correct number = 3N-5) -{}.".format(linear_wrong_print))
     elif len(linear_mol_correct) >= 1:
         if len(linear_mol_wrong) == 0:
-            log.Write("\no  All the linear molecules have the correct number of frequencies -" + linear_correct_print + '.')
+            log.Write("\no  All the linear molecules have the correct number of frequencies -{}.".format(linear_correct_print))
         if len(linear_mol_wrong) >= 1:
-            log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -" + linear_wrong_print
-                        + ". Correct number of frequencies (3N-5) found in other calculations -" + linear_correct_print + '.')
+            log.Write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -{}. Correct number of frequencies (3N-5) found in other calculations -{}.".format(linear_wrong_print,linear_correct_print))
 
     # checks whether any TS have > 1 imaginary frequency and any GS have any imaginary frequencies
     for file in files:
@@ -2029,17 +2043,10 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         else:
             log.Write("\no  Using "+dispersion_check[0]+" in all the calculations.")
     else:
-        dispersion_check_print = "Caution! Different dispersion models found - " + dispersion_check[0] + " (" + file_version[0]
-        for i in range(len(dispersion_check)):
-            if dispersion_check[i] == dispersion_check[0] and i != 0:
-                dispersion_check_print += ", " + file_version[i]
-        dispersion_check_print += ")"
-        for i in range(len(dispersion_check)):
-            if dispersion_check[i] != dispersion_check[0] and i != 0:
-                dispersion_check_print += ", " + dispersion_check[i] + " (" + file_version[i] + ")"
-        log.Write("\nx  " + dispersion_check_print + ".")
+        print_check_fails(log,dispersion_check,file_check,"dispersion models")
 
     log.Write("\n"+STARS+"\n")
+
 
     #Check for single-point corrections
     if options.spc is not False:
@@ -2053,80 +2060,36 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
             elif os.path.exists(name+'_'+options.spc+'.out'):
                 names_spc.append(name+'_'+options.spc+'.out')
 
-        # Check program versions
+        # Check SPC program versions
         version_check_spc = [thermo_data[key].sp_version_program for key in thermo_data]
         if all_same(version_check_spc) != False:
-            log.Write("\no  Using "+version_check_spc[0]+" in all the single-point corrections.")
+            log.Write("\no  Using {} in all the single-point corrections.".format(version_check_spc[0]))
         else:
-            version_check_spc_print = "Caution! Different programs or versions found - " + version_check_spc[0] + " (" + names_spc[0]
-            for i in range(len(version_check_spc)):
-                if version_check_spc[i] == version_check_spc[0] and i != 0:
-                    version_check_spc_print += ", " + names_spc[i]
-            version_check_spc_print += ")"
-            for i in range(len(version_check_spc)):
-                if version_check_spc[i] != version_check_spc[0] and i != 0:
-                    version_check_spc_print += ", " + version_check_spc[i] + " (" + names_spc[i] + ")"
-            log.Write("\nx  " + version_check_spc_print + ".")
+            print_check_fails(log,version_check_spc,file_check,"programs or versions")
+        
+        # Check SPC solvation
         solvent_check_spc = [thermo_data[key].sp_solvation_model for key in thermo_data]
         if all_same(solvent_check_spc) != False:
             log.Write("\no  Using "+solvent_check_spc[0]+" in all the single-point corrections.")
         else:
-            solvent_check_spc_print = "Caution! Different solvation models found - " + solvent_check_spc[0] + " (" + names_spc[0]
-            filtered_calcs_spc = []
-            for i in range(len(solvent_check_spc)):
-                if i != 0:
-                    filter_num_spc = 0
-                    for j in range(len(solvent_check_spc[0].replace("(",",").replace(")","").split(","))):
-                        for k in range(len(solvent_check_spc[i].replace("(",",").replace(")","").split(","))):
-                            if solvent_check_spc[0].replace("(",",").replace(")","").split(",")[j] == solvent_check_spc[i].replace("(",",").replace(")","").split(",")[k]:
-                                filter_num_spc = filter_num_spc + 1
-                                if filter_num_spc == len(solvent_check_spc[0].replace("(",",").replace(")","").split(",")):
-                                    solvent_check_spc_print += ", " + names_spc[i]
-                                    filtered_calcs_spc.append(solvent_check_spc[i])
-            solvent_check_spc_print += ")"
-            solvent_different_spc,file_different_spc = [],[]
-            for i in range(len(solvent_check_spc)):
-                if solvent_check_spc[i] != solvent_check_spc[0]:
-                    solvent_different_spc.append(solvent_check_spc[i])
-                    file_different_spc.append(names_spc[i])
-            for i in range(len(solvent_different_spc)):
-                for j in range(len(filtered_calcs_spc)):
-                    if solvent_different_spc[i] == filtered_calcs_spc[j]:
-                        solvent_different_spc.remove(solvent_different_spc[i])
-                        file_different_spc.remove(file_different_spc[i])
-                        break
-            for i in range(len(solvent_different_spc)):
-                solvent_check_spc_print += ", " + solvent_different_spc[i] + " (" + file_different_spc[i] + ")"
-            log.Write("\nx  " + solvent_check_spc_print + '.')
+            print_check_fails(log,solvent_check_spc,file_check,"solvation models")
+        
+        # Check SPC level of theory
         l_o_t_spc = [level_of_theory(name) for name in names_spc]
-        if all_same(l_o_t_spc) != False:
-            log.Write("\no  Using "+l_o_t_spc[0]+" in all the single-point corrections.")
-        elif all_same(l_o_t_spc) == False:
-            l_o_t_spc_print = "Caution! Different levels of theory found - " + l_o_t_spc[0] + " (" + names_spc[0]
-            for i in range(len(l_o_t_spc)):
-                if l_o_t_spc[i] == l_o_t_spc[0] and i != 0:
-                    l_o_t_spc_print += ", " + names_spc[i]
-            l_o_t_spc_print += ")"
-            for i in range(len(l_o_t_spc)):
-                if l_o_t_spc[i] != l_o_t_spc[0] and i != 0:
-                    l_o_t_spc_print += ", " + l_o_t_spc[i] + " (" + names_spc[i] + ")"
-            log.Write("\nx  " + l_o_t_spc_print + '.')
+        if all_same(l_o_t_spc):
+            log.Write("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
+        else:
+            print_check_fails(log,l_o_t_spc,file_check,"levels of theory")
+            
+        # Check SPC charge and multiplicity
         charge_spc_check = [thermo_data[key].sp_charge for key in thermo_data]
         multiplicity_spc_check = [thermo_data[key].sp_multiplicity for key in thermo_data]
         if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
-            log.Write("\no  Using charge and multiplicity "+charge_spc_check[0]+ " " + multiplicity_spc_check[0] + " in all the single-point corrections.")
+            log.Write("\no  Using charge and multiplicity {} {} in all the single-point corrections.".format(charge_spc_check[0],multiplicity_spc_check[0]))
         else:
-            charge_spc_check_print = "Caution! Different charge and multiplicity found - " + charge_spc_check[0] + " " + multiplicity_spc_check[0] + " (" + names_spc[0]
-            for i in range(len(charge_check)):
-                if charge_spc_check[i] == charge_spc_check[0] and multiplicity_spc_check[i] == multiplicity_spc_check[0] and i != 0:
-                    charge_spc_check_print += ", " + names_spc[i]
-            charge_spc_check_print += ")"
-            for i in range(len(charge_spc_check)):
-                if charge_spc_check[i] != charge_spc_check[0] or multiplicity_spc_check[i] != multiplicity_spc_check[0] and i != 0:
-                    charge_spc_check_print += ", " + charge_spc_check[i] + " " + multiplicity_spc_check[i] + " (" + names_spc[i] + ")"
-            log.Write("\nx  " + charge_spc_check_print + '.')
+            print_check_fails(log,charge_spc_check,file_check,"charge and multiplicity",multiplicity_spc_check)
 
-        #Check if the geometries of freq calculations match their corresponding structures in single-point calculations
+        # Check if the geometries of freq calculations match their corresponding structures in single-point calculations
         geom_duplic_list,geom_duplic_list_spc,geom_duplic_cart,geom_duplic_files,geom_duplic_cart_spc,geom_duplic_files_spc = [],[],[],[],[],[]
         for file in files:
             geom_duplic = getoutData(file)
@@ -2135,7 +2098,6 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         geom_duplic_list.append(geom_duplic_cart)
         geom_duplic_list.append(geom_duplic_files)
 
-        #geom_duplic_list.append(round(geom_duplic.CARTESIANS, 4))
         for name in names_spc:
             geom_duplic_spc = getoutData(name)
             geom_duplic_cart_spc.append(geom_duplic_spc.CARTESIANS)
@@ -2167,7 +2129,7 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         else:
             log.Write("\nx  One or more geometries from single-point corrections are missing.")
 
-        # Check for dispersion
+        # Check for SPC dispersion models
         dispersion_check_spc = [thermo_data[key].sp_empirical_dispersion for key in thermo_data]
         if all_same(dispersion_check_spc) != False:
             if dispersion_check_spc[0] == 'No empirical dispersion detected':
@@ -2175,15 +2137,8 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
             else:
                 log.Write("\no  Using "+dispersion_check_spc[0]+" in all the singe-point calculations.")
         else:
-            dispersion_check_spc_print = "Caution! Different dispersion models found - " + dispersion_check_spc[0] + " (" + names_spc[0]
-            for i in range(len(dispersion_check_spc)):
-                if dispersion_check_spc[i] == dispersion_check_spc[0] and i != 0:
-                    dispersion_check_spc_print += ", " + names_spc[i]
-                    dispersion_check_spc_print += ")"
-            for i in range(len(dispersion_check_spc)):
-                if dispersion_check_spc[i] != dispersion_check_spc[0] and i != 0:
-                    dispersion_check_spc_print += ", " + dispersion_check_spc[i] + " (" + names_spc[i] + ")"
-            log.Write("\nx  " + dispersion_check_spc_print + ".")
+            print_check_fails(log,dispersion_check_spc,file_check,"dispersion models")
+            
         log.Write("\n"+STARS+"\n")
     
 def main():
@@ -2212,6 +2167,8 @@ def main():
                         help="Initial conc, final conc, step size (mol/l)")
     parser.add_argument("-v", dest="freq_scale_factor", default=False, type=float, metavar="SCALE_FACTOR",
                         help="Frequency scaling factor. If not set, try to find a suitable value in database. If not found, use 1.0")
+    parser.add_argument("--vmm", dest="mm_freq_scale_factor", default=False, type=float, metavar="MM_SCALE_FACTOR",
+                        help="Additional frequency scaling factor used in ONIOM calculations")
     parser.add_argument("--spc", dest="spc", type=str, default=False, metavar="SPC",
                         help="Indicates single point corrections (default False)")
     parser.add_argument("--boltz", dest="boltz", action="store_true", default=False,
@@ -2332,8 +2289,8 @@ def main():
     if options.freq_scale_factor is not False:
         log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
     else:
-        filter_of_scaling_f = 0
-        if all_same(l_o_t) is True:
+        #look for vibrational scaling factor automatically
+        if all_same(l_o_t):
             level = l_o_t[0].upper()
             for data in (scaling_data_dict, scaling_data_dict_mod):
                 if level in data:
@@ -2342,7 +2299,7 @@ def main():
                     log.Write("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
                               "   REF: {}".format(options.freq_scale_factor, l_o_t[0], ref))
                     break
-        elif all_same(l_o_t) is False:
+        else: #print files and different levels of theory found
             files_l_o_t,levels_l_o_t,filtered_calcs_l_o_t = [],[],[]
             for file in files:
                 files_l_o_t.append(file)
@@ -2350,25 +2307,24 @@ def main():
                 levels_l_o_t.append(i)
             filtered_calcs_l_o_t.append(files_l_o_t)
             filtered_calcs_l_o_t.append(levels_l_o_t)
-            l_o_t_freq_print = "Caution! Different levels of theory found - " + filtered_calcs_l_o_t[1][0] + " (" + filtered_calcs_l_o_t[0][0]
-            for i in range(len(filtered_calcs_l_o_t[1])):
-                if filtered_calcs_l_o_t[1][i] == filtered_calcs_l_o_t[1][0] and i != 0:
-                    l_o_t_freq_print += ", " + filtered_calcs_l_o_t[0][i]
-            l_o_t_freq_print += ")"
-            for i in range(len(filtered_calcs_l_o_t[1])):
-                if filtered_calcs_l_o_t[1][i] != filtered_calcs_l_o_t[1][0] and i != 0:
-                    l_o_t_freq_print += ", " + filtered_calcs_l_o_t[1][i] + " (" + filtered_calcs_l_o_t[0][i] + ")"
-                    filter_of_scaling_f = filter_of_scaling_f + 1
-            log.Write("\nx  " + l_o_t_freq_print)
+            
+            print_check_fails(log,filtered_calcs_l_o_t[1],filtered_calcs_l_o_t[0],"levels of theory")
+            
             if options.boltz is not False or options.ee is not False or options.dr is not False:
                 sys.exit("\n\nERROR: When comparing files with Boltzmann factors (with bolts, ee, dr options), the level of theory used should be the same for all files.\n ")
-
+    
+    if options.mm_freq_scale_factor is not False:
+        if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
+            log.Write("\n   User-defined MM vibrational scale factor "+str(options.mm_freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
+        else:
+            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   For help use option '-h'\n")
+    
     if options.freq_scale_factor is False:
         options.freq_scale_factor = 1.0 # if no scaling factor is found use 1.0
-        if filter_of_scaling_f == 0:
-            log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory")
+        if all_same(l_o_t):
+            log.Write("\n   Using vibrational scale factor {} for {} level of theory".format(options.freq_scale_factor,l_o_t[0]))
         else:
-            log.Write("\n   Using vibrational scale factor "+str(options.freq_scale_factor) + ": differing levels of theory detected.")
+            log.Write("\n   Using vibrational scale factor {}: differing levels of theory detected.".format(options.freq_scale_factor))
     # checks to see whether the available free space of a requested solvent is defined
     freespace = get_free_space(options.freespace)
     if freespace != 1000.0:
@@ -2426,13 +2382,21 @@ def main():
 
     # Loop over all specified output files and compute thermochemistry
     inverted_freqs, inverted_files = [], []
-    if options.ssymm: ssymm_option = options.ssymm
-    else: ssymm_option = None
+    if options.ssymm: 
+        ssymm_option = options.ssymm
+    else:
+        ssymm_option = False
+    if options.mm_freq_scale_factor is not False: 
+        vmm_option = options.mm_freq_scale_factor
+    else: 
+        vmm_option = False
     for file in files: 
-        if options.cosmo is not False: cosmo_option = cosmo_solv[file]
-        else: cosmo_option = False
+        if options.cosmo is not False: 
+            cosmo_option = cosmo_solv[file]
+        else: 
+            cosmo_option = None
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_option,ssymm=ssymm_option)
+                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,cosmo=cosmo_option,ssymm=ssymm_option,mm_freq_scale_factor=vmm_option)
         bbe_vals.append(bbe)
 
     '''
