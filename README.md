@@ -189,7 +189,12 @@ The program will detect several different levels of theory and give a warning th
 27. dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. *J. Am. Chem. Soc.* **2018**, *140*, 14272-14288 [**DOI:** 10.1021.jacs.8b08513](http://doi.org/10.1021/jacs.8b08513)
 28. Wodrich, M. D.; Busch, M.; Corminboeuf, C. *Helv. Chim. Acta* **2018**, *101*, e1800107 [**DOI:** 10.1002/hlca.201800107](http://doi.org/10.1002/hlca.201800107)
 29. Hilton, M. C.; Zhang, X.; Boyle, B. T.; Alegre-Requena, J. V.; Paton, R. S.; McNally, A. *Science* **2018**, *362*, 799-804 [**DOI:** 10.1126/science.aas8961](http://doi.org/10.1126/science.aas8961)
-30. Audic, B.; Wodrich, M. D.; Cramer, N. *Chem. Sci.* **2019**, *10*, 781-787 [**DOI:** 10.1039/C8SC04385J](http://doi.org/10.1039/C8SC04385J)
+30. Simón, L. *Org. Biomol. Chem.* **2018**, *16*, 2225–2238 [**DOI:** 10.1039/c7ob02875j](http://doi.org/10.1039/c7ob02875j) 
+31. Audic, B.; Wodrich, M. D.; Cramer, N. *Chem. Sci.* **2019**, *10*, 781-787 [**DOI:** 10.1039/C8SC04385J](http://doi.org/10.1039/C8SC04385J)
+32. Tuguldurova, V. P.; Fateev, A. V.; Poleshchuk, O. K.; Vodyankina, O. V.  *Phys. Chem. Chem. Phys.* **2019**, *21*, 9326--9334 [**DOI:** 10.1039/c8cp07270a](http://doi.org/10.1039/c8cp07270a)
+33. Fischer, T.; Bamberger, J.; Gómez‐Martínez, M.; Piekarski, D. G.; García Mancheño, O. *Angew Chem. Int. Ed.* **2019**, *58*, 3217–3221 [**DOI:** 10.1002/anie.201812031](http://doi.org/10.1002/anie.201812031) 
+34. Svatunek, D.; Houszka, N.; Hamlin, T. A.; Bickelhaupt, F. M.; Mikula, H. *Chem. Eur. J.* **2019**, *25*, 754–758 [**DOI:** 10.1002/chem.201805215](http://doi.org/10.1002/chem.201805215)
+35. Green, S.; Montgomery, H.; Benton, T. R.; Chan, N.; Nelson, H. [**DOI:** doi.org/10.26434/chemrxiv.7824755.v1](http://doi.org/doi.org/10.26434/chemrxiv.7824755.v1)
 
 
 #### References for the underlying theory
