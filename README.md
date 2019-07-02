@@ -195,6 +195,7 @@ The program will detect several different levels of theory and give a warning th
 33. Fischer, T.; Bamberger, J.; Gómez‐Martínez, M.; Piekarski, D. G.; García Mancheño, O. *Angew Chem. Int. Ed.* **2019**, *58*, 3217–3221 [**DOI:** 10.1002/anie.201812031](http://doi.org/10.1002/anie.201812031) 
 34. Svatunek, D.; Houszka, N.; Hamlin, T. A.; Bickelhaupt, F. M.; Mikula, H. *Chem. Eur. J.* **2019**, *25*, 754–758 [**DOI:** 10.1002/chem.201805215](http://doi.org/10.1002/chem.201805215)
 35. Green, S.; Montgomery, H.; Benton, T. R.; Chan, N.; Nelson, H. [**DOI:** doi.org/10.26434/chemrxiv.7824755.v1](http://doi.org/doi.org/10.26434/chemrxiv.7824755.v1)
+36. Putatunda, S.; Alegre-Requena, J. V.; Meazza, M.; Franc, M.; Rohal'ová, D.; Vemuri, P.; Cısarová, I.; Herrera, R. P.; Rios, R.; Vesely, J.*Chem. Sci.* **2019**, *10*, 4107–4115 [**DOI:** doi.org/10.1039/c8sc05258a](http://doi.org/doi.org/10.1039/c8sc05258a)
 
 
 #### References for the underlying theory
