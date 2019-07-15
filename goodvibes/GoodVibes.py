@@ -74,7 +74,7 @@ __version__ = "3.0.0"
 
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
-# PHYSICAL CONSTANTS
+# PHYSICAL CONSTANTS                                      UNITS
 GAS_CONSTANT =          8.3144621                       # J / K / mol
 PLANCK_CONSTANT =       6.62606957e-34                  # J * s
 BOLTZMANN_CONSTANT =    1.3806488e-23                   # J / K
@@ -89,10 +89,14 @@ KCAL_TO_AU =            627.509541                      # UNIT CONVERSION
 grimme_ref = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
 truhlar_ref = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
 head_gordon_ref = "Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
-goodvibes_ref = "Funes-Ardoiz, I.; Paton, R. S. (2018). GoodVibes: GoodVibes "+__version__+" http://doi.org/10.5281/zenodo.595246"
+goodvibes_ref = ("Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S. (2019)."
+            "\n        GoodVibes: GoodVibes "+__version__+" http://doi.org/10.5281/zenodo.595246")
 csd_ref = ("C. R. Groom, I. J. Bruno, M. P. Lightfoot and S. C. Ward, Acta Cryst. 2016, B72, 171-179"
            "\n   Cordero, B.; Gomez V.; Platero-Prats, A. E.; Reves, M.; Echeverria, J.; Cremades, E.; Barragan, F.; Alvarez, S. Dalton Trans. 2008, 2832-2838")
-oniom_scale_ref = "Simón, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
+oniom_scale_ref = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
+d3_ref = "Grimme, S.; Atony, J.; Ehrlich S.; Krieg, H. J. Chem. Phys. 2010, 132, 154104"
+d3bj_ref = "Grimme S.; Ehrlich, S.; Goerigk, L. J. Comput. Chem. 2011, 32, 1456-1465"
+atm_ref = "Axilrod, B. M.; Teller, E. J. Chem. Phys. 1943, 11, 299−300 \n   Muto, Y. Proc. Phys. Math. Soc. Jpn. 1944, 17, 629"
 
 # Some useful arrays
 periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si",
@@ -121,7 +125,8 @@ RADII = {'H' :0.32, 'He':0.93, 'Li':1.23, 'Be':0.90, 'B' :0.82, 'C' :0.77, 'N' :
     'Cs':2.35, 'Ba':1.98, 'La':1.69, 'Lu':1.60, 'Hf':1.44, 'Ta':1.34, 'W' :1.30, 'Re':1.28, 'Os':1.26, 'Ir':1.27, 'Pt':1.30, 
     'Au':1.34, 'Hg':1.49, 'Tl':1.48, 'Pb':1.47, 'Bi':1.46, 'X' :0}
 
-# Bondi van der Waals radii for all atoms from: Bondi, A. J. Phys. Chem. 1964, 68, 441-452, except hydrogen, which is taken from Rowland, R. S.; Taylor, R. J. Phys. Chem. 1996, 100, 7384-7391.
+# Bondi van der Waals radii for all atoms from: Bondi, A. J. Phys. Chem. 1964, 68, 441-452, 
+# except hydrogen, which is taken from Rowland, R. S.; Taylor, R. J. Phys. Chem. 1996, 100, 7384-7391.
 # Radii unavailable in either of these publications are set to 2 Angstrom
 BONDI = {'H' :1.09, 'He':1.40, 'Li':1.82, 'Be':2.00, 'B' :2.00, 'C' :1.70, 'N' :1.55, 'O' :1.52, 'F' :1.47, 'Ne':1.54}
 # haven't finished
@@ -462,8 +467,7 @@ class calc_bbe:
             os.popen(copy).close()
             symmetry = ctypes.CDLL(path2)
         elif platform.startswith('win'): #windows - .dll file
-            return 0.0
-            # Need .dll file
+            return 0.0 #not supported yet
             path1 = sharepath('symmetry_windows.dll')
             newlib = 'lib_'+file+'.dll'
             path2 = sharepath(newlib)
@@ -1054,19 +1058,19 @@ def graph_reaction_profile(graph_data,log,options,plt):
     # Grab any additional formatting for graph
     with open(options.graph) as f:
         yaml= f.readlines()
-    ylim,color,show_conf, show_gconf, show_title= None,None,True,False,True
+    ylim,color,show_conf, show_gconf, show_title = None,None,True,False,True
     label_point, label_xaxis, dpi, dec, legend, colors, gridlines,title = True, True, False, 2, True, None,False,None
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i+1:]):
                 if line.strip().find('ylim') > -1:
                     try:
-                        ylim = line.strip().replace(':','=').split("=")[1].strip().split(',')
+                        ylim = line.strip().replace(':','=').split("=")[1].replace(' ','').strip().split(',')
                     except IndexError:
                         pass
                 if line.strip().find('color') > -1:
                     try:
-                        colors = line.strip().replace(':','=').split("=")[1].strip().split(',')
+                        colors = line.strip().replace(':','=').split("=")[1].replace(' ','').strip().split(',')
                     except IndexError:
                         pass
                 if line.strip().find('title') > -1:
@@ -1351,7 +1355,7 @@ def parse_data(file):
             if "Multiplicity" in line.strip() and "...." in line.strip():
                 multiplicity = int(line.strip("=").split()[-1])
 
-    # Solvation model detection
+    # Solvation model and empirical dispersion detection
     if 'Gaussian' in version_program.strip():
         for i, line in enumerate(data):
             if '#' in line.strip() and a == 0:
@@ -1391,7 +1395,6 @@ def parse_data(file):
                     else:
                         end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
-        # Empirical dispersion
         empirical_dispersion = ''
         if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
@@ -1506,8 +1509,15 @@ def sp_cpu(file):
 def level_of_theory(file):
     repeated_theory = 0
     with open(file) as f: data = f.readlines()
-    level, bs = 'none', 'none'
+    level, bs,program, a, keyword_line = 'none', 'none', 'none', 0, 'none'
+    
     for line in data:
+        if "Gaussian" in line:
+            program = "Gaussian"
+            break
+        if "* O   R   C   A *" in line:
+            program = "Orca"
+            break
         if line.strip().find('External calculation') > -1:
             level, bs = 'ext', 'ext'
             break
@@ -1535,7 +1545,6 @@ def level_of_theory(file):
                 repeated_theory = 1
             except IndexError:
                 pass
-    for line in data:
         if 'DLPNO BASED TRIPLES CORRECTION' in line.strip():
             level = 'DLPNO-CCSD(T)'
         if 'Estimated CBS total energy' in line.strip():
@@ -1546,7 +1555,62 @@ def level_of_theory(file):
         # Remove the restricted R or unrestricted U label
         if level[0] in ('R', 'U'):
             level = level[1:]
-    return '/'.join([level, bs])
+            
+    # Grab solvation models - Gaussian files
+    if program is 'Gaussian':
+        for i, line in enumerate(data):
+            if '#' in line.strip() and a == 0:
+                for j, line in enumerate(data[i:i+10]):
+                    if '--' in line.strip():
+                        a = a + 1
+                        break
+                    if a != 0:
+                        break
+                    else:
+                        for k in range(len(line.strip().split("\n"))):
+                            line.strip().split("\n")[k]
+                            keyword_line += line.strip().split("\n")[k]
+        keyword_line = keyword_line.lower()
+        if 'scrf' not in keyword_line.strip():
+            solvation_model = "gas phase"
+        else:
+            start_scrf = keyword_line.strip().find('scrf') + 5
+            if keyword_line[start_scrf] == "(":
+                end_scrf = keyword_line.find(")",start_scrf)
+                solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+                if solvation_model[-1] != ")":
+                    solvation_model = solvation_model + ")"
+            else:
+                start_scrf2 = keyword_line.strip().find('scrf') + 4
+                if keyword_line.find(" ",start_scrf) > -1:
+                    end_scrf = keyword_line.find(" ",start_scrf)
+                else:
+                    end_scrf = len(keyword_line)
+                if keyword_line[start_scrf2] == "(":
+                    solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
+                    if solvation_model[-1] != ")":
+                        solvation_model = solvation_model + ")"
+                else:
+                    if keyword_line.find(" ",start_scrf) > -1:
+                        end_scrf = keyword_line.find(" ",start_scrf)
+                    else:
+                        end_scrf = len(keyword_line)
+                    solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+    # ORCA parsing for solvation model 
+    elif program is 'Orca':
+        keyword_line_1 = "gas phase"
+        keyword_line_2 = ''
+        keyword_line_3 = ''
+        for i, line in enumerate(data):
+            if 'CPCM SOLVATION MODEL' in line.strip():
+                keyword_line_1 = "CPCM,"
+            if 'SMD CDS free energy correction energy' in line.strip():
+                keyword_line_2 = "SMD,"
+            if "Solvent:              " in line.strip():
+                keyword_line_3 = line.strip().split()[-1]
+        solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
+    level_of_theory = '/'.join([level, bs])
+    return level_of_theory, solvation_model
 
 # Read output for the level of theory and basis set used
 def jobtype(file):
@@ -1777,8 +1841,7 @@ def calc_damp(frequency_wn, FREQ_CUTOFF):
 
 # Calculate selectivity - enantioselectivity/diastereomeric ratio
 # based on boltzmann factors of given stereoisomers
-def get_selectivity(type,pattern,files,boltz_facs,boltz_sum,temperature,log, dup_list):
-    from fractions import Fraction    # For ratios
+def get_selectivity(pattern,files,boltz_facs,boltz_sum,temperature,log, dup_list):
     # Grab files for selectivity calcs
     A_files,B_files, A_sum, B_sum, failed, pref = [],[],0.0,0.0,False,''
     pattern = pattern.split(',')
@@ -1808,24 +1871,35 @@ def get_selectivity(type,pattern,files,boltz_facs,boltz_sum,temperature,log, dup
     r = str(A_round)+':'+str(B_round)
     if A_sum > B_sum:
         pref = A
-        ratio = round(A_sum / B_sum)
-        if ratio < 3:
-            ratio = str(round(ratio,1))+':1'
-        else:
-            ratio = str(round(ratio))+':1'
+        try:
+            ratio = A_sum / B_sum
+            if ratio < 3:
+                ratio = str(round(ratio,1))+':1'
+            else:
+                ratio = str(round(ratio))+':1'
+        except ZeroDivisionError:
+            ratio = '1:0'
     else:
         pref = B
-        ratio = round(B_sum/A_sum)
-        if ratio < 3:
-            ratio = '1:'+str(round(ratio,1))
-        else:
-            ratio = '1:'+str(round(ratio))
+        try:
+            ratio = B_sum/A_sum
+            if ratio < 3:
+                ratio = '1:'+str(round(ratio,1))
+            else:
+                ratio = '1:'+str(round(ratio))
+        except ZeroDivisionError:
+            ratio = '0:1'
     ee = (A_sum - B_sum) * 100.
     if ee == 0:
         log.Write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
         failed = True
     ee = abs(ee)
-    dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(ee) / 2.0) / (50 - abs(ee) / 2.0)) * KCAL_TO_AU
+    if ee > 99.99:
+        ee = 99.99
+    try:
+        dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(ee) / 2.0) / (50 - abs(ee) / 2.0)) * KCAL_TO_AU
+    except ZeroDivisionError:
+        dd_free_energy = 0.0
     return ee, r, ratio, dd_free_energy, failed, pref
 
 # Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values
@@ -1868,9 +1942,9 @@ def get_boltz(files,thermo_data,clustering,clusters,temperature, dup_list):
     return boltz_facs, weighted_free_energy, boltz_sum
 
 # Check for duplicate species from among all files based on energy, rotational constants and frequencies
-# energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 1kHz; RMS Freq cutoff = 10 wavenumbers
+# energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 100kHz; RMS Freq cutoff = 1 wavenumber
 def check_dup(files, thermo_data):
-    e_cutoff = 1e-6; ro_cutoff = 1e-6; freq_cutoff = 10; dup_list = []
+    e_cutoff = 1e-6; ro_cutoff = 1e-4; freq_cutoff = 1; dup_list = []
     freq_diff, e_diff, ro_diff = 100,1,1
     for i, file in enumerate(files):
         for j in range(0, i):
@@ -1970,7 +2044,7 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
 
     # Check for linear molecules with incorrect number of vibrational modes
     linear_fails,linear_fails_atom,linear_fails_cart,linear_fails_files,linear_fails_list = [],[],[],[],[]
-    frequency_list, frequency_get= [],[]
+    frequency_list = []
     for file in files:
         linear_fails = getoutData(file)
         linear_fails_cart.append(linear_fails.CARTESIANS)
@@ -2038,9 +2112,9 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
     for file in files:
         bbe = thermo_data[file]
         if bbe.job_type.find('TS') > -1 and len(bbe.im_frequency_wn) != 1:
-            log.Write("\nx  Caution: TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
-        if bbe.job_type.find('GS') > -1 and len(bbe.im_frequency_wn) != 0:
-            log.Write("\nx  Caution: GS {} has 1 more more imaginary frequencies greater than -50 wavenumbers.".format(file))
+            log.Write("\nx  Caution! TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
+        if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and len(bbe.im_frequency_wn) != 0:
+           log.Write("\nx  Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
 
     # Check for empirical dispersion
     dispersion_check = [thermo_data[key].empirical_dispersion for key in thermo_data]
@@ -2080,7 +2154,11 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
             print_check_fails(log,solvent_check_spc,file_check,"solvation models")
 
         # Check SPC level of theory
-        l_o_t_spc = [level_of_theory(name) for name in names_spc]
+        l_o_t_spc, s_m_spc = [],[]
+        for file in files:
+            lot_sm = level_of_theory(file)
+            l_o_t_spc.append(lot_sm[0])
+            s_m_spc.append(lot_sm[1])
         if all_same(l_o_t_spc):
             log.Write("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
         else:
@@ -2249,7 +2327,7 @@ def main():
             if elem == 'clust:':
                 clusters.append([]); nclust += 0
         try:
-            if os.path.splitext(elem)[1] in SUPPORTED_EXTENSIONS: # Look for file names
+            if os.path.splitext(elem)[1].lower() in SUPPORTED_EXTENSIONS: # Look for file names
                 for file in glob(elem):
                     if options.spc is False or options.spc is 'link':
                         if file is not options.cosmo:
@@ -2260,18 +2338,21 @@ def main():
                         if file.find('_'+options.spc+".") == -1:
                             files.append(file)
                             if clustering == True:
-                                clusters[nclust].append(file)
+                                clusters[nclust].append(file)    
+                        name, ext = os.path.splitext(file)         
+                        if not (os.path.exists(name+'_'+options.spc+'.log') or os.path.exists(name+'_'+options.spc+'.out')) and options.spc != 'link':
+                            sys.exit("\nError! SPC calculation file '{}' not found! Make sure files are named with the convention: 'filename_spc'.\nFor help, use option '-h'\n".format(name+'_'+options.spc))
             elif elem != 'clust:': # Look for requested options
                 command += elem + ' '
         except IndexError:
             pass
-    # Check if user has specified any files, if not quit now
-    if len(files) == 0:
-        sys.exit("\nPlease provide GoodVibes with calculation output files on the command line.\nFor help, use option '-h'\n")
 
     # Start printing results
     start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
     log.Write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref +"\n")
+    # Check if user has specified any files, if not quit now
+    if len(files) == 0:
+        sys.exit("\nPlease provide GoodVibes with calculation output files on the command line.\nFor help, use option '-h'\n")
     if clustering ==True:
         command += '(clustering active)'
     log.Write(command+'\n\n')
@@ -2283,9 +2364,13 @@ def main():
     else:
         options.conc = ATMOS/(GAS_CONSTANT*options.temperature); log.Write("   Pressure = 1 atm")
 
-    # Attempt to automatically obtain frequency scale factor
-    # Requires all outputs to be same level of theory
-    l_o_t = [level_of_theory(file) for file in files]
+    # Attempt to automatically obtain frequency scale factor, grab solvation model
+    # Application of freq scale factors requires all outputs to be same level of theory 
+    l_o_t, s_m = [],[]
+    for file in files:
+        lot_sm = level_of_theory(file)
+        l_o_t.append(lot_sm[0])
+        s_m.append(lot_sm[1])
     if options.freq_scale_factor is not False:
         if 'ONIOM' not in l_o_t[0]: log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
         else: log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for QM region of " + l_o_t[0])
@@ -2332,6 +2417,13 @@ def main():
     if freespace != 1000.0:
         log.Write("\n   Specified solvent "+options.freespace+": free volume "+str("%.3f" % (freespace/10.0))+" (mol/l) corrects the translational entropy")
 
+    # Check for implicit solvation
+    printed_solv_warn = False
+    for i in s_m:
+        if ('smd' in i.lower() or 'cpcm'in i.lower()) and not printed_solv_warn:
+            log.Write("\n\n   Caution! Implicit solvation (SMD/CPCM) detected. Enthalpic and entropic terms cannot be safely separated. Use them at your own risk!")
+            printed_solv_warn = True
+
     # COSMO-RS temperature interval
     if options.cosmo_int is not False:
         args = options.cosmo_int.split(',')
@@ -2374,10 +2466,13 @@ def main():
     # Check if D3 corrections should be applied
     if options.D3 != False:
         log.Write("\n\n   D3-Dispersion energy with zero-damping will be calculated and included in the energy and enthalpy terms.")
+        log.Write("\n   REF: " + d3_ref)
     if options.D3BJ != False:
         log.Write("\n\n   D3-Dispersion energy with Becke-Johnson damping will be calculated and added to the energy terms.")
+        log.Write("\n   REF: " + d3bj_ref)
     if options.ATM != False:
         log.Write("\n   The repulsive Axilrod-Teller-Muto 3-body term will be included in the dispersion correction.")
+        log.Write("\n   REF: " + atm_ref)
 
     #Check if entropy symmetry correction should be applied
     if options.ssymm:
@@ -2411,7 +2506,11 @@ def main():
         if options.D3 != False or options.D3BJ != False:
             verbose, intermolecular, pairwise, abc_term = False, False, False, False
             s6, rs6, s8, bj_a1, bj_a2 = 0.0, 0.0, 0.0, 0.0, 0.0
-            functional = level_of_theory(file).split('/')[0]
+            functional, solv_model = [],[]
+            for file in files:
+                lot_sm = level_of_theory(file)
+                functional.append(lot_sm[0])
+                solv_model.append(lot_sm[1])
             if options.D3 == True: damp = 'zero'
             elif options.D3BJ == True: damp = 'bj'
             if options.ATM != False: abc_term = True
@@ -2420,7 +2519,7 @@ def main():
                 d3_calc = D3.calcD3(fileData, functional, s6, rs6, s8, bj_a1, bj_a2, damp, abc_term, intermolecular, pairwise, verbose)
                 d3_energy = (d3_calc.attractive_r6_vdw + d3_calc.attractive_r8_vdw +  d3_calc.repulsive_abc)/KCAL_TO_AU
             except:
-                print('   ! Dispersion Correction Failed'); d3_energy = 0.0
+                print('\n   ! Dispersion Correction Failed'); d3_energy = 0.0
 
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,d3_energy,cosmo=cosmo_option,ssymm=ssymm_option,mm_freq_scale_factor=vmm_option)
@@ -2650,20 +2749,20 @@ def main():
 
         if options.QH:
             if options.spc and options.cosmo_int:
-                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "qh-H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "COSMO-RS-qh-G(T)_"+options.spc),thermodata=True)
+                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "COSMO-RS-qh-G(T)_SPC"),thermodata=True)
             elif options.cosmo_int:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)", "COSMO-RS-qh-G(T)"),thermodata=True)
             elif options.spc:
-                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "qh-H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
+                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"),thermodata=True)
             else:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
         else:
             if options.spc and options.cosmo_int:
-                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "COSMO-RS-qh-G(T)_"+options.spc),thermodata=True)
+                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "COSMO-RS-qh-G(T)_SPC"),thermodata=True)
             elif options.cosmo_int:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)", "COSMO-RS-qh-G(T)"),thermodata=True)
             elif options.spc:
-                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_"+options.spc, "T.S", "T.qh-S", "G(T)_"+options.spc, "qh-G(T)_"+options.spc),thermodata=True)
+                log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC", "qh-G(T)_SPC"),thermodata=True)
             else:
                 log.Write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),thermodata=True)
 
@@ -2795,13 +2894,13 @@ def main():
                     else:
                         log.Write("\n   " + '{:<40}'.format("RXN: " + path + " (" + PES.units + ")  at T: " +str(temp)))
                         if options.QH and options.cosmo_int:
-                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc, 'COSMO-qh-G(T)_'+options.spc), thermodata=True)
+                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC", 'COSMO-qh-G(T)_SPC'), thermodata=True)
                         elif options.QH:
-                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
                         elif options.cosmo_int:
-                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc, 'COSMO-qh-G(T)_'+options.spc), thermodata=True)
+                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC", 'COSMO-qh-G(T)_SPC'), thermodata=True)
                         else:
-                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                            log.Write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
                     log.Write("\n"+STARS)
 
                     for l, e_abs in enumerate(PES.e_abs[k]):
@@ -2907,13 +3006,13 @@ def main():
                 else:
                     log.Write("\n   " + '{:<40}'.format("RXN: " + path + " (" + PES.units + ") ",))
                     if options.QH and options.cosmo:
-                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc, 'COSMO-qh-G(T)_'+options.spc), thermodata=True)
+                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC", 'COSMO-qh-G(T)_SPC'), thermodata=True)
                     elif options.QH:
-                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "qh-DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
                     elif options.cosmo:
-                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc, 'COSMO-qh-G(T)_'+options.spc), thermodata=True)
+                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC", 'COSMO-qh-G(T)_SPC'), thermodata=True)
                     else:
-                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_"+options.spc, "DE", "DZPE", "DH_"+options.spc, "T.DS", "T.qh-DS", "DG(T)_"+options.spc, "qh-DG(T)_"+options.spc), thermodata=True)
+                        log.Write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} {:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
                 log.Write("\n"+STARS)
 
                 for j, e_abs in enumerate(PES.e_abs[i]):
@@ -2978,13 +3077,13 @@ def main():
 
     # Compute enantiomeric excess
     if options.ee is not False:
-        SELEC_STARS = "   " + '*' * 114
+        SELEC_STARS = "   " + '*' * 109
         boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files,thermo_data,clustering,clusters,options.temperature, dup_list)
-        ee,er,ratio, dd_free_energy,failed,preference = get_selectivity('e',options.ee,files,boltz_facs,boltz_sum,options.temperature,log, dup_list)
+        ee,er,ratio, dd_free_energy,failed,preference = get_selectivity(options.ee,files,boltz_facs,boltz_sum,options.temperature,log, dup_list)
         if not failed:
-            log.Write("\n   " + '{:<39} {:>13} {:>10} {:>13} {:>21} {:>13}'.format("Selectivity", "Excess (%)", "Ratio (%)","Ratio","Major Iso", "ddG"), thermodata=True)
+            log.Write("\n   " + '{:<39} {:>13} {:>13} {:>13} {:>13} {:>13}'.format("Selectivity", "Excess (%)", "Ratio (%)","Ratio","Major Iso", "ddG"), thermodata=True)
             log.Write("\n"+SELEC_STARS)
-            log.Write('\no {:<40} {:13.2f} {:>10} {:>13} {:>21} {:13.2f}'.format('',ee,er,ratio,preference,dd_free_energy), thermodata=True)
+            log.Write('\no {:<40} {:13.2f} {:>13} {:>13} {:>13} {:13.2f}'.format('',ee,er,ratio,preference,dd_free_energy), thermodata=True)
             log.Write("\n"+SELEC_STARS+"\n")
     # Graph reaction profiles
     if options.graph is not False:
