@@ -1509,9 +1509,58 @@ def sp_cpu(file):
 def level_of_theory(file):
     repeated_theory = 0
     with open(file) as f: data = f.readlines()
-    level, bs,program, a, keyword_line = 'none', 'none', 'none', 0, 'none'
+    level, bs= 'none', 'none'
     
     for line in data:
+        if line.strip().find('External calculation') > -1:
+            level, bs = 'ext', 'ext'
+            break
+        if '\\Freq\\' in line.strip() and repeated_theory == 0:
+            try:
+                level, bs = (line.strip().split("\\")[4:6])
+                repeated_theory = 1
+            except IndexError:
+                pass
+        elif '|Freq|' in line.strip() and repeated_theory == 0:
+            try:
+                level, bs = (line.strip().split("|")[4:6])
+                repeated_theory = 1
+            except IndexError:
+                pass
+        if '\\SP\\' in line.strip() and repeated_theory == 0:
+            try:
+                level, bs = (line.strip().split("\\")[4:6])
+                repeated_theory = 1
+            except IndexError:
+                pass
+        elif '|SP|' in line.strip() and repeated_theory == 0:
+            try:
+                level, bs = (line.strip().split("|")[4:6])
+                repeated_theory = 1
+            except IndexError:
+                pass
+        if 'DLPNO BASED TRIPLES CORRECTION' in line.strip():
+            level = 'DLPNO-CCSD(T)'
+        if 'Estimated CBS total energy' in line.strip():
+            try:
+                bs = ("Extrapol."+line.strip().split()[4])
+            except IndexError:
+                pass
+        # Remove the restricted R or unrestricted U label
+        if level[0] in ('R', 'U'):
+            level = level[1:]
+    level_of_theory = '/'.join([level, bs])
+    return level_of_theory
+
+# At beginning of procedure, read level of theory, solvation model, and check for normal termination
+def read_initial(file):
+    repeated_theory = 0
+    with open(file) as f: data = f.readlines()
+    level, bs, program, a, keyword_line = 'none', 'none', 'none', 0, 'none'
+    progress = 'Incomplete'
+    
+    for line in data:
+        # Determine program to find solvation model used
         if "Gaussian" in line:
             program = "Gaussian"
             break
@@ -1570,6 +1619,10 @@ def level_of_theory(file):
                         for k in range(len(line.strip().split("\n"))):
                             line.strip().split("\n")[k]
                             keyword_line += line.strip().split("\n")[k]
+            if 'Normal termination' in line:
+                progress = 'Normal'
+            elif 'Error termination' in line:
+                progress = 'Error'
         keyword_line = keyword_line.lower()
         if 'scrf' not in keyword_line.strip():
             solvation_model = "gas phase"
@@ -1608,9 +1661,14 @@ def level_of_theory(file):
                 keyword_line_2 = "SMD,"
             if "Solvent:              " in line.strip():
                 keyword_line_3 = line.strip().split()[-1]
+            if 'ORCA TERMINATED NORMALLY' in line:
+                progress = 'Normal'
+            elif 'error termination' in line:
+                progress = 'Error'
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
     level_of_theory = '/'.join([level, bs])
-    return level_of_theory, solvation_model
+    
+    return level_of_theory, solvation_model, progress
 
 # Read output for the level of theory and basis set used
 def jobtype(file):
@@ -2154,11 +2212,7 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
             print_check_fails(log,solvent_check_spc,file_check,"solvation models")
 
         # Check SPC level of theory
-        l_o_t_spc, s_m_spc = [],[]
-        for file in files:
-            lot_sm = level_of_theory(file)
-            l_o_t_spc.append(lot_sm[0])
-            s_m_spc.append(lot_sm[1])
+        l_o_t_spc = [level_of_theory(name) for name in names_spc]
         if all_same(l_o_t_spc):
             log.Write("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
         else:
@@ -2364,13 +2418,16 @@ def main():
     else:
         options.conc = ATMOS/(GAS_CONSTANT*options.temperature); log.Write("   Pressure = 1 atm")
 
-    # Attempt to automatically obtain frequency scale factor, grab solvation model
-    # Application of freq scale factors requires all outputs to be same level of theory 
-    l_o_t, s_m = [],[]
+    # Initial read of files, 
+    # Grab level of theory, solvation model, check for Normal Termination
+    l_o_t, s_m, progress = [],[],{}
     for file in files:
-        lot_sm = level_of_theory(file)
-        l_o_t.append(lot_sm[0])
-        s_m.append(lot_sm[1])
+        lot_sm_prog = read_initial(file)
+        l_o_t.append(lot_sm_prog[0])
+        s_m.append(lot_sm_prog[1])
+        progress[file] = lot_sm_prog[2]
+    # Attempt to automatically obtain frequency scale factor,
+    # Application of freq scale factors requires all outputs to be same level of theory 
     if options.freq_scale_factor is not False:
         if 'ONIOM' not in l_o_t[0]: log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
         else: log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for QM region of " + l_o_t[0])
@@ -2454,38 +2511,38 @@ def main():
         log.Write("\n   QS = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value."); qs_ref = truhlar_ref
     else:
         log.Fatal("\n   FATAL ERROR: Unknown quasi-harmonic model "+options.QS+" specified (QS must = grimme or truhlar).")
-    log.Write("\n   REF: " + qs_ref)
+    log.Write("\n   REF: " + qs_ref + '\n')
 
     # Check if qh-H correction should be applied
     if options.QH:
         log.Write("\n\n   Enthalpy quasi-harmonic treatment: frequency cut-off value of "+str(options.H_freq_cutoff)+" wavenumbers will be applied.")
         log.Write("\n   QH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy.")
         qh_ref = head_gordon_ref
-        log.Write("\n   REF: " + qh_ref)
+        log.Write("\n   REF: " + qh_ref + '\n')
 
     # Check if D3 corrections should be applied
     if options.D3 != False:
         log.Write("\n\n   D3-Dispersion energy with zero-damping will be calculated and included in the energy and enthalpy terms.")
-        log.Write("\n   REF: " + d3_ref)
+        log.Write("\n   REF: " + d3_ref + '\n')
     if options.D3BJ != False:
         log.Write("\n\n   D3-Dispersion energy with Becke-Johnson damping will be calculated and added to the energy terms.")
-        log.Write("\n   REF: " + d3bj_ref)
+        log.Write("\n   REF: " + d3bj_ref + '\n')
     if options.ATM != False:
         log.Write("\n   The repulsive Axilrod-Teller-Muto 3-body term will be included in the dispersion correction.")
-        log.Write("\n   REF: " + atm_ref)
+        log.Write("\n   REF: " + atm_ref + '\n')
 
     #Check if entropy symmetry correction should be applied
     if options.ssymm:
         log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
         log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
         log.Write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
-        log.Write("\n   REF: " + csd_ref)
+        log.Write("\n   REF: " + csd_ref + '\n')
 
     # Whether linked single-point energies are to be used
     if options.spc is "True":
         log.Write("\n   Link job: combining final single point energy with thermal corrections.")
 
-    # Loop over all specified output files and compute thermochemistry
+    # Check for special options 
     inverted_freqs, inverted_files = [], []
     if options.ssymm:
         ssymm_option = options.ssymm
@@ -2495,6 +2552,17 @@ def main():
         vmm_option = options.mm_freq_scale_factor
     else:
         vmm_option = False
+        
+    # Remove problem files and print errors
+    for key in progress:
+        if progress[key] == 'Error':
+            log.Write("\nx  Warning! Error termination found in file {}. Thermochemical data will not be calculated for this file.".format(key))
+            files.remove(key)
+        elif progress[key] == 'Incomplete':
+            log.Write("\nx  Warning! File {} may not have terminated normally or the calculation may still be running. Thermochemical data will not be calculated for this file.".format(key))
+            files.remove(key)
+            
+    # Loop over all specified output files and compute thermochemistry
     for file in files:
         if options.cosmo is not False:
             cosmo_option = cosmo_solv[file]
@@ -2506,11 +2574,7 @@ def main():
         if options.D3 != False or options.D3BJ != False:
             verbose, intermolecular, pairwise, abc_term = False, False, False, False
             s6, rs6, s8, bj_a1, bj_a2 = 0.0, 0.0, 0.0, 0.0, 0.0
-            functional, solv_model = [],[]
-            for file in files:
-                lot_sm = level_of_theory(file)
-                functional.append(lot_sm[0])
-                solv_model.append(lot_sm[1])
+            functional = level_of_theory(file).split('/')[0]
             if options.D3 == True: damp = 'zero'
             elif options.D3BJ == True: damp = 'bj'
             if options.ATM != False: abc_term = True
@@ -2520,10 +2584,9 @@ def main():
                 d3_energy = (d3_calc.attractive_r6_vdw + d3_calc.attractive_r8_vdw +  d3_calc.repulsive_abc)/KCAL_TO_AU
             except:
                 print('\n   ! Dispersion Correction Failed'); d3_energy = 0.0
-
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,d3_energy,cosmo=cosmo_option,ssymm=ssymm_option,mm_freq_scale_factor=vmm_option)
-
+            
         '''# Analyze any forming or breaking bonds
         # EXPERIMENTAL
         dist_analysis = False
@@ -2668,6 +2731,7 @@ def main():
                         log.Write("\nx  "+'{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
                     if hasattr(bbe, "scf_energy"):
                         log.Write(' {:13.6f}'.format(bbe.scf_energy),thermodata=True)
+                    # No freqs found
                     if not hasattr(bbe,"gibbs_free_energy"):
                         log.Write("   Warning! Couldn't find frequency information ...")
                     else:

@@ -57,7 +57,7 @@ A computational workflow can become less effective without consistency throughou
 python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq] 
                     [--check] [-t temperature] [-c concentration] [--ti 't_initial, t_final, step'] [--ee] 
                     [--cosmo cosmo_filename] [--cosmoint cosmo_filename,initial_temp,final_temp] [-v frequency_scale_factor] 
-                    [-vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--pes pes_yaml] [--nogconf] 
+                    [-vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf] 
                     [--graph graph_yaml] [--cpu] [--imag] [--invertifreq] [--freespace solvent_name] [--output output_name] 
                     [--media solvent_name] [--xyz] [--csv] [--custom_ext file_extension] <output_file(s)>
 ```
