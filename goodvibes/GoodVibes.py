@@ -1384,7 +1384,10 @@ def parse_data(file):
                 elif '=' in keyword_line[start_scrf:start_scrf+4]:
                     start_scrf += keyword_line[start_scrf:start_scrf+4].find('=') + 1
                 end_scrf = keyword_line.find(" ",start_scrf)
-                solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
+                if end_scrf == -1:
+                    solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:].lower().split(',')))+')'
+                else:
+                    solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
         empirical_dispersion = ''
         if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
