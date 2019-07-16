@@ -220,7 +220,7 @@ class calc_bbe:
                 self.cpu = sp_cpu(name+'_'+spc+ext)
             except ValueError:
                 self.sp_energy = '!'; pass
-        if spc == 'link':
+        elif spc == 'link':
             self.sp_energy, self.sp_program, self.sp_version_program, self.sp_solvation_model, self.sp_file, self.sp_charge, self.sp_empirical_dispersion, self.sp_multiplicity = parse_data(file)
         # Count number of links
         for line in g_output:
@@ -1373,28 +1373,18 @@ def parse_data(file):
         if 'scrf' not in keyword_line.strip():
             solvation_model = "gas phase"
         else:
-            start_scrf = keyword_line.strip().find('scrf') + 5
-            if keyword_line[start_scrf] == "(":
+            start_scrf = keyword_line.strip().find('scrf') + 4
+            if '(' in keyword_line[start_scrf:start_scrf+4]:
+                start_scrf += keyword_line[start_scrf:start_scrf+4].find('(') + 1
                 end_scrf = keyword_line.find(")",start_scrf)
-                solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
-                if solvation_model[-1] != ")":
-                    solvation_model = solvation_model + ")"
+                solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
             else:
-                start_scrf2 = keyword_line.strip().find('scrf') + 4
-                if keyword_line.find(" ",start_scrf) > -1:
-                    end_scrf = keyword_line.find(" ",start_scrf)
-                else:
-                    end_scrf = len(keyword_line)
-                if keyword_line[start_scrf2] == "(":
-                    solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
-                    if solvation_model[-1] != ")":
-                        solvation_model = solvation_model + ")"
-                else:
-                    if keyword_line.find(" ",start_scrf) > -1:
-                        end_scrf = keyword_line.find(" ",start_scrf)
-                    else:
-                        end_scrf = len(keyword_line)
-                    solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+                if ' = ' in keyword_line[start_scrf:start_scrf+4]:
+                    start_scrf += keyword_line[start_scrf:start_scrf+4].find(' = ') + 3
+                elif '=' in keyword_line[start_scrf:start_scrf+4]:
+                    start_scrf += keyword_line[start_scrf:start_scrf+4].find('=') + 1
+                end_scrf = keyword_line.find(" ",start_scrf)
+                solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
         empirical_dispersion = ''
         if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
@@ -2051,14 +2041,14 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
     version_check = [thermo_data[key].version_program for key in thermo_data]
     file_check = [thermo_data[key].file for key in thermo_data]
     if all_same(version_check) != False:
-        log.Write("\no  Using {} in all the calculations.".format(version_check[0]))
+        log.Write("\no  Using {} in all calculations.".format(version_check[0]))
     else:
         print_check_fails(log,version_check,file_check,"programs or versions")
 
     # Check for solvent models
     solvent_check = [thermo_data[key].solvation_model for key in thermo_data]
     if all_same(solvent_check) != False:
-        log.Write("\no  Using {} in all the calculations.".format(solvent_check[0]))
+        log.Write("\no  Using {} in all calculations.".format(solvent_check[0]))
     else:
         print_check_fails(log,solvent_check,file_check,"solvation models")
 
@@ -2080,7 +2070,7 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         log.Write("\nx  Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
     # Check level of theory
     if all_same(l_o_t) is not False:
-        log.Write("\no  Using {} in all the calculations.".format(l_o_t[0]))
+        log.Write("\no  Using {} in all calculations.".format(l_o_t[0]))
     elif all_same(l_o_t) is False:
         print_check_fails(log,l_o_t,file_check,"levels of theory")
 
@@ -2088,7 +2078,7 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
     charge_check = [thermo_data[key].charge for key in thermo_data]
     multiplicity_check = [thermo_data[key].multiplicity for key in thermo_data]
     if all_same(charge_check) != False and all_same(multiplicity_check) != False:
-        log.Write("\no  Using charge {} and multiplicity {} in all the calculations.".format(charge_check[0], multiplicity_check[0]))
+        log.Write("\no  Using charge {} and multiplicity {} in all calculations.".format(charge_check[0], multiplicity_check[0]))
     else:
         print_check_fails(log,charge_check,file_check,"charge and multiplicity",multiplicity_check)
 
@@ -2180,7 +2170,7 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         if dispersion_check[0] == 'No empirical dispersion detected':
             log.Write("\n-  No empirical dispersion detected in any of the calculations.")
         else:
-            log.Write("\no  Using "+dispersion_check[0]+" in all the calculations.")
+            log.Write("\no  Using "+dispersion_check[0]+" in all calculations.")
     else:
         print_check_fails(log,dispersion_check,file_check,"dispersion models")
     log.Write("\n"+STARS+"\n")
