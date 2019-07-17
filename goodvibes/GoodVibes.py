@@ -1389,44 +1389,71 @@ def parse_data(file):
                 else:
                     solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
         empirical_dispersion = ''
-        if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp(') == -1:
+        if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp =') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
         elif keyword_line.strip().find('empiricaldispersion') > -1:
-            start_empirical_dispersion = keyword_line.strip().find('empiricaldispersion') + 20
-            if keyword_line[start_empirical_dispersion] == "(":
-                end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
-                empirical_dispersion = keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
-                if empirical_dispersion[-1] != ")":
-                    empirical_dispersion = empirical_dispersion + ")"
+            start_emp_disp = keyword_line.strip().find('empiricaldispersion') + 19
+            if '(' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('(') +1
+                end_emp_disp = keyword_line.find(")",start_emp_disp)
+                empirical_dispersion ='empiricaldispersion=(' + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(','))) + ')'
             else:
-                start_empirical_dispersion2 = keyword_line.strip().find('empiricaldispersion') + 19
-                if keyword_line.find(" ",start_empirical_dispersion) > -1:
-                    end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                if ' = ' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                    start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find(' = ') + 3
+                elif '=' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                    start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('=') + 1
+                end_emp_disp = keyword_line.find(" ",start_emp_disp)
+                if end_emp_disp == -1:
+                    empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:].lower().split(',')))+')'
                 else:
-                    end_empirical_dispersion = len(keyword_line)
-                if keyword_line[start_empirical_dispersion2] == "(":
-                    empirical_dispersion =  keyword_line[start_empirical_dispersion:end_empirical_dispersion-1]
+                    empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(',')))+')'
+        elif keyword_line.strip().find('emp=') > -1 or keyword_line.strip().find('emp =') == -1 or keyword_line.strip().find('emp(') > -1:
+            #check for temp keyword 
+            temp,emp_e,emp_p = False,False,False
+            check_temp = keyword_line.strip().find('emp=')
+            start_emp_disp = keyword_line.strip().find('emp=')
+            if check_temp == -1:
+                check_temp = keyword_line.strip().find('emp =')
+                start_emp_disp = keyword_line.strip().find('emp =')
+            if check_temp == -1:
+                check_temp = keyword_line.strip().find('emp=(')
+                start_emp_disp = keyword_line.strip().find('emp(')
+            check_temp += -1
+            if keyword_line[check_temp].lower() == 't':
+                temp = True # Look for a new one 
+                if keyword_line.strip().find('emp=',check_temp+5) > -1:
+                    emp_e = True
+                    start_emp_disp = keyword_line.strip().find('emp=',check_temp+5) + 3
+                elif keyword_line.strip().find('emp =',check_temp+5) > -1:
+                    emp_e = True
+                    start_emp_disp = keyword_line.strip().find('emp =',check_temp+5) + 3
+                elif keyword_line.strip().find('emp(',check_temp+5) > -1:
+                    emp_p = True
+                    start_emp_disp = keyword_line.strip().find('emp(',check_temp+5) + 3
                 else:
-                    empirical_dispersion =  keyword_line[start_empirical_dispersion:end_empirical_dispersion]
-        elif keyword_line.strip().find('emp=') > -1:
-            start_empirical_dispersion = keyword_line.strip().find('emp=') + 4
-            if keyword_line[start_empirical_dispersion] == "(":
-                end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
-                empirical_dispersion =  keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+                    empirical_dispersion = "No empirical dispersion detected"
             else:
-                start_empirical_dispersion2 = keyword_line.strip().find('emp=') + 3
-                if keyword_line.find(" ",start_empirical_dispersion) > -1:
-                    end_empirical_dispersion = keyword_line.find(" ",start_empirical_dispersion)
+                start_emp_disp += 3
+            if (temp and emp_e) or (not temp and keyword_line.strip().find('emp=') > -1):
+                if '(' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                    start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('(') +1
+                    end_emp_disp = keyword_line.find(")",start_emp_disp)
+                    empirical_dispersion ='empiricaldispersion=(' + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(','))) + ')'
                 else:
-                    end_empirical_dispersion = len(keyword_line)
-                if keyword_line[start_empirical_dispersion2] == "(":
-                    empirical_dispersion2 = "empiricaldispersion=(" + keyword_line[start_empirical_dispersion:end_empirical_dispersion]
-                else:
-                    empirical_dispersion =  keyword_line[start_empirical_dispersion:end_empirical_dispersion]
-        elif keyword_line.strip().find('emp(') > -1:
-            start_empirical_dispersion = keyword_line.strip().find('emp(') + 3
-            end_empirical_dispersion = keyword_line.find(")",start_empirical_dispersion)
-            empirical_dispersion =  keyword_line[start_empirical_dispersion+1:end_empirical_dispersion]
+                    if ' = ' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                        start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find(' = ') + 3
+                    elif '=' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                        start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('=') + 1
+                    end_emp_disp = keyword_line.find(" ",start_emp_disp)
+                    if end_emp_disp == -1:
+                        empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:].lower().split(',')))+')'
+                    else:
+                        empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(',')))+')'
+            elif (temp and emp_p) or (not temp and keyword_line.strip().find('emp(') > -1):
+                start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('(') +1
+                end_emp_disp = keyword_line.find(")",start_emp_disp)
+                empirical_dispersion ='empiricaldispersion=(' + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(','))) + ')'
+    print('\nEMPDISP',empirical_dispersion)
     if 'ORCA' in version_program.strip():
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''

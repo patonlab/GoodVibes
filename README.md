@@ -57,7 +57,7 @@ A computational workflow can become less effective without consistency throughou
 python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq] 
                     [--check] [-t temperature] [-c concentration] [--ti 't_initial, t_final, step'] [--ee] 
                     [--cosmo cosmo_filename] [--cosmoint cosmo_filename,initial_temp,final_temp] [-v frequency_scale_factor] 
-                    [-vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf] 
+                    [--vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf] 
                     [--graph graph_yaml] [--cpu] [--imag] [--invertifreq] [--freespace solvent_name] [--output output_name] 
                     [--media solvent_name] [--xyz] [--csv] [--custom_ext file_extension] <output_file(s)>
 ```
@@ -76,7 +76,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out formatted file.
 *   The `--cosmo_int` option allows for Gibbs Free Energy of Solvation calculated using COSMO-RS with a temperature interval to be applied at a range of temperatures. Since temperature gaps may not be consistent, the interval is automatically detected. Usage is `--cosmo_int cosmo_gsolv.out,initial_temp,final_temp`. GoodVibes will detect temperatures within the range provided.
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by `-v 1.0`
-*	The `-vmm` option is a second scaling factor for vibrational frequencies when performing QM/MM calculations with ONIOM. The correction is applied using the additional information in the output file, %ModelSys and %RealSys. This correction is only applied when requested with ONIOM calculation files. The option is activated with the command `-vmm scale_factor`
+*	The `--vmm` option is a second scaling factor for vibrational frequencies when performing QM/MM calculations with ONIOM. The correction is applied using the additional information in the output file, %ModelSys and %RealSys. This correction is only applied when requested with ONIOM calculation files. The option is activated with the command `-vmm scale_factor`
 *   The `--ssymm` option will apply a symmetry correction to the entropy by detecting a molecule's internal and external symmetry. 
 *   The `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
 *   The `--boltz` option will display the Boltzmann weighted factors based on free energy of each specified output file. 
