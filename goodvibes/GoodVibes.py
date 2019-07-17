@@ -1381,6 +1381,8 @@ def parse_data(file):
             else:
                 if ' = ' in keyword_line[start_scrf:start_scrf+4]:
                     start_scrf += keyword_line[start_scrf:start_scrf+4].find(' = ') + 3
+                elif ' =' in keyword_line[start_scrf:start_scrf+4]:
+                    start_scrf += keyword_line[start_scrf:start_scrf+4].find(' =') + 2
                 elif '=' in keyword_line[start_scrf:start_scrf+4]:
                     start_scrf += keyword_line[start_scrf:start_scrf+4].find('=') + 1
                 end_scrf = keyword_line.find(" ",start_scrf)
@@ -1400,6 +1402,8 @@ def parse_data(file):
             else:
                 if ' = ' in keyword_line[start_emp_disp:start_emp_disp+4]:
                     start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find(' = ') + 3
+                elif ' =' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                    start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find(' =') + 2
                 elif '=' in keyword_line[start_emp_disp:start_emp_disp+4]:
                     start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('=') + 1
                 end_emp_disp = keyword_line.find(" ",start_emp_disp)
@@ -1407,7 +1411,7 @@ def parse_data(file):
                     empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:].lower().split(',')))+')'
                 else:
                     empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(',')))+')'
-        elif keyword_line.strip().find('emp=') > -1 or keyword_line.strip().find('emp =') == -1 or keyword_line.strip().find('emp(') > -1:
+        elif keyword_line.strip().find('emp=') > -1 or keyword_line.strip().find('emp =') > -1 or keyword_line.strip().find('emp(') > -1:
             #check for temp keyword 
             temp,emp_e,emp_p = False,False,False
             check_temp = keyword_line.strip().find('emp=')
@@ -1434,7 +1438,7 @@ def parse_data(file):
                     empirical_dispersion = "No empirical dispersion detected"
             else:
                 start_emp_disp += 3
-            if (temp and emp_e) or (not temp and keyword_line.strip().find('emp=') > -1):
+            if (temp and emp_e) or (not temp and keyword_line.strip().find('emp=') > -1) or (not temp and keyword_line.strip().find('emp =')):
                 if '(' in keyword_line[start_emp_disp:start_emp_disp+4]:
                     start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('(') +1
                     end_emp_disp = keyword_line.find(")",start_emp_disp)
@@ -1442,6 +1446,8 @@ def parse_data(file):
                 else:
                     if ' = ' in keyword_line[start_emp_disp:start_emp_disp+4]:
                         start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find(' = ') + 3
+                    elif ' =' in keyword_line[start_emp_disp:start_emp_disp+4]:
+                        start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find(' =') + 2
                     elif '=' in keyword_line[start_emp_disp:start_emp_disp+4]:
                         start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('=') + 1
                     end_emp_disp = keyword_line.find(" ",start_emp_disp)
@@ -1453,7 +1459,6 @@ def parse_data(file):
                 start_emp_disp += keyword_line[start_emp_disp:start_emp_disp+4].find('(') +1
                 end_emp_disp = keyword_line.find(")",start_emp_disp)
                 empirical_dispersion ='empiricaldispersion=(' + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(','))) + ')'
-    print('\nEMPDISP',empirical_dispersion)
     if 'ORCA' in version_program.strip():
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''
@@ -1477,7 +1482,6 @@ def parse_data(file):
             if keyword_line.strip().find('USING zero damping') > -1:
                 empirical_dispersion3 = ' with zero damping'
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
-
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
 # Read single-point output for cpu time
@@ -2603,7 +2607,7 @@ def main():
                 d3_calc = D3.calcD3(fileData, functional, s6, rs6, s8, bj_a1, bj_a2, damp, abc_term, intermolecular, pairwise, verbose)
                 d3_energy = (d3_calc.attractive_r6_vdw + d3_calc.attractive_r8_vdw +  d3_calc.repulsive_abc)/KCAL_TO_AU
             except:
-                print('\n   ! Dispersion Correction Failed'); d3_energy = 0.0
+                log.Write('\n   ! Dispersion Correction Failed'); d3_energy = 0.0
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,d3_energy,cosmo=cosmo_option,ssymm=ssymm_option,mm_freq_scale_factor=vmm_option)
             
