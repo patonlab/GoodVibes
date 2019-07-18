@@ -46,9 +46,9 @@ from __future__ import print_function, absolute_import
 
 #######################################################################
 #######  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ################
-#######               Guilian Luchini, Juanvi Alegre,  ################
-#######               Yanfei Guan                      ################
-#######  Last modified:  2019                          ################
+#######               Guilian Luchini, Juan V. Alegre- ################
+#######               Requena, Yanfei Guan             ################
+#######  Last modified:  July 18, 2019                 ################
 ####################################################################"""
 
 import ctypes, math, os.path, sys, time
@@ -467,7 +467,7 @@ class calc_bbe:
             os.popen(copy).close()
             symmetry = ctypes.CDLL(path2)
         elif platform.startswith('win'): #windows - .dll file
-            return 0.0 #not supported yet
+            return 1.0,"x_x" # Not supported yet
             path1 = sharepath('symmetry_windows.dll')
             newlib = 'lib_'+file+'.dll'
             path2 = sharepath(newlib)
@@ -778,14 +778,12 @@ class get_pes:
                                     point_structures = point.replace(' ','').split('+')
                                     e_abs, spc_abs, zpe_abs, h_abs, qh_abs, s_abs, g_abs, qs_abs, qhg_abs, cosmo_qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                     qh_conf, qh_tot, qs_conf, qs_tot, h_conf, h_tot, s_conf, s_tot, g_corr, qg_corr = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                                    min_conf,multiple_species, = False, False
+                                    min_conf = False
                                     rel_val = 0.0
                                     self.g_qhgvals[n].append([])
                                     self.g_species_qhgzero[n].append([])
                                     try:
                                         for j,structure in enumerate(point_structures): # Loop over structures, structures are species specified
-                                            if len(point_structures) > 1:
-                                                multiple_species = True
                                             zero_conf = 0.0
                                             self.g_qhgvals[n][i].append([])
                                             if not isinstance(species[structure], list): # Only one conf in structures
@@ -1031,7 +1029,7 @@ def jitter(datasets, color, ax, nx,marker,edgecol='black'):
     for i, p in enumerate(datasets):
         y = [p]
         x = np.random.normal(nx, 0.015, size=len(y))
-        ax.plot(x, y, alpha=0.5, markersize=7, color=color,marker=marker, markeredgecolor=color,
+        ax.plot(x, y, alpha=0.5, markersize=7, color=color,marker=marker, markeredgecolor=edgecol,
         markeredgewidth=1, linestyle='None')
 
 # Graph a reaction profile
@@ -2441,7 +2439,7 @@ def main():
         log.Write("   Concentration = "+str(options.conc)+" mol/l")
     else:
         options.conc = ATMOS/(GAS_CONSTANT*options.temperature); log.Write("   Pressure = 1 atm")
-
+    log.Write('\n   All energetic values below shown in Hartree unless otherwise specified.')
     # Initial read of files, 
     # Grab level of theory, solvation model, check for Normal Termination
     l_o_t, s_m, progress = [],[],{}
@@ -2557,10 +2555,15 @@ def main():
 
     #Check if entropy symmetry correction should be applied
     if options.ssymm:
-        log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
-        log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
-        log.Write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
-        log.Write("\n   REF: " + csd_ref + '\n')
+        platform = sys.platform
+        if platform.startswith('win'):
+            options.ssymm = False
+            log.Write('\n   The --ssymm option is currently not supported on Windows operating systems.')
+        else:
+            log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
+            log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
+            log.Write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
+            log.Write("\n   REF: " + csd_ref + '\n')
 
     # Whether linked single-point energies are to be used
     if options.spc is "True":
