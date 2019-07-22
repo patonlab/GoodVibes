@@ -2472,8 +2472,7 @@ def main():
         progress[file] = lot_sm_prog[2]
         orientation[file] = lot_sm_prog[3]
         grid[file] = lot_sm_prog[4]
-    # print('\no',orientation)
-    # print('\ng',grid)
+        
     # Attempt to automatically obtain frequency scale factor,
     # Application of freq scale factors requires all outputs to be same level of theory 
     if options.freq_scale_factor is not False:
@@ -2634,32 +2633,6 @@ def main():
                 log.Write('\n   ! Dispersion Correction Failed'); d3_energy = 0.0
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                         options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,d3_energy,cosmo=cosmo_option,ssymm=ssymm_option,mm_freq_scale_factor=vmm_option)
-            
-        '''# Analyze any forming or breaking bonds
-        # EXPERIMENTAL
-        dist_analysis = False
-        if dist_analysis:
-            if bbe.job_type.find('TS') > -1 and len(bbe.im_frequency_wn) == 1:
-                fileData = getoutData(file); ts_dist = {}
-                coords, atoms, disp, tolerance, shift = fileData.CARTESIANS, fileData.ATOMTYPES, fileData.NORMALMODE, 0.1, 1.0
-                coords_fwd = np.array(coords) + shift*np.array(disp[0])
-                coords_rvs = np.array(coords) - shift*np.array(disp[0])
-
-                for i, coord in enumerate(coords):
-                    for j in range (i+1,len(coords)):
-                        cutoff = (RADII[atoms[i]] + RADII[atoms[j]]) * (1 + tolerance)
-                        vdw = BONDI[atoms[i]] + BONDI[atoms[j]]
-                        dist_ts = np.linalg.norm(np.array(coords[i])-np.array(coords[j]))
-                        dist_fwd = np.linalg.norm(coords_fwd[i]-coords_fwd[j])
-                        dist_rvs = np.linalg.norm(coords_rvs[i]-coords_rvs[j])
-                        dist_change = dist_fwd - dist_rvs
-                        if dist_ts > cutoff and dist_ts < 0.8*vdw:
-                            #print(i+1,j+1, dist_rvs, dist_ts, dist_fwd, dist_change, cutoff, vdw)
-                            if dist_fwd < cutoff or dist_rvs < cutoff or abs(dist_change) > 1.0:
-                                text = atoms[i]+str(i+1)+'-'+atoms[j]+str(j+1)
-                                ts_dist.update([(text, dist_ts)])
-            try: bbe.dists = ts_dist
-            except: pass'''
 
         # Populate bbe_vals with indivual bbe entries for each file
         bbe_vals.append(bbe)
@@ -2822,7 +2795,10 @@ def main():
                     for freq in bbe.im_frequency_wn:
                         log.Write('{:9.2f}'.format(freq),thermodata=True)
                 if options.ssymm:
-                    log.Write('{:>13}'.format(bbe.point_group))
+                    if hasattr(bbe, "qh_gibbs_free_energy") == True:
+                        log.Write('{:>13}'.format(bbe.point_group))
+                    else:
+                        log.Write('{:>37}'.format('---'))
             # Cluster files if requested
             if clustering == True:
                 DASHES = "-" * (len(STARS)-3)
@@ -2834,12 +2810,6 @@ def main():
                                 log.Write("\n   "+'{name:<{var_width}} {gval:13.6f} {weight:6.2f}'.format(name='Boltzmann-weighted Cluster '+alphabet[n].upper(), var_width=len(STARS)-24, gval=weighted_free_energy['cluster-'+alphabet[n].upper()] / boltz_facs['cluster-'+alphabet[n].upper()] , weight=100 * boltz_facs['cluster-'+alphabet[n].upper()]/boltz_sum),thermodata=True)
                                 log.Write("\n   "+DASHES)
         log.Write("\n"+STARS+"\n")
-
-    '''# EXPERIMENTAL
-    if dist_analysis:
-        for file in files:
-            bbe = thermo_data[file]
-            if bbe.dists: print("  ", file, bbe.dists)'''
 
     # Perform checks for consistent options provided in calculation files (level of theory)
     if options.check:

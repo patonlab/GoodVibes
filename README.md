@@ -20,6 +20,7 @@ The second type of quasi-harmonic approximation available is applied to the vibr
 
 #### Symmetry
 GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy. 
+*Note: this option may not function properly on some versions of Windows.*
 
 #### Checks
 A computational workflow can become less effective without consistency throughout the process. By using the `--check` option, GoodVibes will enforce a number of pass/fail checks on the input files given to make sure uniform options were used. Checks employed are:
