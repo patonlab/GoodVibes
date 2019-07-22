@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*- 
 from __future__ import print_function, absolute_import
 
 """####################################################################
@@ -45,10 +46,10 @@ from __future__ import print_function, absolute_import
 
 
 #######################################################################
-#######  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ################
-#######               Guilian Luchini, Juan V. Alegre- ################
-#######               Requena, Yanfei Guan             ################
-#######  Last modified:  July 18, 2019                 ################
+###########  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ############
+###########               Guilian Luchini, Juan V. Alegre- ############
+###########               Requena, Yanfei Guan             ############
+###########  Last modified:  July 18, 2019                 ############
 ####################################################################"""
 
 import ctypes, math, os.path, sys, time
@@ -96,7 +97,7 @@ csd_ref = ("C. R. Groom, I. J. Bruno, M. P. Lightfoot and S. C. Ward, Acta Cryst
 oniom_scale_ref = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
 d3_ref = "Grimme, S.; Atony, J.; Ehrlich S.; Krieg, H. J. Chem. Phys. 2010, 132, 154104"
 d3bj_ref = "Grimme S.; Ehrlich, S.; Goerigk, L. J. Comput. Chem. 2011, 32, 1456-1465"
-atm_ref = "Axilrod, B. M.; Teller, E. J. Chem. Phys. 1943, 11, 299−300 \n   Muto, Y. Proc. Phys. Math. Soc. Jpn. 1944, 17, 629"
+atm_ref = "Axilrod, B. M.; Teller, E. J. Chem. Phys. 1943, 11, 299-300 \n Muto, Y. Proc. Phys. Math. Soc. Jpn. 1944, 17, 629"
 
 # Some useful arrays
 periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si",
@@ -128,8 +129,8 @@ RADII = {'H' :0.32, 'He':0.93, 'Li':1.23, 'Be':0.90, 'B' :0.82, 'C' :0.77, 'N' :
 # Bondi van der Waals radii for all atoms from: Bondi, A. J. Phys. Chem. 1964, 68, 441-452, 
 # except hydrogen, which is taken from Rowland, R. S.; Taylor, R. J. Phys. Chem. 1996, 100, 7384-7391.
 # Radii unavailable in either of these publications are set to 2 Angstrom
+# (Unfinished)
 BONDI = {'H' :1.09, 'He':1.40, 'Li':1.82, 'Be':2.00, 'B' :2.00, 'C' :1.70, 'N' :1.55, 'O' :1.52, 'F' :1.47, 'Ne':1.54}
-# haven't finished
 
 def sharepath(filename):
     here = os.path.dirname(os.path.abspath(__file__))
@@ -467,13 +468,14 @@ class calc_bbe:
             os.popen(copy).close()
             symmetry = ctypes.CDLL(path2)
         elif platform.startswith('win'): #windows - .dll file
-            return 1.0,"x_x" # Not supported yet
+            #return 1.0,"x_x" # Not supported yet
             path1 = sharepath('symmetry_windows.dll')
             newlib = 'lib_'+file+'.dll'
             path2 = sharepath(newlib)
             copy = 'copy '+path1+' '+path2
             os.popen(copy).close()
-            symmetry = ctypes.WinDLL(path2)
+            #symmetry = ctypes.WinDLL(path2)
+            symmetry = ctypes.cdll.LoadLibrary(path2)
 
         symmetry.symmetry.restype = ctypes.c_char_p
         pgroup = symmetry.symmetry(c_coords).decode('utf-8')
@@ -487,7 +489,10 @@ class calc_bbe:
             remove = 'rm '+path2
             os.popen(remove).close()
         elif platform.startswith('win'): #windows - .dll file
-            remove = 'del '+path2
+            handle = symmetry._handle
+            del symmetry
+            ctypes.windll.kernel32.FreeLibrary(ctypes.c_void_p(handle))
+            remove = 'Del /F "'+path2+'"'
             os.popen(remove).close()
 
         return ex_sym,pgroup
@@ -1576,22 +1581,31 @@ def level_of_theory(file):
 
 # At beginning of procedure, read level of theory, solvation model, and check for normal termination
 def read_initial(file):
-    repeated_theory = 0
     with open(file) as f: data = f.readlines()
-    level, bs, program, a, keyword_line = 'none', 'none', 'none', 0, 'none'
-    progress = 'Incomplete'
+    level, bs, program, keyword_line = 'none', 'none', 'none', 'none'
+    progress,orientation = 'Incomplete', 'Input'
+    a,repeated_theory = 0,0
+    no_grid = True
+    DFT, dft_used, level, bs, scf_iradan, cphf_iradan = False, 'F', 'none', 'none', False, False
+    grid_lookup = {1:'sg1', 2:'coarse', 4:'fine', 5:'ultrafine', 7:'superfine'}
     
     for line in data:
         # Determine program to find solvation model used
         if "Gaussian" in line:
             program = "Gaussian"
-            break
         if "* O   R   C   A *" in line:
             program = "Orca"
-            break
+        # Grab pertinent information from file
         if line.strip().find('External calculation') > -1:
             level, bs = 'ext', 'ext'
-            break
+        if line.strip().find('Standard orientation:') > -1:
+            orientation = 'Standard'
+        if line.strip().find('IExCor=') > -1 and no_grid:
+            try:
+                dft_used = line.split('=')[2].split()[0]
+                grid = grid_lookup[int(dft_used)]
+                no_grid = False
+            except: pass
         if '\\Freq\\' in line.strip() and repeated_theory == 0:
             try:
                 level, bs = (line.strip().split("\\")[4:6])
@@ -1690,7 +1704,7 @@ def read_initial(file):
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
     level_of_theory = '/'.join([level, bs])
     
-    return level_of_theory, solvation_model, progress
+    return level_of_theory, solvation_model, progress, orientation, dft_used
 
 # Read output for the level of theory and basis set used
 def jobtype(file):
@@ -1758,6 +1772,11 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor,fract_m
     else:
         factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
                     for freq in frequency_wn]
+    # Error occurs if T is too low when performing math.exp
+    for entry in factor:
+        if entry > math.log(sys.float_info.max):
+            sys.exit("\nx  Warning! Temperature may be too low to calculate vibrational energy. Please adjust using the `-t` option and try again.\n")
+    
     energy = [entry * GAS_CONSTANT * temperature * (0.5 + (1.0 / (math.exp(entry) - 1.0)))
                 for entry in factor]
 
@@ -2022,10 +2041,10 @@ def get_boltz(files,thermo_data,clustering,clusters,temperature, dup_list):
     return boltz_facs, weighted_free_energy, boltz_sum
 
 # Check for duplicate species from among all files based on energy, rotational constants and frequencies
-# energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 100kHz; RMS Freq cutoff = 1 wavenumber
+# Energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 1kHz; RMS Freq cutoff = 10 wavenumbers
 def check_dup(files, thermo_data):
-    e_cutoff = 1e-6; ro_cutoff = 1e-4; freq_cutoff = 1; dup_list = []
-    freq_diff, e_diff, ro_diff = 100,1,1
+    e_cutoff = 1e-4; ro_cutoff = 1e-4; freq_cutoff = 100; mae_freq_cutoff = 10; max_freq_cutoff = 10; dup_list = []
+    freq_diff, mae_freq_diff, max_freq_diff, e_diff, ro_difff = 100,3, 10, 1,1
     for i, file in enumerate(files):
         for j in range(0, i):
             bbe_i, bbe_j= thermo_data[files[i]], thermo_data[files[j]]
@@ -2036,8 +2055,9 @@ def check_dup(files, thermo_data):
                     ro_diff = np.linalg.norm(np.array(bbe_i.roconst)-np.array(bbe_j.roconst))
             if hasattr(bbe_i, "frequency_wn") and hasattr(bbe_j, "frequency_wn"):
                 if len(bbe_i.frequency_wn) == len(bbe_j.frequency_wn):
-                    freq_diff = np.linalg.norm(np.array(bbe_i.frequency_wn)-np.array(bbe_j.frequency_wn))
-            if e_diff < e_cutoff and ro_diff < ro_cutoff and freq_diff < freq_cutoff:
+                    freq_diff = [np.linalg.norm(freqi-freqj) for freqi, freqj in zip(bbe_i.frequency_wn, bbe_j.frequency_wn)]
+                    mae_freq_diff, max_freq_diff = np.mean(freq_diff), np.max(freq_diff)
+            if e_diff < e_cutoff and ro_diff < ro_cutoff and mae_freq_diff < mae_freq_cutoff and max_freq_diff < max_freq_cutoff:
                 dup_list.append([files[i], files[j]])
     return dup_list
 
@@ -2067,9 +2087,10 @@ def print_check_fails(log,check_attribute,file,attribute,option2=False):
 # Check for Gaussian version, solvation state/gas phase consistency, level of theory/basis set consistency,
 # charge and multiplicity consistency, standard concentration used, potential linear molecule error, 
 # transition state verification, empirical dispersion models. 
-def check_files(log,files,thermo_data,options,STARS,l_o_t):
+def check_files(log,files,thermo_data,options,STARS,l_o_t,orientation,grid):
     log.Write("\n   Checks for thermochemistry calculations (frequency calculations):")
     log.Write("\n"+STARS)
+    # Check program used and version
     version_check = [thermo_data[key].version_program for key in thermo_data]
     file_check = [thermo_data[key].file for key in thermo_data]
     if all_same(version_check) != False:
@@ -2077,6 +2098,12 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
     else:
         print_check_fails(log,version_check,file_check,"programs or versions")
 
+    # Check level of theory
+    if all_same(l_o_t) is not False:
+        log.Write("\no  Using {} in all calculations.".format(l_o_t[0]))
+    elif all_same(l_o_t) is False:
+        print_check_fails(log,l_o_t,file_check,"levels of theory")
+        
     # Check for solvent models
     solvent_check = [thermo_data[key].solvation_model for key in thermo_data]
     if all_same(solvent_check) != False:
@@ -2100,11 +2127,6 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t):
         log.Write("\nx  Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
     if all_same(solvent_check) == False and "gas phase" not in solvent_check:
         log.Write("\nx  Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
-    # Check level of theory
-    if all_same(l_o_t) is not False:
-        log.Write("\no  Using {} in all calculations.".format(l_o_t[0]))
-    elif all_same(l_o_t) is False:
-        print_check_fails(log,l_o_t,file_check,"levels of theory")
 
     # Check charge and multiplicity
     charge_check = [thermo_data[key].charge for key in thermo_data]
@@ -2442,12 +2464,16 @@ def main():
     log.Write('\n   All energetic values below shown in Hartree unless otherwise specified.')
     # Initial read of files, 
     # Grab level of theory, solvation model, check for Normal Termination
-    l_o_t, s_m, progress = [],[],{}
+    l_o_t, s_m, progress, orientation, grid = [],[],{},{},{}
     for file in files:
         lot_sm_prog = read_initial(file)
         l_o_t.append(lot_sm_prog[0])
         s_m.append(lot_sm_prog[1])
         progress[file] = lot_sm_prog[2]
+        orientation[file] = lot_sm_prog[3]
+        grid[file] = lot_sm_prog[4]
+    # print('\no',orientation)
+    # print('\ng',grid)
     # Attempt to automatically obtain frequency scale factor,
     # Application of freq scale factors requires all outputs to be same level of theory 
     if options.freq_scale_factor is not False:
@@ -2555,15 +2581,10 @@ def main():
 
     #Check if entropy symmetry correction should be applied
     if options.ssymm:
-        platform = sys.platform
-        if platform.startswith('win'):
-            options.ssymm = False
-            log.Write('\n   The --ssymm option is currently not supported on Windows operating systems.')
-        else:
-            log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
-            log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
-            log.Write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
-            log.Write("\n   REF: " + csd_ref + '\n')
+        log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
+        log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
+        log.Write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
+        log.Write("\n   REF: " + csd_ref + '\n')
 
     # Whether linked single-point energies are to be used
     if options.spc is "True":
@@ -2822,7 +2843,7 @@ def main():
 
     # Perform checks for consistent options provided in calculation files (level of theory)
     if options.check:
-        check_files(log,files,thermo_data,options,STARS,l_o_t)
+        check_files(log,files,thermo_data,options,STARS,l_o_t,orientation,grid)
 
     # Running a variable temperature analysis of the enthalpy, entropy and the free energy
     elif options.temperature_interval != False:
