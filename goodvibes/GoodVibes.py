@@ -49,7 +49,7 @@ from __future__ import print_function, absolute_import
 ###########  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ############
 ###########               Guilian Luchini, Juan V. Alegre- ############
 ###########               Requena, Yanfei Guan             ############
-###########  Last modified:  July 18, 2019                 ############
+###########  Last modified:  July 22, 2019                 ############
 ####################################################################"""
 
 import ctypes, math, os.path, sys, time
@@ -468,13 +468,11 @@ class calc_bbe:
             os.popen(copy).close()
             symmetry = ctypes.CDLL(path2)
         elif platform.startswith('win'): #windows - .dll file
-            #return 1.0,"x_x" # Not supported yet
             path1 = sharepath('symmetry_windows.dll')
             newlib = 'lib_'+file+'.dll'
             path2 = sharepath(newlib)
             copy = 'copy '+path1+' '+path2
             os.popen(copy).close()
-            #symmetry = ctypes.WinDLL(path2)
             symmetry = ctypes.cdll.LoadLibrary(path2)
 
         symmetry.symmetry.restype = ctypes.c_char_p
@@ -528,7 +526,7 @@ class get_pes:
 
         with open(file) as f:
             data = f.readlines()
-        folder, program, names, files, zeros = None, None, [], [], []
+        folder, program, names, files, zeros,pes_list = None, None, [], [], [],[]
         for i, line in enumerate(data):
             if line.strip().find('PES') > -1:
                 n = 0
@@ -542,6 +540,7 @@ class get_pes:
                     elif line.strip() != '':
                         pathway,pes = line.strip().replace(':','=').split("=")
                         # Auto-grab first species as zero unless specified
+                        pes_list.append(pes)
                         zeros.append(pes.strip().lstrip('[').rstrip(']').split(',')[0]) 
             # Look at SPECIES block to determine filenames 
             if line.strip().find('SPECIES') > -1:
@@ -558,7 +557,7 @@ class get_pes:
                             try:
                                 n, f = (line.strip().replace(':','=').split("="))
                                 # Check the specified filename is also one that GoodVibes has thermochemistry for:
-                                if f.find('*') == -1:
+                                if f.find('*') == -1 and f not in pes_list:
                                     match = None
                                     for key in thermo_data:
                                         if os.path.splitext(os.path.basename(key))[0] in f.replace('[','').replace(']','').replace('+',',').replace(' ','').split(','):
@@ -568,7 +567,7 @@ class get_pes:
                                         files.append(match)
                                     else:
                                         log.Write("   Warning! "+f.strip()+' is specified in '+file+' but no thermochemistry data found\n')
-                                else:
+                                elif f not in pes_list:
                                     match = []
                                     for key in thermo_data:
                                         if os.path.splitext(os.path.basename(key))[0].find(f.strip().strip('*')) == 0:
@@ -1415,7 +1414,7 @@ def parse_data(file):
                 else:
                     empirical_dispersion = "empiricaldispersion=(" + ','.join(sorted(keyword_line[start_emp_disp:end_emp_disp].lower().split(',')))+')'
         elif keyword_line.strip().find('emp=') > -1 or keyword_line.strip().find('emp =') > -1 or keyword_line.strip().find('emp(') > -1:
-            #check for temp keyword 
+            # Check for temp keyword 
             temp,emp_e,emp_p = False,False,False
             check_temp = keyword_line.strip().find('emp=')
             start_emp_disp = keyword_line.strip().find('emp=')
@@ -2578,7 +2577,7 @@ def main():
         log.Write("\n   The repulsive Axilrod-Teller-Muto 3-body term will be included in the dispersion correction.")
         log.Write("\n   REF: " + atm_ref + '\n')
 
-    #Check if entropy symmetry correction should be applied
+    # Check if entropy symmetry correction should be applied
     if options.ssymm:
         log.Write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
         log.Write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
