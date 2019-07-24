@@ -1919,7 +1919,7 @@ def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_mod
     Sr = R(1/2 + 1/2ln((8pi^3u'kT/h^2))
     """
     # This is the average moment of inertia used by Grimme
-    Bav = 10.0e-44
+    Bav = 1.00e-44
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0-fract_modelsys[i]) 
                                 for i in range(len(fract_modelsys))]
