@@ -310,14 +310,14 @@ def test_media_correction(path,conc, media, E, ZPE, H, TS, TqhS, G, qhG):
             
 
 @pytest.mark.parametrize("E, ZPE, H, TS, TqhS, GT, qhGT", [
-    ([0.0,-8.010593,-50.343643],[0.0,0.857809,4.274332],[0.0,-7.098337,-45.991496],[0.0,-14.538013,-26.247791],[0.0,-15.211892,-29.598903],[0.0,7.439676,-19.743705],[0.0,8.113555,-16.392593])
+    ([0.0,-8.01,-50.34],[0.0,0.86,4.27],[0.0,-7.1,-45.99],[0.0,-14.54,-26.25],[0.0,-15.21,-29.6],[0.0,7.44,-19.74],[0.0,8.11,-16.39])
 ])
 def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
     QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert, d3 = 'grimme', False, 100.0, 100.0, 1.0, 'none', False, 0
     invert, spc, gconf = False, False, True
-    precision = 6
+    precision = 2
     files = ['pes/Int-III_Oax_cis_a.log', 'pes/Int-II_Oax_cis_a.log', 'pes/Int-I_Oax.log', 'pes/TolS.log', 'pes/TolSH.log']
     files = [datapath(file) for file in files]
     log = GV.Logger("GoodVibes",'test',False)
@@ -348,49 +348,3 @@ def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
             assert  qhGT[j] == round(formatted_list[6], precision)
     log.Finalize()
     
-    
-# @pytest.mark.parametrize("yaml, gconf, E, ZPE, H, TS, TqhS, GT, qhGT", [
-#     #test cat conformers
-#     ('gconf_ee_boltz/gconf_TS.yaml', True, [0.0,5.053763],[0.0,-0.497994],[0.0,3.936414],[0.0,-14.426341],[0.0,-15.107289],[0.0,18.362755],[0.0,19.043703]),
-#     ('gconf_ee_boltz/gconf_TS.yaml', False, [0.0,5.053763],[0.0,-0.497994],[0.0,3.936414],[0.0,-14.823888],[0.0,-15.504836],[0.0,18.760302],[0.0,19.44125]),
-#     #test TS conformers 
-#     ('gconf_ee_boltz/gconf_aminox_cat.yaml', True, [0.0,4.716292],[0.0,-0.460919],[0.0,3.534549],[0.0,-15.852617],[0.0,-16.367881],[0.0,19.387166],[0.0,19.90243]),
-#     ('gconf_ee_boltz/gconf_aminox_cat.yaml', False, [0.0,4.716292],[0.0,-0.460919],[0.0,3.534549],[0.0,-15.245404],[0.0,-15.760668],[0.0,18.779954],[0.0,19.295218])
-# 
-# ])
-# def test_gconf(yaml, gconf, E, ZPE, H, TS, TqhS, GT, qhGT):
-#     temp = 298.15
-#     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-#     QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert, d3 = 'grimme', False, 100.0, 100.0, 1.0, 'none', False, 0
-#     spc = False
-#     files = ['gconf_ee_boltz/Aminoxylation_TS1_R.log', 'gconf_ee_boltz/Aminoxylation_TS2_S.log', 'gconf_ee_boltz/aminox_cat_conf212_S.log', 'gconf_ee_boltz/aminox_cat_conf280_R.log', 'gconf_ee_boltz/aminox_cat_conf65_S.log','gconf_ee_boltz/aminox_subs_conf713.log']
-#     files = [datapath(file) for file in files]
-#     log = GV.Logger("GoodVibes",'test',False)
-#     yaml = datapath(yaml)
-# 
-#     bbe_vals = []
-#     for file in files: # loop over all specified output files and compute thermochemistry
-#         bbe = GV.calc_bbe(file, QS, QH, s_freq_cutoff, h_freq_cutoff, temp,
-#                         conc, freq_scale_factor, solv, spc, invert, d3)
-#         bbe_vals.append(bbe)
-#     fileList = [file for file in files]
-#     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
-# 
-#     pes = GV.get_pes(yaml,thermo_data,log,temp,gconf,QH)
-# 
-#     zero_vals = [pes.e_zero[0][0], pes.zpe_zero[0][0], pes.h_zero[0][0], temp * pes.ts_zero[0][0], temp * pes.qhts_zero[0][0], pes.g_zero[0][0], pes.qhg_zero[0][0]]
-# 
-#     for i, path in enumerate(pes.path):
-#         for j, e_abs in enumerate(pes.e_abs[i]):
-#             species = [pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j], temp * pes.s_abs[i][j], temp * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
-#             relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
-#             formatted_list = [GV.KCAL_TO_AU * x for x in relative]
-#             assert  '{:13.2f}'.format(E[j]) == '{:13.2f}'.format(formatted_list[0])
-#             assert  '{:13.2f}'.format(ZPE[j]) == '{:13.2f}'.format(formatted_list[1])
-#             assert  '{:13.2f}'.format(H[j]) == '{:13.2f}'.format(formatted_list[2])
-#             assert  '{:13.2f}'.format(TS[j]) == '{:13.2f}'.format(formatted_list[3])
-#             assert  '{:13.2f}'.format(TqhS[j]) == '{:13.2f}'.format(formatted_list[4])
-#             assert  '{:13.2f}'.format(GT[j]) == '{:13.2f}'.format(formatted_list[5])
-#             assert  '{:13.2f}'.format(qhGT[j]) == '{:13.2f}'.format(formatted_list[6])
-#     log.Finalize()
-# 
