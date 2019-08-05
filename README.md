@@ -1,4 +1,4 @@
-GoodVibes
+![GoodVibes](GoodVibes.png)
 ===
 
 [![Build Status](https://travis-ci.com/luchini18/GoodVibes.svg?branch=master)](https://travis-ci.org/luchini18/GoodVibes)
