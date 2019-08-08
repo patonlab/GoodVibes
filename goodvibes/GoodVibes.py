@@ -2407,7 +2407,12 @@ def main():
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
         for ext in custom_extensions:
             SUPPORTED_EXTENSIONS.add(ext.strip())
-
+    #Default value for inverting imaginary frequencies
+    if options.invert == True:
+        options.invert == -50.0
+    elif options.invert > 0:
+        options.invert = -1 * options.invert
+        
     # Start a log for the results
     log = Logger("Goodvibes", options.output, options.csv)
     # Initialize the total CPU time
