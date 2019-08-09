@@ -2407,6 +2407,7 @@ def main():
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
         for ext in custom_extensions:
             SUPPORTED_EXTENSIONS.add(ext.strip())
+    
     #Default value for inverting imaginary frequencies
     if options.invert == True:
         options.invert == -50.0
@@ -2441,7 +2442,7 @@ def main():
                             files.append(file)
                             if clustering == True:
                                 clusters[nclust].append(file)    
-                            name, ext = os.path.splitext(file)       
+                            name, ext = os.path.splitext(file)         
                             if not (os.path.exists(name+'_'+options.spc+'.log') or os.path.exists(name+'_'+options.spc+'.out')) and options.spc != 'link':
                                 sys.exit("\nError! SPC calculation file '{}' not found! Make sure files are named with the convention: 'filename_spc'.\nFor help, use option '-h'\n".format(name+'_'+options.spc))
             elif elem != 'clust:': # Look for requested options
@@ -2476,12 +2477,29 @@ def main():
         progress[file] = lot_sm_prog[2]
         orientation[file] = lot_sm_prog[3]
         grid[file] = lot_sm_prog[4]
-        
+    
+    # Remove problem files and print errors
+    for i,key in enumerate(progress):
+        if progress[key] == 'Error':
+            log.Write("\n\nx  Warning! Error termination found in file {}. This file will be omitted from further calculations.".format(key))
+            files.remove(key)
+            del l_o_t[i]
+            del s_m[i]
+            del orientation[key]
+            del grid[key]
+        elif progress[key] == 'Incomplete':
+            log.Write("\n\nx  Warning! File {} may not have terminated normally or the calculation may still be running. This file will be omitted from further calculations.".format(key))
+            files.remove(key)
+            l_o_t.remove(key)
+            s_m.remove(key)
+            orientation.remove(key)
+            grid.remove(key)
+            
     # Attempt to automatically obtain frequency scale factor,
     # Application of freq scale factors requires all outputs to be same level of theory 
     if options.freq_scale_factor is not False:
-        if 'ONIOM' not in l_o_t[0]: log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
-        else: log.Write("\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for QM region of " + l_o_t[0])
+        if 'ONIOM' not in l_o_t[0]: log.Write("\n\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for " + l_o_t[0] + " level of theory" )
+        else: log.Write("\n\n   User-defined vibrational scale factor "+str(options.freq_scale_factor) + " for QM region of " + l_o_t[0])
     else:
         # Look for vibrational scaling factor automatically
         if all_same(l_o_t):
@@ -2509,7 +2527,7 @@ def main():
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if options.mm_freq_scale_factor is not False:
         if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
-            log.Write("\n   User-defined vibrational scale factor "+str(options.mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
+            log.Write("\n\   User-defined vibrational scale factor "+str(options.mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
             log.Write("\n   REF: {}".format(oniom_scale_ref))
         else:
             sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   For help use option '-h'\n")
@@ -2517,9 +2535,9 @@ def main():
     if options.freq_scale_factor is False:
         options.freq_scale_factor = 1.0 # If no scaling factor is found use 1.0
         if all_same(l_o_t):
-            log.Write("\n   Using vibrational scale factor {} for {} level of theory".format(options.freq_scale_factor,l_o_t[0]))
+            log.Write("\n\n   Using vibrational scale factor {} for {} level of theory".format(options.freq_scale_factor,l_o_t[0]))
         else:
-            log.Write("\n   Using vibrational scale factor {}: differing levels of theory detected.".format(options.freq_scale_factor))
+            log.Write("\n\n   Using vibrational scale factor {}: differing levels of theory detected.".format(options.freq_scale_factor))
     # Checks to see whether the available free space of a requested solvent is defined
     freespace = get_free_space(options.freespace)
     if freespace != 1000.0:
@@ -2603,15 +2621,6 @@ def main():
         vmm_option = options.mm_freq_scale_factor
     else:
         vmm_option = False
-        
-    # Remove problem files and print errors
-    for key in progress:
-        if progress[key] == 'Error':
-            log.Write("\nx  Warning! Error termination found in file {}. Thermochemical data will not be calculated for this file.".format(key))
-            files.remove(key)
-        elif progress[key] == 'Incomplete':
-            log.Write("\nx  Warning! File {} may not have terminated normally or the calculation may still be running. Thermochemical data will not be calculated for this file.".format(key))
-            files.remove(key)
             
     # Loop over all specified output files and compute thermochemistry
     for file in files:
@@ -2705,7 +2714,7 @@ def main():
                 for dup in dup_list:
                     if dup[0] == file:
                         duplicate = True
-                        log.Write('\nx  {} is a duplicate or enantiomer of {}'.format(dup[0].split('.')[0], dup[1].split('.')[0]))
+                        log.Write('\nx  {} is a duplicate or enantiomer of {}'.format(dup[0].rsplit('.',1)[0], dup[1].rsplit('.',1)[0]))
                         break
             if duplicate == False:
                 bbe = thermo_data[file]
