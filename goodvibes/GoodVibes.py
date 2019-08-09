@@ -1395,7 +1395,8 @@ def parse_data(file):
                 else:
                     display_solvation_model = "scrf=(" + ','.join(keyword_line[start_scrf:end_scrf].lower().split(','))+')'
                     sorted_solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
-        solvation_model = [sorted_solvation_model,display_solvation_model]
+        if solvation_model != "gas phase":
+            solvation_model = [sorted_solvation_model,display_solvation_model]
         empirical_dispersion = ''
         if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp =') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
@@ -2535,7 +2536,7 @@ def main():
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if options.mm_freq_scale_factor is not False:
         if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
-            log.Write("\n\   User-defined vibrational scale factor "+str(options.mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
+            log.Write("\n\n   User-defined vibrational scale factor "+str(options.mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
             log.Write("\n   REF: {}".format(oniom_scale_ref))
         else:
             sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   For help use option '-h'\n")
