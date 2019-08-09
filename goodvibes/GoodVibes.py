@@ -1379,7 +1379,8 @@ def parse_data(file):
             if '(' in keyword_line[start_scrf:start_scrf+4]:
                 start_scrf += keyword_line[start_scrf:start_scrf+4].find('(') + 1
                 end_scrf = keyword_line.find(")",start_scrf)
-                solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
+                display_solvation_model = "scrf=(" + ','.join(keyword_line[start_scrf:end_scrf].lower().split(','))+')'
+                sorted_solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
             else:
                 if ' = ' in keyword_line[start_scrf:start_scrf+4]:
                     start_scrf += keyword_line[start_scrf:start_scrf+4].find(' = ') + 3
@@ -1389,9 +1390,12 @@ def parse_data(file):
                     start_scrf += keyword_line[start_scrf:start_scrf+4].find('=') + 1
                 end_scrf = keyword_line.find(" ",start_scrf)
                 if end_scrf == -1:
-                    solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:].lower().split(',')))+')'
+                    display_solvation_model = "scrf=(" + ','.join(keyword_line[start_scrf:].lower().split(','))+')'
+                    sorted_solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:].lower().split(',')))+')'
                 else:
-                    solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
+                    display_solvation_model = "scrf=(" + ','.join(keyword_line[start_scrf:end_scrf].lower().split(','))+')'
+                    sorted_solvation_model = "scrf=(" + ','.join(sorted(keyword_line[start_scrf:end_scrf].lower().split(',')))+')'
+        solvation_model = [sorted_solvation_model,display_solvation_model]
         empirical_dispersion = ''
         if keyword_line.strip().find('empiricaldispersion') == -1 and keyword_line.strip().find('emp=') == -1 and keyword_line.strip().find('emp =') == -1 and keyword_line.strip().find('emp(') == -1:
             empirical_dispersion = "No empirical dispersion detected"
@@ -2106,10 +2110,12 @@ def check_files(log,files,thermo_data,options,STARS,l_o_t,orientation,grid):
         print_check_fails(log,l_o_t,file_check,"levels of theory")
         
     # Check for solvent models
-    solvent_check = [thermo_data[key].solvation_model for key in thermo_data]
+    solvent_check = [thermo_data[key].solvation_model[0] for key in thermo_data]
     if all_same(solvent_check) != False:
+        solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
         log.Write("\no  Using {} in all calculations.".format(solvent_check[0]))
     else:
+        solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
         print_check_fails(log,solvent_check,file_check,"solvation models")
 
     # Check for -c 1 when solvent is added
