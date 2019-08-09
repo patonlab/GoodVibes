@@ -2053,9 +2053,11 @@ def check_dup(files, thermo_data):
                 if len(bbe_i.roconst) == len(bbe_j.roconst):
                     ro_diff = np.linalg.norm(np.array(bbe_i.roconst)-np.array(bbe_j.roconst))
             if hasattr(bbe_i, "frequency_wn") and hasattr(bbe_j, "frequency_wn"):
-                if len(bbe_i.frequency_wn) == len(bbe_j.frequency_wn):
+                if len(bbe_i.frequency_wn) == len(bbe_j.frequency_wn) and len(bbe_i.frequency_wn) > 0:
                     freq_diff = [np.linalg.norm(freqi-freqj) for freqi, freqj in zip(bbe_i.frequency_wn, bbe_j.frequency_wn)]
                     mae_freq_diff, max_freq_diff = np.mean(freq_diff), np.max(freq_diff)
+                elif len(bbe_i.frequency_wn) == len(bbe_j.frequency_wn) and len(bbe_i.frequency_wn) == 0:
+                    mae_freq_diff, max_freq_diff= 0., 0.
             if e_diff < e_cutoff and ro_diff < ro_cutoff and mae_freq_diff < mae_freq_cutoff and max_freq_diff < max_freq_cutoff:
                 dup_list.append([files[i], files[j]])
     return dup_list
