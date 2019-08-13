@@ -1,7 +1,7 @@
 ![GoodVibes](GoodVibes.png)
 ===
 
-[![Build Status](https://travis-ci.com/luchini18/GoodVibes.svg?branch=master)](https://travis-ci.org/luchini18/GoodVibes)
+[![Build Status](https://travis-ci.org/bobbypaton/GoodVibes.svg?branch=master)](https://travis-ci.org/bobbypaton/GoodVibes)
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg)](https://conda.anaconda.org/patonlab)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
@@ -348,27 +348,28 @@ options in the # FORMAT block are not necessary, but allow for stylistic choices
 * Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. *J. Phys. Chem. A* **2018**, *122*, 1392–1399 [**DOI:** 10.1021/acs.jpca.7b11580 ](http://dx.doi.org/10.1021/acs.jpca.7b11580)
 * Harada, T. *J. Org. Chem.* **2018**, *83*, 7825–7835 [**DOI:** 10.1021/acs.joc.8b00712](http://dx.doi.org/10.1021/acs.joc.8b00712)
 * Lewis, R. D.; Garcia-Borràs, M.;  Chalkley, M. J.; Buller, A. R.; Houk, K. N.; Kan, S. B. J.; Arnold, F. H. *Proc. Natl. Acad. Sci.* **2018**, *115*, 7308-7313 [**DOI:** 10.1073/pnas.1807027115](http://dx.doi.org/10.1073/pnas.1807027115)
-* Hojoon Park, Nikita Chekshin, Peng-Xiang Shen, Jin-Quan Yu, *ACS Catalysis* **2018**, *8*, 9292–9297 [**DOI:** 10.1021/acscatal.8b03014](http://dx.doi.org/10.1021/acscatal.8b03014)
+* Park, H.; Chekshin, N.; Shen, P.; Yu, J. *ACS Catal.* **2018**, *8*, 9292–9297 [**DOI:** 10.1021/acscatal.8b03014](http://dx.doi.org/10.1021/acscatal.8b03014)
 * Ye, J.; Kalvet, I.; Schoenebeck, F.; Rovis, T. *Nature Chem.* **2018**, *10*, 1037–1041 [**DOI:** 10.1038/s41557-018-0085-9](https://doi.org/10.1038/s41557-018-0085-9)
 * Green, N. J.; Connolly, C. A.; Rietdijk, K. P. W.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. *Angew. Chem. Int. Ed.* **2018**, *57*, 6198–6202. [**DOI:** 10.1002/anie.201802125](https://doi.org/10.1002/anie.201802125)
-* dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. *J. Am. Chem. Soc.* **2018**, *140*, 14272-14288 [**DOI:** 10.1021.jacs.8b08513](http://doi.org/10.1021/jacs.8b08513)
+* dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. *J. Am. Chem. Soc.* **2018**, *140*, 14272-14288 [**DOI:** 10.1021/jacs.8b08513](http://doi.org/10.1021/jacs.8b08513)
 * Wodrich, M. D.; Busch, M.; Corminboeuf, C. *Helv. Chim. Acta* **2018**, *101*, e1800107 [**DOI:** 10.1002/hlca.201800107](http://doi.org/10.1002/hlca.201800107)
 * Simon, L. *Org. Biomol. Chem.* **2018**, *16*, 2225–2238 [**DOI:** 10.1039/c7ob02875j](http://doi.org/10.1039/c7ob02875j) 
+* Kildgaard, J. V.; Mikkelsen, K. V.; Bilde, M.; Elm, J. *J. Phys. Chem. A.*, **2018**, *122*, 5026-5036 [**DOI:** 10.1021/acs.jpca.8b02758](https://doi.org/10.1021/acs.jpca.8b02758)
+* Tanoury, G. J.; Roeper, S. *Tetrahedron*, **2018**, *74*, 7103-7110 [**DOI:** 10.1016/j.tet.2018.10.060](https://doi.org/10.1016/j.tet.2018.10.060)
+* Sawatlon, B.; Wodrich, M. D.; Corminboeuf, C. *Organometallics*, **2018**, *37*, 4568-4575 [**DOI:** 10.1021/acs.organomet.8b00490](https://doi.org/10.1021/acs.organomet.8b00490)
 * Audic, B.; Wodrich, M. D.; Cramer, N. *Chem. Sci.* **2019**, *10*, 781-787 [**DOI:** 10.1039/C8SC04385J](http://doi.org/10.1039/C8SC04385J)
 * Tuguldurova, V. P.; Fateev, A. V.; Poleshchuk, O. K.; Vodyankina, O. V.  *Phys. Chem. Chem. Phys.* **2019**, *21*, 9326--9334 [**DOI:** 10.1039/c8cp07270a](http://doi.org/10.1039/c8cp07270a)
 * Fischer, T.; Bamberger, J.; Gomez‐Martinez, M.; Piekarski, D. G.; Garcia Mancheño, O. *Angew Chem. Int. Ed.* **2019**, *58*, 3217–3221 [**DOI:** 10.1002/anie.201812031](http://doi.org/10.1002/anie.201812031) 
 * Svatunek, D.; Houszka, N.; Hamlin, T. A.; Bickelhaupt, F. M.; Mikula, H. *Chem. Eur. J.* **2019**, *25*, 754–758 [**DOI:** 10.1002/chem.201805215](http://doi.org/10.1002/chem.201805215)
-* Green, S.; Montgomery, H.; Benton, T. R.; Chan, N.; Nelson, H. [**DOI:** doi.org/10.26434/chemrxiv.7824755.v1](http://doi.org/doi.org/10.26434/chemrxiv.7824755.v1)
-* Putatunda, S.; Alegre-Requena, J. V.; Meazza, M.; Franc, M.; Rohal'ova, D.; Vemuri, P.; Cısarova, I.; Herrera, R. P.; Rios, R.; Vesely, J.*Chem. Sci.* **2019**, *10*, 4107–4115 [**DOI:** doi.org/10.1039/c8sc05258a](http://doi.org/doi.org/10.1039/c8sc05258a)
-* DOI: 10.1039/C9OB00533A (Paper) Org. Biomol. Chem., 2019, 17, 4498-4511
-* https://doi.org/10.1021/acscatal.9b00717
-* https://doi.org/10.1002/ijch.201800106
-* https://doi.org/10.1016/j.tet.2018.10.060
-* https://doi.org/10.1002/cphc.201900496
-* https://doi.org/10.1021/acs.inorgchem.9b00384
-* https://doi.org/10.1021/acs.organomet.8b00490
-* https://doi.org/10.1016/j.jorganchem.2019.06.009
-* https://doi.org/10.1021/acs.jpca.8b02758
+* Green, S.; Montgomery, H.; Benton, T. R.; Chan, N.; Nelson, H. [**DOI:** 10.26434/chemrxiv.7824755.v1](http://doi.org/10.26434/chemrxiv.7824755.v1)
+* Putatunda, S.; Alegre-Requena, J. V.; Meazza, M.; Franc, M.; Rohal'ova, D.; Vemuri, P.; Cısarova, I.; Herrera, R. P.; Rios, R.; Vesely, J. *Chem. Sci.* **2019**, *10*, 4107–4115 [**DOI:** 10.1039/c8sc05258a](http://doi.org/10.1039/c8sc05258a)
+* Silva, V. S.; Tolentino, T. A.; Rodrigues, T. C. A. F.; Santos, F. F. M.; Machado, D. F. S.; Silva, W. A.; de Oliveira, H. C. B.; Machado, A. H. L. *Org. Biomol. Chem.*, **2019**, *17*, 4498-4511 [**DOI:** 10.1039/C9OB00533A](http://doi.org/10.1039/C9OB00533A)
+* Wodrich, M. D.; Sawatlon, B.; Solel, E.; Kozuch, S.; Corminboeuf, C. *ACS Catal.*, **2019**, *9*, 5716-5725 [**DOI:** 10.1021/acscatal.9b00717](https://doi.org/10.1021/acscatal.9b00717)
+* Martí-Centelles, V.; Duarte, F.; Lusby, P. J. *Isr. J. Chem.*, **2019**, *59*, 257-266 [**DOI:** 10.1002/ijch.201800106](https://doi.org/10.1002/ijch.201800106)
+* van der Ham, A.; Hansen, T.; Lodder, G.; Codée, J. D. C.; Hamlin, T. A.; Filippov, D. V. *Chem. Phys. Chem.*, **2019**, *20*, 1-8 [**DOI:** 10.1002/cphc.201900496](https://doi.org/10.1002/cphc.201900496)
+* Merz, L. S.; Blasius, C. K.; Wadepohl, H.; Gade, L. H. *Inorg. Chem.*, **2019**, *58*, 6102-6113 [**DOI:** 10.1021/acs.inorgchem.9b00384](https://doi.org/10.1021/acs.inorgchem.9b00384)
+* Ivanov, S. M.; Dmitrienko, A. O.; Medvedev, M. G.; Mironovich, L. M. *J. Organomet. Chem.*, **2019**, *896*, 168-182 [**DOI:** 10.1016/j.jorganchem.2019.06.009](https://doi.org/10.1016/j.jorganchem.2019.06.009)
+
 
 
 #### References for the underlying theory
