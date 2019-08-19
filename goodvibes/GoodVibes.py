@@ -2486,24 +2486,23 @@ def main():
         progress[file] = lot_sm_prog[2]
         orientation[file] = lot_sm_prog[3]
         grid[file] = lot_sm_prog[4]
-    
+    remove_key = []
     # Remove problem files and print errors
     for i,key in enumerate(progress):
         if progress[key] == 'Error':
             log.Write("\n\nx  Warning! Error termination found in file {}. This file will be omitted from further calculations.".format(key))
-            files.remove(key)
-            del l_o_t[i]
-            del s_m[i]
-            del orientation[key]
-            del grid[key]
+            remove_key.append(key)
         elif progress[key] == 'Incomplete':
             log.Write("\n\nx  Warning! File {} may not have terminated normally or the calculation may still be running. This file will be omitted from further calculations.".format(key))
-            files.remove(key)
-            l_o_t.remove(key)
-            s_m.remove(key)
-            orientation.remove(key)
-            grid.remove(key)
-            
+            remove_key.append(key)
+    for i,key in enumerate(remove_key):
+        files.remove(key)
+        del l_o_t[i]
+        del s_m[i]
+        del orientation[key]
+        del grid[key]
+    if len(files) == 0:
+        sys.exit("\n\nPlease try again with normally terminated output files.\nFor help, use option '-h'\n")
     # Attempt to automatically obtain frequency scale factor,
     # Application of freq scale factors requires all outputs to be same level of theory 
     if options.freq_scale_factor is not False:
