@@ -5,6 +5,7 @@
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg)](https://conda.anaconda.org/patonlab)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
+[![Documentation Status](https://readthedocs.org/projects/goodvibespy/badge/?version=latest)](https://goodvibespy.readthedocs.io/en/latest/?badge=latest)
 [![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
 
 GoodVibes is a Python program to compute thermochemical data from one or a series of electronic structure calculations. It has been used since 2015 by several groups, primarily to correct the poor description of low frequency vibrations by the rigid-rotor harmonic oscillator treatment. The current version includes thermochemistry at variable temperature/concentration, various quasi-harmonic entropy and enthalpy schemes, automated detection of frequency scaling factors, D3-dispersion corrections calculations, Boltzmann averaging, duplicate conformer detection, automated tabulation and plotting of energy profiles, and error checking. Developed by [Robert Paton](https://orcid.org/0000-0002-0104-4166), [Ignacio Funes-Ardoiz](https://orcid.org/0000-0002-5843-9660), and members of the [Paton Research Group, Colorado State](http://patonlab.com/):  [Guilian Luchini](https://orcid.org/0000-0003-0135-9624), [Juan V. Alegre-Requena](https://orcid.org/0000-0002-0769-7168), and [Yanfei Guan](https://orcid.org/0000-0003-1817-0190) . Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://orcid.org/0000-0001-8974-1566) with additions from Guilian Luchini.
@@ -19,26 +20,26 @@ Two types of quasi-harmonic approximation are readily applied. The first is vibr
 The second type of quasi-harmonic approximation available is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. Because of this, the quasi-harmonic enthalpy correction is appropriate for use in systems and reactions resulting in a loss of a rotational or translational degree of freedom.
 
 #### Symmetry
-GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy. 
+GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy.
 *Note: this option may not function properly on some versions of Windows.*
 
 #### Checks
 A computational workflow can become less effective without consistency throughout the process. By using the `--check` option, GoodVibes will enforce a number of pass/fail checks on the input files given to make sure uniform options were used. Checks employed are:
 
-###### Gaussian Output Checks 
+###### Gaussian Output Checks
 *   Same version of Gaussian used across all output files
 *   Same solvation state/gas phase used across all output files
-*   Same level of theory and basis set used 
+*   Same level of theory and basis set used
 *   Same charge and multiplicity used
-*   Check if standard concenctration of 1 atm was used in calculation 
-*   Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol 
+*   Check if standard concenctration of 1 atm was used in calculation
+*   Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol
 *   Check for potential calculation error in linear molecules by Gaussian
 *   Check for transition states (one imaginary frequency in output file)
 *   Check if empirical dispersion is used and consistent across all output files
 
 ###### Single Point Calculation Checks
 *   Same version and program used for all single point calculations
-*   Same solvation model used across output files 
+*   Same solvation model used across output files
 *   Same level of theory used across all output files
 *   Same charge and multiplicity used
 *   Same geometry coordinates for SPC and associated geometry optimized and frequency calculation output file
@@ -55,19 +56,19 @@ A computational workflow can become less effective without consistency throughou
 **Correct Usage**
 
 ```python
-python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq] 
-[--check] [-t temperature] [-c concentration] [--ti 't_initial, t_final, step'] [--ee] 
-[--cosmo cosmo_filename] [--cosmoint cosmo_filename,initial_temp,final_temp] [-v frequency_scale_factor] 
-[--vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf] 
-[--graph graph_yaml] [--cpu] [--imag] [--invertifreq] [--freespace solvent_name] [--output output_name] 
+python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq]
+[--check] [-t temperature] [-c concentration] [--ti 't_initial, t_final, step'] [--ee]
+[--cosmo cosmo_filename] [--cosmoint cosmo_filename,initial_temp,final_temp] [-v frequency_scale_factor]
+[--vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf]
+[--graph graph_yaml] [--cpu] [--imag] [--invertifreq] [--freespace solvent_name] [--output output_name]
 [--media solvent_name] [--xyz] [--csv] [--custom_ext file_extension] <output_file(s)>
 ```
 *	The `-h` option gives help by listing all available options, default values and units, and proper usage.
-*   The `-q` option turns on quasi-harmonic corrections to both entropy and enthalpy, defaulting to the Grimme method for entropy and the Head-Gordon enthalpy correction. 
+*   The `-q` option turns on quasi-harmonic corrections to both entropy and enthalpy, defaulting to the Grimme method for entropy and the Head-Gordon enthalpy correction.
 *	The `--qs` option selects the approximation for the quasi-harmonic entropic correction: `--qs truhlar` or `--qs grimme` request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequencies. If not specified this defaults to Grimme's expression.
 *	The `--qh` option selects the approximation for the quasi-harmonic enthalpy correction. Calling this argument requests the enthalpy correction option explained above. This replaces harmonic energy contributions with a quasi-RRHO vibrational energy term. If not specified the Head-Gordon expression is defaulted.
 *	The `-f` option specifies the frequency cut-off for both entropy and enthalpy calculations (in wavenumbers) i.e. `-f 10` would use 10 cm<sup>-1</sup> when calculating thermochemical values. The default value is 100 cm<sup>-1</sup>. N.B. when set to zero all thermochemical values match standard (i.e. harmonic) Gaussian quantities.
-*	The `--fs` option specifies the frequency cut-off for only entropy calculations(in wavenumbers). `--fs 40` would use 40 cm<sup>-1</sup> when calculating entropies. The default value is 100 cm<sup>-1</sup>. 
+*	The `--fs` option specifies the frequency cut-off for only entropy calculations(in wavenumbers). `--fs 40` would use 40 cm<sup>-1</sup> when calculating entropies. The default value is 100 cm<sup>-1</sup>.
 *	The `--fh` option specifies the frequency cut-off for only enthalpy calculations (in wavenumbers).`--fh 200` would use 200 cm<sup>-1</sup> when calculating enthalpies. The default value is 100 cm<sup>-1</sup>.
 *	The `--check` option applies the checks specified above to the calculation output files and displays a pass or fail message to the user.
 *	The `-t` option specifies temperature (in Kelvin). N.B. This does not have to correspond to the temperature used in the Gaussian calculation since all thermal quantities are reevalulated by GoodVibes at the requested temperature. The default value is 298.15 K.
@@ -78,9 +79,9 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *   The `--cosmo_int` option allows for Gibbs Free Energy of Solvation calculated using COSMO-RS with a temperature interval to be applied at a range of temperatures. Since temperature gaps may not be consistent, the interval is automatically detected. Usage is `--cosmo_int cosmo_gsolv.out,initial_temp,final_temp`. GoodVibes will detect temperatures within the range provided.
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by `-v 1.0`
 *	The `--vmm` option is a second scaling factor for vibrational frequencies when performing QM/MM calculations with ONIOM. The correction is applied using the additional information in the output file, %ModelSys and %RealSys. This correction is only applied when requested with ONIOM calculation files. The option is activated with the command `-vmm scale_factor`
-*   The `--ssymm` option will apply a symmetry correction to the entropy by detecting a molecule's internal and external symmetry. 
+*   The `--ssymm` option will apply a symmetry correction to the entropy by detecting a molecule's internal and external symmetry.
 *   The `--spc` option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.
-*   The `--boltz` option will display the Boltzmann weighted factors based on free energy of each specified output file. 
+*   The `--boltz` option will display the Boltzmann weighted factors based on free energy of each specified output file.
 *   The `--dup` option will check multiple output files for duplicate structures based on energy, rotational constants and calculated frequencies. Cutoffs are currently specified as: energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 100kHz; RMS Freq cutoff = 1 wavenumber.
 *	The `--pes` option takes a .yaml file input (see template below) along with calculation output files to allow for the construction of a potential energy surface from relative computed Gibbs free-energy values.
 *	The `--nogconf` option will turn off a correction to the Gibbs free-energy due to multiple conformations when constructing a potential energy surface (use only with --pes option). Default is to calculate Gconf correction.
@@ -92,7 +93,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `--output` option is used to change the default output file name to a specified name instead. Use as  `--output NAME` to change the name of the output file of thermochemical data from "GoodVibes.dat" to "GoodVibes_NAME.dat"
 *	The `--media` option applies an entropy correction to calculations done on solvent molecules calculated from their standard concentration.
 *	The `--xyz` option will write all molecular Cartesian coordinates to a .xyz output file.
-*	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file. 
+*	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file.
 *   The `--custom_ext` option allows for custom file extensions to be used. Current default calculation output files accepted are `.log` or `.out` file extensions. New extensions can be detected by using GoodVibes with the option `--custom_ext file_extension`.
 
 
@@ -209,7 +210,7 @@ The program will detect several different levels of theory and give a warning th
 #### Example 8: Entropic Symmetry Correction
 ```python
 python -m goodvibes examples/allene.out examples/benzene.out examples/ethane.out examples/isobutane.out examples/neopentane.out --ssymm
-   
+
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Point Group
    **********************************************************************************************************************
 o  allene             -116.569605   0.053913   -116.510916   0.024235   0.024237   -116.535150   -116.535153          D2d
@@ -223,7 +224,7 @@ GoodVibes will apply a symmetry correction described above to the entropy term o
 
 #### Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction
 ```python
-python -m goodvibes examples/gconf_ee_boltz/*.log --pes gconf_aminox_cat.yaml 
+python -m goodvibes examples/gconf_ee_boltz/*.log --pes gconf_aminox_cat.yaml
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    ************************************************************************************************************
@@ -248,7 +249,7 @@ A `.yaml` file is given to the `--pes` argument which specifies the reaction: `C
 #### Example 10: Stereoselectivity and Boltzmann populations
 
 ```python
-python -m goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee *_R*,*_S* 
+python -m goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee *_R*,*_S*
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Boltz
    *******************************************************************************************************************
@@ -262,41 +263,41 @@ o                              21.00         60:40         1.5:1             R  
    *****************************************************************************************
 ```
 
-The `--boltz` option will provide Boltzmann probabilities to the right of energy results under the `boltz` tab. With the `--ee` option, %ee, er and a reduced ratio are shown along with the dominant isomer and a calculated transition state energy value, ddG or ΔG‡. 
+The `--boltz` option will provide Boltzmann probabilities to the right of energy results under the `boltz` tab. With the `--ee` option, %ee, er and a reduced ratio are shown along with the dominant isomer and a calculated transition state energy value, ddG or ΔG‡.
 
 #### File Naming Conventions
-Some options (--pes, --graph, --spc, -ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly. 
+Some options (--pes, --graph, --spc, -ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly.
 
 * **PES & Graph**
 
     PES and graphing file names need correlate with the file names specified in the `# SPECIES` block of the .yaml file (see below for .yaml formatting).
-    
+
 * **SPC**
 
     To link a frequency output file to a separately performed single point energy calculation file, the single point calculation file should have the same common root as the frequency file, with an additional underscore and descriptor at the end, such as `ethane.out` and `ethane_TZ.out` shown above, where `ethane_TZ.out` is the separate single point calculation file. When running GoodVibes in this case, the descriptor TZ should be passed as an argument, as `--spc TZ`.
-    
+
 * **Selectivity**
 
     To calculate enantiomeric excess, enantiomeric ratio, or diastereomeric ratios,
     file names should begin or end with a pattern identifier, such as `_R` and `_S`. The argument then passed to GoodVibes should be `--ee *_R*,*_S*`.
-    
+
 * **Media**
 
     To apply the media correction to calculations performed on solvent molecules, the calculation output file should match the name passed in the media argument, for example, if performing the correction on water, the output file should be named `H2O.log` and the command line option should be `--media H2O`.
     GoodVibes will recognize the following solvent molecule names:
-    
+
         meco2h / aceticacid, acetone, mecn / acetonitrile, benzene, 1buoh / 1butanol, 2buoh / 2butanol, 2butanone, tbuoh / tbutylalcohol, ccl4 / carbontetrachloride,
-        phcl / chlorobenzene, chcl3 / chloroform, cyclohexane, 12dce  / 12dichloroethane, diethyleneglycol, et2o / diethylether, diglyme, dme / 12dimethoxyethane, 
+        phcl / chlorobenzene, chcl3 / chloroform, cyclohexane, 12dce  / 12dichloroethane, diethyleneglycol, et2o / diethylether, diglyme, dme / 12dimethoxyethane,
         dmf / dimethylformamide, dmso / dimethylsulfoxide, 14dioxane, etoh / ethanol, etoac / acoet / ethylacetate, ethyleneglycol, glycerin, hmpa / hexamethylphosphoramide,
         hmpt / hexamethylphosphoroustriamide, hexane, meoh / methanol, mtbe / methyltbutylether, ch2cl2 / methylenechloride, dcm / dichloromethane, nmp / nmethyl2pyrrolidinone,
         meno2 / nitromethane, pentane, 1propanol, 2propanol, pyridine, thf / tetrahydrofuran, toluene, et3n / triethylamine, h2o / water, oxylene, mxylene, pxylene
 
 #### .yaml File Formatting
-When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options. The same .yaml may be used for both --pes and --graphing options. An example .yaml file is shown below: 
-    
+When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options. The same .yaml may be used for both --pes and --graphing options. An example .yaml file is shown below:
+
     --- # PES
     # Double S addition
-       Reaction: [Int-I+TolS+TolSH, Int-II+TolSH, Int-III] 
+       Reaction: [Int-I+TolS+TolSH, Int-II+TolSH, Int-III]
 
     --- # SPECIES
        Int-I     : Int-I_*
@@ -308,9 +309,9 @@ When using the --pes or --graph options in GoodVibes, a .yaml file must be provi
     --- # FORMAT
        dec : 1
        units: kcal|mol
-       
+
 options in the # FORMAT block are not necessary, but allow for stylistic choices to be employed, especially when graphing. All current options that can be specified for either --pes or --graph options are:
-    
+
         dec : 1 or 2 (decimal points in output)
         units : kcal/mol or kJ/mol
         legend : True or False (puts legend on graph)
@@ -329,7 +330,7 @@ options in the # FORMAT block are not necessary, but allow for stylistic choices
 *	It is possible to run on any number of files at once using wildcards to specify all of the Gaussian files in a directory (specify `*.out` or `*.log`)
 *   File names not in the form of filename.log or filename.out are not read, however more file extensions can be added with the option `--custom_ext`
 *	The script will not work if terse output was requested in the Gaussian job
-*   Problems may occur with Restart Gaussian jobs due to missing information in the output file. 
+*   Problems may occur with Restart Gaussian jobs due to missing information in the output file.
 
 #### Papers from other research groups citing GoodVibes
 * Li, Y.; Du, S. *RSC Adv.* **2016**, *6*, 84177-84186 [**DOI:** 10.1039/C6RA16321A](http://dx.doi.org/10.1039/C6RA16321A)
@@ -353,13 +354,13 @@ options in the # FORMAT block are not necessary, but allow for stylistic choices
 * Green, N. J.; Connolly, C. A.; Rietdijk, K. P. W.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. *Angew. Chem. Int. Ed.* **2018**, *57*, 6198–6202. [**DOI:** 10.1002/anie.201802125](https://doi.org/10.1002/anie.201802125)
 * dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. *J. Am. Chem. Soc.* **2018**, *140*, 14272-14288 [**DOI:** 10.1021/jacs.8b08513](http://doi.org/10.1021/jacs.8b08513)
 * Wodrich, M. D.; Busch, M.; Corminboeuf, C. *Helv. Chim. Acta* **2018**, *101*, e1800107 [**DOI:** 10.1002/hlca.201800107](http://doi.org/10.1002/hlca.201800107)
-* Simon, L. *Org. Biomol. Chem.* **2018**, *16*, 2225–2238 [**DOI:** 10.1039/c7ob02875j](http://doi.org/10.1039/c7ob02875j) 
+* Simon, L. *Org. Biomol. Chem.* **2018**, *16*, 2225–2238 [**DOI:** 10.1039/c7ob02875j](http://doi.org/10.1039/c7ob02875j)
 * Kildgaard, J. V.; Mikkelsen, K. V.; Bilde, M.; Elm, J. *J. Phys. Chem. A.*, **2018**, *122*, 5026-5036 [**DOI:** 10.1021/acs.jpca.8b02758](https://doi.org/10.1021/acs.jpca.8b02758)
 * Tanoury, G. J.; Roeper, S. *Tetrahedron*, **2018**, *74*, 7103-7110 [**DOI:** 10.1016/j.tet.2018.10.060](https://doi.org/10.1016/j.tet.2018.10.060)
 * Sawatlon, B.; Wodrich, M. D.; Corminboeuf, C. *Organometallics*, **2018**, *37*, 4568-4575 [**DOI:** 10.1021/acs.organomet.8b00490](https://doi.org/10.1021/acs.organomet.8b00490)
 * Audic, B.; Wodrich, M. D.; Cramer, N. *Chem. Sci.* **2019**, *10*, 781-787 [**DOI:** 10.1039/C8SC04385J](http://doi.org/10.1039/C8SC04385J)
 * Tuguldurova, V. P.; Fateev, A. V.; Poleshchuk, O. K.; Vodyankina, O. V.  *Phys. Chem. Chem. Phys.* **2019**, *21*, 9326--9334 [**DOI:** 10.1039/c8cp07270a](http://doi.org/10.1039/c8cp07270a)
-* Fischer, T.; Bamberger, J.; Gomez‐Martinez, M.; Piekarski, D. G.; Garcia Mancheño, O. *Angew Chem. Int. Ed.* **2019**, *58*, 3217–3221 [**DOI:** 10.1002/anie.201812031](http://doi.org/10.1002/anie.201812031) 
+* Fischer, T.; Bamberger, J.; Gomez‐Martinez, M.; Piekarski, D. G.; Garcia Mancheño, O. *Angew Chem. Int. Ed.* **2019**, *58*, 3217–3221 [**DOI:** 10.1002/anie.201812031](http://doi.org/10.1002/anie.201812031)
 * Svatunek, D.; Houszka, N.; Hamlin, T. A.; Bickelhaupt, F. M.; Mikula, H. *Chem. Eur. J.* **2019**, *25*, 754–758 [**DOI:** 10.1002/chem.201805215](http://doi.org/10.1002/chem.201805215)
 * Green, S.; Montgomery, H.; Benton, T. R.; Chan, N.; Nelson, H. [**DOI:** 10.26434/chemrxiv.7824755.v1](http://doi.org/10.26434/chemrxiv.7824755.v1)
 * Putatunda, S.; Alegre-Requena, J. V.; Meazza, M.; Franc, M.; Rohal'ova, D.; Vemuri, P.; Cısarova, I.; Herrera, R. P.; Rios, R.; Vesely, J. *Chem. Sci.* **2019**, *10*, 4107–4115 [**DOI:** 10.1039/c8sc05258a](http://doi.org/10.1039/c8sc05258a)
