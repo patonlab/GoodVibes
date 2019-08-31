@@ -1645,7 +1645,7 @@ def read_initial(file):
         if level[0] in ('R', 'U'):
             level = level[1:]
     
-    print(file,level)        
+    #print(file,level)        
     # Grab solvation models - Gaussian files
     if program is 'Gaussian':
         for i, line in enumerate(data):
@@ -2496,7 +2496,8 @@ def main():
         elif progress[key] == 'Incomplete':
             log.Write("\n\nx  Warning! File {} may not have terminated normally or the calculation may still be running. This file will be omitted from further calculations.".format(key))
             remove_key.append([i,key])
-    for [i,key] in remove_key:
+    #print(remove_key)
+    for [i,key] in list(reversed(remove_key)):
         files.remove(key)
         del l_o_t[i]
         del s_m[i]
