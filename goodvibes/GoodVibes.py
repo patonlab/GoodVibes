@@ -1644,7 +1644,8 @@ def read_initial(file):
         # Remove the restricted R or unrestricted U label
         if level[0] in ('R', 'U'):
             level = level[1:]
-            
+    
+    print(file,level)        
     # Grab solvation models - Gaussian files
     if program is 'Gaussian':
         for i, line in enumerate(data):
@@ -2488,14 +2489,14 @@ def main():
         grid[file] = lot_sm_prog[4]
     remove_key = []
     # Remove problem files and print errors
-    for i,key in enumerate(progress):
+    for i,key in enumerate(files):
         if progress[key] == 'Error':
             log.Write("\n\nx  Warning! Error termination found in file {}. This file will be omitted from further calculations.".format(key))
-            remove_key.append(key)
+            remove_key.append([i,key])
         elif progress[key] == 'Incomplete':
             log.Write("\n\nx  Warning! File {} may not have terminated normally or the calculation may still be running. This file will be omitted from further calculations.".format(key))
-            remove_key.append(key)
-    for i,key in enumerate(remove_key):
+            remove_key.append([i,key])
+    for [i,key] in remove_key:
         files.remove(key)
         del l_o_t[i]
         del s_m[i]
