@@ -209,7 +209,7 @@ class xyz_out:
 # The function to compute the "black box" entropy and enthalpy values
 # along with all other thermochemical quantities
 class calc_bbe:
-    def __init__(self, file, QS, qh, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
+    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
                  invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
@@ -386,7 +386,7 @@ class calc_bbe:
                 S_damp = calc_damp(frequency_wn, s_freq_cutoff)
 
                 # check for qh
-                if qh:
+                if QH:
                     Uvib_qrrho = calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor)
                     H_damp = calc_damp(frequency_wn, H_FREQ_CUTOFF)
 
@@ -406,12 +406,12 @@ class calc_bbe:
                         else:
                             vib_entropy.append(Svib_rrho[j])
                     # Enthalpy correction
-                    if qh:
+                    if QH:
                         vib_energy.append(
                             H_damp[j] * Uvib_qrrho[j] + (1 - H_damp[j]) * 0.5 * GAS_CONSTANT * temperature)
 
                 qh_s_vib, h_s_vib = sum(vib_entropy), sum(Svib_rrho)
-                if qh:
+                if QH:
                     qh_u_vib = sum(vib_energy)
             else:
                 zpe, u_rot, u_vib, qh_u_vib, s_rot, h_s_vib, qh_s_vib = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -427,7 +427,7 @@ class calc_bbe:
             # for harmonic and quasi-harmonic values out of interest
             self.enthalpy = self.scf_energy + (u_trans + u_rot + u_vib + GAS_CONSTANT * temperature) / J_TO_AU
             self.qh_enthalpy = 0.0
-            if qh:
+            if QH:
                 self.qh_enthalpy = self.scf_energy + (u_trans + u_rot + qh_u_vib + GAS_CONSTANT * temperature) / J_TO_AU
             # Single point correction replaces energy from optimization with single point value
             if spc is not False:
@@ -435,7 +435,7 @@ class calc_bbe:
                     self.enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
                 except TypeError:
                     pass
-                if qh:
+                if QH:
                     try:
                         self.qh_enthalpy = self.qh_enthalpy - self.scf_energy + self.sp_energy
                     except TypeError:
@@ -453,7 +453,7 @@ class calc_bbe:
                 self.qh_entropy += sym_entropy_correction
 
             # Calculate Free Energy
-            if qh:
+            if QH:
                 self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
                 self.qh_gibbs_free_energy = self.qh_enthalpy - temperature * self.qh_entropy
             else:
@@ -546,7 +546,7 @@ class calc_bbe:
 
 # Obtain relative thermochemistry between species and for reactions
 class get_pes:
-    def __init__(self, file, thermo_data, log, temperature, gconf, qh, cosmo=None, cosmo_int=None):
+    def __init__(self, file, thermo_data, log, temperature, gconf, QH, cosmo=None, cosmo_int=None):
         # Default values
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
 
@@ -753,7 +753,7 @@ class get_pes:
                                             qh_tot = min_conf.qh_enthalpy + qh_adj
                                             qs_adj = qs_conf - min_conf.qh_entropy
                                             qs_tot = min_conf.qh_entropy + qs_adj
-                                            if qh:
+                                            if QH:
                                                 qg_corr = qh_tot - temperature * qs_tot
                                             else:
                                                 qg_corr = h_tot - temperature * qs_tot
@@ -941,7 +941,7 @@ class get_pes:
                                                     qh_tot = min_conf.qh_enthalpy + qh_adj
                                                     qs_adj = qs_conf - min_conf.qh_entropy
                                                     qs_tot = min_conf.qh_entropy + qs_adj
-                                                    if qh:
+                                                    if QH:
                                                         qg_corr = qh_tot - temperature * qs_tot
                                                     else:
                                                         qg_corr = h_tot - temperature * qs_tot
@@ -2589,8 +2589,8 @@ def main():
     # Parse Arguments
     (options, args) = parser.parse_known_args()
     # If requested, turn on head-gordon enthalpy correction
-    if options.Q: options.qh = True
-    if options.qh:
+    if options.Q: options.QH = True
+    if options.QH:
         stars = "   " + "*" * 142
     else:
         stars = "   " + "*" * 128
@@ -2809,7 +2809,7 @@ def main():
     log.write("\n   REF: " + qs_ref + '\n')
 
     # Check if qh-H correction should be applied
-    if options.qh:
+    if options.QH:
         log.write("\n\n   Enthalpy quasi-harmonic treatment: frequency cut-off value of " + str(
             options.H_freq_cutoff) + " wavenumbers will be applied.")
         log.write("\n   QH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy.")
@@ -2818,12 +2818,10 @@ def main():
 
     # Check if D3 corrections should be applied
     if options.D3:
-        log.write(
-            "\n\n   D3-Dispersion energy with zero-damping will be calculated and included in the energy and enthalpy terms.")
+        log.write("\n\n   D3-Dispersion energy with zero-damping will be calculated and included in the energy and enthalpy terms.")
         log.write("\n   REF: " + d3_ref + '\n')
     if options.D3BJ:
-        log.write(
-            "\n\n   D3-Dispersion energy with Becke-Johnson damping will be calculated and added to the energy terms.")
+        log.write("\n\n   D3-Dispersion energy with Becke-Johnson damping will be calculated and added to the energy terms.")
         log.write("\n   REF: " + d3bj_ref + '\n')
     if options.ATM:
         log.write("\n   The repulsive Axilrod-Teller-Muto 3-body term will be included in the dispersion correction.")
@@ -2831,11 +2829,9 @@ def main():
 
     # Check if entropy symmetry correction should be applied
     if options.ssymm:
-        log.write(
-            '\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
+        log.write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
         log.write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
-        log.write(
-            '\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
+        log.write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
         log.write("\n   REF: " + csd_ref + '\n')
 
     # Whether linked single-point energies are to be used
@@ -2879,7 +2875,7 @@ def main():
             except:
                 log.write('\n   ! Dispersion Correction Failed')
                 d3_energy = 0.0
-        bbe = calc_bbe(file, options.QS, options.qh, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                        d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option)
 
@@ -2918,33 +2914,24 @@ def main():
     if options.temperature_interval is False:
         if options.spc is False:
             log.write("\n\n   ")
-            if options.qh:
-                log.write(
-                    '{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE",
-                                                                                            "H", "qh-H", "T.S",
-                                                                                            "T.qh-S", "G(T)",
-                                                                                            "qh-G(T)"), thermodata=True)
+            if options.QH:
+                log.write('{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
+                          '{:>13}'.format("Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),
+                          thermodata=True)
             else:
                 log.write('{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H",
                                                                                            "T.S", "T.qh-S", "G(T)",
                                                                                            "qh-G(T)"), thermodata=True)
         else:
             log.write("\n\n   ")
-            if options.qh:
-                log.write(
-                    '{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC",
-                                                                                                   "E", "ZPE", "H_SPC",
-                                                                                                   "qh-H_SPC", "T.S",
-                                                                                                   "T.qh-S", "G(T)_SPC",
-                                                                                                   "qh-G(T)_SPC"),
-                    thermodata=True)
+            if options.QH:
+                log.write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
+                          '{:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
+                                          "G(T)_SPC", "qh-G(T)_SPC"), thermodata=True)
             else:
-                log.write(
-                    '{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E_SPC", "E",
-                                                                                            "ZPE", "H_SPC", "T.S",
-                                                                                            "T.qh-S", "G(T)_SPC",
-                                                                                            "qh-G(T)_SPC"),
-                    thermodata=True)
+                log.write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} '
+                          '{:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
+                                          "qh-G(T)_SPC"), thermodata=True)
         if options.cosmo is not False:
             log.write('{:>13} {:>16}'.format("COSMO-RS", "COSMO-qh-G(T)"), thermodata=True)
         if options.boltz is True:
@@ -3033,7 +3020,7 @@ def main():
                         if options.media == False:
                             if all(getattr(bbe, attrib) for attrib in
                                    ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                                if options.qh:
+                                if options.QH:
                                     log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
                                         bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
                                         (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
@@ -3063,56 +3050,34 @@ def main():
                                 if all(getattr(bbe, attrib) for attrib in
                                        ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",
                                         "qh_gibbs_free_energy"]):
-                                    if options.qh:
-                                        log.write(
-                                            ' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                                bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
-                                                (options.temperature * (bbe.entropy + media_correction)),
-                                                (options.temperature * (bbe.qh_entropy + media_correction)),
+                                    if options.QH:
+                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
+                                                                    (options.temperature * (bbe.entropy + media_correction)), (options.temperature * (bbe.qh_entropy + media_correction)),
                                                 bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
-                                                bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))),
-                                            thermodata=True)
+                                                bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))), thermodata=True)
                                         log.write("  Solvent")
                                     else:
-                                        log.write(
-                                            ' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe,
-                                                                                                            bbe.enthalpy,
-                                                                                                            (
-                                                                                                                    options.temperature * (
-                                                                                                                    bbe.entropy + media_correction)),
-                                                                                                            (
-                                                                                                                    options.temperature * (
-                                                                                                                    bbe.qh_entropy + media_correction)),
-                                                                                                            bbe.gibbs_free_energy + (
-                                                                                                                    options.temperature * (
-                                                                                                                -media_correction)),
-                                                                                                            bbe.qh_gibbs_free_energy + (
-                                                                                                                    options.temperature * (
-                                                                                                                -media_correction))),
-                                            thermodata=True)
+                                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
+                                                                    (options.temperature * (bbe.entropy + media_correction)),
+                                                                    (options.temperature * (bbe.qh_entropy + media_correction)),
+                                                                    bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
+                                                                    bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))), thermodata=True)
                                         log.write("  Solvent")
                             else:
-                                if all(getattr(bbe, attrib) for attrib in
-                                       ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",
-                                        "qh_gibbs_free_energy"]):
-                                    if options.qh:
-                                        log.write(
-                                            ' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                                bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
-                                                (options.temperature * bbe.entropy),
-                                                (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
-                                                bbe.qh_gibbs_free_energy), thermodata=True)
+                                if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy",
+                                                                           "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                                    if options.QH:
+                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy), thermodata=True)
                                     else:
-                                        log.write(
-                                            ' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.zpe,
-                                                                                                            bbe.enthalpy,
-                                                                                                            (
-                                                                                                                    options.temperature * bbe.entropy),
-                                                                                                            (
-                                                                                                                    options.temperature * bbe.qh_entropy),
-                                                                                                            bbe.gibbs_free_energy,
-                                                                                                            bbe.qh_gibbs_free_energy),
-                                            thermodata=True)
+                                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
+                                                                    (options.temperature * bbe.entropy),
+                                                                    (options.temperature * bbe.qh_entropy),
+                                                                    bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
+                                                  thermodata=True)
                 # Append requested options to end of output
                 if options.cosmo and cosmo_solv is not None:
                     log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))
@@ -3164,63 +3129,34 @@ def main():
             interval = t_interval
             log.write("\n   T init:  %.1f,   T final: %.1f" % (interval[0], interval[-1]))
 
-        if options.qh:
+        if options.QH:
+            qh_print_format = "\n\n   {:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}"
             if options.spc and options.cosmo_int:
-                log.write(
-                    "\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K",
-                                                                                                 "H_SPC", "qh-H_SPC",
-                                                                                                 "T.S", "T.qh-S",
-                                                                                                 "G(T)_SPC",
-                                                                                                 "COSMO-RS-qh-G(T)_SPC"),
-                    thermodata=True)
+                log.write(qh_print_format.format("Structure", "Temp/K", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
+                                                 "G(T)_SPC", "COSMO-RS-qh-G(T)_SPC"), thermodata=True)
             elif options.cosmo_int:
-                log.write(
-                    "\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K",
-                                                                                                 "H", "qh-H", "T.S",
-                                                                                                 "T.qh-S", "G(T)",
-                                                                                                 "qh-G(T)",
-                                                                                                 "COSMO-RS-qh-G(T)"),
-                    thermodata=True)
+                log.write(qh_print_format.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)",
+                                                 "qh-G(T)", "COSMO-RS-qh-G(T)"), thermodata=True)
             elif options.spc:
-                log.write(
-                    "\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K",
-                                                                                                 "H_SPC", "qh-H_SPC",
-                                                                                                 "T.S", "T.qh-S",
-                                                                                                 "G(T)_SPC",
-                                                                                                 "qh-G(T)_SPC"),
-                    thermodata=True)
+                log.write(qh_print_format.format("Structure", "Temp/K", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
+                                                 "G(T)_SPC", "qh-G(T)_SPC"), thermodata=True)
             else:
-                log.write(
-                    "\n\n   " + '{:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K",
-                                                                                                 "H", "qh-H", "T.S",
-                                                                                                 "T.qh-S", "G(T)",
-                                                                                                 "qh-G(T)"),
-                    thermodata=True)
+                log.write(qh_print_format.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)",
+                                                 "qh-G(T)"), thermodata=True)
         else:
+            print_format_3 = '\n\n   {:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'
             if options.spc and options.cosmo_int:
-                log.write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K",
-                                                                                                "H_SPC", "T.S",
-                                                                                                "T.qh-S", "G(T)_SPC",
-                                                                                                "COSMO-RS-qh-G(T)_SPC"),
-                          thermodata=True)
+                log.write(print_format_3.format("Structure", "Temp/K", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
+                                                "COSMO-RS-qh-G(T)_SPC"), thermodata=True)
             elif options.cosmo_int:
-                log.write(
-                    "\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H",
-                                                                                          "T.S", "T.qh-S", "G(T)",
-                                                                                          "qh-G(T)",
-                                                                                          "COSMO-RS-qh-G(T)"),
-                    thermodata=True)
+                log.write(print_format_3.format("Structure", "Temp/K", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)",
+                                                "COSMO-RS-qh-G(T)"), thermodata=True)
             elif options.spc:
-                log.write("\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K",
-                                                                                                "H_SPC", "T.S",
-                                                                                                "T.qh-S", "G(T)_SPC",
-                                                                                                "qh-G(T)_SPC"),
-                          thermodata=True)
+                log.write(print_format_3.format("Structure", "Temp/K", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
+                                                "qh-G(T)_SPC"), thermodata=True)
             else:
-                log.write(
-                    "\n\n   " + '{:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "Temp/K", "H",
-                                                                                          "T.S", "T.qh-S", "G(T)",
-                                                                                          "qh-G(T)"), thermodata=True)
+                log.write(print_format_3.format("Structure", "Temp/K", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),
+                          thermodata=True)
 
         for h, file in enumerate(files):  # Temperature interval
             log.write("\n" + stars)
@@ -3238,7 +3174,7 @@ def main():
                     cosmo_option = gsolv_dicts[i][file]
                 if options.cosmo_int is False:
                     # haven't implemented D3 for this option
-                    bbe = calc_bbe(file, options.QS, options.qh, options.S_freq_cutoff, options.H_freq_cutoff, temp,
+                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                                    0.0, cosmo=cosmo_option)
                 interval_bbe_data[h].append(bbe)
@@ -3264,7 +3200,7 @@ def main():
                         if not options.media:
                             if all(getattr(bbe, attrib) for attrib in
                                    ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                                if options.qh:
+                                if options.QH:
                                     if options.cosmo_int:
                                         log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
                                             bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
@@ -3300,14 +3236,13 @@ def main():
                                 if all(getattr(bbe, attrib) for attrib in
                                        ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",
                                         "qh_gibbs_free_energy"]):
-                                    if options.qh:
-                                        log.write(
-                                            ' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                                bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
-                                                (temp * (bbe.entropy + media_correction)),
-                                                (temp * (bbe.qh_entropy + media_correction)),
-                                                bbe.gibbs_free_energy + (temp * (-media_correction)),
-                                                bbe.qh_gibbs_free_energy + (temp * (-media_correction))))
+                                    if options.QH:
+                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
+                                                                    (temp * (bbe.entropy + media_correction)),
+                                                                    (temp * (bbe.qh_entropy + media_correction)),
+                                                                    bbe.gibbs_free_energy + (temp * (-media_correction)),
+                                                                    bbe.qh_gibbs_free_energy + (temp * (-media_correction))))
                                         log.write("  Solvent")
                                 else:
                                     log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
@@ -3322,7 +3257,7 @@ def main():
                                 if all(getattr(bbe, attrib) for attrib in
                                        ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",
                                         "qh_gibbs_free_energy"]):
-                                    if options.qh:
+                                    if options.QH:
                                         log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
                                                   '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
                                                                     (temp * bbe.entropy), (temp * bbe.qh_entropy),
@@ -3364,12 +3299,12 @@ def main():
             for i in interval:
                 temp = float(i)
                 if options.cosmo_int is False:
-                    pes = get_pes(options.pes, interval_thermo_data[j], log, temp, options.gconf, options.qh)
+                    pes = get_pes(options.pes, interval_thermo_data[j], log, temp, options.gconf, options.QH)
                 else:
-                    pes = get_pes(options.pes, interval_thermo_data[j], log, temp, options.gconf, options.qh,
+                    pes = get_pes(options.pes, interval_thermo_data[j], log, temp, options.gconf, options.QH,
                                   cosmo=True)
                 for k, path in enumerate(pes.path):
-                    if options.qh:
+                    if options.QH:
                         zero_vals = [pes.spc_zero[k][0], pes.e_zero[k][0], pes.zpe_zero[k][0], pes.h_zero[k][0],
                                      pes.qh_zero[k][0], temp * pes.ts_zero[k][0], temp * pes.qhts_zero[k][0],
                                      pes.g_zero[k][0], pes.qhg_zero[k][0]]
@@ -3383,7 +3318,7 @@ def main():
                         e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0
                         sels = []
                         for l, e_abs in enumerate(pes.e_abs[k]):
-                            if options.qh:
+                            if options.QH:
                                 species = [pes.spc_abs[k][l], pes.e_abs[k][l], pes.zpe_abs[k][l], pes.h_abs[k][l],
                                            pes.qh_abs[k][l], temp * pes.s_abs[k][l], temp * pes.qs_abs[k][l],
                                            pes.g_abs[k][l], pes.qhg_abs[k][l]]
@@ -3399,11 +3334,11 @@ def main():
                     if options.spc is False:
                         log.write(
                             "\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ")  at T: " + str(temp)))
-                        if options.qh and options.cosmo_int:
+                        if options.QH and options.cosmo_int:
                             log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13} '
                                       '{:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)",
                                                       "qh-DG(T)", 'COSMO-qh-G(T)'), thermodata=True)
-                        elif options.qh:
+                        elif options.QH:
                             log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
                                       '{:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)",
                                                       "qh-DG(T)"), thermodata=True)
@@ -3418,11 +3353,11 @@ def main():
                     else:
                         log.write(
                             "\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ")  at T: " + str(temp)))
-                        if options.qh and options.cosmo_int:
+                        if options.QH and options.cosmo_int:
                             log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} {:>14}'.format(
                                 " DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC",
                                 "qh-DG(T)_SPC", 'COSMO-qh-G(T)_SPC'), thermodata=True)
-                        elif options.qh:
+                        elif options.QH:
                             log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} '
                                       '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS",
                                                       "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
@@ -3438,7 +3373,7 @@ def main():
                     log.write("\n" + stars)
 
                     for l, e_abs in enumerate(pes.e_abs[k]):
-                        if options.qh:
+                        if options.QH:
                             species = [pes.spc_abs[k][l], pes.e_abs[k][l], pes.zpe_abs[k][l], pes.h_abs[k][l],
                                        pes.qh_abs[k][l], temp * pes.s_abs[k][l], temp * pes.qs_abs[k][l],
                                        pes.g_abs[k][l], pes.qhg_abs[k][l]]
@@ -3460,13 +3395,13 @@ def main():
                                        '{:13.1f} {:13.1f}'
                             format_2 = '{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} ' \
                                        '{:13.2f} {:13.2f}'
-                            if options.qh and options.cosmo_int:
+                            if options.QH and options.cosmo_int:
                                 if pes.dec == 1:
                                     log.write(format_1.format(pes.species[k][l], *formatted_list), thermodata=True)
                                 if pes.dec == 2:
                                     log.write(format_2.format(
                                         pes.species[k][l], *formatted_list), thermodata=True)
-                            elif options.qh or options.cosmo_int:
+                            elif options.QH or options.cosmo_int:
                                 if pes.dec == 1:
                                     log.write(format_1.format(pes.species[k][l], *formatted_list), thermodata=True)
                                 if pes.dec == 2:
@@ -3477,32 +3412,27 @@ def main():
                                 if pes.dec == 2:
                                     log.write(format_2.format(pes.species[k][l], *formatted_list), thermodata=True)
                         else:
-                            if options.qh and options.cosmo_int:
+                            if options.QH and options.cosmo_int:
                                 if pes.dec == 1:
                                     log.write(
                                         '{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f} {:13.1f}'.format(
                                             pes.species[k][l], *formatted_list), thermodata=True)
                                 if pes.dec == 2:
-                                    log.write(
-                                        '{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f} {:13.2f}'.format(
+                                    log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f} {:13.2f}'.format(
                                             pes.species[k][l], *formatted_list), thermodata=True)
-                            elif options.qh or options.cosmo_int:
+                            elif options.QH or options.cosmo_int:
                                 if pes.dec == 1:
-                                    log.write(
-                                        '{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                    log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
                                             pes.species[k][l], *formatted_list), thermodata=True)
                                 if pes.dec == 2:
-                                    log.write(
-                                        '{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                    log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
                                             pes.species[k][l], *formatted_list), thermodata=True)
                             else:
                                 if pes.dec == 1:
-                                    log.write(
-                                        '{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                    log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
                                             pes.species[k][l], *formatted_list), thermodata=True)
                                 if pes.dec == 2:
-                                    log.write(
-                                        '{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                    log.write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
                                             pes.species[k][l], *formatted_list), thermodata=True)
                         if pes.boltz:
                             boltz = [math.exp(-relative[1] * J_TO_AU / GAS_CONSTANT / options.temperature) / e_sum,
@@ -3516,23 +3446,21 @@ def main():
                     if pes.boltz == 'ee' and len(sels) == 2:
                         ee = [sels[0][x] - sels[1][x] for x in range(len(sels[0]))]
                         if options.spc is False:
-                            log.write(
-                                "\n" + stars + "\n   " + '{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)',
+                            log.write("\n" + stars + "\n   " + '{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)',
                                                                                                               *ee))
                         else:
-                            log.write(
-                                "\n" + stars + "\n   " + '{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)',
+                            log.write("\n" + stars + "\n   " + '{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)',
                                                                                                               *ee))
                     log.write("\n" + stars + "\n")
                 j += 1
         else:
             if options.cosmo:
-                pes = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.qh, cosmo=True)
+                pes = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH, cosmo=True)
             else:
-                pes = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.qh)
+                pes = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
             # Output the relative energy data
             for i, path in enumerate(pes.path):
-                if options.qh:
+                if options.QH:
                     zero_vals = [pes.spc_zero[i][0], pes.e_zero[i][0], pes.zpe_zero[i][0], pes.h_zero[i][0],
                                  pes.qh_zero[i][0], options.temperature * pes.ts_zero[i][0],
                                  options.temperature * pes.qhts_zero[i][0], pes.g_zero[i][0], pes.qhg_zero[i][0]]
@@ -3546,7 +3474,7 @@ def main():
                     e_sum, h_sum, g_sum, qhg_sum, cosmo_qhg_sum = 0.0, 0.0, 0.0, 0.0, 0.0
                     sels = []
                     for j, e_abs in enumerate(pes.e_abs[i]):
-                        if options.qh:
+                        if options.QH:
                             species = [pes.spc_abs[i][j], pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j],
                                        pes.qh_abs[i][j], options.temperature * pes.s_abs[i][j],
                                        options.temperature * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
@@ -3565,7 +3493,7 @@ def main():
 
                 if options.spc is False:
                     log.write("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ") ", ))
-                    if options.qh and options.cosmo:
+                    if options.QH and options.cosmo:
                         log.write(
                             '{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13} {:>13}'.format(" DE", "DZPE", "DH",
                                                                                                     "qh-DH", "T.DS",
@@ -3573,7 +3501,7 @@ def main():
                                                                                                     "qh-DG(T)",
                                                                                                     'COSMO-qh-G(T)'),
                             thermodata=True)
-                    elif options.qh:
+                    elif options.QH:
                         log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13}'.format(" DE", "DZPE", "DH",
                                                                                                    "qh-DH", "T.DS",
                                                                                                    "T.qh-DS", "DG(T)",
@@ -3592,11 +3520,11 @@ def main():
                                   thermodata=True)
                 else:
                     log.write("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ") ", ))
-                    if options.qh and options.cosmo:
+                    if options.QH and options.cosmo:
                         log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} '
                                   '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS",
                                                   "DG(T)_SPC", "qh-DG(T)_SPC", 'COSMO-qh-G(T)_SPC'), thermodata=True)
-                    elif options.qh:
+                    elif options.QH:
                         log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} '
                                   '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS",
                                                   "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
@@ -3611,7 +3539,7 @@ def main():
                 log.write("\n" + stars)
 
                 for j, e_abs in enumerate(pes.e_abs[i]):
-                    if options.qh:
+                    if options.QH:
                         species = [pes.spc_abs[i][j], pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j],
                                    pes.qh_abs[i][j], options.temperature * pes.s_abs[i][j],
                                    options.temperature * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
@@ -3629,7 +3557,7 @@ def main():
                     log.write("\no  ")
                     if options.spc is False:
                         formatted_list = formatted_list[1:]
-                        if options.qh and options.cosmo:
+                        if options.QH and options.cosmo:
                             if pes.dec == 1:
                                 log.write(
                                     '{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f} {:13.1f}'.format(
@@ -3638,7 +3566,7 @@ def main():
                                 log.write(
                                     '{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f} {:13.2f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
-                        elif options.qh or options.cosmo:
+                        elif options.QH or options.cosmo:
                             if pes.dec == 1:
                                 log.write(
                                     '{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
@@ -3649,40 +3577,32 @@ def main():
                                         pes.species[i][j], *formatted_list), thermodata=True)
                         else:
                             if pes.dec == 1:
-                                log.write(
-                                    '{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                log.write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                             if pes.dec == 2:
-                                log.write(
-                                    '{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                log.write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                     else:
-                        if options.qh and options.cosmo:
+                        if options.QH and options.cosmo:
                             if pes.dec == 1:
-                                log.write(
-                                    '{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f} {:13.1f}'.format(
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f} {:13.1f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                             if pes.dec == 2:
-                                log.write(
-                                    '{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f} {:13.2f}'.format(
+                                log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f} {:13.2f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
-                        elif options.qh or options.cosmo:
+                        elif options.QH or options.cosmo:
                             if pes.dec == 1:
-                                log.write(
-                                    '{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                             if pes.dec == 2:
-                                log.write(
-                                    '{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                         else:
                             if pes.dec == 1:
-                                log.write(
-                                    '{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                             if pes.dec == 2:
-                                log.write(
-                                    '{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                log.write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
                                         pes.species[i][j], *formatted_list), thermodata=True)
                     if pes.boltz:
                         boltz = [math.exp(-relative[1] * J_TO_AU / GAS_CONSTANT / options.temperature) / e_sum,
@@ -3696,12 +3616,10 @@ def main():
                 if pes.boltz == 'ee' and len(sels) == 2:
                     ee = [sels[0][x] - sels[1][x] for x in range(len(sels[0]))]
                     if options.spc is False:
-                        log.write(
-                            "\n" + stars + "\n   " + '{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)',
+                        log.write("\n" + stars + "\n   " + '{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)',
                                                                                                           *ee))
                     else:
-                        log.write(
-                            "\n" + stars + "\n   " + '{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)',
+                        log.write("\n" + stars + "\n   " + '{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)',
                                                                                                           *ee))
                 log.write("\n" + stars + "\n")
 
@@ -3713,8 +3631,7 @@ def main():
         ee, er, ratio, dd_free_energy, failed, preference = get_selectivity(options.ee, files, boltz_facs, boltz_sum,
                                                                             options.temperature, log, dup_list)
         if not failed:
-            log.write(
-                "\n   " + '{:<39} {:>13} {:>13} {:>13} {:>13} {:>13}'.format("Selectivity", "Excess (%)", "Ratio (%)",
+            log.write("\n   " + '{:<39} {:>13} {:>13} {:>13} {:>13} {:>13}'.format("Selectivity", "Excess (%)", "Ratio (%)",
                                                                              "Ratio", "Major Iso", "ddG"),
                 thermodata=True)
             log.write("\n" + selec_stars)
@@ -3737,7 +3654,7 @@ def main():
                 pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
                 sys.exit(pes_error)
 
-        graph_data = get_pes(options.graph, thermo_data, log, options.temperature, options.gconf, options.qh)
+        graph_data = get_pes(options.graph, thermo_data, log, options.temperature, options.gconf, options.QH)
         graph_reaction_profile(graph_data, log, options, plt)
 
     # Close the log
