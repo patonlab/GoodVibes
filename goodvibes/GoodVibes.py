@@ -1432,8 +1432,8 @@ def parse_data(file):
                     repeated_link1 = 1
                 version_program = version_program[1:]
             if "Charge" in line.strip() and "Multiplicity" in line.strip():
-                charge = line.strip("=").split()[2]
-                multiplicity = line.strip('=').split()[5]
+                charge = line.split('Multiplicity')[0].split('=')[-1].strip()
+                multiplicity = line.split('=')[-1].strip()
         if program == "Orca":
             if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
                 spe = float(line.strip().split()[4])
