@@ -62,7 +62,7 @@ import numpy as np
 try:
     from .vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 except:
-    from vib_scale_factors import scaling_data_dict_mod, scaling_data_dict_mod, scaling_refs
+    from vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 
 try:
     from pyDFTD3 import dftd3 as D3
@@ -2694,7 +2694,7 @@ def main():
         # Look for vibrational scaling factor automatically
         if all_same(l_o_t):
             level = l_o_t[0].upper()
-            for data in (scaling_data_dict_mod, scaling_data_dict_mod):
+            for data in (scaling_data_dict, scaling_data_dict_mod):
                 if level in data:
                     options.freq_scale_factor = data[level].zpe_fac
                     ref = scaling_refs[data[level].zpe_ref]
