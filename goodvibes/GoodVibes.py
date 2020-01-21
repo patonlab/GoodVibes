@@ -526,7 +526,7 @@ class calc_bbe:
         int_sym = 1
 
         for i, row in enumerate(self.xyz.connectivity):
-            if self.xyz.atomnums[i] != 6: continue
+            if self.xyz.atom_nums[i] != 6: continue
             As = np.array(self.xyz.atom_nums)[row]
             if len(As == 4):
                 neighbors = [x for x in As if x in neighbor]
@@ -538,6 +538,8 @@ class calc_bbe:
     def sym_correction(self, file):
         ex_sym, pgroup = self.ex_sym(file)
         int_sym = self.int_sym()
+        #override int_sym
+        int_sym = 1
         sym_num = ex_sym * int_sym
         sym_correction = (-GAS_CONSTANT * math.log(sym_num)) / J_TO_AU
         return sym_correction, pgroup
