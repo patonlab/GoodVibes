@@ -35,7 +35,8 @@ if [[$TRAVIS_OS_NAME == 'osx']]; then
     pyenv-virtualenv venv
     source venv/bin/activate
     python --version
-elif [[$TRAVIS_OS_NAME == 'linux']]; then
+fi
+if [[$TRAVIS_OS_NAME == 'linux']]; then
     brew update
     brew install pyenv-virtualenv
     case "${TOXENV}" in
