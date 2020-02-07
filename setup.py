@@ -10,7 +10,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
   name='goodvibes',
   packages=['goodvibes'],
-  version='3.0.1.hmayes',
+  version='3.1.0',
   description='A python program to compute corrections to thermochemical data from frequency calculations',
   long_description=long_description,
   long_description_content_type='text/markdown',
@@ -20,7 +20,7 @@ setup(
   download_url='https://github.com/bobbypaton/GoodVibes/archive/v3.0.1.zip',
   keywords=['compchem', 'thermochemistry', 'gaussian', 'vibrational-entropies', 'temperature'],
   classifiers=[],
-  install_requires=["numpy", ],
+  install_requires=["numpy>=1.14.2", ],
   python_requires='>=2.6',
   include_package_data=True,
 )
