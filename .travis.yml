@@ -50,28 +50,64 @@ matrix:
       dist: xenial
       sudo: true
     - os: windows
-      python: 2.6
-      env: TOXENV=py26
+     language: shell 
+     before_install:
+       - choco install python --version 2.6
+       - python --version
+       - python -m pip install --upgrade pip
+       - pip install --upgrade pytest
+       - pip install codecov
+     env: PATH=/c/Python26:/c/Python26/Scripts:$PATH
     - os: windows
-      python: 2.7
-      env: TOXENV=py27
+      language: shell 
+      before_install:
+        - choco install python --version 2.7
+        - python --version
+        - python -m pip install --upgrade pip
+        - pip install --upgrade pytest
+        - pip install codecov
+      env: PATH=/c/Python27:/c/Python27/Scripts:$PATH
     - os: windows
-      python: 3.5
-      env: TOXENV=py35
+      language: shell 
+      before_install:
+        - choco install python --version 3.5
+        - python --version
+        - python -m pip install --upgrade pip
+        - pip install --upgrade pytest
+        - pip install codecov
+      env: PATH=/c/Python35:/c/Python35/Scripts:$PATH
     - os: windows
-      python: 3.6
-      env: TOXENV=py36
+      language: shell 
+      before_install:
+        - choco install python --version 3.6
+        - python --version
+        - python -m pip install --upgrade pip
+        - pip install --upgrade pytest
+        - pip install codecov
+      env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
     - os: windows
-      python: 3.7
-      env: TOXENV=py37
+      language: shell 
+      before_install:
+        - choco install python --version 3.7
+        - python --version
+        - python -m pip install --upgrade pip
+        - pip install --upgrade pytest
+        - pip install codecov
+      env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
     - os: windows
-      python: 3.8
-      env: TOXENV=py38
+      language: shell 
+      before_install:
+        - choco install python --version 3.8
+        - python --version
+        - python -m pip install --upgrade pip
+        - pip install --upgrade pytest
+        - pip install codecov
+      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
 
 install:
+  - ./.travis-install.sh
   - pip install pytest
   - python setup.py install
-  - ./.travis-install.sh
 
 script:
   - pytest -v
