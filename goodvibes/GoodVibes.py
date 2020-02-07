@@ -1141,8 +1141,10 @@ def graph_reaction_profile(graph_data, log, options, plt):
     # Grab any additional formatting for graph
     with open(options.graph) as f:
         yaml = f.readlines()
+    #defaults
     ylim, color, show_conf, show_gconf, show_title = None, None, True, False, True
-    label_point, label_xaxis, dpi, dec, legend, colors, gridlines, title = True, True, False, 2, True, None, False, None
+    label_point, label_xaxis, dpi, dec, legend = False, True, False, 2, False,
+    colors, gridlines, title =  None, False, 'Potential Energy Surface'
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i + 1:]):

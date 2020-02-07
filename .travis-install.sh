@@ -35,4 +35,18 @@ if [[$TRAVIS_OS_NAME == 'osx']]; then
     pyenv-virtualenv venv
     source venv/bin/activate
     python --version
+elif [[$TRAVIS_OS_NAME == 'linux']]; then
+    brew update
+    brew install pyenv-virtualenv
+    case "${TOXENV}" in
+        py26)
+            pyenv install 2.6.9
+            export PYENV_VERSION=2.6.9
+            pip install 'numpy=1.14.2'
+            ;;
+        py27)
+            pyenv install 2.7.12
+            export PYENV_VERSION=2.7.12
+            pip install 'numpy=1.14.2'
+            ;;
 fi
