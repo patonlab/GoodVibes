@@ -4,16 +4,6 @@ if [[$TRAVIS_OS_NAME == 'osx']]; then
     brew update
     brew install pyenv-virtualenv
     case "${TOXENV}" in
-        py26)
-            pyenv install 2.6.9
-            export PYENV_VERSION=2.6.9
-            pip install 'numpy=1.14.2'
-            ;;
-        py27)
-            pyenv install 2.7.12
-            export PYENV_VERSION=2.7.12
-            pip install 'numpy=1.14.2'
-            ;;
         py35)
             pyenv install 3.5.2
             export PYENV_VERSION=3.5.2
@@ -34,17 +24,5 @@ if [[$TRAVIS_OS_NAME == 'osx']]; then
     export PATH="/Users/travis/.pyenv/shims:${PATH}"
     pyenv-virtualenv venv
     source venv/bin/activate
-    python --version
-fi
-if [[$TRAVIS_OS_NAME == 'linux']]; then
-    brew update
-    brew install pyenv-virtualenv
-    case "${TOXENV}" in
-        py26)
-            pip install 'numpy=1.14.2'
-            ;;
-        py27)
-            pip install 'numpy=1.14.2'
-            ;;
-    esac
+    python3 --version
 fi
