@@ -136,7 +136,6 @@ RADII = {'H': 0.32, 'He': 0.93, 'Li': 1.23, 'Be': 0.90, 'B': 0.82, 'C': 0.77, 'N
 BONDI = {'H': 1.09, 'He': 1.40, 'Li': 1.82, 'Be': 2.00, 'B': 2.00, 'C': 1.70, 'N': 1.55, 'O': 1.52, 'F': 1.47,
          'Ne': 1.54}
 
-
 def sharepath(filename):
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(here, 'share', filename)
@@ -717,6 +716,10 @@ class get_pes:
                                                 g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                             boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
                                             boltz_prob = boltz_fac / boltz_sum
+                                            #if no contribution, skip further calculations
+                                            if boltz_prob == 0.0:
+                                                continue
+                                                
                                             if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[
                                                 conformer].sp_energy is not '!':
                                                 spc_zero += thermo_data[conformer].sp_energy * boltz_prob
@@ -726,7 +729,8 @@ class get_pes:
                                                     "Not all files contain a SPC value, relative values will not be calculated.")
                                             e_zero += thermo_data[conformer].scf_energy * boltz_prob
                                             zpe_zero += thermo_data[conformer].zpe * boltz_prob
-                                            if gconf:  # Default calculate gconf correction for conformers
+                                            # Default calculate gconf correction for conformers, skip if no contribution
+                                            if gconf and boltz_prob > 0.0 and boltz_prob != 1.0:  
                                                 h_conf += thermo_data[conformer].enthalpy * boltz_prob
                                                 s_conf += thermo_data[conformer].entropy * boltz_prob
                                                 s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
@@ -734,6 +738,11 @@ class get_pes:
                                                 qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
                                                 qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
                                                 qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
+                                            elif gconf and boltz_prob == 1.0:
+                                                h_conf += thermo_data[conformer].enthalpy
+                                                s_conf += thermo_data[conformer].entropy
+                                                qh_conf += thermo_data[conformer].qh_enthalpy
+                                                qs_conf += thermo_data[conformer].qh_entropy
                                             else:
                                                 h_zero += thermo_data[conformer].enthalpy * boltz_prob
                                                 s_zero += thermo_data[conformer].entropy * boltz_prob
@@ -889,6 +898,8 @@ class get_pes:
                                                         g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                                     boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
                                                     boltz_prob = boltz_fac / boltz_sum
+                                                    if boltz_prob == 0.0:
+                                                        continue
                                                     if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[
                                                         conformer].sp_energy is not '!':
                                                         spc_abs += thermo_data[conformer].sp_energy * boltz_prob
@@ -904,7 +915,8 @@ class get_pes:
                                                                          conformer].qh_gibbs_free_energy * boltz_prob
                                                         rel_val += thermo_data[
                                                                        conformer].qh_gibbs_free_energy * boltz_prob
-                                                    if gconf:  # Default calculate gconf correction for conformers
+                                                    # Default calculate gconf correction for conformers, skip if no contribution
+                                                    if gconf and boltz_prob > 0.0 and boltz_prob != 1.0:    
                                                         h_conf += thermo_data[conformer].enthalpy * boltz_prob
                                                         s_conf += thermo_data[conformer].entropy * boltz_prob
                                                         s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
@@ -912,6 +924,11 @@ class get_pes:
                                                         qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
                                                         qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
                                                         qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
+                                                    elif gconf and boltz_prob == 1.0:
+                                                        h_conf += thermo_data[conformer].enthalpy
+                                                        s_conf += thermo_data[conformer].entropy
+                                                        qh_conf += thermo_data[conformer].qh_enthalpy
+                                                        qs_conf += thermo_data[conformer].qh_entropy
                                                     else:
                                                         h_abs += thermo_data[conformer].enthalpy * boltz_prob
                                                         s_abs += thermo_data[conformer].entropy * boltz_prob
@@ -2412,7 +2429,10 @@ def check_files(log, files, thermo_data, options, STARS, l_o_t, orientation, gri
         # Check SPC solvation
         solvent_check_spc = [thermo_data[key].sp_solvation_model for key in thermo_data]
         if all_same(solvent_check_spc):
-            log.write("\no  Using " + solvent_check_spc[0] + " in all the single-point corrections.")
+            if isinstance(solvent_check_spc[0],list):
+                log.write("\no  Using " + solvent_check_spc[0][0] + " in all single-point corrections.")
+            else:
+                log.write("\no  Using " + solvent_check_spc[0] + " in all single-point corrections.")
         else:
             print_check_fails(log, solvent_check_spc, file_check, "solvation models")
 
@@ -2717,7 +2737,7 @@ def main():
 
     # Exit program if a comparison of Boltzmann factors is requested and level of theory is not uniform across all files
     if not all_same(l_o_t) and (options.boltz is not False or options.ee is not False):
-        sys.exit("\n\nERROR: When comparing files with Boltzmann factors (with bolts, ee, dr options), the level of "
+        sys.exit("\n\nERROR: When comparing files using Boltzmann factors (boltz or ee input options), the level of "
                  "theory used should be the same for all files.\n ")
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if options.mm_freq_scale_factor is not False:
@@ -2813,9 +2833,9 @@ def main():
         log.write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
         log.write("\n   REF: " + csd_ref + '\n')
 
-    # Whether linked single-point energies are to be used
+    # Whether single-point energies are to be used
     if options.spc:
-        log.write("\n   Link job: combining final single point energy with thermal corrections.")
+        log.write("\n   Combining final single point energy with thermal corrections.")
 
     # Check for special options 
     inverted_freqs, inverted_files = [], []
@@ -3018,6 +3038,11 @@ def main():
                                 # Media correction based on standard concentration of solvent
                             if options.media.lower() in solvents and options.media.lower() == \
                                     os.path.splitext(os.path.basename(file))[0].lower():
+                                space = ''
+                                if options.boltz:
+                                    space += '          '
+                                if options.imag:
+                                    space += '          '
                                 mw_solvent = solvents[options.media.lower()][0]
                                 density_solvent = solvents[options.media.lower()][1]
                                 concentration_solvent = (density_solvent * 1000) / mw_solvent
@@ -3032,7 +3057,7 @@ def main():
                                                                     bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
                                                                     bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))),
                                                   thermodata=True)
-                                        log.write("  Solvent")
+                                        log.write(space + "  Solvent: [{:4.2f}] ".format(concentration_solvent))
                                     else:
                                         log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
                                                   '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
@@ -3040,7 +3065,7 @@ def main():
                                                                     (options.temperature * (bbe.qh_entropy + media_correction)),
                                                                     bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
                                                                     bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))), thermodata=True)
-                                        log.write("  Solvent")
+                                        log.write(space + "  Solvent: [{:4.2f}] ".format(concentration_solvent))
                             else:
                                 if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy",
                                                                            "gibbs_free_energy", "qh_gibbs_free_energy"]):
