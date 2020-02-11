@@ -2647,7 +2647,7 @@ def main():
                             if not (os.path.exists(name + '_' + options.spc + '.log') or os.path.exists(
                                     name + '_' + options.spc + '.out')) and options.spc != 'link':
                                 sys.exit("\nError! SPC calculation file '{}' not found! Make sure files are named with "
-                                         "the convention: 'filename_spc'.\nFor help, use option '-h'\n"
+                                         "the convention: 'filename_spc' or specify link job.\nFor help, use option '-h'\n"
                                          "".format(name + '_' + options.spc))
             elif elem != 'clust:':  # Look for requested options
                 command += elem + ' '
@@ -2677,7 +2677,7 @@ def main():
     log.write('\n   All energetic values below shown in Hartree unless otherwise specified.')
     # Initial read of files, 
     # Grab level of theory, solvation model, check for Normal Termination
-    l_o_t, s_m, progress, orientation, grid = [], [], {}, {}, {}
+    l_o_t, s_m, progress, spc_progress, orientation, grid = [], [], {}, {}, {}, {}
     for file in files:
         lot_sm_prog = read_initial(file)
         l_o_t.append(lot_sm_prog[0])
@@ -2685,6 +2685,16 @@ def main():
         progress[file] = lot_sm_prog[2]
         orientation[file] = lot_sm_prog[3]
         grid[file] = lot_sm_prog[4]
+        #check spc files for normal termination
+        if options.spc is not False and options.spc is not 'link':
+            name, ext = os.path.splitext(file)
+            if os.path.exists(name + '_' + options.spc + '.log'): 
+                spc_file = name + '_' + options.spc + '.log'
+            elif os.path.exists(name + '_' + options.spc + '.out'):
+                spc_file = name + '_' + options.spc + '.out'
+            lot_sm_prog = read_initial(spc_file)
+            spc_progress[spc_file] = lot_sm_prog[2]
+    
     remove_key = []
     # Remove problem files and print errors
     for i, key in enumerate(files):
@@ -2696,7 +2706,15 @@ def main():
             log.write("\n\nx  Warning! File {} may not have terminated normally or the calculation may still be "
                       "running. This file will be omitted from further calculations.".format(key))
             remove_key.append([i, key])
-    # print(remove_key)
+    #check spc files for normal termination
+    if spc_progress:
+        for key in spc_progress:
+            if spc_progress[key] == 'Error':
+                sys.exit("\n\nx  ERROR! Error termination found in file {} calculations.".format(key))
+            elif spc_progress[key] == 'Incomplete':
+                sys.exit("\n\nx  ERROR! File {} may not have terminated normally or the "
+                    "calculation may still be running.".format(key))
+                          
     for [i, key] in list(reversed(remove_key)):
         files.remove(key)
         del l_o_t[i]
