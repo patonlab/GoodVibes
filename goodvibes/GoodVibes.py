@@ -1773,8 +1773,7 @@ def read_initial(file):
         # Remove the restricted R or unrestricted U label
         if level[0] in ('R', 'U'):
             level = level[1:]
-
-    # print(file,level)        
+   
     # Grab solvation models - Gaussian files
     if program is 'Gaussian':
         for i, line in enumerate(data):
@@ -2089,13 +2088,28 @@ def calc_damp(frequency_wn, freq_cutoff):
 # based on boltzmann factors of given stereoisomers
 def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup_list):
     # Grab files for selectivity calcs
+    # list the directories to look in
+    dirs = []
+    for file in files:
+        dirs.append(os.path.dirname(file))
+    dirs = list(set(dirs))
     a_files, b_files, a_sum, b_sum, failed, pref = [], [], 0.0, 0.0, False, ''
-    pattern = pattern.split(',')
-    A = ''.join(a for a in pattern[0] if a.isalnum())
-    B = ''.join(b for b in pattern[1] if b.isalnum())
-    a_files.extend(glob(pattern[0]))
-    b_files.extend(glob(pattern[1]))
-
+    
+    [a_regex,b_regex] = pattern.split(':')
+    [a_regex,b_regex] = [a_regex.strip(), b_regex.strip()]
+    
+    A = ''.join(a for a in a_regex if a.isalnum())
+    B = ''.join(b for b in b_regex if b.isalnum())
+    
+    if len(dirs) > 1 or dirs[0] != '':
+        for dir in dirs:
+            a_files.extend(glob(dir+'/'+a_regex))
+            b_files.extend(glob(dir+'/'+b_regex))
+    else:
+        a_files.extend(glob(a_regex))
+        b_files.extend(glob(b_regex))
+        
+    
     if len(a_files) is 0 or len(b_files) is 0:
         log.write("\n   Warning! Filenames have not been formatted correctly for determining selectivity\n")
         log.write("   Make sure the filename contains either " + A + " or " + B + "\n")
@@ -2686,7 +2700,7 @@ def main():
         orientation[file] = lot_sm_prog[3]
         grid[file] = lot_sm_prog[4]
         #check spc files for normal termination
-        if options.spc is not False and options.spc is not 'link':
+        if options.spc is not False and options.spc != 'link':
             name, ext = os.path.splitext(file)
             if os.path.exists(name + '_' + options.spc + '.log'): 
                 spc_file = name + '_' + options.spc + '.log'
@@ -3053,14 +3067,9 @@ def main():
                                 from .media import solvents
                             except:
                                 from media import solvents
-                                # Media correction based on standard concentration of solvent
+                            # Media correction based on standard concentration of solvent
                             if options.media.lower() in solvents and options.media.lower() == \
                                     os.path.splitext(os.path.basename(file))[0].lower():
-                                space = ''
-                                if options.boltz:
-                                    space += '          '
-                                if options.imag:
-                                    space += '          '
                                 mw_solvent = solvents[options.media.lower()][0]
                                 density_solvent = solvents[options.media.lower()][1]
                                 concentration_solvent = (density_solvent * 1000) / mw_solvent
@@ -3075,7 +3084,7 @@ def main():
                                                                     bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
                                                                     bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))),
                                                   thermodata=True)
-                                        log.write(space + "  Solvent: [{:4.2f}] ".format(concentration_solvent))
+                                        log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
                                     else:
                                         log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
                                                   '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
@@ -3083,7 +3092,7 @@ def main():
                                                                     (options.temperature * (bbe.qh_entropy + media_correction)),
                                                                     bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
                                                                     bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))), thermodata=True)
-                                        log.write(space + "  Solvent: [{:4.2f}] ".format(concentration_solvent))
+                                        log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
                             else:
                                 if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy",
                                                                            "gibbs_free_energy", "qh_gibbs_free_energy"]):
@@ -3259,7 +3268,7 @@ def main():
                                                                     (temp * (bbe.qh_entropy + media_correction)),
                                                                     bbe.gibbs_free_energy + (temp * (-media_correction)),
                                                                     bbe.qh_gibbs_free_energy + (temp * (-media_correction))))
-                                        log.write("  Solvent")
+                                        log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
                                 else:
                                     log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
                                               '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
@@ -3268,7 +3277,7 @@ def main():
                                                                 bbe.gibbs_free_energy + (temp * (-media_correction)),
                                                                 bbe.qh_gibbs_free_energy + (
                                                                             temp * (-media_correction))))
-                                    log.write("  Solvent")
+                                    log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
                             else:
                                 if all(getattr(bbe, attrib) for attrib in
                                        ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",

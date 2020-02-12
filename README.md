@@ -74,7 +74,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `-t` option specifies temperature (in Kelvin). N.B. This does not have to correspond to the temperature used in the Gaussian calculation since all thermal quantities are reevalulated by GoodVibes at the requested temperature. The default value is 298.15 K.
 *	The `-c` option specifies concentration (in mol/l).  It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same as the Gaussian Pressure route line specification. The correction is applied to the Sackur-Tetrode equation of the translational entropy e.g. `-c 1` corrects to a solution-phase standard state of 1 mol/l. The default is 1 atmosphere.
 *	The `--ti` option specifies a temperature interval (for example to see how a free energy barrier changes with the temperature). Usage is `--ti 'initial_temperature, final_temperature, step_size'`. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) / 10
-*	The `--ee` option takes a file naming pattern (such as `*_R*`,`*_S*`) with files named as structure_R.log, structure_S.log, and will calculate and display values for stereoisomer excess (in %), ratio, major isomer present, and ddG.
+*	The `--ee` option takes a file naming pattern (such as `"*_R*:*_S*"`) with files named as structure_R.log, structure_S.log, and will calculate and display values for stereoisomer excess (in %), ratio, major isomer present, and ddG.
 *	The `--cosmo` option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out formatted file.
 *   The `--cosmo_int` option allows for Gibbs Free Energy of Solvation calculated using COSMO-RS with a temperature interval to be applied at a range of temperatures. Since temperature gaps may not be consistent, the interval is automatically detected. Usage is `--cosmo_int cosmo_gsolv.out,initial_temp,final_temp`. GoodVibes will detect temperatures within the range provided.
 *	The `-v` option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by `-v 1.0`
@@ -103,7 +103,7 @@ python -m goodvibes examples/methylaniline.out -f 150
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
-o  methylaniline      -326.664901   0.142118   -326.514489   0.039668   0.039465   -326.554157   -326.553955
+o  methylaniline      -326.664901   0.142118   -326.514489   0.039668   0.039465   -326.554157   -326.553954
    *********************************************************************************************************
 
 ```
@@ -116,7 +116,7 @@ python -m goodvibes examples/ethane_spc.out --spc link
 
    Structure                E_SPC             E        ZPE         H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
    ***********************************************************************************************************************
-o  ethane_spc          -79.858399    -79.830421   0.075238    -79.778748   0.027523   0.027525    -79.806271    -79.806273
+o  ethane_spc          -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
    ***********************************************************************************************************************
 ```
 
@@ -140,7 +140,7 @@ python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
-o  methylaniline      -326.664901   0.142118   -326.514489   0.039668   0.039535   -326.554157   -326.554024
+o  methylaniline      -326.664901   0.142118   -326.452307   0.218212   0.216559   -326.670519   -326.668866
    *********************************************************************************************************
 ```
 
@@ -202,7 +202,7 @@ o  isobutane          -158.458811   0.132380   -158.319804   0.034241   0.034252
 o  methylaniline      -326.664901   0.142118   -326.514489   0.039668   0.039535   -326.554157   -326.554024
 o  neopentane         -197.772980   0.160311   -197.604824   0.036952   0.036966   -197.641776   -197.641791
    *********************************************************************************************************
-TOTAL CPU      0 days  2 hrs 37 mins  5 secs
+TOTAL CPU      0 days  2 hrs 29 mins 28 secs
 
 ```
 The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case. Wildcard characters (`*`) can be used to represent any character or string of characters.
@@ -213,27 +213,27 @@ python -m goodvibes examples/allene.out examples/benzene.out examples/ethane.out
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Point Group
    **********************************************************************************************************************
-o  allene             -116.569605   0.053913   -116.510916   0.024235   0.024237   -116.535150   -116.535153          D2d
+o  allene             -116.569605   0.053913   -116.510916   0.026309   0.026312   -116.537225   -116.537228          D2d
 o  benzene            -232.227201   0.101377   -232.120521   0.030396   0.030399   -232.150917   -232.150919          D6h
-o  ethane              -79.830421   0.075238    -79.750770   0.023757   0.023759    -79.774527    -79.774529          D3d
-o  isobutane          -158.458811   0.132380   -158.319804   0.030092   0.030103   -158.349896   -158.349907          C3v
-o  neopentane         -197.772980   0.160311   -197.604824   0.030456   0.030471   -197.635281   -197.635295           Td
+o  ethane              -79.830421   0.075238    -79.750770   0.025831   0.025833    -79.776601    -79.776603          D3d
+o  isobutane          -158.458811   0.132380   -158.319804   0.033204   0.033214   -158.353008   -158.353019          C3v
+o  neopentane         -197.772980   0.160311   -197.604824   0.034606   0.034620   -197.639430   -197.639444           Td
    *********************************************************************************************************************************************
 ```
 GoodVibes will apply a symmetry correction described above to the entropy term of each molecule after determining the symmetry number. It is always a good idea to double-check that the point group GoodVibes returns is the correct group.
 
 #### Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction
 ```python
-python -m goodvibes examples/gconf_ee_boltz/*.log --pes gconf_aminox_cat.yaml
+python -m goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    ************************************************************************************************************
-o  Aminoxylation_TS1_R   -879.405138   0.304487   -879.082686   0.062861   0.060665   -879.145547   -879.143351
-o  Aminoxylation_TS2_S   -879.404445   0.304434   -879.081872   0.063479   0.061076   -879.145351   -879.142948
-o  aminox_cat_conf212_S  -517.875165   0.206534   -517.656256   0.051294   0.049337   -517.707550   -517.705593
-o  aminox_cat_conf280_R  -517.877308   0.207081   -517.658218   0.049481   0.048300   -517.707700   -517.706519
-o  aminox_cat_conf65_S   -517.877161   0.206999   -517.658210   0.049276   0.048179   -517.707487   -517.706389
-o  aminox_subs_conf713   -361.535757   0.098285   -361.430368   0.037571   0.037450   -361.467939   -361.467818
+o  Aminoxylation_TS1_R   -879.405138   0.295352   -879.091374   0.063746   0.061481   -879.155120   -879.152855
+o  Aminoxylation_TS2_S   -879.404445   0.295301   -879.090562   0.064366   0.061891   -879.154928   -879.152453
+o  aminox_cat_conf212_S  -517.875165   0.200338   -517.662195   0.051817   0.049814   -517.714012   -517.712009
+o  aminox_cat_conf280_R  -517.877308   0.200869   -517.664171   0.049996   0.048777   -517.714167   -517.712948
+o  aminox_cat_conf65_S   -517.877161   0.200789   -517.664159   0.049790   0.048656   -517.713949   -517.712815
+o  aminox_subs_conf713   -361.535757   0.095336   -361.433167   0.037824   0.037696   -361.470991   -361.470863
    ************************************************************************************************************
 
    Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors
@@ -241,7 +241,7 @@ o  aminox_subs_conf713   -361.535757   0.098285   -361.430368   0.037571   0.037
    RXN: Reaction (kcal/mol)       DE       DZPE            DH       T.DS    T.qh-DS         DG(T)      qh-DG(T)
    ************************************************************************************************************
 o  Cat+Subs                     0.00       0.00          0.00       0.00       0.00          0.00          0.00
-o  TS                           4.71      -0.47          3.49     -15.93     -16.43         19.42         19.92
+o  TS                           4.72      -0.46          3.53     -15.85     -16.37         19.39         19.90
    ************************************************************************************************************
 ```
 A `.yaml` file is given to the `--pes` argument which specifies the reaction: `Catalyst + Substrate -> TS`. Because multiple conformers for the catalysts and transition states have been provided, GoodVibes will calculate a correction to the free energy based on the number of accessible conformations based on the Boltzmann-weighted energies of the conformers. To turn this correction off, `--nogconf` should be specified. An example `.yaml` file is shown below to show how these files should be formatted.
@@ -249,24 +249,24 @@ A `.yaml` file is given to the `--pes` argument which specifies the reaction: `C
 #### Example 10: Stereoselectivity and Boltzmann populations
 
 ```python
-python -m goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee *_R*,*_S*
+python -m goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee "*_R*:*_S*"
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Boltz
    *******************************************************************************************************************
-o  Aminoxylation_TS1_R   -879.405138   0.304487   -879.082686   0.062861   0.060665   -879.145547   -879.143351  0.605
-o  Aminoxylation_TS2_S   -879.404445   0.304434   -879.081872   0.063479   0.061076   -879.145351   -879.142948  0.395
+o  Aminoxylation_TS1_R   -879.405138   0.295352   -879.091374   0.063746   0.061481   -879.155120   -879.152855  0.605
+o  Aminoxylation_TS2_S   -879.404445   0.295301   -879.090562   0.064366   0.061891   -879.154928   -879.152453  0.395
    *******************************************************************************************************************
 
    Selectivity            Excess (%)     Ratio (%)         Ratio     Major Iso           ddG
    *****************************************************************************************
-o                              21.00         60:40         1.5:1             R          0.25
+o                              20.98         60:40         1.5:1             R          0.25
    *****************************************************************************************
 ```
 
 The `--boltz` option will provide Boltzmann probabilities to the right of energy results under the `boltz` tab. With the `--ee` option, %ee, er and a reduced ratio are shown along with the dominant isomer and a calculated transition state energy value, ddG or ΔG‡.
 
 #### File Naming Conventions
-Some options (--pes, --graph, --spc, -ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly.
+Some options (--pes, --graph, --spc, --ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly.
 
 * **PES & Graph**
 
@@ -279,7 +279,7 @@ Some options (--pes, --graph, --spc, -ee, --media) require the calculation outpu
 * **Selectivity**
 
     To calculate enantiomeric excess, enantiomeric ratio, or diastereomeric ratios,
-    file names should begin or end with a pattern identifier, such as `_R` and `_S`. The argument then passed to GoodVibes should be `--ee *_R*,*_S*`.
+    file names should begin or end with a pattern identifier, such as `_R` and `_S`. The argument then passed to GoodVibes should be `--ee "*_R*:*_S*"`.
 
 * **Media**
 
@@ -293,27 +293,39 @@ Some options (--pes, --graph, --spc, -ee, --media) require the calculation outpu
         meno2 / nitromethane, pentane, 1propanol, 2propanol, pyridine, thf / tetrahydrofuran, toluene, et3n / triethylamine, h2o / water, oxylene, mxylene, pxylene
 
 #### .yaml File Formatting
-When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options. The same .yaml may be used for both --pes and --graphing options. An example .yaml file is shown below:
+When using the --pes or --graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options. The same .yaml may be used for both --pes and --graphing options. An example .yaml file from an external [Zenodo repository](https://doi.org/10.5281/zenodo.3662846) is shown below:
 
     --- # PES
-    # Double S addition
-       Reaction: [Int-I+TolS+TolSH, Int-II+TolSH, Int-III]
+        Ph: [Ph-Int1 + EtOH, Ph-TS1 + EtOH, Ph-Int2 + EtOH, Ph-TS2 + EtOH, Ph-Int3 + EtOH]
+        Py: [Py-Int1 + EtOH, Py-TS1 + EtOH, Py-Int2 + EtOH, Py-TS2 + EtOH, Py-Int3 + EtOH]
 
     --- # SPECIES
-       Int-I     : Int-I_*
-       TolS      : TolS
-       TolSH     : TolSH
-       Int-II    : Int-II_*
-       Int-III   : Int-III_*
-
+        Ph-Int1     : Int_I_Ph*
+        Ph-TS1      : TS_1_Ph*
+        Ph-Int2     : Int_II_Ph*
+        Ph-TS2      : TS_II_Ph*
+        Ph-Int3     : Int_III_Ph*
+        Py-Int1     : Int_I_Py*
+        Py-TS1      : TS_1_Py*
+        Py-Int2     : Int_II_Py*
+        Py-TS2      : TS_II_Py*
+        Py-Int3     : Int_III_Py*
+        EtOH        : ethanol*
+        
     --- # FORMAT
-       dec : 1
-       units: kcal|mol
+        dec :  2 
+        legend : False
+        color : black,#26a6a4
+        pointlabel : False 
+        gridlines: True
+        show_conformers: True
+        show_gconf: False
+        dpi : 400
+        title: Potential Energy Surface
 
-options in the # FORMAT block are not necessary, but allow for stylistic choices to be employed, especially when graphing. All current options that can be specified for either --pes or --graph options are:
+options in the # FORMAT block are optional, but allow for stylistic choices to be employed, especially when graphing. All current options that can be specified for either --pes or --graph options are:
 
         dec : 1 or 2 (decimal points in output)
-        units : kcal/mol or kJ/mol
         legend : True or False (puts legend on graph)
         ylim : y_min,y_max (y axis limits on graph)
         color : Color (color of line for a reaction pathway, multiple pathways can have different colors i.e. color1,color2,color3 etc., this follows rules for matplotlib standard colors)
@@ -345,7 +357,6 @@ options in the # FORMAT block are not necessary, but allow for stylistic choices
 * Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. *Catal. Sci. Technol.* **2017**, 5644–5649 [**DOI:** 10.1039/C7CY01728F ](http://dx.doi.org/10.1039/C7CY01728F)
 * Elm, J.; Passananti, M.; Kurtén, T.; Vehkamäki, H. *J. Phys. Chem. A* **2017**, *121*, 6155–6164 [**DOI:** 10.1021/acs.jpca.7b05658](http://dx.doi.org/10.1021/acs.jpca.7b05658)
 * De Silvestro, I.; Drew, S. L.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. *Angew. Chem. Int. Ed.* **2017**, *56*, 6813–6817 [**DOI:** 10.1002.anie.201701481](http://doi.org/10.1002/anie.201701481)
-* Funes‐Ardoiz, I.; Nelson, D. J.; Maseras, F. *Chem. Eur. J.* **2017** [**DOI:** 10.1002/chem.201702331](http://dx.doi.org/10.1002/chem.201702331)
 * Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. *J. Phys. Chem. A* **2018**, *122*, 1392–1399 [**DOI:** 10.1021/acs.jpca.7b11580 ](http://dx.doi.org/10.1021/acs.jpca.7b11580)
 * Harada, T. *J. Org. Chem.* **2018**, *83*, 7825–7835 [**DOI:** 10.1021/acs.joc.8b00712](http://dx.doi.org/10.1021/acs.joc.8b00712)
 * Lewis, R. D.; Garcia-Borràs, M.;  Chalkley, M. J.; Buller, A. R.; Houk, K. N.; Kan, S. B. J.; Arnold, F. H. *Proc. Natl. Acad. Sci.* **2018**, *115*, 7308-7313 [**DOI:** 10.1073/pnas.1807027115](http://dx.doi.org/10.1073/pnas.1807027115)
