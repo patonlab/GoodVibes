@@ -2868,6 +2868,9 @@ def main():
     # Whether single-point energies are to be used
     if options.spc:
         log.write("\n   Combining final single point energy with thermal corrections.")
+    # Solvent correction message
+    if options.media:
+        log.write("\n   Applying standard concentration correction (based on density at 20C) to solvent media.")
 
     # Check for special options 
     inverted_freqs, inverted_files = [], []
@@ -2887,7 +2890,7 @@ def main():
         else:
             cosmo_option = None
 
-        # computes D3 term if requested, which is then sent to calc_bbe as a correction
+        # computes D3 term if requested, which is then sent to calc bbe as a correction
         d3_energy = 0.0
         if options.D3 or options.D3BJ:
             verbose, intermolecular, pairwise, abc_term = False, False, False, False
@@ -2906,8 +2909,21 @@ def main():
             except:
                 log.write('\n   ! Dispersion Correction Failed')
                 d3_energy = 0.0
+        conc = options.conc
+        #check if media correction should be applied
+        if options.media != False:
+            try:
+                from .media import solvents
+            except:
+                from media import solvents
+            if options.media.lower() in solvents and options.media.lower() == \
+                    os.path.splitext(os.path.basename(file))[0].lower():
+                mweight = solvents[options.media.lower()][0]
+                density = solvents[options.media.lower()][1]
+                conc = (density * 1000) / mweight
+                media_conc = conc
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                       options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
+                       conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                        d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option)
 
         # Populate bbe_vals with indivual bbe entries for each file
@@ -3046,66 +3062,26 @@ def main():
                     # No freqs found
                     if not hasattr(bbe, "gibbs_free_energy"):
                         log.write("   Warning! Couldn't find frequency information ...")
-                    else:
-                        if not options.media:
-                            if all(getattr(bbe, attrib) for attrib in
-                                   ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                                if options.QH:
-                                    log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                        bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
-                                        (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
-                                        bbe.qh_gibbs_free_energy), thermodata=True)
-                                else:
-                                    log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                              '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                                (options.temperature * bbe.entropy),
-                                                                (options.temperature * bbe.qh_entropy),
-                                                                bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                              thermodata=True)
-                        else:
-                            try:
-                                from .media import solvents
-                            except:
-                                from media import solvents
-                            # Media correction based on standard concentration of solvent
-                            if options.media.lower() in solvents and options.media.lower() == \
-                                    os.path.splitext(os.path.basename(file))[0].lower():
-                                mw_solvent = solvents[options.media.lower()][0]
-                                density_solvent = solvents[options.media.lower()][1]
-                                concentration_solvent = (density_solvent * 1000) / mw_solvent
-                                media_correction = -(GAS_CONSTANT / J_TO_AU) * math.log(concentration_solvent)
-                                if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy",
-                                                                           "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                                    if options.QH:
-                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
-                                                                    (options.temperature * (bbe.entropy + media_correction)),
-                                                                    (options.temperature * (bbe.qh_entropy + media_correction)),
-                                                                    bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
-                                                                    bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))),
-                                                  thermodata=True)
-                                        log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
-                                    else:
-                                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                                    (options.temperature * (bbe.entropy + media_correction)),
-                                                                    (options.temperature * (bbe.qh_entropy + media_correction)),
-                                                                    bbe.gibbs_free_energy + (options.temperature * (-media_correction)),
-                                                                    bbe.qh_gibbs_free_energy + (options.temperature * (-media_correction))), thermodata=True)
-                                        log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
+                    else:  
+                        if all(getattr(bbe, attrib) for attrib in
+                               ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                            if options.QH:
+                                log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                                    bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
+                                    (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
+                                    bbe.qh_gibbs_free_energy), thermodata=True)
                             else:
-                                if all(getattr(bbe, attrib) for attrib in ["enthalpy", "entropy", "qh_entropy",
-                                                                           "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                                    if options.QH:
-                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy), thermodata=True)
-                                    else:
-                                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                                    (options.temperature * bbe.entropy),
-                                                                    (options.temperature * bbe.qh_entropy),
-                                                                    bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                                  thermodata=True)
+                                log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                          '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
+                                                            (options.temperature * bbe.entropy),
+                                                            (options.temperature * bbe.qh_entropy),
+                                                            bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
+                                          thermodata=True)
+
+                        if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
+                                os.path.splitext(os.path.basename(file))[0].lower():
+                            log.write("  Solvent: {:4.2f}M ".format(media_conc))
+                        
                 # Append requested options to end of output
                 if options.cosmo and cosmo_solv is not None:
                     log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))
@@ -3223,75 +3199,34 @@ def main():
                         log.write("\no  ")
                         log.write('{:<39} {:13.1f}'.format(os.path.splitext(os.path.basename(file))[0], temp),
                                   thermodata=True)
-                        if not options.media:
-                            if all(getattr(bbe, attrib) for attrib in
-                                   ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                                if options.QH:
-                                    if options.cosmo_int:
-                                        log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                            bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
-                                            (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.cosmo_qhg),
-                                            thermodata=True)
-                                    else:
-                                        log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                            bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
-                                            (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                            thermodata=True)
+                        # if not options.media:
+                        if all(getattr(bbe, attrib) for attrib in
+                               ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                            if options.QH:
+                                if options.cosmo_int:
+                                    log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                                        bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
+                                        (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.cosmo_qhg),
+                                        thermodata=True)
                                 else:
-                                    if options.cosmo_int:
-                                        log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
-                                                temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy,
-                                                                                                         bbe.cosmo_qhg),
-                                                  thermodata=True)
-                                    else:
-                                        log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
-                                                temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                                  thermodata=True)
-                        else:
-                            try:
-                                from .media import solvents
-                            except:
-                                from media import solvents
-                            if options.media.lower() in solvents and options.media.lower() == \
-                                    os.path.splitext(os.path.basename(file))[0].lower():
-                                mw_solvent = solvents[options.media.lower()][0]
-                                density_solvent = solvents[options.media.lower()][1]
-                                concentration_solvent = (density_solvent * 1000) / mw_solvent
-                                media_correction = -(GAS_CONSTANT / J_TO_AU) * math.log(concentration_solvent)
-                                if all(getattr(bbe, attrib) for attrib in
-                                       ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",
-                                        "qh_gibbs_free_energy"]):
-                                    if options.QH:
-                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
-                                                                    (temp * (bbe.entropy + media_correction)),
-                                                                    (temp * (bbe.qh_entropy + media_correction)),
-                                                                    bbe.gibbs_free_energy + (temp * (-media_correction)),
-                                                                    bbe.qh_gibbs_free_energy + (temp * (-media_correction))))
-                                        log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
-                                else:
-                                    log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                              '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                                (temp * (bbe.entropy + media_correction)),
-                                                                (temp * (bbe.qh_entropy + media_correction)),
-                                                                bbe.gibbs_free_energy + (temp * (-media_correction)),
-                                                                bbe.qh_gibbs_free_energy + (
-                                                                            temp * (-media_correction))))
-                                    log.write("  Solvent: {:4.2f}M ".format(concentration_solvent))
+                                    log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                                        bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
+                                        (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
+                                        thermodata=True)
                             else:
-                                if all(getattr(bbe, attrib) for attrib in
-                                       ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy",
-                                        "qh_gibbs_free_energy"]):
-                                    if options.QH:
-                                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy,
-                                                                    (temp * bbe.entropy), (temp * bbe.qh_entropy),
-                                                                    bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy))
-                                    else:
-                                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                                  '{:13.6f}'.format(bbe.zpe, bbe.enthalpy, (temp * bbe.entropy),
-                                                                    (temp * bbe.qh_entropy), bbe.gibbs_free_energy,
-                                                                    bbe.qh_gibbs_free_energy))
+                                if options.cosmo_int:
+                                    log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
+                                            temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy,
+                                                                                                     bbe.cosmo_qhg),
+                                              thermodata=True)
+                                else:
+                                    log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
+                                            temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
+                                              thermodata=True)
+                        if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
+                                os.path.splitext(os.path.basename(file))[0].lower():
+                            log.write("  Solvent: {:4.2f}M ".format(media_conc))
+                            
             log.write("\n" + stars + "\n")
 
     # Print CPU usage if requested

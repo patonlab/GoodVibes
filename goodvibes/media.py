@@ -1,4 +1,4 @@
-# solvent name, molecular weight, density (at 20 C)
+# solvent name, molecular weight[g/mol], density[g/mL] (at 20 C)
 solvents={
 "meco2h":(60.052,1.0446),
 "aceticacid":(60.052,1.0446),
