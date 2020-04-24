@@ -19,32 +19,8 @@ Two types of quasi-harmonic approximation are readily applied. The first is vibr
 
 The second type of quasi-harmonic approximation available is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. Because of this, the quasi-harmonic enthalpy correction is appropriate for use in systems and reactions resulting in a loss of a rotational or translational degree of freedom.
 
-#### Symmetry
-GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy.
-*Note: this option may not function properly on some versions of Windows.*
-
-#### Checks
-A computational workflow can become less effective without consistency throughout the process. By using the `--check` option, GoodVibes will enforce a number of pass/fail checks on the input files given to make sure uniform options were used. Checks employed are:
-
-###### Gaussian Output Checks
-*   Same version of Gaussian used across all output files
-*   Same solvation state/gas phase used across all output files
-*   Same level of theory and basis set used
-*   Same charge and multiplicity used
-*   Check if standard concenctration of 1 atm was used in calculation
-*   Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol
-*   Check for potential calculation error in linear molecules by Gaussian
-*   Check for transition states (one imaginary frequency in output file)
-*   Check if empirical dispersion is used and consistent across all output files
-
-###### Single Point Calculation Checks
-*   Same version and program used for all single point calculations
-*   Same solvation model used across output files
-*   Same level of theory used across all output files
-*   Same charge and multiplicity used
-*   Same geometry coordinates for SPC and associated geometry optimized and frequency calculation output file
-*   Check if empirical dispersion is used and consistent across all output files
-
+#### Citing GoodVibes
+Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
 
 #### Installation
 *  With pypi: `pip install goodvibes`
@@ -264,6 +240,32 @@ o                              20.98         60:40         1.5:1             R  
 ```
 
 The `--boltz` option will provide Boltzmann probabilities to the right of energy results under the `boltz` tab. With the `--ee` option, %ee, er and a reduced ratio are shown along with the dominant isomer and a calculated transition state energy value, ddG or ΔG‡.
+
+#### Checks
+A computational workflow can become less effective without consistency throughout the process. By using the `--check` option, GoodVibes will enforce a number of pass/fail checks on the input files given to make sure uniform options were used. Checks employed are:
+
+###### Gaussian Output Checks
+*   Same version of Gaussian used across all output files
+*   Same solvation state/gas phase used across all output files
+*   Same level of theory and basis set used
+*   Same charge and multiplicity used
+*   Check if standard concenctration of 1 atm was used in calculation
+*   Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol
+*   Check for potential calculation error in linear molecules by Gaussian
+*   Check for transition states (one imaginary frequency in output file)
+*   Check if empirical dispersion is used and consistent across all output files
+
+###### Single Point Calculation Checks
+*   Same version and program used for all single point calculations
+*   Same solvation model used across output files
+*   Same level of theory used across all output files
+*   Same charge and multiplicity used
+*   Same geometry coordinates for SPC and associated geometry optimized and frequency calculation output file
+*   Check if empirical dispersion is used and consistent across all output files
+
+#### Symmetry
+GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy.
+*Note: this option may not function properly on some versions of Windows.*
 
 #### File Naming Conventions
 Some options (--pes, --graph, --spc, --ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly.
