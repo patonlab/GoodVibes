@@ -1922,8 +1922,8 @@ def read_initial(file):
         for i, line in enumerate(data):
             if line.strip().startswith("xc "):
                 level=line.strip().split()[1]
-            if line.strip().startswith("* library"):
-                bs = line.strip().replace("* library",'')
+            if line.strip().startswith("* library "):
+                bs = line.strip().replace("* library ",'')
             #need to update these tags for NWChem solvation later
             if 'CPCM SOLVATION MODEL' in line.strip():
                 keyword_line_1 = "CPCM,"
