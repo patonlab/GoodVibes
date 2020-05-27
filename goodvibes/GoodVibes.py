@@ -1178,7 +1178,7 @@ class getoutData:
                             if line.strip()=='' :
                                 break
                             self.atom_nums.append(int(float(line.split()[2])))
-                            self.atom_types.append(elementID(int(float(line.split()[2]))))
+                            self.atom_types.append(element_id(int(float(line.split()[2]))))
                             self.atomictypes.append(int(float(line.split()[2])))
                             self.cartesians.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
                                 
