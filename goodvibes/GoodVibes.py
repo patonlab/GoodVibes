@@ -368,70 +368,69 @@ class calc_bbe:
                 #scanning for low frequencies...
                 if line.strip().startswith('P.Frequency'):
                     newline=g_output[i+3]
-                for j in range(1,7):
-                    try:
-                        x = float(line.strip().split()[j])
-                        y = 1.0
-                        # Only deal with real frequencies
-                        if x > 0.00:
-                            frequency_wn.append(x)
-                            if mm_freq_scale_factor is not False: fract_modelsys.append(y)
-                        # Check if we want to make any low lying imaginary frequencies positive
-                        elif x < -1 * im_freq_cutoff:
-                            if invert is not False:
-                                if x > float(invert):
-                                    frequency_wn.append(x * -1.)
-                                    inverted_freqs.append(x)
+                    for j in range(1,7):
+                        try:
+                            x = float(line.strip().split()[j])
+                            y = 1.0
+                            # Only deal with real frequencies
+                            if x > 0.00:
+                                frequency_wn.append(x)
+                                if mm_freq_scale_factor is not False: fract_modelsys.append(y)
+                            # Check if we want to make any low lying imaginary frequencies positive
+                            elif x < -1 * im_freq_cutoff:
+                                if invert is not False:
+                                    if x > float(invert):
+                                        frequency_wn.append(x * -1.)
+                                        inverted_freqs.append(x)
+                                    else:
+                                        im_frequency_wn.append(x)
                                 else:
                                     im_frequency_wn.append(x)
-                            else:
-                                im_frequency_wn.append(x)
-                    except IndexError:
-                        pass
-            # For QM calculations look for SCF energies, last one will be the optimized energy
-            elif line.strip().startswith('Total DFT energy ='):
-                self.scf_energy = float(line.strip().split()[4])
-            # Look for thermal corrections, paying attention to point group symmetry
-            elif line.strip().startswith('Zero-Point'):
-                self.zero_point_corr = float(line.strip().split()[8])
-            # Grab Multiplicity
-            elif 'mult ' in line.strip():
-                try:
-                    self.mult = int(line.split()[1])
-                except:
-                    self.mult = 1
-            # Grab molecular mass
-            elif line.strip().find('mol. weight') != -1:
-                molecular_mass = float(line.strip().split()[-1][0:-1])
-            # Grab rational symmetry number
-            elif line.strip().find('symmetry #') != -1:
-                symmno = int(line.strip().split()[-1][0:-1])
-            # Grab point group
-            elif line.strip().find('symmetry detected') != -1:
-                if line.strip().split()[0] == 'D*H' or line.strip().split()[0] == 'C*V':
-                    linear_mol = 1
-            # Grab rotational constants (convert cm-1 to GHz)
-            elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
-                print(line.strip().split()[1])
-                letter=line.strip()[0]
-                h = 0
-                if letter == 'A':
+                        except IndexError:
+                            pass
+                # For QM calculations look for SCF energies, last one will be the optimized energy
+                elif line.strip().startswith('Total DFT energy ='):
+                    self.scf_energy = float(line.strip().split()[4])
+                # Look for thermal corrections, paying attention to point group symmetry
+                elif line.strip().startswith('Zero-Point'):
+                    self.zero_point_corr = float(line.strip().split()[8])
+                # Grab Multiplicity
+                elif 'mult ' in line.strip():
+                    try:
+                        self.mult = int(line.split()[1])
+                    except:
+                        self.mult = 1
+                # Grab molecular mass
+                elif line.strip().find('mol. weight') != -1:
+                    molecular_mass = float(line.strip().split()[-1][0:-1])
+                # Grab rational symmetry number
+                elif line.strip().find('symmetry #') != -1:
+                    symmno = int(line.strip().split()[-1][0:-1])
+                # Grab point group
+                elif line.strip().find('symmetry detected') != -1:
+                    if line.strip().split()[0] == 'D*H' or line.strip().split()[0] == 'C*V':
+                        linear_mol = 1
+                # Grab rotational constants (convert cm-1 to GHz)
+                elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
+                    print(line.strip().split()[1])
+                    letter=line.strip()[0]
                     h = 0
-                elif letter == 'B':
-                    h = 1
-                elif letter == 'C':
-                    h = 2    
-                roconst[h]=float(line.strip().split()[1])*29.9792458
-                rotemp[h]=float(line.strip().split()[4])
-                
-            if "Total times" in line.strip():
-                days = 0
-                hours = 0
-                mins = 0
-                secs = line.strip().split()[3][0:-1]
-                msecs = 0
-                self.cpu = [days,hours,mins,secs,msecs]       
-            
+                    if letter == 'A':
+                        h = 0
+                    elif letter == 'B':
+                        h = 1
+                    elif letter == 'C':
+                        h = 2    
+                    roconst[h]=float(line.strip().split()[1])*29.9792458
+                    rotemp[h]=float(line.strip().split()[4])
+                if "Total times" in line.strip():
+                    days = 0
+                    hours = 0
+                    mins = 0
+                    secs = line.strip().split()[3][0:-1]
+                    msecs = 0
+                    self.cpu = [days,hours,mins,secs,msecs]       
+
         self.inverted_freqs = inverted_freqs
         
         print("freqs = " + str(frequency_wn))
