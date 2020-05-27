@@ -1107,9 +1107,9 @@ class getoutData:
             if "* O   R   C   A *" in line:
                 program = "Orca"
                 break
-           if "NWChem" in line:
-               program = "NWChem"
-               break 
+            if "NWChem" in line:
+                program = "NWChem"
+                break 
 
         def get_freqs(self, outlines, natoms, format):
             self.FREQS = []
