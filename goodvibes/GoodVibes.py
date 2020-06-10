@@ -240,7 +240,7 @@ class calc_bbe:
         else:
             self.sp_energy, self.sp_program, self.sp_version_program, self.sp_solvation_model, self.sp_file, self.sp_charge, self.sp_empirical_dispersion, self.sp_multiplicity = parse_data(
                 file)
-        if self.sp_program == 'Gaussian':
+        if self.sp_program == 'Gaussian' or self.program == 'Gaussian':
             # Count number of links
             for line in g_output:
                 # Only read first link + freq not other link jobs
@@ -361,7 +361,7 @@ class calc_bbe:
                     msecs = int(float(line.split()[9]) * 1000.0) + self.cpu[4]
                     self.cpu = [days, hours, mins, secs, msecs]
                     
-        if self.sp_program == 'NWChem':
+        if self.sp_program == 'NWChem' or self.program == 'NWChem':
             print("Parsing NWChem output...")
             # Iterate
             for i,line in enumerate(g_output):
