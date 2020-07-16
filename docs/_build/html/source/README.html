@@ -1,0 +1,652 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Introduction &mdash; GoodVibes 3.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="GoodVibes module" href="goodvibes.html" />
+    <link rel="prev" title="Welcome to the GoodVibes documentation!" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> GoodVibes
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                3.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">ReadMe:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#quasi-harmonic-approximation">Quasi-Harmonic Approximation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#citing-goodvibes">Citing GoodVibes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-1-grimme-type-quasi-harmonic-correction-with-a-grimme-type-cut-off-of-150-cm-sup-1-sup">Example 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-2-quasi-harmonic-thermochemistry-with-a-larger-basis-set-single-point-energy-correction-link-job">Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction link job</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-3-changing-the-temperature-from-standard-298-15-k-to-1000-k-and-concentration-from-standard-state-in-gas-phase-1-atm-to-standard-state-in-solution-1-mol-l">Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-4-analyzing-the-gibbs-energy-across-an-interval-of-temperatures-300-1000-k-with-a-stepsize-of-100-k-applying-a-truhlar-type-cut-off-of-100-cm-sup-1-sup">Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup></a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-5-analyzing-the-gibbs-energy-using-scaled-vibrational-frequencies">Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-6-writing-cartesian-coordinates">Example 6: Writing Cartesian coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-7-analyzing-multiple-files-at-once">Example 7: Analyzing multiple files at once</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-8-entropic-symmetry-correction">Example 8: Entropic Symmetry Correction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-9-potential-energy-surface-pes-comparison-with-accessible-conformer-correction">Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#example-10-stereoselectivity-and-boltzmann-populations">Example 10: Stereoselectivity and Boltzmann populations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#checks">Checks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#gaussian-output-checks">Gaussian Output Checks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#single-point-calculation-checks">Single Point Calculation Checks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#symmetry">Symmetry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#yaml-file-formatting">.yaml File Formatting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#papers-from-other-research-groups-citing-goodvibes">Papers from other research groups citing GoodVibes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#references-for-the-underlying-theory">References for the underlying theory</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Docs:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="goodvibes.html">GoodVibes module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="goodvibes.html#module-goodvibes.media">goodvibes.media</a></li>
+<li class="toctree-l1"><a class="reference internal" href="goodvibes.html#module-goodvibes.vib_scale_factors">goodvibes.vib_scale_factors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="goodvibes.html#module-goodvibes">Module contents</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GoodVibes</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Introduction</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/source/README.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference external" href="https://travis-ci.org/bobbypaton/GoodVibes"><img alt="Build Status" src="https://travis-ci.org/bobbypaton/GoodVibes.svg?branch=master" /></a>
+<a class="reference external" href="https://badge.fury.io/py/goodvibes"><img alt="PyPI version" src="https://badge.fury.io/py/goodvibes.svg" /></a>
+<a class="reference external" href="https://conda.anaconda.org/patonlab"><img alt="Anaconda-Server Badge" src="https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg" /></a>
+<a class="reference external" href="https://anaconda.org/patonlab/goodvibes"><img alt="Anaconda-Server Badge" src="https://anaconda.org/patonlab/goodvibes/badges/downloads.svg" /></a>
+<a class="reference external" href="https://goodvibespy.readthedocs.io/en/stable/?badge=stable"><img alt="Documentation Status" src="https://readthedocs.org/projects/goodvibespy/badge/?version=stable" /></a>
+<a class="reference external" href="https://doi.org/10.12688/f1000research.22758.1"><img alt="DOI" src="https://img.shields.io/badge/DOI-10.12688%2Ff1000research.22758.1-orange" /></a></p>
+<p>GoodVibes is a Python program to compute thermochemical data from one or a series of electronic structure calculations. It has been used since 2015 by several groups, primarily to correct the poor description of low frequency vibrations by the rigid-rotor harmonic oscillator treatment. The current version includes thermochemistry at variable temperature/concentration, various quasi-harmonic entropy and enthalpy schemes, automated detection of frequency scaling factors, D3-dispersion corrections calculations, Boltzmann averaging, duplicate conformer detection, automated tabulation and plotting of energy profiles, and error checking. Developed by <a class="reference external" href="https://orcid.org/0000-0002-0104-4166">Robert Paton</a>, <a class="reference external" href="https://orcid.org/0000-0002-5843-9660">Ignacio Funes-Ardoiz</a>, and members of the <a class="reference external" href="http://patonlab.com/">Paton Research Group, Colorado State</a>:  <a class="reference external" href="https://orcid.org/0000-0003-0135-9624">Guilian Luchini</a>, <a class="reference external" href="https://orcid.org/0000-0002-0769-7168">Juan V. Alegre-Requena</a>, and <a class="reference external" href="https://orcid.org/0000-0003-1817-0190">Yanfei Guan</a> . Integration with Travis CI testing by <a class="reference external" href="https://orcid.org/0000-0001-8974-1566">Jaime Rodríguez-Guerra</a> with additions from Guilian Luchini.</p>
+<p>All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 Kelvin and 1 atmosphere.</p>
+<p>The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the <a class="reference external" href="https://t1.chem.umn.edu/freqscale/index.html">Truhlar group database</a>.</p>
+</div>
+<div class="section" id="quasi-harmonic-approximation">
+<h1>Quasi-Harmonic Approximation<a class="headerlink" href="#quasi-harmonic-approximation" title="Permalink to this headline">¶</a></h1>
+<p>Two types of quasi-harmonic approximation are readily applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from <a class="reference external" href="http://pubs.acs.org/doi/abs/10.1021/jp205508z">Cramer and Truhlar</a>,<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by <a class="reference external" href="http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full">Grimme</a>,<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.</p>
+<p>The second type of quasi-harmonic approximation available is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by <a class="reference external" href="https://pubs.acs.org/doi/10.1021/jp509921r">Head-Gordon</a><sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. Because of this, the quasi-harmonic enthalpy correction is appropriate for use in systems and reactions resulting in a loss of a rotational or translational degree of freedom.</p>
+</div>
+<div class="section" id="citing-goodvibes">
+<h1>Citing GoodVibes<a class="headerlink" href="#citing-goodvibes" title="Permalink to this headline">¶</a></h1>
+<p>Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. <em>F1000Research</em>, <strong>2020</strong>, <em>9</em>, 291 <a class="reference external" href="https://doi.org/10.12688/f1000research.22758.1"><strong>DOI:</strong> 10.12688/f1000research.22758.1</a></p>
+</div>
+<div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p>With pypi: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">goodvibes</span></code></p></li>
+<li><p>With conda: <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">-c</span> <span class="pre">patonlab</span> <span class="pre">goodvibes</span></code></p></li>
+<li><p>Manually Cloning the repository https://github.com/bobbypaton/GoodVibes.git and then adding the location of the GoodVibes directory to the PYTHONPATH environment variable.</p></li>
+<li><p>Run the script with your Gaussian output files (the program expects .log or .out extensions). It has been tested with Python 2 and 3 on Linux, macOS and Windows</p></li>
+</ul>
+<p><strong>Correct Usage</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="p">[</span><span class="o">-</span><span class="n">q</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">qs</span> <span class="n">grimme</span><span class="o">/</span><span class="n">truhlar</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">qh</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">f</span> <span class="n">cutoff_freq</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">fs</span> <span class="n">S_cutoff_freq</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">fh</span> <span class="n">H_cutoff_freq</span><span class="p">]</span>
+<span class="p">[</span><span class="o">--</span><span class="n">check</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">temperature</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">c</span> <span class="n">concentration</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">ti</span> <span class="s1">&#39;t_initial, t_final, step&#39;</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">ee</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">bav</span> <span class="s2">&quot;global&quot;</span> <span class="ow">or</span> <span class="s2">&quot;conf&quot;</span><span class="p">]</span>
+<span class="p">[</span><span class="o">--</span><span class="n">cosmo</span> <span class="n">cosmo_filename</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">cosmoint</span> <span class="n">cosmo_filename</span><span class="p">,</span><span class="n">initial_temp</span><span class="p">,</span><span class="n">final_temp</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span> <span class="n">frequency_scale_factor</span><span class="p">]</span>
+<span class="p">[</span><span class="o">--</span><span class="n">vmm</span> <span class="n">mm_freq_scale_factor</span><span class="p">][</span><span class="o">--</span><span class="n">ssymm</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">spc</span> <span class="n">link</span><span class="o">/</span><span class="n">filename</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">boltz</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dup</span><span class="p">][</span><span class="o">--</span><span class="n">pes</span> <span class="n">pes_yaml</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">nogconf</span><span class="p">]</span>
+<span class="p">[</span><span class="o">--</span><span class="n">graph</span> <span class="n">graph_yaml</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">cpu</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">imag</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">invertifreq</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">freespace</span> <span class="n">solvent_name</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">output</span> <span class="n">output_name</span><span class="p">]</span>
+<span class="p">[</span><span class="o">--</span><span class="n">media</span> <span class="n">solvent_name</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">xyz</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">csv</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">custom_ext</span> <span class="n">file_extension</span><span class="p">]</span> <span class="o">&lt;</span><span class="n">output_file</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">-h</span></code> option gives help by listing all available options, default values and units, and proper usage.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">-q</span></code> option turns on quasi-harmonic corrections to both entropy and enthalpy, defaulting to the Grimme method for entropy and the Head-Gordon enthalpy correction.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--qs</span></code> option selects the approximation for the quasi-harmonic entropic correction: <code class="docutils literal notranslate"><span class="pre">--qs</span> <span class="pre">truhlar</span></code> or <code class="docutils literal notranslate"><span class="pre">--qs</span> <span class="pre">grimme</span></code> request the options explained above. Both avoid the tendency of RRHO vibrational entropies towards infinite values for low frequencies. If not specified this defaults to Grimme’s expression.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--qh</span></code> option selects the approximation for the quasi-harmonic enthalpy correction. Calling this argument requests the enthalpy correction option explained above. This replaces harmonic energy contributions with a quasi-RRHO vibrational energy term. If not specified the Head-Gordon expression is defaulted.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">-f</span></code> option specifies the frequency cut-off for both entropy and enthalpy calculations (in wavenumbers) i.e. <code class="docutils literal notranslate"><span class="pre">-f</span> <span class="pre">10</span></code> would use 10 cm<sup>-1</sup> when calculating thermochemical values. The default value is 100 cm<sup>-1</sup>. N.B. when set to zero all thermochemical values match standard (i.e. harmonic) Gaussian quantities.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--fs</span></code> option specifies the frequency cut-off for only entropy calculations(in wavenumbers). <code class="docutils literal notranslate"><span class="pre">--fs</span> <span class="pre">40</span></code> would use 40 cm<sup>-1</sup> when calculating entropies. The default value is 100 cm<sup>-1</sup>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--fh</span></code> option specifies the frequency cut-off for only enthalpy calculations (in wavenumbers).<code class="docutils literal notranslate"><span class="pre">--fh</span> <span class="pre">200</span></code> would use 200 cm<sup>-1</sup> when calculating enthalpies. The default value is 100 cm<sup>-1</sup>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--check</span></code> option applies the checks specified above to the calculation output files and displays a pass or fail message to the user.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">-t</span></code> option specifies temperature (in Kelvin). N.B. This does not have to correspond to the temperature used in the Gaussian calculation since all thermal quantities are reevalulated by GoodVibes at the requested temperature. The default value is 298.15 K.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">-c</span></code> option specifies concentration (in mol/l).  It is important to notice that the ideal gas approximation is used to relate the concentration with the pressure, so this option is the same as the Gaussian Pressure route line specification. The correction is applied to the Sackur-Tetrode equation of the translational entropy e.g. <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">1</span></code> corrects to a solution-phase standard state of 1 mol/l. The default is 1 atmosphere.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--ti</span></code> option specifies a temperature interval (for example to see how a free energy barrier changes with the temperature). Usage is <code class="docutils literal notranslate"><span class="pre">--ti</span> <span class="pre">'initial_temperature,</span> <span class="pre">final_temperature,</span> <span class="pre">step_size'</span></code>. The step_size is optional, the default is set by the relationship (final_temp-initial_temp) / 10</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--ee</span></code> option takes a file naming pattern (such as <code class="docutils literal notranslate"><span class="pre">&quot;*_R*:*_S*&quot;</span></code>) with files named as structure_R.log, structure_S.log, and will calculate and display values for stereoisomer excess (in %), ratio, major isomer present, and ddG.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--cosmo</span></code> option can be used to read Gibbs Free Energy of Solvation data from a COSMO-RS .out formatted file. GSOLV should be used as a COSMO-RS input with no argument. <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">1</span></code> should be used in conjunction with this argument.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--cosmo_int</span></code> option allows for Gibbs Free Energy of Solvation calculated using COSMO-RS with a temperature interval to be applied at a range of temperatures. Since temperature gaps may not be consistent, the interval is automatically detected. Usage is <code class="docutils literal notranslate"><span class="pre">--cosmo_int</span> <span class="pre">cosmo_gsolv.out,initial_temp,final_temp</span></code>. GoodVibes will detect temperatures within the range provided.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">-v</span></code> option is a scaling factor for vibrational frequencies. DFT-computed harmonic frequencies tend to overestimate experimentally measured IR and Raman absorptions. Empirical scaling factors have been determined for several functional/basis set combinations, and these are applied automatically using values from the Truhlar group<sup>4</sup> based on detection of the level of theory and basis set in the output files. This correction scales the ZPE by the same factor, and also affects vibrational entropies. The default value when no scaling factor is available is 1 (no scale factor). The automated scaling can also be suppressed by <code class="docutils literal notranslate"><span class="pre">-v</span> <span class="pre">1.0</span></code></p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--vmm</span></code> option is a second scaling factor for vibrational frequencies when performing QM/MM calculations with ONIOM. The correction is applied using the additional information in the output file, %ModelSys and %RealSys. This correction is only applied when requested with ONIOM calculation files. The option is activated with the command <code class="docutils literal notranslate"><span class="pre">-vmm</span> <span class="pre">scale_factor</span></code></p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--ssymm</span></code> option will apply a symmetry correction to the entropy by detecting a molecule’s internal and external symmetry.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--spc</span></code> option can be used to obtain single point energy corrected values. For multi-step jobs in which a frequency calculation is followed by an additional (e.g. single point energy) calculation, the energy is taken from the final job and all thermal corrections are taken from the frequency calculation. Alternatively, the energy can be taken from an additional file.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--boltz</span></code> option will display the Boltzmann weighted factors based on free energy of each specified output file.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--dup</span></code> option will check multiple output files for duplicate structures based on energy, rotational constants and calculated frequencies. Cutoffs are currently specified as: energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 100kHz; RMS Freq cutoff = 1 wavenumber.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--pes</span></code> option takes a .yaml file input (see template below) along with calculation output files to allow for the construction of a potential energy surface from relative computed Gibbs free-energy values.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--nogconf</span></code> option will turn off a correction to the Gibbs free-energy due to multiple conformations when constructing a potential energy surface (use only with –pes option). Default is to calculate Gconf correction.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--graph</span></code> option takes a .yaml file input (see template below) along with calculation output files and will compute and graph relative Gibbs free-energy values along a reaction path (requires matplotlib library to be installed)</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--cpu</span></code> option will add up all of the CPU time across all files (including single point calculations if requested).</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--imag</span></code> option will print any imaginary frequencies (in wavenumbers) for each structure. Presently, all are reported. The hard-coded variable im_freq_cutoff can be edited to change this. To generate new input files (i.e. if this is an undesirable imaginary frequency) see <a class="reference external" href="https://github.com/bobbypaton/pyQRC">pyQRC</a></p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--invertifreq</span></code> option will convert any low lying imaginary frequencies lying in a certain range to positive values (in wavenumbers). The default cutoff is to make imaginary frequencies above -50 cm<sup>-1</sup> positive.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--freespace</span></code> option specifies the solvent. The amount of free space accessible to the solute is computed based on the solvent’s molecular and bulk densities. This is then used to correct the volume available to each molecule from the ideal gas approximation used in the Sackur-Tetrode calculation of translational entropy, as proposed by <a class="reference external" href="http://pubs.acs.org/doi/abs/10.1021/jo970944f">Shakhnovich and Whitesides</a>.<sup>5</sup> The keywords H2O, toluene, DMF (N,N-dimethylformamide), AcOH (acetic acid) and chloroform are recognized.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--output</span></code> option is used to change the default output file name to a specified name instead. Use as  <code class="docutils literal notranslate"><span class="pre">--output</span> <span class="pre">NAME</span></code> to change the name of the output file of thermochemical data from “GoodVibes.dat” to “GoodVibes_NAME.dat”</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--media</span></code> option applies an entropy correction to calculations done on solvent molecules calculated from their standard concentration. <code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">1</span></code> should be used in conjunction with this argument.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--xyz</span></code> option will write all molecular Cartesian coordinates to a .xyz output file.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--csv</span></code> option will write GoodVibes calculated thermochemical data to a .csv output file.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--custom_ext</span></code> option allows for custom file extensions to be used. Current default calculation output files accepted are <code class="docutils literal notranslate"><span class="pre">.log</span></code> or <code class="docutils literal notranslate"><span class="pre">.out</span></code> file extensions. New extensions can be detected by using GoodVibes with the option <code class="docutils literal notranslate"><span class="pre">--custom_ext</span> <span class="pre">file_extension</span></code>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">--bav</span></code> option allows the user to choose how the average moment of inertia is computed, used in computing the free-rotor entropy. Options are <code class="docutils literal notranslate"><span class="pre">--bav</span> <span class="pre">global</span></code> to have all molecules computed with the same moment of inertia=10*10-44 kg m2 or <code class="docutils literal notranslate"><span class="pre">--bav</span> <span class="pre">conf</span></code> to use the averaged rotational constants parsed from Gaussian output files to compute the average moment of inert</p></li>
+</ul>
+</div>
+<div class="section" id="example-1-grimme-type-quasi-harmonic-correction-with-a-grimme-type-cut-off-of-150-cm-sup-1-sup">
+<h1>Example 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup><a class="headerlink" href="#example-1-grimme-type-quasi-harmonic-correction-with-a-grimme-type-cut-off-of-150-cm-sup-1-sup" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">methylaniline</span><span class="o">.</span><span class="n">out</span> <span class="o">-</span><span class="n">f</span> <span class="mi">150</span>
+
+   <span class="n">Structure</span>                    <span class="n">E</span>        <span class="n">ZPE</span>             <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+   <span class="o">*********************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>      <span class="o">-</span><span class="mf">326.664901</span>   <span class="mf">0.142118</span>   <span class="o">-</span><span class="mf">326.514489</span>   <span class="mf">0.039668</span>   <span class="mf">0.039465</span>   <span class="o">-</span><span class="mf">326.554157</span>   <span class="o">-</span><span class="mf">326.553954</span>
+   <span class="o">*********************************************************************************************************</span>
+</pre></div>
+</div>
+<p>The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected enthalpy and entropy values are always less than or equal to the harmonic value.</p>
+</div>
+<div class="section" id="example-2-quasi-harmonic-thermochemistry-with-a-larger-basis-set-single-point-energy-correction-link-job">
+<h1>Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction link job<a class="headerlink" href="#example-2-quasi-harmonic-thermochemistry-with-a-larger-basis-set-single-point-energy-correction-link-job" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">ethane_spc</span><span class="o">.</span><span class="n">out</span> <span class="o">--</span><span class="n">spc</span> <span class="n">link</span>
+
+   <span class="n">Structure</span>                <span class="n">E_SPC</span>             <span class="n">E</span>        <span class="n">ZPE</span>         <span class="n">H_SPC</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>      <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="n">_SPC</span>   <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="n">_SPC</span>
+   <span class="o">***********************************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">ethane_spc</span>          <span class="o">-</span><span class="mf">79.858399</span>    <span class="o">-</span><span class="mf">79.830421</span>   <span class="mf">0.073508</span>    <span class="o">-</span><span class="mf">79.780448</span>   <span class="mf">0.027569</span>   <span class="mf">0.027570</span>    <span class="o">-</span><span class="mf">79.808017</span>    <span class="o">-</span><span class="mf">79.808019</span>
+   <span class="o">***********************************************************************************************************************</span>
+</pre></div>
+</div>
+<p>This calculation contains a multi-step job: an optimization and frequency calculation with a small basis set followed by (–Link1–) a larger basis set single point energy. Note the use of the <code class="docutils literal notranslate"><span class="pre">--spc</span> <span class="pre">link</span></code> option. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the appropriate scaling factor of 0.977 (this can be suppressed to apply no scaling with -v 1.0)</p>
+<p>Alternatively, if a single point energy calculation has been performed separately, provided both file names share a common root e.g. <code class="docutils literal notranslate"><span class="pre">ethane.out</span></code> and <code class="docutils literal notranslate"><span class="pre">ethane_TZ.out</span></code> then use of the <code class="docutils literal notranslate"><span class="pre">--spc</span> <span class="pre">TZ</span></code> option is appropriate. This will give identical results as above.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">ethane</span><span class="o">.</span><span class="n">out</span> <span class="o">--</span><span class="n">spc</span> <span class="n">TZ</span>
+
+   <span class="n">Structure</span>                <span class="n">E_SPC</span>             <span class="n">E</span>        <span class="n">ZPE</span>         <span class="n">H_SPC</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>      <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="n">_SPC</span>   <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="n">_SPC</span>
+   <span class="o">***********************************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">ethane</span>              <span class="o">-</span><span class="mf">79.858399</span>    <span class="o">-</span><span class="mf">79.830421</span>   <span class="mf">0.073508</span>    <span class="o">-</span><span class="mf">79.780448</span>   <span class="mf">0.027569</span>   <span class="mf">0.027570</span>    <span class="o">-</span><span class="mf">79.808017</span>    <span class="o">-</span><span class="mf">79.808019</span>
+   <span class="o">***********************************************************************************************************************</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-3-changing-the-temperature-from-standard-298-15-k-to-1000-k-and-concentration-from-standard-state-in-gas-phase-1-atm-to-standard-state-in-solution-1-mol-l">
+<h1>Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)<a class="headerlink" href="#example-3-changing-the-temperature-from-standard-298-15-k-to-1000-k-and-concentration-from-standard-state-in-gas-phase-1-atm-to-standard-state-in-solution-1-mol-l" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
+
+   Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
+   *********************************************************************************************************
+o  methylaniline      -326.664901   0.142118   -326.452307   0.218212   0.216559   -326.670519   -326.668866
+   *********************************************************************************************************
+</pre></div>
+</div>
+<p>This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration dependence. In the example above the correction is larger due to the increase in temperature.</p>
+</div>
+<div class="section" id="example-4-analyzing-the-gibbs-energy-across-an-interval-of-temperatures-300-1000-k-with-a-stepsize-of-100-k-applying-a-truhlar-type-cut-off-of-100-cm-sup-1-sup">
+<h1>Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup><a class="headerlink" href="#example-4-analyzing-the-gibbs-energy-across-an-interval-of-temperatures-300-1000-k-with-a-stepsize-of-100-k-applying-a-truhlar-type-cut-off-of-100-cm-sup-1-sup" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">methylaniline</span><span class="o">.</span><span class="n">out</span> <span class="o">--</span><span class="n">ti</span> <span class="s1">&#39;300,1000,100&#39;</span> <span class="o">--</span><span class="n">qs</span> <span class="n">truhlar</span> <span class="o">-</span><span class="n">f</span> <span class="mi">120</span>
+
+   <span class="n">Structure</span>               <span class="n">Temp</span><span class="o">/</span><span class="n">K</span>                        <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+   <span class="o">******************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">300.0</span>              <span class="o">-</span><span class="mf">326.514399</span>   <span class="mf">0.040005</span>   <span class="mf">0.039842</span>   <span class="o">-</span><span class="mf">326.554404</span>   <span class="o">-</span><span class="mf">326.554241</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">400.0</span>              <span class="o">-</span><span class="mf">326.508735</span>   <span class="mf">0.059816</span>   <span class="mf">0.059596</span>   <span class="o">-</span><span class="mf">326.568551</span>   <span class="o">-</span><span class="mf">326.568331</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">500.0</span>              <span class="o">-</span><span class="mf">326.501670</span>   <span class="mf">0.082625</span>   <span class="mf">0.082349</span>   <span class="o">-</span><span class="mf">326.584296</span>   <span class="o">-</span><span class="mf">326.584020</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">600.0</span>              <span class="o">-</span><span class="mf">326.493429</span>   <span class="mf">0.108148</span>   <span class="mf">0.107816</span>   <span class="o">-</span><span class="mf">326.601577</span>   <span class="o">-</span><span class="mf">326.601245</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">700.0</span>              <span class="o">-</span><span class="mf">326.484222</span>   <span class="mf">0.136095</span>   <span class="mf">0.135707</span>   <span class="o">-</span><span class="mf">326.620317</span>   <span class="o">-</span><span class="mf">326.619930</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">800.0</span>              <span class="o">-</span><span class="mf">326.474218</span>   <span class="mf">0.166216</span>   <span class="mf">0.165772</span>   <span class="o">-</span><span class="mf">326.640434</span>   <span class="o">-</span><span class="mf">326.639990</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>            <span class="mf">900.0</span>              <span class="o">-</span><span class="mf">326.463545</span>   <span class="mf">0.198300</span>   <span class="mf">0.197800</span>   <span class="o">-</span><span class="mf">326.661845</span>   <span class="o">-</span><span class="mf">326.661346</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>           <span class="mf">1000.0</span>              <span class="o">-</span><span class="mf">326.452307</span>   <span class="mf">0.232169</span>   <span class="mf">0.231614</span>   <span class="o">-</span><span class="mf">326.684476</span>   <span class="o">-</span><span class="mf">326.683921</span>
+   <span class="o">******************************************************************************************************</span>
+</pre></div>
+</div>
+<p>Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below than 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.</p>
+</div>
+<div class="section" id="example-5-analyzing-the-gibbs-energy-using-scaled-vibrational-frequencies">
+<h1>Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies<a class="headerlink" href="#example-5-analyzing-the-gibbs-energy-using-scaled-vibrational-frequencies" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">methylaniline</span><span class="o">.</span><span class="n">out</span> <span class="o">-</span><span class="n">v</span> <span class="mf">0.95</span>
+
+   <span class="n">Structure</span>                    <span class="n">E</span>        <span class="n">ZPE</span>             <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+   <span class="o">*********************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>      <span class="o">-</span><span class="mf">326.664901</span>   <span class="mf">0.135012</span>   <span class="o">-</span><span class="mf">326.521265</span>   <span class="mf">0.040238</span>   <span class="mf">0.040091</span>   <span class="o">-</span><span class="mf">326.561503</span>   <span class="o">-</span><span class="mf">326.561356</span>
+   <span class="o">*********************************************************************************************************</span>
+</pre></div>
+</div>
+<p>The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies.</p>
+</div>
+<div class="section" id="example-6-writing-cartesian-coordinates">
+<h1>Example 6: Writing Cartesian coordinates<a class="headerlink" href="#example-6-writing-cartesian-coordinates" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">HCN</span><span class="o">*.</span><span class="n">out</span> <span class="o">--</span><span class="n">xyz</span>
+</pre></div>
+</div>
+<p>Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to Goodvibes_output.xyz</p>
+</div>
+<div class="section" id="example-7-analyzing-multiple-files-at-once">
+<h1>Example 7: Analyzing multiple files at once<a class="headerlink" href="#example-7-analyzing-multiple-files-at-once" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/*.</span><span class="n">out</span> <span class="o">--</span><span class="n">cpu</span>
+
+   <span class="n">Structure</span>                    <span class="n">E</span>        <span class="n">ZPE</span>             <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+   <span class="o">*********************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">Al_298K</span>            <span class="o">-</span><span class="mf">242.328708</span>   <span class="mf">0.000000</span>   <span class="o">-</span><span class="mf">242.326347</span>   <span class="mf">0.017670</span>   <span class="mf">0.017670</span>   <span class="o">-</span><span class="mf">242.344018</span>   <span class="o">-</span><span class="mf">242.344018</span>
+<span class="n">o</span>  <span class="n">Al_400K</span>            <span class="o">-</span><span class="mf">242.328708</span>   <span class="mf">0.000000</span>   <span class="o">-</span><span class="mf">242.326347</span>   <span class="mf">0.017670</span>   <span class="mf">0.017670</span>   <span class="o">-</span><span class="mf">242.344018</span>   <span class="o">-</span><span class="mf">242.344018</span>
+<span class="n">o</span>  <span class="n">H2O</span>                 <span class="o">-</span><span class="mf">76.368128</span>   <span class="mf">0.020772</span>    <span class="o">-</span><span class="mf">76.343577</span>   <span class="mf">0.021458</span>   <span class="mf">0.021458</span>    <span class="o">-</span><span class="mf">76.365035</span>    <span class="o">-</span><span class="mf">76.365035</span>
+<span class="n">o</span>  <span class="n">HCN_singlet</span>         <span class="o">-</span><span class="mf">93.358851</span>   <span class="mf">0.015978</span>    <span class="o">-</span><span class="mf">93.339373</span>   <span class="mf">0.022896</span>   <span class="mf">0.022896</span>    <span class="o">-</span><span class="mf">93.362269</span>    <span class="o">-</span><span class="mf">93.362269</span>
+<span class="n">o</span>  <span class="n">HCN_triplet</span>         <span class="o">-</span><span class="mf">93.153787</span>   <span class="mf">0.012567</span>    <span class="o">-</span><span class="mf">93.137780</span>   <span class="mf">0.024070</span>   <span class="mf">0.024070</span>    <span class="o">-</span><span class="mf">93.161850</span>    <span class="o">-</span><span class="mf">93.161850</span>
+<span class="n">o</span>  <span class="n">allene</span>             <span class="o">-</span><span class="mf">116.569605</span>   <span class="mf">0.053913</span>   <span class="o">-</span><span class="mf">116.510916</span>   <span class="mf">0.027618</span>   <span class="mf">0.027621</span>   <span class="o">-</span><span class="mf">116.538534</span>   <span class="o">-</span><span class="mf">116.538537</span>
+<span class="n">o</span>  <span class="n">benzene</span>            <span class="o">-</span><span class="mf">232.227201</span>   <span class="mf">0.101377</span>   <span class="o">-</span><span class="mf">232.120521</span>   <span class="mf">0.032742</span>   <span class="mf">0.032745</span>   <span class="o">-</span><span class="mf">232.153263</span>   <span class="o">-</span><span class="mf">232.153265</span>
+<span class="n">o</span>  <span class="n">ethane</span>              <span class="o">-</span><span class="mf">79.830421</span>   <span class="mf">0.075238</span>    <span class="o">-</span><span class="mf">79.750770</span>   <span class="mf">0.027523</span>   <span class="mf">0.027525</span>    <span class="o">-</span><span class="mf">79.778293</span>    <span class="o">-</span><span class="mf">79.778295</span>
+<span class="n">o</span>  <span class="n">isobutane</span>          <span class="o">-</span><span class="mf">158.458811</span>   <span class="mf">0.132380</span>   <span class="o">-</span><span class="mf">158.319804</span>   <span class="mf">0.034241</span>   <span class="mf">0.034252</span>   <span class="o">-</span><span class="mf">158.354046</span>   <span class="o">-</span><span class="mf">158.354056</span>
+<span class="n">o</span>  <span class="n">methylaniline</span>      <span class="o">-</span><span class="mf">326.664901</span>   <span class="mf">0.142118</span>   <span class="o">-</span><span class="mf">326.514489</span>   <span class="mf">0.039668</span>   <span class="mf">0.039535</span>   <span class="o">-</span><span class="mf">326.554157</span>   <span class="o">-</span><span class="mf">326.554024</span>
+<span class="n">o</span>  <span class="n">neopentane</span>         <span class="o">-</span><span class="mf">197.772980</span>   <span class="mf">0.160311</span>   <span class="o">-</span><span class="mf">197.604824</span>   <span class="mf">0.036952</span>   <span class="mf">0.036966</span>   <span class="o">-</span><span class="mf">197.641776</span>   <span class="o">-</span><span class="mf">197.641791</span>
+   <span class="o">*********************************************************************************************************</span>
+<span class="n">TOTAL</span> <span class="n">CPU</span>      <span class="mi">0</span> <span class="n">days</span>  <span class="mi">2</span> <span class="n">hrs</span> <span class="mi">29</span> <span class="n">mins</span> <span class="mi">28</span> <span class="n">secs</span>
+</pre></div>
+</div>
+<p>The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case. Wildcard characters (<code class="docutils literal notranslate"><span class="pre">*</span></code>) can be used to represent any character or string of characters.</p>
+</div>
+<div class="section" id="example-8-entropic-symmetry-correction">
+<h1>Example 8: Entropic Symmetry Correction<a class="headerlink" href="#example-8-entropic-symmetry-correction" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">allene</span><span class="o">.</span><span class="n">out</span> <span class="n">examples</span><span class="o">/</span><span class="n">benzene</span><span class="o">.</span><span class="n">out</span> <span class="n">examples</span><span class="o">/</span><span class="n">ethane</span><span class="o">.</span><span class="n">out</span> <span class="n">examples</span><span class="o">/</span><span class="n">isobutane</span><span class="o">.</span><span class="n">out</span> <span class="n">examples</span><span class="o">/</span><span class="n">neopentane</span><span class="o">.</span><span class="n">out</span> <span class="o">--</span><span class="n">ssymm</span>
+
+   <span class="n">Structure</span>                    <span class="n">E</span>        <span class="n">ZPE</span>             <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>  <span class="n">Point</span> <span class="n">Group</span>
+   <span class="o">**********************************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">allene</span>             <span class="o">-</span><span class="mf">116.569605</span>   <span class="mf">0.053913</span>   <span class="o">-</span><span class="mf">116.510916</span>   <span class="mf">0.026309</span>   <span class="mf">0.026312</span>   <span class="o">-</span><span class="mf">116.537225</span>   <span class="o">-</span><span class="mf">116.537228</span>          <span class="n">D2d</span>
+<span class="n">o</span>  <span class="n">benzene</span>            <span class="o">-</span><span class="mf">232.227201</span>   <span class="mf">0.101377</span>   <span class="o">-</span><span class="mf">232.120521</span>   <span class="mf">0.030396</span>   <span class="mf">0.030399</span>   <span class="o">-</span><span class="mf">232.150917</span>   <span class="o">-</span><span class="mf">232.150919</span>          <span class="n">D6h</span>
+<span class="n">o</span>  <span class="n">ethane</span>              <span class="o">-</span><span class="mf">79.830421</span>   <span class="mf">0.075238</span>    <span class="o">-</span><span class="mf">79.750770</span>   <span class="mf">0.025831</span>   <span class="mf">0.025833</span>    <span class="o">-</span><span class="mf">79.776601</span>    <span class="o">-</span><span class="mf">79.776603</span>          <span class="n">D3d</span>
+<span class="n">o</span>  <span class="n">isobutane</span>          <span class="o">-</span><span class="mf">158.458811</span>   <span class="mf">0.132380</span>   <span class="o">-</span><span class="mf">158.319804</span>   <span class="mf">0.033204</span>   <span class="mf">0.033214</span>   <span class="o">-</span><span class="mf">158.353008</span>   <span class="o">-</span><span class="mf">158.353019</span>          <span class="n">C3v</span>
+<span class="n">o</span>  <span class="n">neopentane</span>         <span class="o">-</span><span class="mf">197.772980</span>   <span class="mf">0.160311</span>   <span class="o">-</span><span class="mf">197.604824</span>   <span class="mf">0.034606</span>   <span class="mf">0.034620</span>   <span class="o">-</span><span class="mf">197.639430</span>   <span class="o">-</span><span class="mf">197.639444</span>           <span class="n">Td</span>
+   <span class="o">*********************************************************************************************************************************************</span>
+</pre></div>
+</div>
+<p>GoodVibes will apply a symmetry correction described above to the entropy term of each molecule after determining the symmetry number. It is always a good idea to double-check that the point group GoodVibes returns is the correct group.</p>
+</div>
+<div class="section" id="example-9-potential-energy-surface-pes-comparison-with-accessible-conformer-correction">
+<h1>Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction<a class="headerlink" href="#example-9-potential-energy-surface-pes-comparison-with-accessible-conformer-correction" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">gconf_ee_boltz</span><span class="o">/*.</span><span class="n">log</span> <span class="o">--</span><span class="n">pes</span> <span class="n">examples</span><span class="o">/</span><span class="n">gconf_ee_boltz</span><span class="o">/</span><span class="n">gconf_aminox_cat</span><span class="o">.</span><span class="n">yaml</span>
+
+   <span class="n">Structure</span>                       <span class="n">E</span>        <span class="n">ZPE</span>             <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+   <span class="o">************************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">Aminoxylation_TS1_R</span>   <span class="o">-</span><span class="mf">879.405138</span>   <span class="mf">0.295352</span>   <span class="o">-</span><span class="mf">879.091374</span>   <span class="mf">0.063746</span>   <span class="mf">0.061481</span>   <span class="o">-</span><span class="mf">879.155120</span>   <span class="o">-</span><span class="mf">879.152855</span>
+<span class="n">o</span>  <span class="n">Aminoxylation_TS2_S</span>   <span class="o">-</span><span class="mf">879.404445</span>   <span class="mf">0.295301</span>   <span class="o">-</span><span class="mf">879.090562</span>   <span class="mf">0.064366</span>   <span class="mf">0.061891</span>   <span class="o">-</span><span class="mf">879.154928</span>   <span class="o">-</span><span class="mf">879.152453</span>
+<span class="n">o</span>  <span class="n">aminox_cat_conf212_S</span>  <span class="o">-</span><span class="mf">517.875165</span>   <span class="mf">0.200338</span>   <span class="o">-</span><span class="mf">517.662195</span>   <span class="mf">0.051817</span>   <span class="mf">0.049814</span>   <span class="o">-</span><span class="mf">517.714012</span>   <span class="o">-</span><span class="mf">517.712009</span>
+<span class="n">o</span>  <span class="n">aminox_cat_conf280_R</span>  <span class="o">-</span><span class="mf">517.877308</span>   <span class="mf">0.200869</span>   <span class="o">-</span><span class="mf">517.664171</span>   <span class="mf">0.049996</span>   <span class="mf">0.048777</span>   <span class="o">-</span><span class="mf">517.714167</span>   <span class="o">-</span><span class="mf">517.712948</span>
+<span class="n">o</span>  <span class="n">aminox_cat_conf65_S</span>   <span class="o">-</span><span class="mf">517.877161</span>   <span class="mf">0.200789</span>   <span class="o">-</span><span class="mf">517.664159</span>   <span class="mf">0.049790</span>   <span class="mf">0.048656</span>   <span class="o">-</span><span class="mf">517.713949</span>   <span class="o">-</span><span class="mf">517.712815</span>
+<span class="n">o</span>  <span class="n">aminox_subs_conf713</span>   <span class="o">-</span><span class="mf">361.535757</span>   <span class="mf">0.095336</span>   <span class="o">-</span><span class="mf">361.433167</span>   <span class="mf">0.037824</span>   <span class="mf">0.037696</span>   <span class="o">-</span><span class="mf">361.470991</span>   <span class="o">-</span><span class="mf">361.470863</span>
+   <span class="o">************************************************************************************************************</span>
+
+   <span class="n">Gconf</span> <span class="n">correction</span> <span class="n">requested</span> <span class="n">to</span> <span class="n">be</span> <span class="n">applied</span> <span class="n">to</span> <span class="n">below</span> <span class="n">relative</span> <span class="n">values</span> <span class="n">using</span> <span class="n">quasi</span><span class="o">-</span><span class="n">harmonic</span> <span class="n">Boltzmann</span> <span class="n">factors</span>
+
+   <span class="n">RXN</span><span class="p">:</span> <span class="n">Reaction</span> <span class="p">(</span><span class="n">kcal</span><span class="o">/</span><span class="n">mol</span><span class="p">)</span>       <span class="n">DE</span>       <span class="n">DZPE</span>            <span class="n">DH</span>       <span class="n">T</span><span class="o">.</span><span class="n">DS</span>    <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">DS</span>         <span class="n">DG</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>      <span class="n">qh</span><span class="o">-</span><span class="n">DG</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+   <span class="o">************************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">Cat</span><span class="o">+</span><span class="n">Subs</span>                     <span class="mf">0.00</span>       <span class="mf">0.00</span>          <span class="mf">0.00</span>       <span class="mf">0.00</span>       <span class="mf">0.00</span>          <span class="mf">0.00</span>          <span class="mf">0.00</span>
+<span class="n">o</span>  <span class="n">TS</span>                           <span class="mf">4.72</span>      <span class="o">-</span><span class="mf">0.46</span>          <span class="mf">3.53</span>     <span class="o">-</span><span class="mf">15.85</span>     <span class="o">-</span><span class="mf">16.37</span>         <span class="mf">19.39</span>         <span class="mf">19.90</span>
+   <span class="o">************************************************************************************************************</span>
+</pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> file is given to the <code class="docutils literal notranslate"><span class="pre">--pes</span></code> argument which specifies the reaction: <code class="docutils literal notranslate"><span class="pre">Catalyst</span> <span class="pre">+</span> <span class="pre">Substrate</span> <span class="pre">-&gt;</span> <span class="pre">TS</span></code>. Because multiple conformers for the catalysts and transition states have been provided, GoodVibes will calculate a correction to the free energy based on the number of accessible conformations based on the Boltzmann-weighted energies of the conformers. To turn this correction off, <code class="docutils literal notranslate"><span class="pre">--nogconf</span></code> should be specified. An example <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> file is shown below to show how these files should be formatted.</p>
+</div>
+<div class="section" id="example-10-stereoselectivity-and-boltzmann-populations">
+<h1>Example 10: Stereoselectivity and Boltzmann populations<a class="headerlink" href="#example-10-stereoselectivity-and-boltzmann-populations" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">goodvibes</span> <span class="n">examples</span><span class="o">/</span><span class="n">gconf_ee_boltz</span><span class="o">/</span><span class="n">Aminoxylation_TS1_R</span><span class="o">.</span><span class="n">log</span> <span class="n">examples</span><span class="o">/</span><span class="n">gconf_ee_boltz</span><span class="o">/</span><span class="n">Aminoxylation_TS2_S</span><span class="o">.</span><span class="n">log</span> <span class="o">--</span><span class="n">boltz</span> <span class="o">--</span><span class="n">ee</span> <span class="s2">&quot;*_R*:*_S*&quot;</span>
+
+   <span class="n">Structure</span>                       <span class="n">E</span>        <span class="n">ZPE</span>             <span class="n">H</span>        <span class="n">T</span><span class="o">.</span><span class="n">S</span>     <span class="n">T</span><span class="o">.</span><span class="n">qh</span><span class="o">-</span><span class="n">S</span>          <span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>       <span class="n">qh</span><span class="o">-</span><span class="n">G</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>  <span class="n">Boltz</span>
+   <span class="o">*******************************************************************************************************************</span>
+<span class="n">o</span>  <span class="n">Aminoxylation_TS1_R</span>   <span class="o">-</span><span class="mf">879.405138</span>   <span class="mf">0.295352</span>   <span class="o">-</span><span class="mf">879.091374</span>   <span class="mf">0.063746</span>   <span class="mf">0.061481</span>   <span class="o">-</span><span class="mf">879.155120</span>   <span class="o">-</span><span class="mf">879.152855</span>  <span class="mf">0.605</span>
+<span class="n">o</span>  <span class="n">Aminoxylation_TS2_S</span>   <span class="o">-</span><span class="mf">879.404445</span>   <span class="mf">0.295301</span>   <span class="o">-</span><span class="mf">879.090562</span>   <span class="mf">0.064366</span>   <span class="mf">0.061891</span>   <span class="o">-</span><span class="mf">879.154928</span>   <span class="o">-</span><span class="mf">879.152453</span>  <span class="mf">0.395</span>
+   <span class="o">*******************************************************************************************************************</span>
+
+   <span class="n">Selectivity</span>            <span class="n">Excess</span> <span class="p">(</span><span class="o">%</span><span class="p">)</span>     <span class="n">Ratio</span> <span class="p">(</span><span class="o">%</span><span class="p">)</span>         <span class="n">Ratio</span>     <span class="n">Major</span> <span class="n">Iso</span>           <span class="n">ddG</span>
+   <span class="o">*****************************************************************************************</span>
+<span class="n">o</span>                              <span class="mf">20.98</span>         <span class="mi">60</span><span class="p">:</span><span class="mi">40</span>         <span class="mf">1.5</span><span class="p">:</span><span class="mi">1</span>             <span class="n">R</span>          <span class="mf">0.25</span>
+   <span class="o">*****************************************************************************************</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--boltz</span></code> option will provide Boltzmann probabilities to the right of energy results under the <code class="docutils literal notranslate"><span class="pre">boltz</span></code> tab. With the <code class="docutils literal notranslate"><span class="pre">--ee</span></code> option, %ee, er and a reduced ratio are shown along with the dominant isomer and a calculated transition state energy value, ddG or ΔG‡.</p>
+</div>
+<div class="section" id="checks">
+<h1>Checks<a class="headerlink" href="#checks" title="Permalink to this headline">¶</a></h1>
+<p>A computational workflow can become less effective without consistency throughout the process. By using the <code class="docutils literal notranslate"><span class="pre">--check</span></code> option, GoodVibes will enforce a number of pass/fail checks on the input files given to make sure uniform options were used. Checks employed are:</p>
+<div class="section" id="gaussian-output-checks">
+<h2>Gaussian Output Checks<a class="headerlink" href="#gaussian-output-checks" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Same version of Gaussian used across all output files</p></li>
+<li><p>Same solvation state/gas phase used across all output files</p></li>
+<li><p>Same level of theory and basis set used</p></li>
+<li><p>Same charge and multiplicity used</p></li>
+<li><p>Check if standard concenctration of 1 atm was used in calculation</p></li>
+<li><p>Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol</p></li>
+<li><p>Check for potential calculation error in linear molecules by Gaussian</p></li>
+<li><p>Check for transition states (one imaginary frequency in output file)</p></li>
+<li><p>Check if empirical dispersion is used and consistent across all output files</p></li>
+</ul>
+</div>
+<div class="section" id="single-point-calculation-checks">
+<h2>Single Point Calculation Checks<a class="headerlink" href="#single-point-calculation-checks" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Same version and program used for all single point calculations</p></li>
+<li><p>Same solvation model used across output files</p></li>
+<li><p>Same level of theory used across all output files</p></li>
+<li><p>Same charge and multiplicity used</p></li>
+<li><p>Same geometry coordinates for SPC and associated geometry optimized and frequency calculation output file</p></li>
+<li><p>Check if empirical dispersion is used and consistent across all output files</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="symmetry">
+<h1>Symmetry<a class="headerlink" href="#symmetry" title="Permalink to this headline">¶</a></h1>
+<p>GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule’s internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, “Brute Force Symmetry Analyzer” developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy.
+<em>Note: this option may not function properly on some versions of Windows.</em></p>
+</div>
+<div class="section" id="file-naming-conventions">
+<h1>File Naming Conventions<a class="headerlink" href="#file-naming-conventions" title="Permalink to this headline">¶</a></h1>
+<p>Some options (–pes, –graph, –spc, –ee, –media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly.</p>
+<ul>
+<li><p><strong>PES &amp; Graph</strong></p>
+<p>PES and graphing file names need correlate with the file names specified in the <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">SPECIES</span></code> block of the .yaml file (see below for .yaml formatting).</p>
+</li>
+<li><p><strong>SPC</strong></p>
+<p>To link a frequency output file to a separately performed single point energy calculation file, the single point calculation file should have the same common root as the frequency file, with an additional underscore and descriptor at the end, such as <code class="docutils literal notranslate"><span class="pre">ethane.out</span></code> and <code class="docutils literal notranslate"><span class="pre">ethane_TZ.out</span></code> shown above, where <code class="docutils literal notranslate"><span class="pre">ethane_TZ.out</span></code> is the separate single point calculation file. When running GoodVibes in this case, the descriptor TZ should be passed as an argument, as <code class="docutils literal notranslate"><span class="pre">--spc</span> <span class="pre">TZ</span></code>.</p>
+</li>
+<li><p><strong>Selectivity</strong></p>
+<p>To calculate enantiomeric excess, enantiomeric ratio, or diastereomeric ratios,
+file names should begin or end with a pattern identifier, such as <code class="docutils literal notranslate"><span class="pre">_R</span></code> and <code class="docutils literal notranslate"><span class="pre">_S</span></code>. The argument then passed to GoodVibes should be <code class="docutils literal notranslate"><span class="pre">--ee</span> <span class="pre">&quot;*_R*:*_S*&quot;</span></code>.</p>
+</li>
+<li><p><strong>Media</strong></p>
+<p>To apply an entropic media correction to calculations performed on solvent molecules, the calculation output file should match the name passed in the media argument, for example, if performing the correction on water, the output file should be named <code class="docutils literal notranslate"><span class="pre">H2O.log</span></code> and the command line option should be <code class="docutils literal notranslate"><span class="pre">--media</span> <span class="pre">H2O</span></code>.
+GoodVibes will recognize the following solvent molecule names:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">meco2h</span> <span class="o">/</span> <span class="n">aceticacid</span><span class="p">,</span> <span class="n">acetone</span><span class="p">,</span> <span class="n">mecn</span> <span class="o">/</span> <span class="n">acetonitrile</span><span class="p">,</span> <span class="n">benzene</span><span class="p">,</span> <span class="mi">1</span><span class="n">buoh</span> <span class="o">/</span> <span class="mi">1</span><span class="n">butanol</span><span class="p">,</span> <span class="mi">2</span><span class="n">buoh</span> <span class="o">/</span> <span class="mi">2</span><span class="n">butanol</span><span class="p">,</span> <span class="mi">2</span><span class="n">butanone</span><span class="p">,</span> <span class="n">tbuoh</span> <span class="o">/</span> <span class="n">tbutylalcohol</span><span class="p">,</span> <span class="n">ccl4</span> <span class="o">/</span> <span class="n">carbontetrachloride</span><span class="p">,</span>
+  <span class="n">phcl</span> <span class="o">/</span> <span class="n">chlorobenzene</span><span class="p">,</span> <span class="n">chcl3</span> <span class="o">/</span> <span class="n">chloroform</span><span class="p">,</span> <span class="n">cyclohexane</span><span class="p">,</span> <span class="mi">12</span><span class="n">dce</span>  <span class="o">/</span> <span class="mi">12</span><span class="n">dichloroethane</span><span class="p">,</span> <span class="n">diethyleneglycol</span><span class="p">,</span> <span class="n">et2o</span> <span class="o">/</span> <span class="n">diethylether</span><span class="p">,</span> <span class="n">diglyme</span><span class="p">,</span> <span class="n">dme</span> <span class="o">/</span> <span class="mi">12</span><span class="n">dimethoxyethane</span><span class="p">,</span>
+  <span class="n">dmf</span> <span class="o">/</span> <span class="n">dimethylformamide</span><span class="p">,</span> <span class="n">dmso</span> <span class="o">/</span> <span class="n">dimethylsulfoxide</span><span class="p">,</span> <span class="mi">14</span><span class="n">dioxane</span><span class="p">,</span> <span class="n">etoh</span> <span class="o">/</span> <span class="n">ethanol</span><span class="p">,</span> <span class="n">etoac</span> <span class="o">/</span> <span class="n">acoet</span> <span class="o">/</span> <span class="n">ethylacetate</span><span class="p">,</span> <span class="n">ethyleneglycol</span><span class="p">,</span> <span class="n">glycerin</span><span class="p">,</span> <span class="n">hmpa</span> <span class="o">/</span> <span class="n">hexamethylphosphoramide</span><span class="p">,</span>
+  <span class="n">hmpt</span> <span class="o">/</span> <span class="n">hexamethylphosphoroustriamide</span><span class="p">,</span> <span class="n">hexane</span><span class="p">,</span> <span class="n">meoh</span> <span class="o">/</span> <span class="n">methanol</span><span class="p">,</span> <span class="n">mtbe</span> <span class="o">/</span> <span class="n">methyltbutylether</span><span class="p">,</span> <span class="n">ch2cl2</span> <span class="o">/</span> <span class="n">methylenechloride</span><span class="p">,</span> <span class="n">dcm</span> <span class="o">/</span> <span class="n">dichloromethane</span><span class="p">,</span> <span class="n">nmp</span> <span class="o">/</span> <span class="n">nmethyl2pyrrolidinone</span><span class="p">,</span>
+  <span class="n">meno2</span> <span class="o">/</span> <span class="n">nitromethane</span><span class="p">,</span> <span class="n">pentane</span><span class="p">,</span> <span class="mi">1</span><span class="n">propanol</span><span class="p">,</span> <span class="mi">2</span><span class="n">propanol</span><span class="p">,</span> <span class="n">pyridine</span><span class="p">,</span> <span class="n">thf</span> <span class="o">/</span> <span class="n">tetrahydrofuran</span><span class="p">,</span> <span class="n">toluene</span><span class="p">,</span> <span class="n">et3n</span> <span class="o">/</span> <span class="n">triethylamine</span><span class="p">,</span> <span class="n">h2o</span> <span class="o">/</span> <span class="n">water</span><span class="p">,</span> <span class="n">oxylene</span><span class="p">,</span> <span class="n">mxylene</span><span class="p">,</span> <span class="n">pxylene</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="yaml-file-formatting">
+<h1>.yaml File Formatting<a class="headerlink" href="#yaml-file-formatting" title="Permalink to this headline">¶</a></h1>
+<p>When using the –pes or –graph options in GoodVibes, a .yaml file must be provided to the program to specify qualities like reaction pathways, provided conformers, and other formatting options. The same .yaml may be used for both –pes and –graphing options. An example .yaml file from an external <a class="reference external" href="https://doi.org/10.5281/zenodo.3662846">Zenodo repository</a> is shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">---</span> <span class="c1"># PES</span>
+    <span class="n">Ph</span><span class="p">:</span> <span class="p">[</span><span class="n">Ph</span><span class="o">-</span><span class="n">Int1</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Ph</span><span class="o">-</span><span class="n">TS1</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Ph</span><span class="o">-</span><span class="n">Int2</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Ph</span><span class="o">-</span><span class="n">TS2</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Ph</span><span class="o">-</span><span class="n">Int3</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">]</span>
+    <span class="n">Py</span><span class="p">:</span> <span class="p">[</span><span class="n">Py</span><span class="o">-</span><span class="n">Int1</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Py</span><span class="o">-</span><span class="n">TS1</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Py</span><span class="o">-</span><span class="n">Int2</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Py</span><span class="o">-</span><span class="n">TS2</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">,</span> <span class="n">Py</span><span class="o">-</span><span class="n">Int3</span> <span class="o">+</span> <span class="n">EtOH</span><span class="p">]</span>
+
+<span class="o">---</span> <span class="c1"># SPECIES</span>
+    <span class="n">Ph</span><span class="o">-</span><span class="n">Int1</span>     <span class="p">:</span> <span class="n">Int_I_Ph</span><span class="o">*</span>
+    <span class="n">Ph</span><span class="o">-</span><span class="n">TS1</span>      <span class="p">:</span> <span class="n">TS_1_Ph</span><span class="o">*</span>
+    <span class="n">Ph</span><span class="o">-</span><span class="n">Int2</span>     <span class="p">:</span> <span class="n">Int_II_Ph</span><span class="o">*</span>
+    <span class="n">Ph</span><span class="o">-</span><span class="n">TS2</span>      <span class="p">:</span> <span class="n">TS_II_Ph</span><span class="o">*</span>
+    <span class="n">Ph</span><span class="o">-</span><span class="n">Int3</span>     <span class="p">:</span> <span class="n">Int_III_Ph</span><span class="o">*</span>
+    <span class="n">Py</span><span class="o">-</span><span class="n">Int1</span>     <span class="p">:</span> <span class="n">Int_I_Py</span><span class="o">*</span>
+    <span class="n">Py</span><span class="o">-</span><span class="n">TS1</span>      <span class="p">:</span> <span class="n">TS_1_Py</span><span class="o">*</span>
+    <span class="n">Py</span><span class="o">-</span><span class="n">Int2</span>     <span class="p">:</span> <span class="n">Int_II_Py</span><span class="o">*</span>
+    <span class="n">Py</span><span class="o">-</span><span class="n">TS2</span>      <span class="p">:</span> <span class="n">TS_II_Py</span><span class="o">*</span>
+    <span class="n">Py</span><span class="o">-</span><span class="n">Int3</span>     <span class="p">:</span> <span class="n">Int_III_Py</span><span class="o">*</span>
+    <span class="n">EtOH</span>        <span class="p">:</span> <span class="n">ethanol</span><span class="o">*</span>
+    
+<span class="o">---</span> <span class="c1"># FORMAT</span>
+    <span class="n">dec</span> <span class="p">:</span>  <span class="mi">2</span> 
+    <span class="n">legend</span> <span class="p">:</span> <span class="kc">False</span>
+    <span class="n">color</span> <span class="p">:</span> <span class="n">black</span><span class="p">,</span><span class="c1">#26a6a4</span>
+    <span class="n">pointlabel</span> <span class="p">:</span> <span class="kc">False</span> 
+    <span class="n">gridlines</span><span class="p">:</span> <span class="kc">True</span>
+    <span class="n">show_conformers</span><span class="p">:</span> <span class="kc">True</span>
+    <span class="n">show_gconf</span><span class="p">:</span> <span class="kc">False</span>
+    <span class="n">dpi</span> <span class="p">:</span> <span class="mi">400</span>
+    <span class="n">title</span><span class="p">:</span> <span class="n">Potential</span> <span class="n">Energy</span> <span class="n">Surface</span>
+</pre></div>
+</div>
+<p>options in the # FORMAT block are optional, but allow for stylistic choices to be employed, especially when graphing. All current options that can be specified for either –pes or –graph options are:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">dec</span> <span class="p">:</span> <span class="mi">1</span> <span class="ow">or</span> <span class="mi">2</span> <span class="p">(</span><span class="n">decimal</span> <span class="n">points</span> <span class="ow">in</span> <span class="n">output</span><span class="p">)</span>
+    <span class="n">legend</span> <span class="p">:</span> <span class="kc">True</span> <span class="ow">or</span> <span class="kc">False</span> <span class="p">(</span><span class="n">puts</span> <span class="n">legend</span> <span class="n">on</span> <span class="n">graph</span><span class="p">)</span>
+    <span class="n">ylim</span> <span class="p">:</span> <span class="n">y_min</span><span class="p">,</span><span class="n">y_max</span> <span class="p">(</span><span class="n">y</span> <span class="n">axis</span> <span class="n">limits</span> <span class="n">on</span> <span class="n">graph</span><span class="p">)</span>
+    <span class="n">color</span> <span class="p">:</span> <span class="n">Color</span> <span class="p">(</span><span class="n">color</span> <span class="n">of</span> <span class="n">line</span> <span class="k">for</span> <span class="n">a</span> <span class="n">reaction</span> <span class="n">pathway</span><span class="p">,</span> <span class="n">multiple</span> <span class="n">pathways</span> <span class="n">can</span> <span class="n">have</span> <span class="n">different</span> <span class="n">colors</span> <span class="n">i</span><span class="o">.</span><span class="n">e</span><span class="o">.</span> <span class="n">color1</span><span class="p">,</span><span class="n">color2</span><span class="p">,</span><span class="n">color3</span> <span class="n">etc</span><span class="o">.</span><span class="p">,</span> <span class="n">this</span> <span class="n">follows</span> <span class="n">rules</span> <span class="k">for</span> <span class="n">matplotlib</span> <span class="n">standard</span> <span class="n">colors</span><span class="p">)</span>
+    <span class="n">pointlabel</span> <span class="p">:</span> <span class="kc">True</span> <span class="ow">or</span> <span class="kc">False</span> <span class="p">(</span><span class="n">labels</span> <span class="n">relative</span> <span class="n">energy</span> <span class="n">on</span> <span class="n">graph</span> <span class="n">at</span> <span class="n">point</span><span class="p">)</span>
+    <span class="n">xlabel</span> <span class="p">:</span> <span class="kc">True</span> <span class="ow">or</span> <span class="kc">False</span> <span class="p">(</span><span class="n">displays</span> <span class="n">structure</span> <span class="n">labels</span> <span class="n">at</span> <span class="n">pathway</span> <span class="n">points</span> <span class="n">on</span> <span class="n">x</span> <span class="n">axis</span><span class="p">)</span>
+    <span class="n">title</span> <span class="p">:</span> <span class="n">Title</span> <span class="p">(</span><span class="n">title</span> <span class="n">displayed</span> <span class="n">on</span> <span class="n">graph</span><span class="p">)</span>
+    <span class="n">gridlines</span><span class="p">:</span> <span class="kc">True</span> <span class="ow">or</span> <span class="kc">False</span> <span class="p">(</span><span class="n">displays</span> <span class="n">gridlines</span> <span class="n">on</span> <span class="n">graph</span><span class="p">)</span>
+    <span class="n">dpi</span> <span class="p">:</span> <span class="n">number</span> <span class="p">(</span><span class="n">specify</span> <span class="n">dpi</span> <span class="p">(</span><span class="n">dots</span> <span class="n">per</span> <span class="n">inch</span><span class="p">)</span> <span class="n">of</span> <span class="n">an</span> <span class="n">image</span><span class="p">,</span> <span class="n">will</span> <span class="n">automatically</span> <span class="n">save</span> <span class="n">output</span> <span class="n">image</span> <span class="n">at</span> <span class="n">specified</span> <span class="n">dpi</span><span class="p">)</span>
+    <span class="n">show_conformers</span> <span class="p">:</span> <span class="kc">True</span> <span class="ow">or</span> <span class="kc">False</span> <span class="p">(</span><span class="n">displays</span> <span class="n">a</span> <span class="n">point</span> <span class="k">for</span> <span class="n">each</span> <span class="n">conformer</span> <span class="n">of</span> <span class="n">a</span> <span class="n">certain</span> <span class="n">compound</span> <span class="n">at</span> <span class="n">its</span> <span class="n">relative</span> <span class="n">energy</span> <span class="n">on</span> <span class="n">graph</span><span class="p">)</span>
+    <span class="n">show_gconf</span> <span class="p">:</span> <span class="kc">True</span> <span class="ow">or</span> <span class="kc">False</span> <span class="p">(</span><span class="n">displays</span> <span class="n">the</span> <span class="n">effect</span> <span class="n">of</span> <span class="n">multiple</span> <span class="n">accessible</span> <span class="n">conformers</span> <span class="n">correction</span> <span class="k">if</span> <span class="n">applied</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Tips and Troubleshooting</strong></p>
+<ul class="simple">
+<li><p>The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the <code class="docutils literal notranslate"><span class="pre">$PATH</span></code> variable of your system (this is not necessary if installed with pip or conda)</p></li>
+<li><p>It is possible to run on any number of files at once using wildcards to specify all of the Gaussian files in a directory (specify <code class="docutils literal notranslate"><span class="pre">*.out</span></code> or <code class="docutils literal notranslate"><span class="pre">*.log</span></code>)</p></li>
+<li><p>File names not in the form of filename.log or filename.out are not read, however more file extensions can be added with the option <code class="docutils literal notranslate"><span class="pre">--custom_ext</span></code></p></li>
+<li><p>The script will not work if terse output was requested in the Gaussian job</p></li>
+<li><p>Problems may occur with Restart Gaussian jobs due to missing information in the output file.</p></li>
+</ul>
+</div>
+<div class="section" id="papers-from-other-research-groups-citing-goodvibes">
+<h1>Papers from other research groups citing GoodVibes<a class="headerlink" href="#papers-from-other-research-groups-citing-goodvibes" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p>Li, Y.; Du, S. <em>RSC Adv.</em> <strong>2016</strong>, <em>6</em>, 84177-84186 <a class="reference external" href="http://dx.doi.org/10.1039/C6RA16321A"><strong>DOI:</strong> 10.1039/C6RA16321A</a></p></li>
+<li><p>Myllys, N.; Elm, J.; Kurtén, T. <em>Comp. Theor. Chem.</em> <strong>2016</strong>, <em>1098</em>, 1–12 <a class="reference external" href="http://dx.doi.org/10.1016/j.comptc.2016.10.015"><strong>DOI:</strong> 10.1016/j.comptc.2016.10.015</a></p></li>
+<li><p>Mohamed, S.; Krenske, E. H.; Ferro, V. <em>Org. Biomol. Chem.</em> <strong>2016</strong>, <em>14</em>, 2950-2960 <a class="reference external" href="http://dx.doi.org/10.1039/c6ob00283h"><strong>DOI:</strong> 10.1039/c6ob00283h</a></p></li>
+<li><p>Grayson, M. N. <em>J. Org. Chem.</em> <strong>2017</strong>, <em>82</em>, 4396–4401 <a class="reference external" href="http://dx.doi.org/10.1021/acs.joc.7b00521"><strong>DOI:</strong> 10.1021/acs.joc.7b00521</a></p></li>
+<li><p>Elm, J. <em>J. Phys. Chem. A</em> <strong>2017</strong>, <em>121</em>, 8288−8295 <a class="reference external" href="http://dx.doi.org/10.1021/acs.jpca.7b08962"><strong>DOI:</strong> 10.1021/acs.jpca.7b08962</a></p></li>
+<li><p>Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. <em>ACS Catal.</em> <strong>2017</strong>, <em>7</em>, 6430–6439 <a class="reference external" href="http://dx.doi.org/10.1021/acscatal.7b02446"><strong>DOI:</strong> 10.1021/acscatal.7b02446</a></p></li>
+<li><p>Elm, J. <em>J. Phys. Chem. A</em> <strong>2017</strong>, <em>121</em>, 8288–8295 <a class="reference external" href="http://dx.doi.org/10.1021/acs.jpca.7b08962"><strong>DOI:</strong> 10.1021/acs.jpca.7b08962</a></p></li>
+<li><p>Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. <em>Chem. Eur. J.</em> <strong>2017</strong>, <em>23</em>, 15336–15347<a class="reference external" href="http://dx.doi.org/10.1002/chem.201702841"><strong>DOI:</strong> 10.1002/chem.201702841</a></p></li>
+<li><p>Funes‐Ardoiz, I.; Nelson, D. J.; Maseras, F. <em>Chem. Eur. J.</em> <strong>2017</strong>, <em>23</em>, 16728–16733 <a class="reference external" href="http://dx.doi.org/10.1002/chem.201702331"><strong>DOI:</strong> 10.1002/chem.201702331</a></p></li>
+<li><p>Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. <em>Catal. Sci. Technol.</em> <strong>2017</strong>, 5644–5649 <a class="reference external" href="http://dx.doi.org/10.1039/C7CY01728F"><strong>DOI:</strong> 10.1039/C7CY01728F </a></p></li>
+<li><p>Elm, J.; Passananti, M.; Kurtén, T.; Vehkamäki, H. <em>J. Phys. Chem. A</em> <strong>2017</strong>, <em>121</em>, 6155–6164 <a class="reference external" href="http://dx.doi.org/10.1021/acs.jpca.7b05658"><strong>DOI:</strong> 10.1021/acs.jpca.7b05658</a></p></li>
+<li><p>De Silvestro, I.; Drew, S. L.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. <em>Angew. Chem. Int. Ed.</em> <strong>2017</strong>, <em>56</em>, 6813–6817 <a class="reference external" href="http://doi.org/10.1002/anie.201701481"><strong>DOI:</strong> 10.1002.anie.201701481</a></p></li>
+<li><p>Besora, M.; Vidossich, P.; Lledos, A.; Ujaque, G.; Maseras, F. <em>J. Phys. Chem. A</em> <strong>2018</strong>, <em>122</em>, 1392–1399 <a class="reference external" href="http://dx.doi.org/10.1021/acs.jpca.7b11580"><strong>DOI:</strong> 10.1021/acs.jpca.7b11580 </a></p></li>
+<li><p>Harada, T. <em>J. Org. Chem.</em> <strong>2018</strong>, <em>83</em>, 7825–7835 <a class="reference external" href="http://dx.doi.org/10.1021/acs.joc.8b00712"><strong>DOI:</strong> 10.1021/acs.joc.8b00712</a></p></li>
+<li><p>Lewis, R. D.; Garcia-Borràs, M.;  Chalkley, M. J.; Buller, A. R.; Houk, K. N.; Kan, S. B. J.; Arnold, F. H. <em>Proc. Natl. Acad. Sci.</em> <strong>2018</strong>, <em>115</em>, 7308-7313 <a class="reference external" href="http://dx.doi.org/10.1073/pnas.1807027115"><strong>DOI:</strong> 10.1073/pnas.1807027115</a></p></li>
+<li><p>Park, H.; Chekshin, N.; Shen, P.; Yu, J. <em>ACS Catal.</em> <strong>2018</strong>, <em>8</em>, 9292–9297 <a class="reference external" href="http://dx.doi.org/10.1021/acscatal.8b03014"><strong>DOI:</strong> 10.1021/acscatal.8b03014</a></p></li>
+<li><p>Ye, J.; Kalvet, I.; Schoenebeck, F.; Rovis, T. <em>Nature Chem.</em> <strong>2018</strong>, <em>10</em>, 1037–1041 <a class="reference external" href="https://doi.org/10.1038/s41557-018-0085-9"><strong>DOI:</strong> 10.1038/s41557-018-0085-9</a></p></li>
+<li><p>Green, N. J.; Connolly, C. A.; Rietdijk, K. P. W.; Nichol, G. S.; Duarte, F.; Lawrence, A. L. <em>Angew. Chem. Int. Ed.</em> <strong>2018</strong>, <em>57</em>, 6198–6202. <a class="reference external" href="https://doi.org/10.1002/anie.201802125"><strong>DOI:</strong> 10.1002/anie.201802125</a></p></li>
+<li><p>dos Passos Gomes, G.; Loginova, Y.; Vatsadze, S. Z.; Alabugin, I. V. <em>J. Am. Chem. Soc.</em> <strong>2018</strong>, <em>140</em>, 14272-14288 <a class="reference external" href="http://doi.org/10.1021/jacs.8b08513"><strong>DOI:</strong> 10.1021/jacs.8b08513</a></p></li>
+<li><p>Wodrich, M. D.; Busch, M.; Corminboeuf, C. <em>Helv. Chim. Acta</em> <strong>2018</strong>, <em>101</em>, e1800107 <a class="reference external" href="http://doi.org/10.1002/hlca.201800107"><strong>DOI:</strong> 10.1002/hlca.201800107</a></p></li>
+<li><p>Simon, L. <em>Org. Biomol. Chem.</em> <strong>2018</strong>, <em>16</em>, 2225–2238 <a class="reference external" href="http://doi.org/10.1039/c7ob02875j"><strong>DOI:</strong> 10.1039/c7ob02875j</a></p></li>
+<li><p>Kildgaard, J. V.; Mikkelsen, K. V.; Bilde, M.; Elm, J. <em>J. Phys. Chem. A.</em>, <strong>2018</strong>, <em>122</em>, 5026-5036 <a class="reference external" href="https://doi.org/10.1021/acs.jpca.8b02758"><strong>DOI:</strong> 10.1021/acs.jpca.8b02758</a></p></li>
+<li><p>Tanoury, G. J.; Roeper, S. <em>Tetrahedron</em>, <strong>2018</strong>, <em>74</em>, 7103-7110 <a class="reference external" href="https://doi.org/10.1016/j.tet.2018.10.060"><strong>DOI:</strong> 10.1016/j.tet.2018.10.060</a></p></li>
+<li><p>Sawatlon, B.; Wodrich, M. D.; Corminboeuf, C. <em>Organometallics</em>, <strong>2018</strong>, <em>37</em>, 4568-4575 <a class="reference external" href="https://doi.org/10.1021/acs.organomet.8b00490"><strong>DOI:</strong> 10.1021/acs.organomet.8b00490</a></p></li>
+<li><p>Audic, B.; Wodrich, M. D.; Cramer, N. <em>Chem. Sci.</em> <strong>2019</strong>, <em>10</em>, 781-787 <a class="reference external" href="http://doi.org/10.1039/C8SC04385J"><strong>DOI:</strong> 10.1039/C8SC04385J</a></p></li>
+<li><p>Tuguldurova, V. P.; Fateev, A. V.; Poleshchuk, O. K.; Vodyankina, O. V.  <em>Phys. Chem. Chem. Phys.</em> <strong>2019</strong>, <em>21</em>, 9326–9334 <a class="reference external" href="http://doi.org/10.1039/c8cp07270a"><strong>DOI:</strong> 10.1039/c8cp07270a</a></p></li>
+<li><p>Fischer, T.; Bamberger, J.; Gomez‐Martinez, M.; Piekarski, D. G.; Garcia Mancheño, O. <em>Angew Chem. Int. Ed.</em> <strong>2019</strong>, <em>58</em>, 3217–3221 <a class="reference external" href="http://doi.org/10.1002/anie.201812031"><strong>DOI:</strong> 10.1002/anie.201812031</a></p></li>
+<li><p>Svatunek, D.; Houszka, N.; Hamlin, T. A.; Bickelhaupt, F. M.; Mikula, H. <em>Chem. Eur. J.</em> <strong>2019</strong>, <em>25</em>, 754–758 <a class="reference external" href="http://doi.org/10.1002/chem.201805215"><strong>DOI:</strong> 10.1002/chem.201805215</a></p></li>
+<li><p>Green, S.; Montgomery, H.; Benton, T. R.; Chan, N.; Nelson, H. <a class="reference external" href="http://doi.org/10.26434/chemrxiv.7824755.v1"><strong>DOI:</strong> 10.26434/chemrxiv.7824755.v1</a></p></li>
+<li><p>Putatunda, S.; Alegre-Requena, J. V.; Meazza, M.; Franc, M.; Rohal’ova, D.; Vemuri, P.; Cısarova, I.; Herrera, R. P.; Rios, R.; Vesely, J. <em>Chem. Sci.</em> <strong>2019</strong>, <em>10</em>, 4107–4115 <a class="reference external" href="http://doi.org/10.1039/c8sc05258a"><strong>DOI:</strong> 10.1039/c8sc05258a</a></p></li>
+<li><p>Silva, V. S.; Tolentino, T. A.; Rodrigues, T. C. A. F.; Santos, F. F. M.; Machado, D. F. S.; Silva, W. A.; de Oliveira, H. C. B.; Machado, A. H. L. <em>Org. Biomol. Chem.</em>, <strong>2019</strong>, <em>17</em>, 4498-4511 <a class="reference external" href="http://doi.org/10.1039/C9OB00533A"><strong>DOI:</strong> 10.1039/C9OB00533A</a></p></li>
+<li><p>Wodrich, M. D.; Sawatlon, B.; Solel, E.; Kozuch, S.; Corminboeuf, C. <em>ACS Catal.</em>, <strong>2019</strong>, <em>9</em>, 5716-5725 <a class="reference external" href="https://doi.org/10.1021/acscatal.9b00717"><strong>DOI:</strong> 10.1021/acscatal.9b00717</a></p></li>
+<li><p>Martí-Centelles, V.; Duarte, F.; Lusby, P. J. <em>Isr. J. Chem.</em>, <strong>2019</strong>, <em>59</em>, 257-266 <a class="reference external" href="https://doi.org/10.1002/ijch.201800106"><strong>DOI:</strong> 10.1002/ijch.201800106</a></p></li>
+<li><p>van der Ham, A.; Hansen, T.; Lodder, G.; Codée, J. D. C.; Hamlin, T. A.; Filippov, D. V. <em>Chem. Phys. Chem.</em>, <strong>2019</strong>, <em>20</em>, 1-8 <a class="reference external" href="https://doi.org/10.1002/cphc.201900496"><strong>DOI:</strong> 10.1002/cphc.201900496</a></p></li>
+<li><p>Merz, L. S.; Blasius, C. K.; Wadepohl, H.; Gade, L. H. <em>Inorg. Chem.</em>, <strong>2019</strong>, <em>58</em>, 6102-6113 <a class="reference external" href="https://doi.org/10.1021/acs.inorgchem.9b00384"><strong>DOI:</strong> 10.1021/acs.inorgchem.9b00384</a></p></li>
+<li><p>Ivanov, S. M.; Dmitrienko, A. O.; Medvedev, M. G.; Mironovich, L. M. <em>J. Organomet. Chem.</em>, <strong>2019</strong>, <em>896</em>, 168-182 <a class="reference external" href="https://doi.org/10.1016/j.jorganchem.2019.06.009"><strong>DOI:</strong> 10.1016/j.jorganchem.2019.06.009</a></p></li>
+</ul>
+</div>
+<div class="section" id="references-for-the-underlying-theory">
+<h1>References for the underlying theory<a class="headerlink" href="#references-for-the-underlying-theory" title="Permalink to this headline">¶</a></h1>
+<ol class="simple">
+<li><p>Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. <em>J. Phys. Chem. B</em> <strong>2011</strong>, <em>115</em>, 14556-14562 <a class="reference external" href="http://dx.doi.org/10.1021/jp205508z"><strong>DOI:</strong> 10.1021/jp205508z</a></p></li>
+<li><p>Grimme, S. <em>Chem. Eur. J.</em> <strong>2012</strong>, <em>18</em>, 9955–9964 <a class="reference external" href="http://dx.doi.org/10.1002/chem.201200497"><strong>DOI:</strong> 10.1021/jp509921r</a></p></li>
+<li><p>Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. <em>J. Phys. Chem. C</em> <strong>2015</strong>, <em>119</em>, 1840-1850 <a class="reference external" href="http://dx.doi.org/10.1021/jp509921r"><strong>DOI:</strong> 10.1002/chem.201200497</a></p></li>
+<li><p>Alecu, I. M.; Zheng, J.; Zhao, Y.; Truhlar, D. G.; <em>J. Chem. Theory Comput.</em> <strong>2010</strong>, <em>6</em>, 2872-2887 <a class="reference external" href="http://dx.doi.org/10.1021/ct100326h"><strong>DOI:</strong> 10.1021/ct100326h</a></p></li>
+<li><p>Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. <em>J. Org. Chem.</em> <strong>1998</strong>, <em>63</em>, 3821-3830 <a class="reference external" href="http://dx.doi.org/10.1021/jo970944f"><strong>DOI:</strong> 10.1021/jo970944f</a></p></li>
+</ol>
+<hr class="docutils" />
+<p>License: <a class="reference external" href="https://opensource.org/licenses/MIT">MIT</a></p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="goodvibes.html" class="btn btn-neutral float-right" title="GoodVibes module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to the GoodVibes documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
