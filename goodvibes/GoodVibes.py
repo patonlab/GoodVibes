@@ -2335,7 +2335,6 @@ def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_mod
     if inertia == "global" or len(roconst) == 0:
         bav = 1.00e-44
     else:
-        print("\n   Found Rotational Constants for ",file,": ", roconst)
         av_roconst_ghz = sum(roconst)/len(roconst)  #GHz
         av_roconst_hz = av_roconst_ghz * 1000000000 #Hz
         av_roconst_s = 1 / av_roconst_hz            #s
