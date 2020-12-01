@@ -48,8 +48,8 @@ from __future__ import print_function, absolute_import
 #######################################################################
 ###########  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ############
 ###########               Guilian Luchini, Juan V. Alegre- ############
-###########               Requena, Yanfei Guan             ############
-###########  Last modified:  July, 2020                    ############
+###########               Requena, Yanfei Guan, Sibo Lin   ############
+###########  Last modified:  May 27, 2020                 ############
 ####################################################################"""
 
 import ctypes, math, os.path, sys, time
@@ -73,7 +73,7 @@ except:
         pass
 
 # VERSION NUMBER
-__version__ = "3.1.0"
+__version__ = "3.0.2"
 
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
@@ -319,132 +319,205 @@ class calc_bbe:
             except ValueError:
                 self.sp_energy = '!'
                 pass
-        elif spc == 'link':
+        else:
             self.sp_energy, self.sp_program, self.sp_version_program, self.sp_solvation_model, self.sp_file, self.sp_charge, self.sp_empirical_dispersion, self.sp_multiplicity = parse_data(
                 file)
-        # Count number of links
-        for line in g_output:
-            # Only read first link + freq not other link jobs
-            if "Normal termination" in line:
-                linkmax += 1
-            else:
-                frequency_wn = []
-            if 'Frequencies --' in line:
-                freqloc = linkmax
-
-        # Iterate over output
-        if freqloc == 0:
-            freqloc = len(g_output)
-        for i, line in enumerate(g_output):
-            # Link counter
-            if "Normal termination" in line:
-                link += 1
-                # Reset frequencies if in final freq link
-                if link == freqloc:
+        if self.sp_program == 'Gaussian' or self.program == 'Gaussian':
+            # Count number of links
+            for line in g_output:
+                # Only read first link + freq not other link jobs
+                if "Normal termination" in line:
+                    linkmax += 1
+                else:
                     frequency_wn = []
-                    im_frequency_wn = []
-                    if mm_freq_scale_factor is not False:
-                        fract_modelsys = []
-            # If spc specified will take last Energy from file, otherwise will break after freq calc
-            if link > freqloc:
-                break
-            # Iterate over output: look out for low frequencies
-            if line.strip().startswith('Frequencies -- '):
-                if mm_freq_scale_factor is not False:
-                    newline = g_output[i + 3]
-                for j in range(2, 5):
-                    try:
-                        x = float(line.strip().split()[j])
-                        # If given MM freq scale factor fill the fract_modelsys array:
+                if 'Frequencies --' in line:
+                    freqloc = linkmax
+
+            # Iterate over output
+            if freqloc == 0:
+                freqloc = len(g_output)
+            for i, line in enumerate(g_output):
+                # Link counter
+                if "Normal termination" in line:
+                    link += 1
+                    # Reset frequencies if in final freq link
+                    if link == freqloc:
+                        frequency_wn = []
+                        im_frequency_wn = []
                         if mm_freq_scale_factor is not False:
-                            y = float(newline.strip().split()[j]) / 100.0
-                            y = float('{:.6f}'.format(y))
-                        else:
-                            y = 1.0
-                        # Only deal with real frequencies
-                        if x > 0.00:
-                            frequency_wn.append(x)
-                            if mm_freq_scale_factor is not False: fract_modelsys.append(y)
-                        # Check if we want to make any low lying imaginary frequencies positive
-                        elif x < -1 * im_freq_cutoff:
-                            if invert is not False:
-                                if x > float(invert):
-                                    frequency_wn.append(x * -1.)
-                                    inverted_freqs.append(x)
+                            fract_modelsys = []
+                # If spc specified will take last Energy from file, otherwise will break after freq calc
+                if link > freqloc:
+                    break
+                # Iterate over output: look out for low frequencies
+                if line.strip().startswith('Frequencies -- '):
+                    if mm_freq_scale_factor is not False:
+                        newline = g_output[i + 3]
+                    for j in range(2, 5):
+                        try:
+                            x = float(line.strip().split()[j])
+                            # If given MM freq scale factor fill the fract_modelsys array:
+                            if mm_freq_scale_factor is not False:
+                                y = float(newline.strip().split()[j]) / 100.0
+                                y = float('{:.6f}'.format(y))
+                            else:
+                                y = 1.0
+                            # Only deal with real frequencies
+                            if x > 0.00:
+                                frequency_wn.append(x)
+                                if mm_freq_scale_factor is not False: fract_modelsys.append(y)
+                            # Check if we want to make any low lying imaginary frequencies positive
+                            elif x < -1 * im_freq_cutoff:
+                                if invert is not False:
+                                    if x > float(invert):
+                                        frequency_wn.append(x * -1.)
+                                        inverted_freqs.append(x)
+                                    else:
+                                        im_frequency_wn.append(x)
                                 else:
                                     im_frequency_wn.append(x)
-                            else:
-                                im_frequency_wn.append(x)
-                    except IndexError:
-                        pass
-            # For QM calculations look for SCF energies, last one will be the optimized energy
-            elif line.strip().startswith('SCF Done:'):
-                self.scf_energy = float(line.strip().split()[4])
-            # For Counterpoise calculations the corrected energy value will be taken
-            elif line.strip().startswith('Counterpoise corrected energy'):
-                self.scf_energy = float(line.strip().split()[4])
-            # For MP2 calculations replace with EUMP2
-            elif 'EUMP2 =' in line.strip():
-                self.scf_energy = float((line.strip().split()[5]).replace('D', 'E'))
-            # For ONIOM calculations use the extrapolated value rather than SCF value
-            elif "ONIOM: extrapolated energy" in line.strip():
-                self.scf_energy = (float(line.strip().split()[4]))
-            # For Semi-empirical or Molecular Mechanics calculations
-            elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
-                self.scf_energy = (float(line.strip().split()[1]))
-            # For TD-DFT calculations, replace with 'Total Energy'
-            elif "Total Energy, E(TD-HF/TD-DFT)" in line.strip():
+                        except IndexError:
+                            pass
+                # For QM calculations look for SCF energies, last one will be the optimized energy
+                elif line.strip().startswith('SCF Done:'):
+                    self.scf_energy = float(line.strip().split()[4])
+                # For Counterpoise calculations the corrected energy value will be taken
+                elif line.strip().startswith('Counterpoise corrected energy'):
+                    self.scf_energy = float(line.strip().split()[4])
+                # For MP2 calculations replace with EUMP2
+                elif 'EUMP2 =' in line.strip():
+                    self.scf_energy = float((line.strip().split()[5]).replace('D', 'E'))
+                # For ONIOM calculations use the extrapolated value rather than SCF value
+                elif "ONIOM: extrapolated energy" in line.strip():
                     self.scf_energy = (float(line.strip().split()[4]))
-            # Look for thermal corrections, paying attention to point group symmetry
-            elif line.strip().startswith('Zero-point correction='):
-                self.zero_point_corr = float(line.strip().split()[2])
-            # Grab Multiplicity
-            elif 'Multiplicity' in line.strip():
-                try:
-                    self.mult = int(line.split('=')[-1].strip().split()[0])
-                except:
-                    self.mult = int(line.split()[-1])
-            # Grab molecular mass
-            elif line.strip().startswith('Molecular mass:'):
-                molecular_mass = float(line.strip().split()[2])
-            # Grab rational symmetry number
-            elif line.strip().startswith('Rotational symmetry number'):
-                symmno = int((line.strip().split()[3]).split(".")[0])
-            # Grab point group
-            elif line.strip().startswith('Full point group'):
-                if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V':
-                    linear_mol = 1
-            # Grab rotational constants
-            elif line.strip().startswith('Rotational constants (GHZ):'):
-                try:
-                    self.roconst = [float(line.strip().replace(':', ' ').split()[3]),
-                                    float(line.strip().replace(':', ' ').split()[4]),
-                                    float(line.strip().replace(':', ' ').split()[5])]
-                except ValueError:
-                    if line.strip().find('********'):
-                        linear_warning = True
-                        self.roconst = [float(line.strip().replace(':', ' ').split()[4]),
+                # For Semi-empirical or Molecular Mechanics calculations
+                elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
+                    self.scf_energy = (float(line.strip().split()[1]))
+                # Look for thermal corrections, paying attention to point group symmetry
+                elif line.strip().startswith('Zero-point correction='):
+                    self.zero_point_corr = float(line.strip().split()[2])
+                # Grab Multiplicity
+                elif 'Multiplicity' in line.strip():
+                    try:
+                        self.mult = int(line.split('=')[-1].strip().split()[0])
+                    except:
+                        self.mult = int(line.split()[-1])
+                # Grab molecular mass
+                elif line.strip().startswith('Molecular mass:'):
+                    molecular_mass = float(line.strip().split()[2])
+                # Grab rational symmetry number
+                elif line.strip().startswith('Rotational symmetry number'):
+                    symmno = int((line.strip().split()[3]).split(".")[0])
+                # Grab point group
+                elif line.strip().startswith('Full point group'):
+                    if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V':
+                        linear_mol = 1
+                # Grab rotational constants
+                elif line.strip().startswith('Rotational constants (GHZ):'):
+                    try:
+                        self.roconst = [float(line.strip().replace(':', ' ').split()[3]),
+                                        float(line.strip().replace(':', ' ').split()[4]),
                                         float(line.strip().replace(':', ' ').split()[5])]
-            # Grab rotational temperatures
-            elif line.strip().startswith('Rotational temperature '):
-                rotemp = [float(line.strip().split()[3])]
-            elif line.strip().startswith('Rotational temperatures'):
-                try:
-                    rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]),
-                              float(line.strip().split()[5])]
-                except ValueError:
-                    rotemp = None
-                    if line.strip().find('********'):
-                        linear_warning = True
-                        rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
-            if "Job cpu time" in line.strip():
-                days = int(line.split()[3]) + self.cpu[0]
-                hours = int(line.split()[5]) + self.cpu[1]
-                mins = int(line.split()[7]) + self.cpu[2]
-                secs = 0 + self.cpu[3]
-                msecs = int(float(line.split()[9]) * 1000.0) + self.cpu[4]
-                self.cpu = [days, hours, mins, secs, msecs]
+                    except ValueError:
+                        if line.strip().find('********'):
+                            linear_warning = True
+                            self.roconst = [float(line.strip().replace(':', ' ').split()[4]),
+                                            float(line.strip().replace(':', ' ').split()[5])]
+                # Grab rotational temperatures
+                elif line.strip().startswith('Rotational temperature '):
+                    rotemp = [float(line.strip().split()[3])]
+                elif line.strip().startswith('Rotational temperatures'):
+                    try:
+                        rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]),
+                                  float(line.strip().split()[5])]
+                    except ValueError:
+                        rotemp = None
+                        if line.strip().find('********'):
+                            linear_warning = True
+                            rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
+                if "Job cpu time" in line.strip():
+                    days = int(line.split()[3]) + self.cpu[0]
+                    hours = int(line.split()[5]) + self.cpu[1]
+                    mins = int(line.split()[7]) + self.cpu[2]
+                    secs = 0 + self.cpu[3]
+                    msecs = int(float(line.split()[9]) * 1000.0) + self.cpu[4]
+                    self.cpu = [days, hours, mins, secs, msecs]
+                    
+        if self.sp_program == 'NWChem' or self.program == 'NWChem':
+            print("Parsing NWChem output...")
+            # Iterate
+            for i,line in enumerate(g_output):
+                #scanning for low frequencies...
+                if line.strip().startswith('P.Frequency'):
+                    newline=g_output[i+3]
+                    for j in range(1,7):
+                        try:
+                            x = float(line.strip().split()[j])
+                            y = 1.0
+                            # Only deal with real frequencies
+                            if x > 0.00:
+                                frequency_wn.append(x)
+                                if mm_freq_scale_factor is not False: fract_modelsys.append(y)
+                            # Check if we want to make any low lying imaginary frequencies positive
+                            elif x < -1 * im_freq_cutoff:
+                                if invert is not False:
+                                    if x > float(invert):
+                                        frequency_wn.append(x * -1.)
+                                        inverted_freqs.append(x)
+                                    else:
+                                        im_frequency_wn.append(x)
+                                else:
+                                    im_frequency_wn.append(x)
+                        except IndexError:
+                            pass
+                # For QM calculations look for SCF energies, last one will be the optimized energy
+                elif line.strip().startswith('Total DFT energy ='):
+                    self.scf_energy = float(line.strip().split()[4])
+                # Look for thermal corrections, paying attention to point group symmetry
+                elif line.strip().startswith('Zero-Point'):
+                    self.zero_point_corr = float(line.strip().split()[8])
+                # Grab Multiplicity
+                elif 'mult ' in line.strip():
+                    try:
+                        self.mult = int(line.split()[1])
+                    except:
+                        self.mult = 1
+                # Grab molecular mass
+                elif line.strip().find('mol. weight') != -1:
+                    molecular_mass = float(line.strip().split()[-1][0:-1])
+                # Grab rational symmetry number
+                elif line.strip().find('symmetry #') != -1:
+                    symmno = int(line.strip().split()[-1][0:-1])
+                # Grab point group
+                elif line.strip().find('symmetry detected') != -1:
+                    if line.strip().split()[0] == 'D*H' or line.strip().split()[0] == 'C*V':
+                        linear_mol = 1
+                # Grab rotational constants (convert cm-1 to GHz)
+                elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
+                    print(line.strip().split()[1])
+                    letter=line.strip()[0]
+                    h = 0
+                    if letter == 'A':
+                        h = 0
+                    elif letter == 'B':
+                        h = 1
+                    elif letter == 'C':
+                        h = 2    
+                    roconst[h]=float(line.strip().split()[1])*29.9792458
+                    rotemp[h]=float(line.strip().split()[4])
+                if "Total times" in line.strip():
+                    days = 0
+                    hours = 0
+                    mins = 0
+                    secs = line.strip().split()[3][0:-1]
+                    msecs = 0
+                    self.cpu = [days,hours,mins,secs,msecs]       
+
         self.inverted_freqs = inverted_freqs
+        
+        print("freqs = " + str(frequency_wn))
+        print("inverted freqs = " + str(inverted_freqs))
+        
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             cutoffs = [s_freq_cutoff for freq in frequency_wn]
@@ -627,7 +700,6 @@ class calc_bbe:
         sym_num = ex_sym * int_sym
         sym_correction = (-GAS_CONSTANT * math.log(sym_num)) / J_TO_AU
         return sym_correction, pgroup
-
 
 class get_pes:
     """
@@ -1166,6 +1238,9 @@ class getoutData:
             if "* O   R   C   A *" in line:
                 program = "Orca"
                 break
+            if "NWChem" in line:
+                program = "NWChem"
+                break 
 
         def get_freqs(self, outlines, natoms, format):
             self.FREQS = []
@@ -1226,7 +1301,18 @@ class getoutData:
                                     [float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
                                 self.atom_types.append(line.split()[1])
                                 self.atom_nums.append(element_id(line.split()[1], num=True))
-
+            if program == "NWChem":
+                for i, oline in enumerate(outlines):
+                    if "Output coordinates" in oline:
+                        self.atom_nums, self.atom_types, self.cartesians, self.atomictypes, carts = [], [], [], [], outlines[i+4:]
+                        for j, line in enumerate(carts):
+                            if line.strip()=='' :
+                                break
+                            self.atom_nums.append(int(float(line.split()[2])))
+                            self.atom_types.append(element_id(int(float(line.split()[2]))))
+                            self.atomictypes.append(int(float(line.split()[2])))
+                            self.cartesians.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
+                                
         getatom_types(self, data, program)
         natoms = len(self.atom_types)
         try:
@@ -1257,7 +1343,6 @@ class getoutData:
                     row.append(j)
             connectivity.append(row)
             self.connectivity = connectivity
-
 
 
 def jitter(datasets, color, ax, nx, marker, edgecol='black'):
@@ -1600,6 +1685,9 @@ def parse_data(file):
         if "* O   R   C   A *" in line:
             program = "Orca"
             break
+        if "NWChem" in line:
+            program = "NWChem"
+            break
     repeated_link1 = 0
     for line in data:
         if program == "Gaussian":
@@ -1634,7 +1722,16 @@ def parse_data(file):
                 charge = int(line.strip("=").split()[-1])
             if "Multiplicity" in line.strip() and "...." in line.strip():
                 multiplicity = int(line.strip("=").split()[-1])
-
+        if program == "NWChem":
+            if line.strip().startswith('Total DFT energy'):
+                spe = float(line.strip().split()[4])
+            if 'nwchem branch' in line.strip():
+                version_program = "NWChem version " + line.split()[3]
+            if "charge" in line.strip():
+                charge = int(line.strip().split()[-1])
+            if "mult " in line.strip():
+                multiplicity = int(line.strip().split()[-1])
+                
     # Solvation model and empirical dispersion detection
     if 'Gaussian' in version_program.strip():
         for i, line in enumerate(data):
@@ -1782,6 +1879,29 @@ def parse_data(file):
             if keyword_line.strip().find('USING zero damping') > -1:
                 empirical_dispersion3 = ' with zero damping'
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
+    if 'NWChem' in version_program.strip():
+        # keyword_line_1 = "gas phase"
+        # keyword_line_2 = ''
+        # keyword_line_3 = ''
+        # for i, line in enumerate(data):
+        #     if 'CPCM SOLVATION MODEL' in line.strip():
+        #         keyword_line_1 = "CPCM,"
+        #     if 'SMD CDS free energy correction energy' in line.strip():
+        #         keyword_line_2 = "SMD,"
+        #     if "Solvent:              " in line.strip():
+        #         keyword_line_3 = line.strip().split()[-1]
+        # solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
+        empirical_dispersion1 = 'No empirical dispersion detected'
+        empirical_dispersion2 = ''
+        empirical_dispersion3 = ''
+        for i, line in enumerate(data):
+            if keyword_line.strip().find('Dispersion correction') > -1:
+                empirical_dispersion1 = ''
+            if keyword_line.strip().find('disp vdw 3') > -1:
+                empirical_dispersion2 = "D3"
+            if keyword_line.strip().find('disp vdw 4') > -1:
+                empirical_dispersion2 = "D3BJ"
+        empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
 
@@ -1805,6 +1925,9 @@ def sp_cpu(file):
         if line.find("* O   R   C   A *") > -1:
             program = "Orca"
             break
+        if line.find("NWChem") > -1:
+            program = "NWChem"
+            break
 
     for line in data:
         if program == "Gaussian":
@@ -1827,11 +1950,20 @@ def sp_cpu(file):
                 secs = int(line.split()[9])
                 msecs = float(line.split()[11])
                 cpu = [days, hours, mins, secs, msecs]
+        if program == "NWChem":
+            if line.strip().startswith('Total DFT energy ='):
+                spe = float(line.strip().split()[4])
+            if line.strip().find("Total times") > -1: 
+                days = 0
+                hours = 0
+                mins = 0
+                secs = float(line.split()[3][0:-1])
+                msecs = 0
+                cpu = [days,hours,mins,secs,msecs]
 
     return cpu
 
-
-
+  
 def level_of_theory(file):
     """Read output for the level of theory and basis set used."""
     repeated_theory = 0
@@ -1881,7 +2013,6 @@ def level_of_theory(file):
     return level_of_theory
 
 
-
 def read_initial(file):
     """At beginning of procedure, read level of theory, solvation model, and check for normal termination"""
     with open(file) as f:
@@ -1899,6 +2030,8 @@ def read_initial(file):
             program = "Gaussian"
         if "* O   R   C   A *" in line:
             program = "Orca"
+        if "NWChem" in line:
+            program = "NWChem"
         # Grab pertinent information from file
         if line.strip().find('External calculation') > -1:
             level, bs = 'ext', 'ext'
@@ -1945,6 +2078,30 @@ def read_initial(file):
         # Remove the restricted R or unrestricted U label
         if level[0] in ('R', 'U'):
             level = level[1:]
+            
+    #NWChem specific parsing
+    if program is 'NWChem':
+        keyword_line_1 = "gas phase"
+        keyword_line_2 = ''
+        keyword_line_3 = ''
+        for i, line in enumerate(data):
+            if line.strip().startswith("xc "):
+                level=line.strip().split()[1]
+            if line.strip().startswith("* library "):
+                bs = line.strip().replace("* library ",'')
+            #need to update these tags for NWChem solvation later
+            if 'CPCM SOLVATION MODEL' in line.strip():
+                keyword_line_1 = "CPCM,"
+            if 'SMD CDS free energy correction energy' in line.strip():
+                keyword_line_2 = "SMD,"
+            if "Solvent:              " in line.strip():
+                keyword_line_3 = line.strip().split()[-1]
+            #need to update NWChem keyword for error calculation
+            if 'Total times' in line:
+                progress = 'Normal'
+            elif 'error termination' in line:
+                progress = 'Error'
+        solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
    
     # Grab solvation models - Gaussian files
     if program is 'Gaussian':
@@ -2037,7 +2194,6 @@ def add_time(tm, cpu):
     return fulldate
 
 
-
 def calc_translational_energy(temperature):
     """
     Translational energy evaluation
@@ -2055,7 +2211,6 @@ def calc_translational_energy(temperature):
     """
     energy = 1.5 * GAS_CONSTANT * temperature
     return energy
-
 
 
 def calc_rotational_energy(zpe, symmno, temperature, linear):
@@ -2145,8 +2300,6 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     return sum(energy)
 
 
-
-
 def get_free_space(solv):
     """
     Computed the amount of accessible free space (ml per L) in solution.
@@ -2180,7 +2333,7 @@ def get_free_space(solv):
         freespace = 1000.0
     return freespace
 
-
+  
 def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     """
     Translational entropy evaluation.
@@ -2379,7 +2532,6 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
     bool: flag for failed selectivity calculation.
     str: preferred enantiomer/diastereomer configuration.
     """
-    
     dirs = []
     for file in files:
         dirs.append(os.path.dirname(file))
@@ -2512,8 +2664,6 @@ def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
     return boltz_facs, weighted_free_energy, boltz_sum
 
 
-# Check for duplicate species from among all files based on energy, rotational constants and frequencies
-# Energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 1kHz; RMS Freq cutoff = 10 wavenumbers
 def check_dup(files, thermo_data):
     """
     Check for duplicate species from among all files based on energy, rotational constants and frequencies
@@ -2599,7 +2749,6 @@ def check_files(log, files, thermo_data, options, STARS, l_o_t, solvation_model,
         print_check_fails(log, l_o_t, file_check, "levels of theory")
 
     # Check for solvent models
-    solvent_check = solvation_model
     solvent_check = [thermo_data[key].solvation_model[0] for key in thermo_data]
     if all_same(solvent_check):
         solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
@@ -3246,7 +3395,7 @@ def main():
                 media_conc = conc
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option,inertia=options.inertia)
+                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option, inertia=options.inertia)
 
         # Populate bbe_vals with indivual bbe entries for each file
         bbe_vals.append(bbe)
@@ -3501,7 +3650,7 @@ def main():
                     # haven't implemented D3 for this option
                     bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                                   0.0, cosmo=cosmo_option,inertia=options.inertia)
+                                   0.0, cosmo=cosmo_option, inertia=options.inertia)
                 interval_bbe_data[h].append(bbe)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
