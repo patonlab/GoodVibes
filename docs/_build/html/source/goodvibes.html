@@ -1,0 +1,1593 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>GoodVibes module &mdash; GoodVibes 3.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Introduction" href="README.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> GoodVibes
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                3.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">ReadMe:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="README.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#quasi-harmonic-approximation">Quasi-Harmonic Approximation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#citing-goodvibes">Citing GoodVibes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-1-grimme-type-quasi-harmonic-correction-with-a-grimme-type-cut-off-of-150-cm-sup-1-sup">Example 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup></a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-2-quasi-harmonic-thermochemistry-with-a-larger-basis-set-single-point-energy-correction-link-job">Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction link job</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-3-changing-the-temperature-from-standard-298-15-k-to-1000-k-and-concentration-from-standard-state-in-gas-phase-1-atm-to-standard-state-in-solution-1-mol-l">Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-4-analyzing-the-gibbs-energy-across-an-interval-of-temperatures-300-1000-k-with-a-stepsize-of-100-k-applying-a-truhlar-type-cut-off-of-100-cm-sup-1-sup">Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup></a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-5-analyzing-the-gibbs-energy-using-scaled-vibrational-frequencies">Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-6-writing-cartesian-coordinates">Example 6: Writing Cartesian coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-7-analyzing-multiple-files-at-once">Example 7: Analyzing multiple files at once</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-8-entropic-symmetry-correction">Example 8: Entropic Symmetry Correction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-9-potential-energy-surface-pes-comparison-with-accessible-conformer-correction">Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#example-10-stereoselectivity-and-boltzmann-populations">Example 10: Stereoselectivity and Boltzmann populations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#checks">Checks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#symmetry">Symmetry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#file-naming-conventions">File Naming Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#yaml-file-formatting">.yaml File Formatting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#papers-from-other-research-groups-citing-goodvibes">Papers from other research groups citing GoodVibes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="README.html#references-for-the-underlying-theory">References for the underlying theory</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Docs:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">GoodVibes module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-goodvibes.media">goodvibes.media</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-goodvibes.vib_scale_factors">goodvibes.vib_scale_factors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#module-goodvibes">Module contents</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GoodVibes</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>GoodVibes module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/source/goodvibes.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-goodvibes.GoodVibes">
+<span id="goodvibes-module"></span><h1>GoodVibes module<a class="headerlink" href="#module-goodvibes.GoodVibes" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="goodvibes.GoodVibes.Logger">
+<em class="property">class </em><code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">Logger</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filein</span></em>, <em class="sig-param"><span class="n">append</span></em>, <em class="sig-param"><span class="n">csv</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#Logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.Logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Enables output to terminal and to text file.</p>
+<p>Writes GV output to .dat or .csv files.</p>
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.Logger.csv">
+<code class="sig-name descname">csv</code><a class="headerlink" href="#goodvibes.GoodVibes.Logger.csv" title="Permalink to this definition">¶</a></dt>
+<dd><p>decides if comma separated value file is written.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.Logger.log">
+<code class="sig-name descname">log</code><a class="headerlink" href="#goodvibes.GoodVibes.Logger.log" title="Permalink to this definition">¶</a></dt>
+<dd><p>file to write GV output to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>file object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.Logger.thermodata">
+<code class="sig-name descname">thermodata</code><a class="headerlink" href="#goodvibes.GoodVibes.Logger.thermodata" title="Permalink to this definition">¶</a></dt>
+<dd><p>decides if string passed to logger is thermochemical data, needing to be separated by commas</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.Logger.fatal">
+<code class="sig-name descname">fatal</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">message</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#Logger.fatal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.Logger.fatal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.Logger.finalize">
+<code class="sig-name descname">finalize</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#Logger.finalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.Logger.finalize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.Logger.write">
+<code class="sig-name descname">write</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">message</span></em>, <em class="sig-param"><span class="n">thermodata</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#Logger.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.Logger.write" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.add_time">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">add_time</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tm</span></em>, <em class="sig-param"><span class="n">cpu</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#add_time"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.add_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate elapsed time.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.all_same">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">all_same</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">items</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#all_same"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.all_same" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns bool for checking if all items in a list are the same.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="goodvibes.GoodVibes.calc_bbe">
+<em class="property">class </em><code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_bbe</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em>, <em class="sig-param"><span class="n">QS</span></em>, <em class="sig-param"><span class="n">QH</span></em>, <em class="sig-param"><span class="n">s_freq_cutoff</span></em>, <em class="sig-param"><span class="n">H_FREQ_CUTOFF</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">conc</span></em>, <em class="sig-param"><span class="n">freq_scale_factor</span></em>, <em class="sig-param"><span class="n">solv</span></em>, <em class="sig-param"><span class="n">spc</span></em>, <em class="sig-param"><span class="n">invert</span></em>, <em class="sig-param"><span class="n">d3_term</span></em>, <em class="sig-param"><span class="n">ssymm</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">cosmo</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mm_freq_scale_factor</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">inertia</span><span class="o">=</span><span class="default_value">'global'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_bbe"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The function to compute the “black box” entropy and enthalpy values along with all other thermochemical quantities.</p>
+<p>Parses energy, program version, frequencies, charge, multiplicity, solvation model, computation time.
+Computes H, S from partition functions, applying qhasi-harmonic corrections, COSMO-RS solvation corrections,
+considering frequency scaling factors from detected level of theory/basis set, and optionally ONIOM frequency scaling.</p>
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.xyz">
+<code class="sig-name descname">xyz</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.xyz" title="Permalink to this definition">¶</a></dt>
+<dd><p>contains Cartesian coordinates, atom connectivity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>getoutData object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.job_type">
+<code class="sig-name descname">job_type</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.job_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>contains information on the type of Gaussian job such as ground or transition state optimization, frequency.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.roconst">
+<code class="sig-name descname">roconst</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.roconst" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of parsed rotational constants from Gaussian calculations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.program">
+<code class="sig-name descname">program</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.program" title="Permalink to this definition">¶</a></dt>
+<dd><p>program used in chemical computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.version_program">
+<code class="sig-name descname">version_program</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.version_program" title="Permalink to this definition">¶</a></dt>
+<dd><p>program version used in chemical computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.solvation_model">
+<code class="sig-name descname">solvation_model</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.solvation_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>solvation model used in chemical computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.file">
+<code class="sig-name descname">file</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.file" title="Permalink to this definition">¶</a></dt>
+<dd><p>input chemical computation output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.charge">
+<code class="sig-name descname">charge</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>overall charge of molecule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.empirical_dispersion">
+<code class="sig-name descname">empirical_dispersion</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.empirical_dispersion" title="Permalink to this definition">¶</a></dt>
+<dd><p>empirical dispersion model used in computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.multiplicity">
+<code class="sig-name descname">multiplicity</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.multiplicity" title="Permalink to this definition">¶</a></dt>
+<dd><p>multiplicity of molecule or chemical system.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.mult">
+<code class="sig-name descname">mult</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.mult" title="Permalink to this definition">¶</a></dt>
+<dd><p>multiplicity of molecule or chemical system.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.point_group">
+<code class="sig-name descname">point_group</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.point_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>point group of molecule or chemical system used for symmetry corrections.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_energy">
+<code class="sig-name descname">sp_energy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>single-point energy parsed from output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_program">
+<code class="sig-name descname">sp_program</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_program" title="Permalink to this definition">¶</a></dt>
+<dd><p>program used for single-point energy calculation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_version_program">
+<code class="sig-name descname">sp_version_program</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_version_program" title="Permalink to this definition">¶</a></dt>
+<dd><p>version of program used for single-point energy calculation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_solvation_model">
+<code class="sig-name descname">sp_solvation_model</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_solvation_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>solvation model used for single-point energy calculation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_file">
+<code class="sig-name descname">sp_file</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>single-point energy calculation output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_charge">
+<code class="sig-name descname">sp_charge</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>overall charge of molecule in single-point energy calculation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_empirical_dispersion">
+<code class="sig-name descname">sp_empirical_dispersion</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_empirical_dispersion" title="Permalink to this definition">¶</a></dt>
+<dd><p>empirical dispersion model used in single-point energy computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.sp_multiplicity">
+<code class="sig-name descname">sp_multiplicity</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sp_multiplicity" title="Permalink to this definition">¶</a></dt>
+<dd><p>multiplicity of molecule or chemical system in single-point energy computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.cpu">
+<code class="sig-name descname">cpu</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.cpu" title="Permalink to this definition">¶</a></dt>
+<dd><p>days, hours, mins, secs, msecs of computation time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.scf_energy">
+<code class="sig-name descname">scf_energy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.scf_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>self-consistent field energy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.frequency_wn">
+<code class="sig-name descname">frequency_wn</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.frequency_wn" title="Permalink to this definition">¶</a></dt>
+<dd><p>frequencies parsed from chemical computation output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.im_freq">
+<code class="sig-name descname">im_freq</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.im_freq" title="Permalink to this definition">¶</a></dt>
+<dd><p>imaginary frequencies parsed from chemical computation output file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.inverted_freqs">
+<code class="sig-name descname">inverted_freqs</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.inverted_freqs" title="Permalink to this definition">¶</a></dt>
+<dd><p>frequencies inverted from imaginary to real numbers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.zero_point_corr">
+<code class="sig-name descname">zero_point_corr</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.zero_point_corr" title="Permalink to this definition">¶</a></dt>
+<dd><p>thermal corrections for zero-point energy parsed from file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.zpe">
+<code class="sig-name descname">zpe</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.zpe" title="Permalink to this definition">¶</a></dt>
+<dd><p>vibrational zero point energy computed from frequencies.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.enthalpy">
+<code class="sig-name descname">enthalpy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.enthalpy" title="Permalink to this definition">¶</a></dt>
+<dd><p>enthalpy computed from partition functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.qh_enthalpy">
+<code class="sig-name descname">qh_enthalpy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.qh_enthalpy" title="Permalink to this definition">¶</a></dt>
+<dd><p>enthalpy computed from partition functions, quasi-harmonic corrections applied.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.entropy">
+<code class="sig-name descname">entropy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>entropy of chemical system computed from partition functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.qh_entropy">
+<code class="sig-name descname">qh_entropy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.qh_entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>entropy of chemical system computed from partition functions, quasi-harmonic corrections applied.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.gibbs_free_energy">
+<code class="sig-name descname">gibbs_free_energy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.gibbs_free_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gibbs free energy of chemical system computed from enthalpy and entropy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.qh_gibbs_free_energy">
+<code class="sig-name descname">qh_gibbs_free_energy</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.qh_gibbs_free_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gibbs free energy of chemical system computed from quasi-harmonic enthalpy and/or entropy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.cosmo_qhg">
+<code class="sig-name descname">cosmo_qhg</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.cosmo_qhg" title="Permalink to this definition">¶</a></dt>
+<dd><p>quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.calc_bbe.linear_warning">
+<code class="sig-name descname">linear_warning</code><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.linear_warning" title="Permalink to this definition">¶</a></dt>
+<dd><p>flag for linear molecules, may be missing a rotational constant.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.calc_bbe.ex_sym">
+<code class="sig-name descname">ex_sym</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_bbe.ex_sym"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.ex_sym" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.calc_bbe.int_sym">
+<code class="sig-name descname">int_sym</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_bbe.int_sym"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.int_sym" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.calc_bbe.sym_correction">
+<code class="sig-name descname">sym_correction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_bbe.sym_correction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_bbe.sym_correction" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_damp">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_damp</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frequency_wn</span></em>, <em class="sig-param"><span class="n">freq_cutoff</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_damp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_damp" title="Permalink to this definition">¶</a></dt>
+<dd><p>A damping function to interpolate between RRHO and free rotor vibrational entropy values</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_electronic_entropy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_electronic_entropy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">multiplicity</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_electronic_entropy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_electronic_entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Electronic entropy evaluation.</p>
+<p>Calculates the electronic entropic contribution (J/(mol*K)) of the molecule
+Selec = R(Ln(multiplicity)</p>
+<p>Parameter:
+multiplicity (int): multiplicity of chemical system.</p>
+<p>Returns:
+float: electronic entropy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_freerot_entropy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_freerot_entropy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frequency_wn</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">freq_scale_factor</span></em>, <em class="sig-param"><span class="n">fract_modelsys</span></em>, <em class="sig-param"><span class="n">file</span></em>, <em class="sig-param"><span class="n">inertia</span></em>, <em class="sig-param"><span class="n">roconst</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_freerot_entropy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_freerot_entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Free rotor entropy evaluation.</p>
+<p>Entropic contributions (J/(mol*K)) according to a free-rotor
+description for a list of vibrational modes
+Sr = R(1/2 + 1/2ln((8pi^3u’kT/h^2))</p>
+<p>Parameters:
+frequency_wn (list): list of frequencies parsed from file.
+temperature (float): temperature for calculations to be performed at.
+freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.
+inertia (str): flag for choosing global average moment of inertia for all molecules or computing individually from parsed rotational constants
+roconst (list): list of parsed rotational constants for computing the average moment of inertia.</p>
+<p>Returns:
+float: free rotor entropy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_qRRHO_energy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_qRRHO_energy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frequency_wn</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">freq_scale_factor</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_qRRHO_energy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_qRRHO_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Quasi-rigid rotor harmonic oscillator energy evaluation.</p>
+<p>Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of
+vibrational modes described by a rigid-rotor harmonic approximation.
+V_RRHO = 1/2(Nhv) + RT(hv/kT)e^(-hv/kT)/(1-e^(-hv/kT))</p>
+<p>Parameters:
+frequency_wn (list): list of frequencies parsed from file.
+temperature (float): temperature for calculations to be performed at.
+freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.</p>
+<p>Returns:
+float: quasi-RRHO energy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_rotational_energy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_rotational_energy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">zpe</span></em>, <em class="sig-param"><span class="n">symmno</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">linear</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_rotational_energy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_rotational_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rotational energy evaluation</p>
+<p>Calculates the rotational energy (J/mol)
+Etrans = 0 (atomic) ; RT (linear); 3/2 RT (non-linear)</p>
+<p>Parameters:
+zpe (float): zero point energy of chemical system.
+symmno (float): symmetry number, used for adding a symmetry correction.
+temperature (float): temperature for calculations to be performed at.
+linear (bool): flag for linear molecules, changes how calculation is performed.</p>
+<p>Returns:
+float: rotational energy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_rotational_entropy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_rotational_entropy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">zpe</span></em>, <em class="sig-param"><span class="n">linear</span></em>, <em class="sig-param"><span class="n">symmno</span></em>, <em class="sig-param"><span class="n">rotemp</span></em>, <em class="sig-param"><span class="n">temperature</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_rotational_entropy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_rotational_entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rotational entropy evaluation.</p>
+<p>Calculates the rotational entropy (J/(mol*K))
+Strans = 0 (atomic) ; R(Ln(q)+1) (linear); R(Ln(q)+3/2) (non-linear)</p>
+<p>Parameters:
+zpe (float): zero point energy of chemical system.
+linear (bool): flag for linear molecules.
+symmno (float): symmetry number of chemical system.
+rotemp (list): list of parsed rotational temperatures of chemical system.
+temperature (float): temperature for calculations to be performed at.</p>
+<p>Returns:
+float: rotational entropy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_rrho_entropy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_rrho_entropy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frequency_wn</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">freq_scale_factor</span></em>, <em class="sig-param"><span class="n">fract_modelsys</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_rrho_entropy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_rrho_entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment</p>
+<p>Entropic contributions (J/(mol*K)) according to a rigid-rotor
+harmonic-oscillator description for a list of vibrational modes
+Sv = RSum(hv/(kT(e^(hv/kT)-1) - ln(1-e^(-hv/kT)))</p>
+<p>Parameters:
+frequency_wn (list): list of frequencies parsed from file.
+temperature (float): temperature for calculations to be performed at.
+freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.</p>
+<p>Returns:
+float: RRHO entropy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_translational_energy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_translational_energy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">temperature</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_translational_energy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_translational_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Translational energy evaluation</p>
+<p>Calculates the translational energy (J/mol) of an ideal gas.
+i.e. non-interacting molecules so molar energy = Na * atomic energy.
+This approximation applies to all energies and entropies computed within.
+Etrans = 3/2 RT!</p>
+<p>Parameter:
+temperature (float): temperature for calculations to be performed at.</p>
+<p>Returns:
+float: translational energy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_translational_entropy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_translational_entropy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">molecular_mass</span></em>, <em class="sig-param"><span class="n">conc</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">solv</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_translational_entropy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_translational_entropy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Translational entropy evaluation.</p>
+<p>Calculates the translational entropic contribution (J/(mol*K)) of an ideal gas.
+Needs the molecular mass. Convert mass in amu to kg; conc in mol/l to number per m^3
+Strans = R(Ln(2pimkT/h^2)^3/2(1/C)) + 1 + 3/2)</p>
+<p>Parameters:
+molecular_mass (float): total molecular mass of chemical system.
+conc (float): concentration to perform calculations at.
+temperature (float): temperature for calculations to be performed at.
+solv (str): solvent used in chemical calculation.</p>
+<p>Returns:
+float: translational entropy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_vibrational_energy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_vibrational_energy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frequency_wn</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">freq_scale_factor</span></em>, <em class="sig-param"><span class="n">fract_modelsys</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_vibrational_energy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_vibrational_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Vibrational energy evaluation.</p>
+<p>Calculates the vibrational energy contribution (J/mol).
+Includes ZPE (0K) and thermal contributions.
+Evib = R * Sum(0.5 hv/k + (hv/k)/(e^(hv/KT)-1))</p>
+<p>Parameters:
+frequency_wn (list): list of frequencies parsed from file.
+temperature (float): temperature for calculations to be performed at.
+freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.</p>
+<p>Returns:
+float: vibrational energy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.calc_zeropoint_energy">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">calc_zeropoint_energy</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frequency_wn</span></em>, <em class="sig-param"><span class="n">freq_scale_factor</span></em>, <em class="sig-param"><span class="n">fract_modelsys</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#calc_zeropoint_energy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.calc_zeropoint_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Vibrational Zero point energy evaluation.</p>
+<p>Calculates the vibrational ZPE (J/mol)
+EZPE = Sum(0.5 hv/k)</p>
+<p>Parameters:
+frequency_wn (list): list of frequencies parsed from file.
+freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.</p>
+<p>Returns:
+float: zerp point energy of chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.check_dup">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">check_dup</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">files</span></em>, <em class="sig-param"><span class="n">thermo_data</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#check_dup"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.check_dup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check for duplicate species from among all files based on energy, rotational constants and frequencies</p>
+<p>Energy cutoff = 1 microHartree
+RMS Rotational Constant cutoff = 1kHz
+RMS Freq cutoff = 10 wavenumbers</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.check_files">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">check_files</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">log</span></em>, <em class="sig-param"><span class="n">files</span></em>, <em class="sig-param"><span class="n">thermo_data</span></em>, <em class="sig-param"><span class="n">options</span></em>, <em class="sig-param"><span class="n">STARS</span></em>, <em class="sig-param"><span class="n">l_o_t</span></em>, <em class="sig-param"><span class="n">solvation_model</span></em>, <em class="sig-param"><span class="n">orientation</span></em>, <em class="sig-param"><span class="n">grid</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#check_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.check_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform checks for consistency in calculation output files for computational projects</p>
+<p>Check for consistency in: Gaussian version, solvation state/gas phase,
+level of theory/basis set, charge and multiplicity, standard concentration,
+potential linear molecule errors, transition state verification, empirical dispersion models</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.cosmo_rs_out">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">cosmo_rs_out</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">datfile</span></em>, <em class="sig-param"><span class="n">names</span></em>, <em class="sig-param"><span class="n">interval</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#cosmo_rs_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.cosmo_rs_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read solvation free energies from a COSMO-RS data file</p>
+<p>Parameters:
+datfile (str): name of COSMO-RS output file.
+names (list): list of species in COSMO-RS file that correspond to names of other computational output files.
+interval (bool): flag for parser to read COSMO-RS temperature interval calculation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.element_id">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">element_id</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">massno</span></em>, <em class="sig-param"><span class="n">num</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#element_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.element_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get element symbol from mass number.</p>
+<p>Used in parsing output files to determine elements present in file.</p>
+<p>Parameter:
+massno (int): mass of element.</p>
+<p>Returns:
+str: element symbol, or ‘XX’ if not found in periodic table.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.get_boltz">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">get_boltz</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">files</span></em>, <em class="sig-param"><span class="n">thermo_data</span></em>, <em class="sig-param"><span class="n">clustering</span></em>, <em class="sig-param"><span class="n">clusters</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">dup_list</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#get_boltz"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.get_boltz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.</p>
+<p>Used for selectivity and boltzmann requested options.</p>
+<p>Parameters:
+files (list): list of files to find Boltzmann factors for.
+thermo_data (dict): dict of calc_bbe objects with thermodynamic data to use for Boltzmann averaging.
+clustering (bool): flag for file clustering
+clusters (list): definitions for the requested clusters
+temperature (float): temperature to compute Boltzmann populations at
+dup_list (list): list of potential duplicates</p>
+<p>Returns:boltz_facs, weighted_free_energy, boltz_sum
+dict: dictionary of files with corresponding Boltzmann factors.
+dict: dictionary of files with corresponding weighted Gibbs free energy.
+float: Boltzmann sum computed from Boltzmann factors and Gibbs free energy.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.get_free_space">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">get_free_space</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">solv</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#get_free_space"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.get_free_space" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computed the amount of accessible free space (ml per L) in solution.</p>
+<p>Calculates the free space in a litre of bulk solvent, based on
+Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830).
+Free space based on accessible to a solute immersed in bulk solvent,
+i.e. this is the volume not occupied by solvent molecules, calculated using
+literature values for molarity and B3LYP/6-31G* computed molecular volumes.</p>
+<p>Parameter:
+solv (str): solvent used in chemical calculation.</p>
+<p>Returns:
+float: accessible free space in solution.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="goodvibes.GoodVibes.get_pes">
+<em class="property">class </em><code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">get_pes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em>, <em class="sig-param"><span class="n">thermo_data</span></em>, <em class="sig-param"><span class="n">log</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">gconf</span></em>, <em class="sig-param"><span class="n">QH</span></em>, <em class="sig-param"><span class="n">cosmo</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cosmo_int</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#get_pes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.get_pes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Obtain relative thermochemistry between species and for reactions.</p>
+<p>Routine that computes Boltzmann populations of conformer sets at each step of a reaction, obtaining
+relative energetic and thermodynamic values for each step in a reaction pathway.
+Determines reaction pathway from .yaml formatted file containing definitions for where files fit in pathway.</p>
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.dec">
+<code class="sig-name descname">dec</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.dec" title="Permalink to this definition">¶</a></dt>
+<dd><p>decimal places to display after PES calculations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.units">
+<code class="sig-name descname">units</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.units" title="Permalink to this definition">¶</a></dt>
+<dd><p>units do display values in, choice of kcal/mol or kJ/mol.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.boltz">
+<code class="sig-name descname">boltz</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.boltz" title="Permalink to this definition">¶</a></dt>
+<dd><p>allows for selectivity calculation to display to user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.path">
+<code class="sig-name descname">path</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.path" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of strings defining each reaction pathway.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.species">
+<code class="sig-name descname">species</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.species" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of strings defining which files correspond to names given in reaction pathway.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.spc_abs">
+<code class="sig-name descname">spc_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.spc_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative single-point energy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.e_abs">
+<code class="sig-name descname">e_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.e_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative energy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.zpe_abs">
+<code class="sig-name descname">zpe_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.zpe_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative zero point energy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.h_abs">
+<code class="sig-name descname">h_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.h_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative enthalpy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.qh_abs">
+<code class="sig-name descname">qh_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.qh_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative quasi-harmonic enthalpy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.s_abs">
+<code class="sig-name descname">s_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.s_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative entropy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.qs_abs">
+<code class="sig-name descname">qs_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.qs_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative quasi-harmonic entropy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.g_abs">
+<code class="sig-name descname">g_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.g_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative Gibbs free energy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.qhg_abs">
+<code class="sig-name descname">qhg_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.qhg_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative quasi-harmonic Gibbs free energy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.cosmo_qhg_abs">
+<code class="sig-name descname">cosmo_qhg_abs</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.cosmo_qhg_abs" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of relative COSMO-RS solvation-corrected quasi-harmonic Gibbs free energy values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.spc_zero">
+<code class="sig-name descname">spc_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.spc_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of single point energy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.e_zero">
+<code class="sig-name descname">e_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.e_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of energy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.zpe_zero">
+<code class="sig-name descname">zpe_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.zpe_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of zero point energy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.h_zero">
+<code class="sig-name descname">h_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.h_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of enthalpy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.qh_zero">
+<code class="sig-name descname">qh_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.qh_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of quasi-harmonic enthalpy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.ts_zero">
+<code class="sig-name descname">ts_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.ts_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of T*entropy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.qhts_zero">
+<code class="sig-name descname">qhts_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.qhts_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of quasi-harmonic T*entropy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.g_zero">
+<code class="sig-name descname">g_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.g_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of Gibbs free energy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.qhg_zero">
+<code class="sig-name descname">qhg_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.qhg_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of quasi-harmonic Gibbs free energy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.cosmo_qhg_zero">
+<code class="sig-name descname">cosmo_qhg_zero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.cosmo_qhg_zero" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of COSMO-RS solvation-corrected quasi-harmonic Gibbs free energy “zero” species values to compare all other steps in pathway to.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.g_qhgvals">
+<code class="sig-name descname">g_qhgvals</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.g_qhgvals" title="Permalink to this definition">¶</a></dt>
+<dd><p>relative quasi-harmonic Gibbs free energy values used for graphing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.g_species_qhgzero">
+<code class="sig-name descname">g_species_qhgzero</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.g_species_qhgzero" title="Permalink to this definition">¶</a></dt>
+<dd><p>quasi-harmonic Gibbs free energy “zero” values used for graphing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.get_pes.g_rel_val">
+<code class="sig-name descname">g_rel_val</code><a class="headerlink" href="#goodvibes.GoodVibes.get_pes.g_rel_val" title="Permalink to this definition">¶</a></dt>
+<dd><p>relative Gibbs free energy values used for graphing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.get_selectivity">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">get_selectivity</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pattern</span></em>, <em class="sig-param"><span class="n">files</span></em>, <em class="sig-param"><span class="n">boltz_facs</span></em>, <em class="sig-param"><span class="n">boltz_sum</span></em>, <em class="sig-param"><span class="n">temperature</span></em>, <em class="sig-param"><span class="n">log</span></em>, <em class="sig-param"><span class="n">dup_list</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#get_selectivity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.get_selectivity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate selectivity as enantioselectivity/diastereomeric ratio.</p>
+<p>Parameters:
+pattern (str): pattern to recognize for selectivity calculation, i.e. “R”:”S”.
+files (str): files to use for selectivity calculation.
+boltz_facs (dict): dictionary of Boltzmann factors for each file used in the calculation.
+boltz_sum (float)
+temperature (float)</p>
+<p>Returns:
+float: enantiomeric/diasteriomeric ratio.
+str: pattern used to identify ratio.
+float: Gibbs free energy barrier.
+bool: flag for failed selectivity calculation.
+str: preferred enantiomer/diastereomer configuration.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="goodvibes.GoodVibes.getoutData">
+<em class="property">class </em><code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">getoutData</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#getoutData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.getoutData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Read molecule data from a computational chemistry output file.</p>
+<p>Currently supports Gaussian and ORCA output types.</p>
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.FREQS">
+<code class="sig-name descname">FREQS</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.FREQS" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of frequencies parsed from Gaussian file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.REDMASS">
+<code class="sig-name descname">REDMASS</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.REDMASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of reduced masses parsed from Gaussian file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.FORCECONST">
+<code class="sig-name descname">FORCECONST</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.FORCECONST" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of force constants parsed from Gaussian file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.NORMALMODE">
+<code class="sig-name descname">NORMALMODE</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.NORMALMODE" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of normal modes parsed from Gaussian file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.atom_nums">
+<code class="sig-name descname">atom_nums</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.atom_nums" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of atom number IDs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.atom_types">
+<code class="sig-name descname">atom_types</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.atom_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of atom element symbols.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.cartesians">
+<code class="sig-name descname">cartesians</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.cartesians" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of cartesian coordinates for each atom.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.atomictypes">
+<code class="sig-name descname">atomictypes</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.atomictypes" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of atomic types output in Gaussian files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.getoutData.connectivity">
+<code class="sig-name descname">connectivity</code><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.connectivity" title="Permalink to this definition">¶</a></dt>
+<dd><p>list of atomic connectivity in a molecule, based on covalent radii</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.getoutData.coords_string">
+<code class="sig-name descname">coords_string</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#getoutData.coords_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.coords_string" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.getoutData.get_connectivity">
+<code class="sig-name descname">get_connectivity</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#getoutData.get_connectivity"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.getoutData.get_connectivity" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.graph_reaction_profile">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">graph_reaction_profile</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">graph_data</span></em>, <em class="sig-param"><span class="n">log</span></em>, <em class="sig-param"><span class="n">options</span></em>, <em class="sig-param"><span class="n">plt</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#graph_reaction_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.graph_reaction_profile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Graph a reaction profile using quasi-harmonic Gibbs free energy values.</p>
+<p>Use matplotlib package to graph a reaction pathway potential energy surface.</p>
+<p>Parameters:
+graph_data (get_pes object): potential energy surface object containing relative thermodynamic data.
+log (Logger object): Logger to write status updates to user on command line.
+options (dict): input options for GV.
+plt (matplotlib): matplotlib library reference.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.jitter">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">jitter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">datasets</span></em>, <em class="sig-param"><span class="n">color</span></em>, <em class="sig-param"><span class="n">ax</span></em>, <em class="sig-param"><span class="n">nx</span></em>, <em class="sig-param"><span class="n">marker</span></em>, <em class="sig-param"><span class="n">edgecol</span><span class="o">=</span><span class="default_value">'black'</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#jitter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.jitter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Scatter points that may overlap when graphing by randomly offsetting them.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.jobtype">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">jobtype</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#jobtype"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.jobtype" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read output for the level of theory and basis set used.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.level_of_theory">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">level_of_theory</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#level_of_theory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.level_of_theory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read output for the level of theory and basis set used.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.main">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">main</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.main" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.parse_data">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">parse_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#parse_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.parse_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read computational chemistry output file.</p>
+<p>Attempt to obtain single point energy, program type, program version, solvation_model,
+charge, empirical_dispersion, and multiplicity from file.</p>
+<p>Parameter:
+file (str): name of file to be parsed.</p>
+<p>Returns:
+float: single point energy.
+str: program used to run calculation.
+str: version of program used to run calculation.
+str: solvation model used in chemical calculation (if any).
+str: original filename parsed.
+int: overall charge of molecule or chemical system.
+str: empirical dispersion used in chemical calculation (if any).
+int: multiplicity of molecule or chemical system.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.print_check_fails">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">print_check_fails</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">log</span></em>, <em class="sig-param"><span class="n">check_attribute</span></em>, <em class="sig-param"><span class="n">file</span></em>, <em class="sig-param"><span class="n">attribute</span></em>, <em class="sig-param"><span class="n">option2</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#print_check_fails"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.print_check_fails" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function for printing checks to the terminal</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.read_initial">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">read_initial</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#read_initial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.read_initial" title="Permalink to this definition">¶</a></dt>
+<dd><p>At beginning of procedure, read level of theory, solvation model, and check for normal termination</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.sharepath">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">sharepath</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#sharepath"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.sharepath" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get absolute pathway to GoodVibes project.</p>
+<p>Used in finding location of compiled C files used in symmetry corrections.</p>
+<p>Parameter:
+filename (str): name of compiled C file, OS specific.</p>
+<p>Returns:
+str: absolute path on machine to compiled C file.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="goodvibes.GoodVibes.sp_cpu">
+<code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">sp_cpu</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#sp_cpu"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.sp_cpu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read single-point output for cpu time.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="goodvibes.GoodVibes.xyz_out">
+<em class="property">class </em><code class="sig-prename descclassname">goodvibes.GoodVibes.</code><code class="sig-name descname">xyz_out</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filein</span></em>, <em class="sig-param"><span class="n">suffix</span></em>, <em class="sig-param"><span class="n">append</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#xyz_out"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.xyz_out" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Enables output of optimized coordinates to a single xyz-formatted file.</p>
+<p>Writes Cartesian coordinates of parsed chemical input.</p>
+<dl class="py attribute">
+<dt id="goodvibes.GoodVibes.xyz_out.xyz">
+<code class="sig-name descname">xyz</code><a class="headerlink" href="#goodvibes.GoodVibes.xyz_out.xyz" title="Permalink to this definition">¶</a></dt>
+<dd><p>path in current working directory to write Cartesian coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>file object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.xyz_out.finalize">
+<code class="sig-name descname">finalize</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#xyz_out.finalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.xyz_out.finalize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.xyz_out.write_coords">
+<code class="sig-name descname">write_coords</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">atoms</span></em>, <em class="sig-param"><span class="n">coords</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#xyz_out.write_coords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.xyz_out.write_coords" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.GoodVibes.xyz_out.write_text">
+<code class="sig-name descname">write_text</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">message</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/goodvibes/GoodVibes.html#xyz_out.write_text"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#goodvibes.GoodVibes.xyz_out.write_text" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-goodvibes.media">
+<span id="goodvibes-media"></span><h1>goodvibes.media<a class="headerlink" href="#module-goodvibes.media" title="Permalink to this headline">¶</a></h1>
+</div>
+<div class="section" id="module-goodvibes.vib_scale_factors">
+<span id="goodvibes-vib-scale-factors"></span><h1>goodvibes.vib_scale_factors<a class="headerlink" href="#module-goodvibes.vib_scale_factors" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt id="goodvibes.vib_scale_factors.ScalingData">
+<em class="property">class </em><code class="sig-prename descclassname">goodvibes.vib_scale_factors.</code><code class="sig-name descname">ScalingData</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">level_basis</span></em>, <em class="sig-param"><span class="n">zpe_fac</span></em>, <em class="sig-param"><span class="n">zpe_ref</span></em>, <em class="sig-param"><span class="n">zpe_meth</span></em>, <em class="sig-param"><span class="n">harm_fac</span></em>, <em class="sig-param"><span class="n">harm_ref</span></em>, <em class="sig-param"><span class="n">harm_meth</span></em>, <em class="sig-param"><span class="n">fund_fac</span></em>, <em class="sig-param"><span class="n">fund_ref</span></em>, <em class="sig-param"><span class="n">fund_meth</span></em><span class="sig-paren">)</span><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></p>
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.fund_fac">
+<em class="property">property </em><code class="sig-name descname">fund_fac</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.fund_fac" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 7</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.fund_meth">
+<em class="property">property </em><code class="sig-name descname">fund_meth</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.fund_meth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 9</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.fund_ref">
+<em class="property">property </em><code class="sig-name descname">fund_ref</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.fund_ref" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 8</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.harm_fac">
+<em class="property">property </em><code class="sig-name descname">harm_fac</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.harm_fac" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 4</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.harm_meth">
+<em class="property">property </em><code class="sig-name descname">harm_meth</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.harm_meth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 6</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.harm_ref">
+<em class="property">property </em><code class="sig-name descname">harm_ref</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.harm_ref" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 5</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.level_basis">
+<em class="property">property </em><code class="sig-name descname">level_basis</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.level_basis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.zpe_fac">
+<em class="property">property </em><code class="sig-name descname">zpe_fac</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.zpe_fac" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.zpe_meth">
+<em class="property">property </em><code class="sig-name descname">zpe_meth</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.zpe_meth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 3</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="goodvibes.vib_scale_factors.ScalingData.zpe_ref">
+<em class="property">property </em><code class="sig-name descname">zpe_ref</code><a class="headerlink" href="#goodvibes.vib_scale_factors.ScalingData.zpe_ref" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 2</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-goodvibes">
+<span id="module-contents"></span><h1>Module contents<a class="headerlink" href="#module-goodvibes" title="Permalink to this headline">¶</a></h1>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="README.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
