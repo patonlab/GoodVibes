@@ -1,12 +1,11 @@
-![GoodVibes](GoodVibes.png)
-===
+#### Introduction
 
 [![Build Status](https://travis-ci.org/bobbypaton/GoodVibes.svg?branch=master)](https://travis-ci.org/bobbypaton/GoodVibes)
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg)](https://conda.anaconda.org/patonlab)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
 [![Documentation Status](https://readthedocs.org/projects/goodvibespy/badge/?version=stable)](https://goodvibespy.readthedocs.io/en/stable/?badge=stable)
-[![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
+[![DOI](https://img.shields.io/badge/DOI-10.12688%2Ff1000research.22758.1-orange)](https://doi.org/10.12688/f1000research.22758.1)
 
 GoodVibes is a Python program to compute thermochemical data from one or a series of electronic structure calculations. It has been used since 2015 by several groups, primarily to correct the poor description of low frequency vibrations by the rigid-rotor harmonic oscillator treatment. The current version includes thermochemistry at variable temperature/concentration, various quasi-harmonic entropy and enthalpy schemes, automated detection of frequency scaling factors, D3-dispersion corrections calculations, Boltzmann averaging, duplicate conformer detection, automated tabulation and plotting of energy profiles, and error checking. Developed by [Robert Paton](https://orcid.org/0000-0002-0104-4166), [Ignacio Funes-Ardoiz](https://orcid.org/0000-0002-5843-9660), and members of the [Paton Research Group, Colorado State](http://patonlab.com/):  [Guilian Luchini](https://orcid.org/0000-0003-0135-9624), [Juan V. Alegre-Requena](https://orcid.org/0000-0002-0769-7168), and [Yanfei Guan](https://orcid.org/0000-0003-1817-0190) . Integration with Travis CI testing by [Jaime Rodríguez-Guerra](https://orcid.org/0000-0001-8974-1566) with additions from Guilian Luchini.
 
@@ -71,7 +70,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `--xyz` option will write all molecular Cartesian coordinates to a .xyz output file.
 *	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file.
 *   The `--custom_ext` option allows for custom file extensions to be used. Current default calculation output files accepted are `.log` or `.out` file extensions. New extensions can be detected by using GoodVibes with the option `--custom_ext file_extension`.
-*	The `--bav` option allows the user to choose how the average moment of inertia is computed, used in computing the free-rotor entropy. Options are `--bav global` to have all molecules computed with the same moment of inertia=10*10-44 kg m2 or `--bav conf` to use the averaged rotational constants parsed from Gaussian output files to compute the average moment of inertia
+*	The `--bav` option allows the user to choose how the average moment of inertia is computed, used in computing the free-rotor entropy. Options are `--bav global` to have all molecules computed with the same moment of inertia=10*10-44 kg m2 or `--bav conf` to use the averaged rotational constants parsed from Gaussian output files to compute the average moment of inert
 
 
 #### Example 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup>
@@ -287,7 +286,6 @@ Some options (--pes, --graph, --spc, --ee, --media) require the calculation outp
 * **Media**
 
     To apply an entropic media correction to calculations performed on solvent molecules, the calculation output file should match the name passed in the media argument, for example, if performing the correction on water, the output file should be named `H2O.log` and the command line option should be `--media H2O`.
-
     GoodVibes will recognize the following solvent molecule names:
 
         meco2h / aceticacid, acetone, mecn / acetonitrile, benzene, 1buoh / 1butanol, 2buoh / 2butanol, 2butanone, tbuoh / tbutylalcohol, ccl4 / carbontetrachloride,

@@ -12,21 +12,22 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../..'))
+
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'GoodVibes.py'
-copyright = '2019, Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.'
+project = 'GoodVibes'
+copyright = '2020, Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.'
 author = 'Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.'
 
 # The short X.Y version
-version = ''
+version = '3.1'
 # The full version, including alpha/beta/rc tags
-release = '3.0.1'
+release = '3.1.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -39,6 +40,10 @@ release = '3.0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
+    'sphinxcontrib.napoleon',
+    'recommonmark'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -46,9 +51,10 @@ templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+#from recommonmark.parser import CommonMarkParser
+#source_parsers = {'.md': CommonMarkParser}
+source_suffix = ['.rst', '.md']
+#source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
@@ -63,7 +69,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'source/modules.rst']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
@@ -74,7 +80,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -138,7 +144,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'goodvibespy', 'GoodVibes.py Documentation',
+    (master_doc, 'GoodVibes', 'GoodVibes.py Documentation',
      [author], 1)
 ]
 

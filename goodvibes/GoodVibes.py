@@ -3,7 +3,7 @@
 from __future__ import print_function, absolute_import
 
 """####################################################################
-#                              GoodVibes.py                           #
+#                           GoodVibes.py                              #
 #  Evaluation of quasi-harmonic thermochemistry from Gaussian.        #
 #  Partion functions are evaluated from vibrational frequencies       #
 #  and rotational temperatures from the standard output.              #
@@ -92,8 +92,8 @@ KCAL_TO_AU = 627.509541  # UNIT CONVERSION
 grimme_ref = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
 truhlar_ref = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
 head_gordon_ref = "Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
-goodvibes_ref = ("Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S. (2019)."
-                 "\n        GoodVibes: GoodVibes " + __version__ + " http://doi.org/10.5281/zenodo.595246")
+goodvibes_ref = ("Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. F1000Research, 2020, 9, 291."
+                 "\n        GoodVibes version " + __version__ + " https://doi.org/10.12688/f1000research.22758.1")
 csd_ref = ("C. R. Groom, I. J. Bruno, M. P. Lightfoot and S. C. Ward, Acta Cryst. 2016, B72, 171-179"
            "\n   Cordero, B.; Gomez V.; Platero-Prats, A. E.; Reves, M.; Echeverria, J.; Cremades, E.; Barragan, F.; Alvarez, S. Dalton Trans. 2008, 2832-2838")
 oniom_scale_ref = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
@@ -136,12 +136,36 @@ RADII = {'H': 0.32, 'He': 0.93, 'Li': 1.23, 'Be': 0.90, 'B': 0.82, 'C': 0.77, 'N
 BONDI = {'H': 1.09, 'He': 1.40, 'Li': 1.82, 'Be': 2.00, 'B': 2.00, 'C': 1.70, 'N': 1.55, 'O': 1.52, 'F': 1.47,
          'Ne': 1.54}
 
+alphabet = 'abcdefghijklmnopqrstuvwxyz'
+
 def sharepath(filename):
+    """
+    Get absolute pathway to GoodVibes project.
+    
+    Used in finding location of compiled C files used in symmetry corrections.
+    
+    Parameter:
+    filename (str): name of compiled C file, OS specific.
+    
+    Returns:
+    str: absolute path on machine to compiled C file.
+    """
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(here, 'share', filename)
 
 
 def element_id(massno, num=False):
+    """
+    Get element symbol from mass number.
+    
+    Used in parsing output files to determine elements present in file.
+    
+    Parameter:
+    massno (int): mass of element.
+    
+    Returns:
+    str: element symbol, or 'XX' if not found in periodic table.
+    """
     try:
         if num:
             return periodictable.index(massno)
@@ -151,14 +175,21 @@ def element_id(massno, num=False):
 
 
 def all_same(items):
+    """Returns bool for checking if all items in a list are the same."""
     return all(x == items[0] for x in items)
 
 
-alphabet = 'abcdefghijklmnopqrstuvwxyz'
-
-
-# Enables output to terminal and to text file
 class Logger:
+    """
+    Enables output to terminal and to text file.
+    
+    Writes GV output to .dat or .csv files.
+    
+    Attributes:
+        csv (bool): decides if comma separated value file is written.
+        log (file object): file to write GV output to.
+        thermodata (bool): decides if string passed to logger is thermochemical data, needing to be separated by commas 
+    """
     def __init__(self, filein, append, csv):
         self.csv = csv
         if not self.csv:
@@ -188,6 +219,14 @@ class Logger:
 
 # Enables output of optimized coordinates to a single xyz-formatted file
 class xyz_out:
+    """
+    Enables output of optimized coordinates to a single xyz-formatted file.
+    
+    Writes Cartesian coordinates of parsed chemical input.
+    
+    Attributes:
+        xyz (file object): path in current working directory to write Cartesian coordinates.
+    """
     def __init__(self, filein, suffix, append):
         self.xyz = open('{}_{}.{}'.format(filein, append, suffix), 'w')
 
@@ -205,11 +244,53 @@ class xyz_out:
         self.xyz.close()
 
 
-# The function to compute the "black box" entropy and enthalpy values
-# along with all other thermochemical quantities
 class calc_bbe:
+    """
+    The function to compute the "black box" entropy and enthalpy values along with all other thermochemical quantities.
+    
+    Parses energy, program version, frequencies, charge, multiplicity, solvation model, computation time.
+    Computes H, S from partition functions, applying qhasi-harmonic corrections, COSMO-RS solvation corrections,
+    considering frequency scaling factors from detected level of theory/basis set, and optionally ONIOM frequency scaling.
+    
+    Attributes:
+        xyz (getoutData object): contains Cartesian coordinates, atom connectivity.
+        job_type (str): contains information on the type of Gaussian job such as ground or transition state optimization, frequency.
+        roconst (list): list of parsed rotational constants from Gaussian calculations.
+        program (str): program used in chemical computation.
+        version_program (str): program version used in chemical computation.
+        solvation_model (str): solvation model used in chemical computation.
+        file (str): input chemical computation output file.
+        charge (int): overall charge of molecule.
+        empirical_dispersion (str): empirical dispersion model used in computation.
+        multiplicity (int): multiplicity of molecule or chemical system.
+        mult (int): multiplicity of molecule or chemical system.
+        point_group (str): point group of molecule or chemical system used for symmetry corrections.
+        sp_energy (float): single-point energy parsed from output file. 
+        sp_program (str): program used for single-point energy calculation.
+        sp_version_program (str): version of program used for single-point energy calculation.
+        sp_solvation_model (str): solvation model used for single-point energy calculation.
+        sp_file (str): single-point energy calculation output file.
+        sp_charge (int): overall charge of molecule in single-point energy calculation.
+        sp_empirical_dispersion (str): empirical dispersion model used in single-point energy computation.
+        sp_multiplicity (int): multiplicity of molecule or chemical system in single-point energy computation.
+        cpu (list): days, hours, mins, secs, msecs of computation time.
+        scf_energy (float): self-consistent field energy.
+        frequency_wn (list): frequencies parsed from chemical computation output file.
+        im_freq (list): imaginary frequencies parsed from chemical computation output file.
+        inverted_freqs (list): frequencies inverted from imaginary to real numbers.
+        zero_point_corr (float): thermal corrections for zero-point energy parsed from file. 
+        zpe (float): vibrational zero point energy computed from frequencies. 
+        enthalpy (float): enthalpy computed from partition functions.
+        qh_enthalpy (float): enthalpy computed from partition functions, quasi-harmonic corrections applied.
+        entropy (float): entropy of chemical system computed from partition functions.
+        qh_entropy (float): entropy of chemical system computed from partition functions, quasi-harmonic corrections applied.
+        gibbs_free_energy (float): Gibbs free energy of chemical system computed from enthalpy and entropy.
+        qh_gibbs_free_energy (float): Gibbs free energy of chemical system computed from quasi-harmonic enthalpy and/or entropy.
+        cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation 
+        linear_warning (bool): flag for linear molecules, may be missing a rotational constant. 
+    """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False):
+                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global'):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
             0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
@@ -221,6 +302,7 @@ class calc_bbe:
             freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
         self.xyz = getoutData(file)
         self.job_type = jobtype(file)
+        self.roconst = []
         # Parse some useful information from the file 
         self.sp_energy, self.program, self.version_program, self.solvation_model, self.file, self.charge, self.empirical_dispersion, self.multiplicity = parse_data(
             file)
@@ -457,7 +539,7 @@ class calc_bbe:
 
                 if s_freq_cutoff > 0.0:
                     Svib_rrqho = calc_rrho_entropy(cutoffs, temperature, freq_scale_factor, fract_modelsys)
-                Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
+                Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys,file, inertia, self.roconst)
                 S_damp = calc_damp(frequency_wn, s_freq_cutoff)
 
                 # check for qh
@@ -619,9 +701,44 @@ class calc_bbe:
         sym_correction = (-GAS_CONSTANT * math.log(sym_num)) / J_TO_AU
         return sym_correction, pgroup
 
-
-# Obtain relative thermochemistry between species and for reactions
 class get_pes:
+    """
+    Obtain relative thermochemistry between species and for reactions.
+    
+    Routine that computes Boltzmann populations of conformer sets at each step of a reaction, obtaining
+    relative energetic and thermodynamic values for each step in a reaction pathway.
+    Determines reaction pathway from .yaml formatted file containing definitions for where files fit in pathway.
+    
+    Attributes:
+        dec (int): decimal places to display after PES calculations.
+        units (str): units do display values in, choice of kcal/mol or kJ/mol.
+        boltz (str): allows for selectivity calculation to display to user.
+        path (list): list of strings defining each reaction pathway.
+        species (list): list of strings defining which files correspond to names given in reaction pathway.
+        spc_abs (list): list of relative single-point energy values.
+        e_abs (list): list of relative energy values.
+        zpe_abs (list): list of relative zero point energy values.
+        h_abs (list): list of relative enthalpy values.
+        qh_abs (list): list of relative quasi-harmonic enthalpy values.
+        s_abs (list): list of relative entropy values.
+        qs_abs (list): list of relative quasi-harmonic entropy values.
+        g_abs (list): list of relative Gibbs free energy values.
+        qhg_abs (list): list of relative quasi-harmonic Gibbs free energy values.
+        cosmo_qhg_abs (list): list of relative COSMO-RS solvation-corrected quasi-harmonic Gibbs free energy values.
+        spc_zero (list): list of single point energy "zero" species values to compare all other steps in pathway to.
+        e_zero (list): list of energy "zero" species values to compare all other steps in pathway to.
+        zpe_zero (list): list of zero point energy "zero" species values to compare all other steps in pathway to.
+        h_zero (list): list of enthalpy "zero" species values to compare all other steps in pathway to.
+        qh_zero (list): list of quasi-harmonic enthalpy "zero" species values to compare all other steps in pathway to.
+        ts_zero (list): list of T*entropy "zero" species values to compare all other steps in pathway to.
+        qhts_zero (list): list of quasi-harmonic T*entropy "zero" species values to compare all other steps in pathway to.
+        g_zero (list): list of Gibbs free energy "zero" species values to compare all other steps in pathway to.
+        qhg_zero (list): list of quasi-harmonic Gibbs free energy "zero" species values to compare all other steps in pathway to.
+        cosmo_qhg_zero (list): list of COSMO-RS solvation-corrected quasi-harmonic Gibbs free energy "zero" species values to compare all other steps in pathway to.
+        g_qhgvals (list): relative quasi-harmonic Gibbs free energy values used for graphing.
+        g_species_qhgzero (list):quasi-harmonic Gibbs free energy "zero" values used for graphing.
+        g_rel_val (list): relative Gibbs free energy values used for graphing.
+    """
     def __init__(self, file, thermo_data, log, temperature, gconf, QH, cosmo=None, cosmo_int=None):
         # Default values
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
@@ -1092,9 +1209,23 @@ class get_pes:
                             pass
 
 
-# Read molecule data from a compchem output file
-# Currently supports Gaussian, ORCA, and NWChem output types
 class getoutData:
+    """
+    Read molecule data from a computational chemistry output file.
+    
+    Currently supports Gaussian and ORCA output types.
+    
+    Attributes:
+        FREQS (list): list of frequencies parsed from Gaussian file.
+        REDMASS (list): list of reduced masses parsed from Gaussian file.
+        FORCECONST (list): list of force constants parsed from Gaussian file.
+        NORMALMODE (list): list of normal modes parsed from Gaussian file.
+        atom_nums (list): list of atom number IDs.
+        atom_types (list): list of atom element symbols.
+        cartesians (list): list of cartesian coordinates for each atom.
+        atomictypes (list): list of atomic types output in Gaussian files.
+        connectivity (list): list of atomic connectivity in a molecule, based on covalent radii
+    """
     def __init__(self, file):
         with open(file) as f:
             data = f.readlines()
@@ -1214,8 +1345,8 @@ class getoutData:
             self.connectivity = connectivity
 
 
-# Scatter points that may overlap when graphing
 def jitter(datasets, color, ax, nx, marker, edgecol='black'):
+    """Scatter points that may overlap when graphing by randomly offsetting them."""
     import numpy as np
     for i, p in enumerate(datasets):
         y = [p]
@@ -1224,8 +1355,18 @@ def jitter(datasets, color, ax, nx, marker, edgecol='black'):
                 markeredgewidth=1, linestyle='None')
 
 
-# Graph a reaction profile
 def graph_reaction_profile(graph_data, log, options, plt):
+    """
+    Graph a reaction profile using quasi-harmonic Gibbs free energy values.
+    
+    Use matplotlib package to graph a reaction pathway potential energy surface.
+    
+    Parameters:
+    graph_data (get_pes object): potential energy surface object containing relative thermodynamic data.
+    log (Logger object): Logger to write status updates to user on command line.
+    options (dict): input options for GV.
+    plt (matplotlib): matplotlib library reference.
+    """
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
 
@@ -1444,8 +1585,15 @@ def graph_reaction_profile(graph_data, log, options, plt):
     plt.show()
 
 
-# Read solvation free energies from a COSMO-RS dat file
 def cosmo_rs_out(datfile, names, interval=False):
+    """
+    Read solvation free energies from a COSMO-RS data file
+    
+    Parameters:
+    datfile (str): name of COSMO-RS output file.
+    names (list): list of species in COSMO-RS file that correspond to names of other computational output files.
+    interval (bool): flag for parser to read COSMO-RS temperature interval calculation.
+    """
     gsolv = {}
     if os.path.exists(datfile):
         with open(datfile) as f:
@@ -1499,9 +1647,26 @@ def cosmo_rs_out(datfile, names, interval=False):
         return gsolv
 
 
-# Read Gaussian output and obtain single point energy, program type, 
-# program version, solvation_model, charge, empirical_dispersion, multiplicity
 def parse_data(file):
+    """
+    Read computational chemistry output file.
+    
+    Attempt to obtain single point energy, program type, program version, solvation_model,
+    charge, empirical_dispersion, and multiplicity from file.
+    
+    Parameter:
+    file (str): name of file to be parsed.
+    
+    Returns:
+    float: single point energy.
+    str: program used to run calculation.
+    str: version of program used to run calculation. 
+    str: solvation model used in chemical calculation (if any).
+    str: original filename parsed.
+    int: overall charge of molecule or chemical system.
+    str: empirical dispersion used in chemical calculation (if any).
+    int: multiplicity of molecule or chemical system.
+    """
     spe, program, data, version_program, solvation_model, keyword_line, a, charge, multiplicity = 'none', 'none', [], '', '', '', 0, None, None
 
     if os.path.exists(os.path.splitext(file)[0] + '.log'):
@@ -1546,7 +1711,7 @@ def parse_data(file):
                     repeated_link1 = 1
                 version_program = version_program[1:]
             if "Charge" in line.strip() and "Multiplicity" in line.strip():
-                charge = line.split('Multiplicity')[0].split('=')[-1].strip()
+                charge = int(line.split('Multiplicity')[0].split('=')[-1].strip())
                 multiplicity = line.split('=')[-1].strip()
         if program == "Orca":
             if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
@@ -1740,8 +1905,8 @@ def parse_data(file):
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
 
-# Read single-point output for cpu time
 def sp_cpu(file):
+    """Read single-point output for cpu time."""
     spe, program, data, cpu = None, None, [], None
 
     if os.path.exists(os.path.splitext(file)[0] + '.log'):
@@ -1798,9 +1963,9 @@ def sp_cpu(file):
 
     return cpu
 
-
-# Read output for the level of theory and basis set used
+  
 def level_of_theory(file):
+    """Read output for the level of theory and basis set used."""
     repeated_theory = 0
     with open(file) as f:
         data = f.readlines()
@@ -1848,8 +2013,8 @@ def level_of_theory(file):
     return level_of_theory
 
 
-# At beginning of procedure, read level of theory, solvation model, and check for normal termination
 def read_initial(file):
+    """At beginning of procedure, read level of theory, solvation model, and check for normal termination"""
     with open(file) as f:
         data = f.readlines()
     level, bs, program, keyword_line = 'none', 'none', 'none', 'none'
@@ -2004,8 +2169,8 @@ def read_initial(file):
     return level_of_theory, solvation_model, progress, orientation, dft_used
 
 
-# Read output for the level of theory and basis set used
 def jobtype(file):
+    """Read output for the level of theory and basis set used."""
     with open(file) as f:
         data = f.readlines()
     job = ''
@@ -2021,33 +2186,48 @@ def jobtype(file):
     return job
 
 
-# Calculate elapsed time
 def add_time(tm, cpu):
+    """Calculate elapsed time."""
     [days, hrs, mins, secs, msecs] = cpu
     fulldate = datetime(100, 1, tm.day, tm.hour, tm.minute, tm.second, tm.microsecond)
     fulldate = fulldate + timedelta(days=days, hours=hrs, minutes=mins, seconds=secs, microseconds=msecs * 1000)
     return fulldate
 
 
-# Translational energy evaluation
-# Depends on temperature
 def calc_translational_energy(temperature):
     """
-    Calculates the translational energy (J/mol) of an ideal gas
+    Translational energy evaluation
+
+    Calculates the translational energy (J/mol) of an ideal gas.
     i.e. non-interacting molecules so molar energy = Na * atomic energy.
-    This approximation applies to all energies and entropies computed within
+    This approximation applies to all energies and entropies computed within.
     Etrans = 3/2 RT!
+    
+    Parameter:
+    temperature (float): temperature for calculations to be performed at.
+    
+    Returns:
+    float: translational energy of chemical system.
     """
     energy = 1.5 * GAS_CONSTANT * temperature
     return energy
 
 
-# Rotational energy evaluation
-# Depends on molecular shape and temperature
 def calc_rotational_energy(zpe, symmno, temperature, linear):
     """
+    Rotational energy evaluation
+    
     Calculates the rotational energy (J/mol)
     Etrans = 0 (atomic) ; RT (linear); 3/2 RT (non-linear)
+    
+    Parameters:
+    zpe (float): zero point energy of chemical system.
+    symmno (float): symmetry number, used for adding a symmetry correction.
+    temperature (float): temperature for calculations to be performed at.
+    linear (bool): flag for linear molecules, changes how calculation is performed.
+    
+    Returns:
+    float: rotational energy of chemical system.
     """
     if zpe == 0.0:
         energy = 0.0
@@ -2058,13 +2238,22 @@ def calc_rotational_energy(zpe, symmno, temperature, linear):
     return energy
 
 
-# Vibrational energy evaluation
-# Depends on frequencies, temperature and scaling factor: default = 1.0
 def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
     """
+    Vibrational energy evaluation.
+    
     Calculates the vibrational energy contribution (J/mol).
-    Includes ZPE (0K) and thermal contributions
+    Includes ZPE (0K) and thermal contributions.
     Evib = R * Sum(0.5 hv/k + (hv/k)/(e^(hv/KT)-1))
+    
+    Parameters:
+    frequency_wn (list): list of frequencies parsed from file.
+    temperature (float): temperature for calculations to be performed at.
+    freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+    fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations. 
+    
+    Returns:
+    float: vibrational energy of chemical system.
     """
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
@@ -2084,12 +2273,20 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_
     return sum(energy)
 
 
-# Vibrational Zero point energy evaluation
-# Depends on frequencies and scaling factor: default = 1.0
 def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     """
+    Vibrational Zero point energy evaluation.
+    
     Calculates the vibrational ZPE (J/mol)
     EZPE = Sum(0.5 hv/k)
+    
+    Parameters: 
+    frequency_wn (list): list of frequencies parsed from file.
+    freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+    fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations. 
+    
+    Returns:
+    float: zerp point energy of chemical system.
     """
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
@@ -2103,14 +2300,21 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     return sum(energy)
 
 
-# Computed the amount of accessible free space (ml per L) in solution
-# accessible to a solute immersed in bulk solvent, i.e. this is the volume
-# not occupied by solvent molecules, calculated using literature values for
-# molarity and B3LYP/6-31G* computed molecular volumes.
 def get_free_space(solv):
     """
+    Computed the amount of accessible free space (ml per L) in solution.
+    
     Calculates the free space in a litre of bulk solvent, based on
-    Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830)
+    Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830).
+    Free space based on accessible to a solute immersed in bulk solvent, 
+    i.e. this is the volume not occupied by solvent molecules, calculated using 
+    literature values for molarity and B3LYP/6-31G* computed molecular volumes.
+    
+    Parameter:
+    solv (str): solvent used in chemical calculation.
+    
+    Returns:
+    float: accessible free space in solution.
     """
     solvent_list = ["none", "H2O", "toluene", "DMF", "AcOH", "chloroform"]
     molarity = [1.0, 55.6, 9.4, 12.9, 17.4, 12.5]  # mol/l
@@ -2129,14 +2333,23 @@ def get_free_space(solv):
         freespace = 1000.0
     return freespace
 
-
-# Translational entropy evaluation
-# Depends on mass, concentration, temperature, solvent free space: default = 1000.0
+  
 def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     """
+    Translational entropy evaluation.
+    
     Calculates the translational entropic contribution (J/(mol*K)) of an ideal gas.
     Needs the molecular mass. Convert mass in amu to kg; conc in mol/l to number per m^3
     Strans = R(Ln(2pimkT/h^2)^3/2(1/C)) + 1 + 3/2)
+    
+    Parameters:
+    molecular_mass (float): total molecular mass of chemical system.
+    conc (float): concentration to perform calculations at.
+    temperature (float): temperature for calculations to be performed at.
+    solv (str): solvent used in chemical calculation.
+    
+    Returns:
+    float: translational entropy of chemical system.
     """
     lmda = ((2.0 * math.pi * molecular_mass * AMU_to_KG * BOLTZMANN_CONSTANT * temperature) ** 0.5) / PLANCK_CONSTANT
     freespace = get_free_space(solv)
@@ -2145,23 +2358,39 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     return entropy
 
 
-# Electronic entropy evaluation
-# Depends on multiplicity
 def calc_electronic_entropy(multiplicity):
     """
+    Electronic entropy evaluation.
+    
     Calculates the electronic entropic contribution (J/(mol*K)) of the molecule
     Selec = R(Ln(multiplicity)
+    
+    Parameter:
+    multiplicity (int): multiplicity of chemical system.
+    
+    Returns:
+    float: electronic entropy of chemical system.
     """
     entropy = GAS_CONSTANT * (math.log(multiplicity))
     return entropy
 
 
-# Rotational entropy evaluation
-# Depends on molecular shape and temp.
 def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
     """
+    Rotational entropy evaluation.
+    
     Calculates the rotational entropy (J/(mol*K))
     Strans = 0 (atomic) ; R(Ln(q)+1) (linear); R(Ln(q)+3/2) (non-linear)
+    
+    Parameters:
+    zpe (float): zero point energy of chemical system.
+    linear (bool): flag for linear molecules.
+    symmno (float): symmetry number of chemical system.
+    rotemp (list): list of parsed rotational temperatures of chemical system.
+    temperature (float): temperature for calculations to be performed at.
+    
+    Returns:
+    float: rotational entropy of chemical system.
     """
     if rotemp == [0.0, 0.0, 0.0] or zpe == 0.0:  # Monatomic
         entropy = 0.0
@@ -2183,12 +2412,22 @@ def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
     return entropy
 
 
-# Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
 def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
     """
+    Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
+    
     Entropic contributions (J/(mol*K)) according to a rigid-rotor
     harmonic-oscillator description for a list of vibrational modes
     Sv = RSum(hv/(kT(e^(hv/kT)-1) - ln(1-e^(-hv/kT)))
+    
+    Parameters:
+    frequency_wn (list): list of frequencies parsed from file.
+    temperature (float): temperature for calculations to be performed at.
+    freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+    fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations. 
+    
+    Returns:
+    float: RRHO entropy of chemical system.
     """
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
@@ -2203,13 +2442,21 @@ def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_models
     return entropy
 
 
-# Quasi-rigid rotor harmonic oscillator energy evaluation
-# used for calculating quasi-harmonic enthalpy
 def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     """
+    Quasi-rigid rotor harmonic oscillator energy evaluation.
+    
     Head-Gordon RRHO-vibrational energy contribution (J/mol*K) of
-    vibrational modes described by a rigid-rotor harmonic approximation
+    vibrational modes described by a rigid-rotor harmonic approximation.
     V_RRHO = 1/2(Nhv) + RT(hv/kT)e^(-hv/kT)/(1-e^(-hv/kT))
+    
+    Parameters:
+    frequency_wn (list): list of frequencies parsed from file.
+    temperature (float): temperature for calculations to be performed at.
+    freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+    
+    Returns:
+    float: quasi-RRHO energy of chemical system.
     """
     factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor for freq in frequency_wn]
     energy = [0.5 * AVOGADRO_CONSTANT * entry + GAS_CONSTANT * temperature * entry / BOLTZMANN_CONSTANT
@@ -2218,16 +2465,35 @@ def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
     return energy
 
 
-# Free rotor entropy evaluation
-# used for low frequencies below the cut-off if qs=grimme is specified
-def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
+def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys, file, inertia, roconst):
     """
+    Free rotor entropy evaluation.
+    
     Entropic contributions (J/(mol*K)) according to a free-rotor
     description for a list of vibrational modes
     Sr = R(1/2 + 1/2ln((8pi^3u'kT/h^2))
+    
+    Parameters:
+    frequency_wn (list): list of frequencies parsed from file.
+    temperature (float): temperature for calculations to be performed at.
+    freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
+    fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations. 
+    inertia (str): flag for choosing global average moment of inertia for all molecules or computing individually from parsed rotational constants
+    roconst (list): list of parsed rotational constants for computing the average moment of inertia.
+    
+    Returns:
+    float: free rotor entropy of chemical system.
     """
     # This is the average moment of inertia used by Grimme
-    bav = 1.00e-44
+    if inertia == "global" or len(roconst) == 0:
+        bav = 1.00e-44
+    else:
+        av_roconst_ghz = sum(roconst)/len(roconst)  #GHz
+        av_roconst_hz = av_roconst_ghz * 1000000000 #Hz
+        av_roconst_s = 1 / av_roconst_hz            #s
+        av_roconst = av_roconst_s * PLANCK_CONSTANT #kg m^2
+        bav = av_roconst
+    
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
                              for i in range(len(fract_modelsys))]
@@ -2241,18 +2507,31 @@ def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_mod
     return entropy
 
 
-# A damping function to interpolate between RRHO and free rotor vibrational entropy values
 def calc_damp(frequency_wn, freq_cutoff):
+    """A damping function to interpolate between RRHO and free rotor vibrational entropy values"""
     alpha = 4
     damp = [1 / (1 + (freq_cutoff / entry) ** alpha) for entry in frequency_wn]
     return damp
 
 
-# Calculate selectivity - enantioselectivity/diastereomeric ratio
-# based on boltzmann factors of given stereoisomers
 def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup_list):
-    # Grab files for selectivity calcs
-    # list the directories to look in
+    """
+    Calculate selectivity as enantioselectivity/diastereomeric ratio.
+    
+    Parameters:
+    pattern (str): pattern to recognize for selectivity calculation, i.e. "R":"S".
+    files (str): files to use for selectivity calculation.
+    boltz_facs (dict): dictionary of Boltzmann factors for each file used in the calculation.
+    boltz_sum (float) 
+    temperature (float)
+    
+    Returns:
+    float: enantiomeric/diasteriomeric ratio.
+    str: pattern used to identify ratio.
+    float: Gibbs free energy barrier.
+    bool: flag for failed selectivity calculation.
+    str: preferred enantiomer/diastereomer configuration.
+    """
     dirs = []
     for file in files:
         dirs.append(os.path.dirname(file))
@@ -2327,9 +2606,25 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
     return ee, r, ratio, dd_free_energy, failed, pref
 
 
-# Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values
-# used for --ee and --boltz options
 def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
+    """
+    Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
+    
+    Used for selectivity and boltzmann requested options.
+    
+    Parameters:
+    files (list): list of files to find Boltzmann factors for.
+    thermo_data (dict): dict of calc_bbe objects with thermodynamic data to use for Boltzmann averaging. 
+    clustering (bool): flag for file clustering
+    clusters (list): definitions for the requested clusters
+    temperature (float): temperature to compute Boltzmann populations at
+    dup_list (list): list of potential duplicates
+    
+    Returns:boltz_facs, weighted_free_energy, boltz_sum
+    dict: dictionary of files with corresponding Boltzmann factors.
+    dict: dictionary of files with corresponding weighted Gibbs free energy.
+    float: Boltzmann sum computed from Boltzmann factors and Gibbs free energy.
+    """
     boltz_facs, weighted_free_energy, e_rel, e_min, boltz_sum = {}, {}, {}, sys.float_info.max, 0.0
 
     for file in files:  # Need the most stable structure
@@ -2369,9 +2664,14 @@ def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
     return boltz_facs, weighted_free_energy, boltz_sum
 
 
-# Check for duplicate species from among all files based on energy, rotational constants and frequencies
-# Energy cutoff = 1 microHartree; RMS Rotational Constant cutoff = 1kHz; RMS Freq cutoff = 10 wavenumbers
 def check_dup(files, thermo_data):
+    """
+    Check for duplicate species from among all files based on energy, rotational constants and frequencies
+    
+    Energy cutoff = 1 microHartree
+    RMS Rotational Constant cutoff = 1kHz
+    RMS Freq cutoff = 10 wavenumbers
+    """
     e_cutoff = 1e-4
     ro_cutoff = 1e-4
     freq_cutoff = 100
@@ -2399,8 +2699,8 @@ def check_dup(files, thermo_data):
     return dup_list
 
 
-# Function for printing unique checks
 def print_check_fails(log, check_attribute, file, attribute, option2=False):
+    """Function for printing checks to the terminal"""
     unique_attr = {}
     for i, attr in enumerate(check_attribute):
         if option2 is not False: attr = (attr, option2[i])
@@ -2424,11 +2724,14 @@ def print_check_fails(log, check_attribute, file, attribute, option2=False):
                 log.write('{}, '.format(filename))
 
 
-# Perform careful checks on calculation output files
-# Check for Gaussian version, solvation state/gas phase consistency, level of theory/basis set consistency,
-# charge and multiplicity consistency, standard concentration used, potential linear molecule error, 
-# transition state verification, empirical dispersion models. 
-def check_files(log, files, thermo_data, options, STARS, l_o_t, orientation, grid):
+def check_files(log, files, thermo_data, options, STARS, l_o_t, solvation_model, orientation, grid):
+    """
+    Perform checks for consistency in calculation output files for computational projects
+    
+    Check for consistency in: Gaussian version, solvation state/gas phase,
+    level of theory/basis set, charge and multiplicity, standard concentration,
+    potential linear molecule errors, transition state verification, empirical dispersion models
+    """
     log.write("\n   Checks for thermochemistry calculations (frequency calculations):")
     log.write("\n" + STARS)
     # Check program used and version
@@ -2768,6 +3071,10 @@ def main():
                         help="Graph a reaction profile based on free energies calculated. ")
     parser.add_argument("--ssymm", dest='ssymm', action="store_true", default=False,
                         help="Turn on the symmetry correction.")
+    parser.add_argument("--bav", dest='inertia', default="global",type=str,choices=['global','conf'],
+                        help="Choice of how the moment of inertia is computed. Options = 'global' or 'conf'."
+                            "'global' will use the same moment of inertia for all input molecules of 10*10-44,"
+                            "'conf' will compute moment of inertia from parsed rotational constants from each Gaussian output file.")
 
     # Parse Arguments
     (options, args) = parser.parse_known_args()
@@ -3088,7 +3395,7 @@ def main():
                 media_conc = conc
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option)
+                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option, inertia=options.inertia)
 
         # Populate bbe_vals with indivual bbe entries for each file
         bbe_vals.append(bbe)
@@ -3278,7 +3585,7 @@ def main():
 
     # Perform checks for consistent options provided in calculation files (level of theory)
     if options.check:
-        check_files(log, files, thermo_data, options, stars, l_o_t, orientation, grid)
+        check_files(log, files, thermo_data, options, stars, l_o_t, s_m, orientation, grid)
 
     # Running a variable temperature analysis of the enthalpy, entropy and the free energy
     elif options.temperature_interval:
@@ -3343,7 +3650,7 @@ def main():
                     # haven't implemented D3 for this option
                     bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                                   0.0, cosmo=cosmo_option)
+                                   0.0, cosmo=cosmo_option, inertia=options.inertia)
                 interval_bbe_data[h].append(bbe)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
