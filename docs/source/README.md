@@ -13,13 +13,6 @@ All (electronic, translational, rotational and vibrational) partition functions 
 
 The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the [Truhlar group database](https://t1.chem.umn.edu/freqscale/index.html).
 
-#### Quasi-Harmonic Approximation
-Two types of quasi-harmonic approximation are readily applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
-
-The second type of quasi-harmonic approximation available is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. Because of this, the quasi-harmonic enthalpy correction is appropriate for use in systems and reactions resulting in a loss of a rotational or translational degree of freedom.
-
-#### Citing GoodVibes
-Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
 
 #### Installation
 *  With pypi: `pip install goodvibes`
@@ -27,8 +20,21 @@ Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Au
 *  Manually Cloning the repository https://github.com/bobbypaton/GoodVibes.git and then adding the location of the GoodVibes directory to the PYTHONPATH environment variable.
 *  Run the script with your Gaussian output files (the program expects .log or .out extensions). It has been tested with Python 2 and 3 on Linux, macOS and Windows
 
+#### Citing GoodVibes
+Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
 
-**Correct Usage**
+#### Theory
+
+###### Quasi-Harmonic Approximation
+Two types of quasi-harmonic approximation are readily applied. The first is vibrational entropy: below a given cut-off value vibrational normal modes are not well described by the rigid-rotor-harmonic-oscillator (RRHO) approximation and an alternative expression is instead used to compute the associated entropy. The quasi-harmonic vibrational entropy is always less than or equal to the standard (RRHO) value obtained using Gaussian. Two literature approaches have been implemented. In the simplest approach, from [Cramer and Truhlar](http://pubs.acs.org/doi/abs/10.1021/jp205508z),<sup>1</sup> all frequencies below the cut-off are uniformly shifted up to the cut-off value before entropy calculation in the RRHO approximation. Alternatively, as proposed by [Grimme](http://onlinelibrary.wiley.com/doi/10.1002/chem.201200497/full),<sup>2</sup> entropic terms for frequencies below the cut-off are obtained from the free-rotor approximation; for those above the RRHO expression is retained. A damping function is used to interpolate between these two expressions close to the cut-off frequency.
+
+The second type of quasi-harmonic approximation available is applied to the vibrational energy used in enthalpy calculations. Similar to the entropy corrections, the enthalpy correction implements a quasi-harmonic correction to the RRHO vibrational energy computed in DFT methods. The quasi-harmonic enthalpy value as specified by [Head-Gordon](https://pubs.acs.org/doi/10.1021/jp509921r)<sup>3</sup> will be less than or equal to the uncorrected value using the RRHO approach, as the quasi-RRHO value of the vibrational energy used to compute the enthalpy is damped to approach a value of 0.5RT, opposed to the RRHO value of RT. Because of this, the quasi-harmonic enthalpy correction is appropriate for use in systems and reactions resulting in a loss of a rotational or translational degree of freedom.
+
+###### Symmetry
+GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy.
+*Note: this option may not function properly on some versions of Windows.*
+
+#### Using GoodVibes
 
 ```python
 python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq]
@@ -72,8 +78,9 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *   The `--custom_ext` option allows for custom file extensions to be used. Current default calculation output files accepted are `.log` or `.out` file extensions. New extensions can be detected by using GoodVibes with the option `--custom_ext file_extension`.
 *	The `--bav` option allows the user to choose how the average moment of inertia is computed, used in computing the free-rotor entropy. Options are `--bav global` to have all molecules computed with the same moment of inertia=10*10-44 kg m2 or `--bav conf` to use the averaged rotational constants parsed from Gaussian output files to compute the average moment of inert
 
+#### Examples 
 
-#### Example 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup>
+###### 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup>
 ```python
 python -m goodvibes examples/methylaniline.out -f 150
 
@@ -86,7 +93,7 @@ o  methylaniline      -326.664901   0.142118   -326.514489   0.039668   0.039465
 
 The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected enthalpy and entropy values are always less than or equal to the harmonic value.
 
-#### Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction link job
+###### 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction link job
 ```python
 python -m goodvibes examples/ethane_spc.out --spc link
 
@@ -110,7 +117,7 @@ o  ethane              -79.858399    -79.830421   0.073508    -79.780448   0.027
 ```
 
 
-#### Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
+###### 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
 ```python
 python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
 
@@ -122,7 +129,7 @@ o  methylaniline      -326.664901   0.142118   -326.452307   0.218212   0.216559
 
 This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration dependence. In the example above the correction is larger due to the increase in temperature.
 
-#### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
+###### 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
 ```python
 python -m goodvibes examples/methylaniline.out --ti '300,1000,100' --qs truhlar -f 120
 
@@ -141,7 +148,7 @@ o  methylaniline           1000.0              -326.452307   0.232169   0.231614
 
 Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below than 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
 
-#### Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
+###### 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
 ```python
 python -m goodvibes examples/methylaniline.out -v 0.95
 
@@ -153,14 +160,14 @@ o  methylaniline      -326.664901   0.135012   -326.521265   0.040238   0.040091
 
 The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies.
 
-#### Example 6: Writing Cartesian coordinates
+###### 6: Writing Cartesian coordinates
 ```python
 python -m goodvibes examples/HCN*.out --xyz
 ```
 
 Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to Goodvibes_output.xyz
 
-#### Example 7: Analyzing multiple files at once
+###### 7: Analyzing multiple files at once
 ```python
 python -m goodvibes examples/*.out --cpu
 
@@ -183,7 +190,7 @@ TOTAL CPU      0 days  2 hrs 29 mins 28 secs
 ```
 The program will detect several different levels of theory and give a warning that any vibrational scaling factor other than 1 would be inappropriate in this case. Wildcard characters (`*`) can be used to represent any character or string of characters.
 
-#### Example 8: Entropic Symmetry Correction
+###### 8: Entropic Symmetry Correction
 ```python
 python -m goodvibes examples/allene.out examples/benzene.out examples/ethane.out examples/isobutane.out examples/neopentane.out --ssymm
 
@@ -198,7 +205,7 @@ o  neopentane         -197.772980   0.160311   -197.604824   0.034606   0.034620
 ```
 GoodVibes will apply a symmetry correction described above to the entropy term of each molecule after determining the symmetry number. It is always a good idea to double-check that the point group GoodVibes returns is the correct group.
 
-#### Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction
+###### 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction
 ```python
 python -m goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml
 
@@ -222,7 +229,7 @@ o  TS                           4.72      -0.46          3.53     -15.85     -16
 ```
 A `.yaml` file is given to the `--pes` argument which specifies the reaction: `Catalyst + Substrate -> TS`. Because multiple conformers for the catalysts and transition states have been provided, GoodVibes will calculate a correction to the free energy based on the number of accessible conformations based on the Boltzmann-weighted energies of the conformers. To turn this correction off, `--nogconf` should be specified. An example `.yaml` file is shown below to show how these files should be formatted.
 
-#### Example 10: Stereoselectivity and Boltzmann populations
+###### 10: Stereoselectivity and Boltzmann populations
 
 ```python
 python -m goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee "*_R*:*_S*"
@@ -263,9 +270,6 @@ A computational workflow can become less effective without consistency throughou
 *   Same geometry coordinates for SPC and associated geometry optimized and frequency calculation output file
 *   Check if empirical dispersion is used and consistent across all output files
 
-#### Symmetry
-GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry number using atom connectivity, and external symmetry with the help of the external open source C program, "Brute Force Symmetry Analyzer" developed by S. Patchkovskii. These numbers are combined to give a symmetry number, n, and S<sub>sym</sub> is then defined as -Rln(n), which is applied to the GoodVibes calculated entropy.
-*Note: this option may not function properly on some versions of Windows.*
 
 #### File Naming Conventions
 Some options (--pes, --graph, --spc, --ee, --media) require the calculation output files to be named in a certain way for GoodVibes to recognize them and perform extra calculations properly.
@@ -339,7 +343,7 @@ options in the # FORMAT block are optional, but allow for stylistic choices to b
         show_conformers : True or False (displays a point for each conformer of a certain compound at its relative energy on graph)
         show_gconf : True or False (displays the effect of multiple accessible conformers correction if applied)
 
-**Tips and Troubleshooting**
+#### Tips and Troubleshooting
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the `$PATH` variable of your system (this is not necessary if installed with pip or conda)
 *	It is possible to run on any number of files at once using wildcards to specify all of the Gaussian files in a directory (specify `*.out` or `*.log`)
 *   File names not in the form of filename.log or filename.out are not read, however more file extensions can be added with the option `--custom_ext`
