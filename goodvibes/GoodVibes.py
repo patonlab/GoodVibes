@@ -57,7 +57,6 @@ from argparse import ArgumentParser
 from datetime import datetime, timedelta
 from glob import glob
 import numpy as np
-import pandas as pd
 
 # Importing regardless of relative import
 #try:
