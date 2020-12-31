@@ -67,7 +67,8 @@ def test_QS(path, QS, temp, E, ZPE, H, TS, TqhS, G, qhG):
     options = GV.GVOptions() # defaults
     #QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert, d3 = False, 100.0, 100.0, 1.0, 'none', False, False, 0
     #bbe = thermo.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
-    bbe = thermo.calc_bbe(path, options)
+    file = io.getoutData(path, options)
+    bbe = thermo.calc_bbe(file, options)
     precision = 6 # if temp == 298.15 else 4e-4
     assert E == round(bbe.scf_energy, precision)
     if hasattr(bbe, "gibbs_free_energy"):
