@@ -7,6 +7,7 @@ import math
 from goodvibes import GoodVibes as GV
 from goodvibes import thermo as thermo
 from goodvibes import pes as pes
+from goodvibes import io as io
 from conftest import datapath
 from goodvibes.media import solvents
 
