@@ -52,7 +52,7 @@ from __future__ import print_function, absolute_import
 ###########  Last modified:  May 27, 2020                 ############
 ####################################################################"""
 
-import math, os.path, sys, time
+import fnmatch, math, os.path, sys, time
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
 from glob import glob
@@ -140,13 +140,6 @@ def get_selectivity(files, options, boltz_facs, boltz_sum, log, dup_list=[]):
     bool: flag for failed selectivity calculation.
     str: preferred enantiomer/diastereomer configuration.
     """
-    # Grab files for selectivity calcs
-    # list the directories to look in
-    dirs = []
-    for file in files:
-        dirs.append(os.path.dirname(file))
-    dirs = list(set(dirs))
-
     a_files, b_files, a_sum, b_sum, failed, pref = [], [], 0.0, 0.0, False, ''
 
     pattern = options.ee
@@ -157,9 +150,9 @@ def get_selectivity(files, options, boltz_facs, boltz_sum, log, dup_list=[]):
         A = ''.join(a for a in a_regex if a.isalnum())
         B = ''.join(b for b in b_regex if b.isalnum())
 
-        for dir in dirs:
-            a_files.extend(glob(dir+'/'+a_regex))
-            b_files.extend(glob(dir+'/'+b_regex))
+        a_files = fnmatch.filter(files, a_regex)
+        b_files = fnmatch.filter(files, b_regex)
+
     except:
         pass
 

@@ -304,7 +304,7 @@ class getoutData:
             data = f.readlines()
         self.program = 'none'
 
-        self.name = os.path.splitext(file)[0]
+        self.name = file #os.path.splitext(file)[0]
 
         for line in data:
             if "Gaussian" in line:
