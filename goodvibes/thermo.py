@@ -369,7 +369,7 @@ class calc_bbe:
         #if not hasattr(file, 'cpu'): print('x  Missing cpu in', file.name)
         #if not hasattr(file, 'linear_mol'): print('x  Missing linear_mol in', file.name)
         #if not hasattr(file, 'vibfreqs'): print('x  Missing vibfreqs in', file.name)
-        #f not hasattr(file, 'atomcoords'): print('x  Missing atomcoords in', file.name)
+        #if not hasattr(file, 'atomcoords'): print('x  Missing atomcoords in', file.name)
         #if not hasattr(file, 'point_group'): print('x  Missing point_group in', file.name)
 
         frequency_wn, im_frequency_wn, inverted_freqs = [], [], []
@@ -420,6 +420,10 @@ class calc_bbe:
                     self.symmno, self.point_group = file.ex_sym, file.ex_pgroup
                     self.sym_correction = (-GAS_CONSTANT * math.log(self.symmno)) / J_TO_AU
                 except: pass
+
+        # electronic energy term
+        self.scf_energy = 0.0
+        if hasattr(file, 'scfenergies'): self.scf_energy += file.scfenergies[-1]
 
         # Skip the calculation if unable to parse the output file
         if hasattr(file, 'molecular_mass') and hasattr(file, 'mult'):
@@ -480,10 +484,6 @@ class calc_bbe:
                     qh_u_vib = sum(vib_energy)
             else:
                 zpe, u_rot, u_vib, qh_u_vib, s_rot, h_s_vib, qh_s_vib = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-
-            # electronic energy term
-            self.scf_energy = 0.0
-            if hasattr(file, 'scfenergies'): self.scf_energy += file.scfenergies[-1]
 
             # The D3 term is added to the energy term here. If not requested then this term is zero
             # It is added to the SPC energy if defined (instead of the SCF energy)
