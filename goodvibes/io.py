@@ -649,13 +649,17 @@ def read_initial(file):
     grid_lookup = {1: 'sg1', 2: 'coarse', 4: 'fine', 5: 'ultrafine', 7: 'superfine'}
 
     for line in data:
-        # Determine program to find solvation model used
+        # Determine program 
         if "Gaussian" in line:
             program = "Gaussian"
+            break
         if "* O   R   C   A *" in line:
             program = "Orca"
+            break
         if "NWChem" in line:
             program = "NWChem"
+            break
+    for line in data:
         # Grab pertinent information from file
         if line.strip().find('External calculation') > -1:
             level, bs = 'ext', 'ext'
