@@ -23,4 +23,9 @@ setup(
   install_requires=["numpy", ],
   python_requires='>=2.6',
   include_package_data=True,
+  entry_points={
+    'console_scripts': [
+        'goodvibes = goodvibes.GoodVibes:main',
+    ],
+  }
 )
