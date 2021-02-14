@@ -5,6 +5,7 @@ import os.path
 import numpy as np
 
 from cclib.io import ccread
+from cclib.parser.utils import convertor
 
 # PHYSICAL CONSTANTS                                      UNITS
 KCAL_TO_AU = 627.509541  # UNIT CONVERSION
@@ -220,13 +221,15 @@ def parse_data(file):
     """
     spe, program, data, version_program, solvation_model, keyword_line, a, charge, multiplicity = 'none', 'none', [], '', '', '', 0, None, None
 
-    if os.path.exists(os.path.splitext(file)[0] + '.log'):
-        with open(os.path.splitext(file)[0] + '.log') as f:
-            data = f.readlines()
-    elif os.path.exists(os.path.splitext(file)[0] + '.out'):
-        with open(os.path.splitext(file)[0] + '.out') as f:
-            data = f.readlines()
-    else:
+    data = None
+    stub = os.path.splitext(file)[0]
+    possible_filenames = (stub + ".log", stub + ".out")
+    for possible_filename in possible_filenames:
+        if os.path.exists(possible_filename):
+            with open(possible_filename) as f:
+                data = f.readlines()
+            ccdata = ccread(possible_filename)
+    if data is None:
         raise ValueError("File {} does not exist".format(file))
 
     for line in data:
@@ -240,18 +243,21 @@ def parse_data(file):
             program = "NWChem"
             break
     repeated_link1 = 0
+    spe = ccdata.scfenergies[-1]
+    if hasattr(ccdata, "mpenergies"):
+        spe = ccdata.mpenergies[-1]
+    if hasattr(ccdata, "ccenergies"):
+        spe = ccdata.ccenergies[-1]
+    spe = convertor(spe, "eV", "hartree")
+    charge = ccdata.charge
+    multiplicity = ccdata.mult
     for line in data:
         if program == "Gaussian":
-            if line.strip().startswith('SCF Done:'):
-                spe = float(line.strip().split()[4])
-            elif line.strip().startswith('E2('):
+            if line.strip().startswith('E2('):
                 spe_value = line.strip().split()[-1]
                 spe = float(spe_value.replace('D','E'))
             elif line.strip().startswith('Counterpoise corrected energy'):
                 spe = float(line.strip().split()[4])
-            # For MP2 calculations replace with EUMP2
-            elif 'EUMP2 =' in line.strip():
-                spe = float((line.strip().split()[5]).replace('D', 'E'))
             # For ONIOM calculations use the extrapolated value rather than SCF value
             elif "ONIOM: extrapolated energy" in line.strip():
                 spe = (float(line.strip().split()[4]))
@@ -273,27 +279,12 @@ def parse_data(file):
                     version_program += line.strip(",").split(",")[i]
                     repeated_link1 = 1
                 version_program = version_program[1:]
-            elif "Charge" in line.strip() and "Multiplicity" in line.strip():
-                charge = int(line.split('Multiplicity')[0].split('=')[-1].strip())
-                multiplicity = line.split('=')[-1].strip()
-        if program == "Orca":
-            if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
-                spe = float(line.strip().split()[4])
+        elif program == "Orca":
             if 'Program Version' in line.strip():
                 version_program = "ORCA version " + line.split()[2]
-            if "Total Charge" in line.strip() and "...." in line.strip():
-                charge = int(line.strip("=").split()[-1])
-            if "Multiplicity" in line.strip() and "...." in line.strip():
-                multiplicity = int(line.strip("=").split()[-1])
-        if program == "NWChem":
-            if line.strip().startswith('Total DFT energy'):
-                spe = float(line.strip().split()[4])
+        elif program == "NWChem":
             if 'nwchem branch' in line.strip():
                 version_program = "NWChem version " + line.split()[3]
-            if "charge" in line.strip():
-                charge = int(line.strip().split()[-1])
-            if "mult " in line.strip():
-                multiplicity = int(line.strip().split()[-1])
 
     # Solvation model and empirical dispersion detection
     if 'Gaussian' in version_program.strip():
@@ -680,7 +671,6 @@ def read_initial(file):
                         break
                     else:
                         for k in range(len(line.strip().split("\n"))):
-                            line.strip().split("\n")[k]
                             keyword_line += line.strip().split("\n")[k]
             if 'Normal termination' in line:
                 progress = 'Normal'
