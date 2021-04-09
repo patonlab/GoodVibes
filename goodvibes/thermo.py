@@ -461,8 +461,11 @@ class calc_bbe:
                         newline = g_output[i + 3]
                     all_freqs = []
                     for j in range(2,5):
-                        fr = float(line.strip().split()[j])
-                        all_freqs.append(fr)
+                        try:
+                            fr = float(line.strip().split()[j])
+                            all_freqs.append(fr)
+                        except IndexError:
+                            pass
                     most_low_freq = min(all_freqs)
                     for j in range(2, 5):
                         try:
