@@ -459,6 +459,11 @@ class calc_bbe:
                 if line.strip().startswith('Frequencies -- '):
                     if mm_freq_scale_factor is not False:
                         newline = g_output[i + 3]
+                    all_freqs = []
+                    for j in range(2,5):
+                        fr = float(line.strip().split()[j])
+                        all_freqs.append(fr)
+                    most_low_freq = min(all_freqs)
                     for j in range(2, 5):
                         try:
                             x = float(line.strip().split()[j])
@@ -475,7 +480,17 @@ class calc_bbe:
                             # Check if we want to make any low lying imaginary frequencies positive
                             elif x < -1 * im_freq_cutoff:
                                 if invert is not False:
-                                    if x > float(invert):
+                                    if invert == 'auto':
+                                        if "TSFreq" in self.job_type:
+                                            if x == most_low_freq:
+                                                im_frequency_wn.append(x)
+                                            else:
+                                                frequency_wn.append(x * -1.)
+                                                inverted_freqs.append(x)
+                                        else:
+                                            frequency_wn.append(x * -1.)
+                                            inverted_freqs.append(x)
+                                    elif x > float(invert):
                                         frequency_wn.append(x * -1.)
                                         inverted_freqs.append(x)
                                     else:
