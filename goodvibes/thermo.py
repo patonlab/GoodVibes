@@ -407,7 +407,7 @@ class calc_bbe:
             fract_modelsys = []
             freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
         self.xyz = getoutData(file)
-        self.job_type = jobtype(file)
+        self.job_type = gaussian_jobtype(file)
         self.roconst = []
         # Parse some useful information from the file
         self.sp_energy, self.program, self.version_program, self.solvation_model, self.file, self.charge, self.empirical_dispersion, self.multiplicity = parse_data(

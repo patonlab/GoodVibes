@@ -723,18 +723,17 @@ def read_initial(file):
 
     return level_of_theory, solvation_model, progress, orientation, dft_used
 
-def jobtype(file):
-    """Read output for the level of theory and basis set used."""
-    with open(file) as f:
-        data = f.readlines()
+def gaussian_jobtype(filename):
+    """Read the jobtype from a Gaussian archive string."""
     job = ''
-    for line in data:
-        if line.strip().find('\\SP\\') > -1:
-            job += 'SP'
-        if line.strip().find('\\FOpt\\') > -1:
-            job += 'GS'
-        if line.strip().find('\\FTS\\') > -1:
-            job += 'TS'
-        if line.strip().find('\\Freq\\') > -1:
-            job += 'Freq'
+    with open(filename) as f:
+        for line in f:
+            if line.strip().find('\\SP\\') > -1:
+                job += 'SP'
+            if line.strip().find('\\FOpt\\') > -1:
+                job += 'GS'
+            if line.strip().find('\\FTS\\') > -1:
+                job += 'TS'
+            if line.strip().find('\\Freq\\') > -1:
+                job += 'Freq'
     return job
