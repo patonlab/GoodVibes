@@ -315,8 +315,7 @@ def check_dup(files, thermo_data):
     RMS Freq cutoff = 10 wavenumbers
     """
     e_cutoff = 1e-4
-    ro_cutoff = 1e-4
-    freq_cutoff = 100
+    ro_cutoff = 0.1
     mae_freq_cutoff = 10
     max_freq_cutoff = 10
     dup_list = []
