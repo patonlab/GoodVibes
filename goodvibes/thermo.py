@@ -396,7 +396,7 @@ class calc_bbe:
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global'):
+                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
             0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
@@ -453,8 +453,9 @@ class calc_bbe:
                         if mm_freq_scale_factor is not False:
                             fract_modelsys = []
                 # If spc specified will take last Energy from file, otherwise will break after freq calc
-                if link > freqloc:
-                    break
+                if not g4:
+                    if link > freqloc:
+                        break
                 # Iterate over output: look out for low frequencies
                 if line.strip().startswith('Frequencies -- '):
                     if mm_freq_scale_factor is not False:
@@ -514,8 +515,15 @@ class calc_bbe:
                 # For ONIOM calculations use the extrapolated value rather than SCF value
                 elif "ONIOM: extrapolated energy" in line.strip():
                     self.scf_energy = (float(line.strip().split()[4]))
+                # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
+                elif line.strip().startswith('G4(0 K)'): 
+                    self.scf_energy = float(line.strip().split()[2])
+                    self.scf_energy -= self.zero_point_corr #Remove G4 ZPE    
+                elif line.strip().startswith('E(ZPE)='): #Overwrite DFT ZPE with G4 ZPE
+                    self.zero_point_corr = float(line.strip().split()[1]) 
+                    if freq_scale_factor == 1: freq_scale_factor = 0.9854 #Use default G4 scaling factor if user does not specify scaling factor (or ==1) 
                 # For Semi-empirical or Molecular Mechanics calculations
-                elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
+                elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip() and "G4" not in line.strip():
                     self.scf_energy = (float(line.strip().split()[1]))
                 # Look for thermal corrections, paying attention to point group symmetry
                 elif line.strip().startswith('Zero-point correction='):
@@ -638,9 +646,6 @@ class calc_bbe:
                     self.cpu = [days,hours,mins,secs,msecs]
 
         self.inverted_freqs = inverted_freqs
-
-        #print("freqs = " + str(frequency_wn))
-        #print("inverted freqs = " + str(inverted_freqs))
 
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:

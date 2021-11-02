@@ -320,24 +320,30 @@ def parse_data(file):
         if program == "Gaussian":
             if line.strip().startswith('SCF Done:'):
                 spe = float(line.strip().split()[4])
-            if line.strip().startswith('Counterpoise corrected energy'):
+            elif line.strip().startswith('Counterpoise corrected energy'):
                 spe = float(line.strip().split()[4])
             # For MP2 calculations replace with EUMP2
-            if 'EUMP2 =' in line.strip():
+            elif 'EUMP2 =' in line.strip():
                 spe = float((line.strip().split()[5]).replace('D', 'E'))
             # For ONIOM calculations use the extrapolated value rather than SCF value
-            if "ONIOM: extrapolated energy" in line.strip():
+            elif "ONIOM: extrapolated energy" in line.strip():
                 spe = (float(line.strip().split()[4]))
+            # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
+            elif line.strip().startswith('G4(0 K)'): 
+                spe = float(line.strip().split()[2])
+                spe -= zero_point_corr_G4 #Remove G4 ZPE       
+            elif line.strip().startswith('E(ZPE)='): #Get G4 ZPE
+                zero_point_corr_G4 = float(line.strip().split()[1])
             # For Semi-empirical or Molecular Mechanics calculations
-            if "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip():
+            elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip() and "G4" not in line.strip():
                 spe = (float(line.strip().split()[1]))
-            if "Gaussian" in line and "Revision" in line and repeated_link1 == 0:
+            elif "Gaussian" in line and "Revision" in line and repeated_link1 == 0:
                 for i in range(len(line.strip(",").split(",")) - 1):
                     line.strip(",").split(",")[i]
                     version_program += line.strip(",").split(",")[i]
                     repeated_link1 = 1
                 version_program = version_program[1:]
-            if "Charge" in line.strip() and "Multiplicity" in line.strip():
+            elif "Charge" in line.strip() and "Multiplicity" in line.strip():
                 charge = int(line.split('Multiplicity')[0].split('=')[-1].strip())
                 multiplicity = line.split('=')[-1].strip()
         if program == "Orca":
@@ -529,6 +535,7 @@ def parse_data(file):
             if keyword_line.strip().find('disp vdw 4') > -1:
                 empirical_dispersion2 = "D3BJ"
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
+    
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
 def sp_cpu(file):
