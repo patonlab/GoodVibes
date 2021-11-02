@@ -716,6 +716,8 @@ def main():
                         help="Choice of how the moment of inertia is computed. Options = 'global' or 'conf'."
                             "'global' will use the same moment of inertia for all input molecules of 10*10-44,"
                             "'conf' will compute moment of inertia from parsed rotational constants from each Gaussian output file.")
+    parser.add_argument("--g4", dest="g4", action="store_true", default=False,
+                        help="Use this option when using G4 calculations in Gaussian")
 
     # Parse Arguments
     (options, args) = parser.parse_known_args()
@@ -1036,7 +1038,7 @@ def main():
                 media_conc = conc
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option, inertia=options.inertia)
+                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option, inertia=options.inertia, g4=options.g4)
 
         # Populate bbe_vals with indivual bbe entries for each file
         bbe_vals.append(bbe)
@@ -1291,7 +1293,7 @@ def main():
                     # haven't implemented D3 for this option
                     bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                                   0.0, cosmo=cosmo_option, inertia=options.inertia)
+                                   0.0, cosmo=cosmo_option, inertia=options.inertia, g4=options.g4)
                 interval_bbe_data[h].append(bbe)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
