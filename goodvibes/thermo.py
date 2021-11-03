@@ -516,12 +516,12 @@ class calc_bbe:
                 elif "ONIOM: extrapolated energy" in line.strip():
                     self.scf_energy = (float(line.strip().split()[4]))
                 # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
-                elif line.strip().startswith('G4(0 K)'): 
+                elif line.strip().startswith('G4(0 K)'):
                     self.scf_energy = float(line.strip().split()[2])
-                    self.scf_energy -= self.zero_point_corr #Remove G4 ZPE    
+                    self.scf_energy -= self.zero_point_corr #Remove G4 ZPE
                 elif line.strip().startswith('E(ZPE)='): #Overwrite DFT ZPE with G4 ZPE
-                    self.zero_point_corr = float(line.strip().split()[1]) 
-                    if freq_scale_factor == 1: freq_scale_factor = 0.9854 #Use default G4 scaling factor if user does not specify scaling factor (or ==1) 
+                    self.zero_point_corr = float(line.strip().split()[1])
+                    if freq_scale_factor == 1: freq_scale_factor = 0.9854 #Use default G4 scaling factor if user does not specify scaling factor (or ==1)
                 # For Semi-empirical or Molecular Mechanics calculations
                 elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip() and "G4" not in line.strip():
                     self.scf_energy = (float(line.strip().split()[1]))
@@ -539,7 +539,8 @@ class calc_bbe:
                     molecular_mass = float(line.strip().split()[2])
                 # Grab rational symmetry number
                 elif line.strip().startswith('Rotational symmetry number'):
-                    symmno = int((line.strip().split()[3]).split(".")[0])
+                    if not ssymm:
+                        symmno = int((line.strip().split()[3]).split(".")[0])
                 # Grab point group
                 elif line.strip().startswith('Full point group'):
                     if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V':
@@ -619,7 +620,8 @@ class calc_bbe:
                     molecular_mass = float(line.strip().split()[-1][0:-1])
                 # Grab rational symmetry number
                 elif line.strip().find('symmetry #') != -1:
-                    symmno = int(line.strip().split()[-1][0:-1])
+                    if not ssymm:
+                        symmno = int(line.strip().split()[-1][0:-1])
                 # Grab point group
                 elif line.strip().find('symmetry detected') != -1:
                     if line.strip().split()[0] == 'D*H' or line.strip().split()[0] == 'C*V':
