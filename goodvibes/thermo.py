@@ -521,7 +521,9 @@ class calc_bbe:
                     self.scf_energy -= self.zero_point_corr #Remove G4 ZPE
                 elif line.strip().startswith('E(ZPE)='): #Overwrite DFT ZPE with G4 ZPE
                     self.zero_point_corr = float(line.strip().split()[1])
-                    if freq_scale_factor == 1: freq_scale_factor = 0.9854 #Use default G4 scaling factor if user does not specify scaling factor (or ==1)
+                # For TD calculations look for SCF energies of the first excited state
+                elif 'E(TD-HF/TD-DFT)' in line.strip():
+                    self.scf_energy = float(line.strip().split()[4])
                 # For Semi-empirical or Molecular Mechanics calculations
                 elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip() and "G4" not in line.strip():
                     self.scf_energy = (float(line.strip().split()[1]))

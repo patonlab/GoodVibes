@@ -718,7 +718,6 @@ def main():
                             "'conf' will compute moment of inertia from parsed rotational constants from each Gaussian output file.")
     parser.add_argument("--g4", dest="g4", action="store_true", default=False,
                         help="Use this option when using G4 calculations in Gaussian")
-
     # Parse Arguments
     (options, args) = parser.parse_known_args()
     # If requested, turn on head-gordon enthalpy correction

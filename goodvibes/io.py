@@ -329,11 +329,14 @@ def parse_data(file):
             elif "ONIOM: extrapolated energy" in line.strip():
                 spe = (float(line.strip().split()[4]))
             # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
-            elif line.strip().startswith('G4(0 K)'): 
+            elif line.strip().startswith('G4(0 K)'):
                 spe = float(line.strip().split()[2])
-                spe -= zero_point_corr_G4 #Remove G4 ZPE       
+                spe -= zero_point_corr_G4 #Remove G4 ZPE
             elif line.strip().startswith('E(ZPE)='): #Get G4 ZPE
                 zero_point_corr_G4 = float(line.strip().split()[1])
+            # For TD calculations look for SCF energies of the first excited state
+            elif 'E(TD-HF/TD-DFT)' in line.strip():
+                spe = float(line.strip().split()[4])
             # For Semi-empirical or Molecular Mechanics calculations
             elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip() and "G4" not in line.strip():
                 spe = (float(line.strip().split()[1]))
@@ -535,7 +538,7 @@ def parse_data(file):
             if keyword_line.strip().find('disp vdw 4') > -1:
                 empirical_dispersion2 = "D3BJ"
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
-    
+
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
 def sp_cpu(file):
@@ -656,7 +659,7 @@ def read_initial(file):
     grid_lookup = {1: 'sg1', 2: 'coarse', 4: 'fine', 5: 'ultrafine', 7: 'superfine'}
 
     for line in data:
-        # Determine program 
+        # Determine program
         if "Gaussian" in line:
             program = "Gaussian"
             break
