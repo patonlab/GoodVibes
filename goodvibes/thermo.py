@@ -506,6 +506,9 @@ class calc_bbe:
                 # For QM calculations look for SCF energies, last one will be the optimized energy
                 elif line.strip().startswith('SCF Done:'):
                     self.scf_energy = float(line.strip().split()[4])
+                elif line.strip().startswith('E2('):
+                    spe_value = line.strip().split()[-1]
+                    self.scf_energy = float(spe_value.replace('D','E'))
                 # For Counterpoise calculations the corrected energy value will be taken
                 elif line.strip().startswith('Counterpoise corrected energy'):
                     self.scf_energy = float(line.strip().split()[4])

@@ -320,6 +320,9 @@ def parse_data(file):
         if program == "Gaussian":
             if line.strip().startswith('SCF Done:'):
                 spe = float(line.strip().split()[4])
+            elif line.strip().startswith('E2('):
+                spe_value = line.strip().split()[-1]
+                spe = float(spe_value.replace('D','E'))
             elif line.strip().startswith('Counterpoise corrected energy'):
                 spe = float(line.strip().split()[4])
             # For MP2 calculations replace with EUMP2
