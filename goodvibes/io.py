@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
-import os.path, sys
+import os.path
 import numpy as np
+
+from cclib.io import ccread
+from cclib.parser.utils import convertor
 
 # PHYSICAL CONSTANTS                                      UNITS
 KCAL_TO_AU = 627.509541  # UNIT CONVERSION
@@ -82,8 +85,6 @@ class getoutData:
     """
     Read molecule data from a computational chemistry output file.
 
-    Currently supports Gaussian and ORCA output types.
-
     Attributes:
         FREQS (list): list of frequencies parsed from Gaussian file.
         REDMASS (list): list of reduced masses parsed from Gaussian file.
@@ -92,102 +93,26 @@ class getoutData:
         atom_nums (list): list of atom number IDs.
         atom_types (list): list of atom element symbols.
         cartesians (list): list of cartesian coordinates for each atom.
-        atomictypes (list): list of atomic types output in Gaussian files.
         connectivity (list): list of atomic connectivity in a molecule, based on covalent radii
     """
-    def __init__(self, file):
-        with open(file) as f:
-            data = f.readlines()
-        program = 'none'
-
-        for line in data:
-            if "Gaussian" in line:
-                program = "Gaussian"
-                break
-            if "* O   R   C   A *" in line:
-                program = "Orca"
-                break
-            if "NWChem" in line:
-                program = "NWChem"
-                break
-
-        def get_freqs(self, outlines, natoms, format):
-            self.FREQS = []
-            self.REDMASS = []
-            self.FORCECONST = []
-            self.NORMALMODE = []
-            freqs_so_far = 0
-            if format == "Gaussian":
-                for i in range(0, len(outlines)):
-                    if outlines[i].find(" Frequencies -- ") > -1:
-                        nfreqs = len(outlines[i].split())
-                        for j in range(2, nfreqs):
-                            self.FREQS.append(float(outlines[i].split()[j]))
-                            self.NORMALMODE.append([])
-                        for j in range(3, nfreqs + 1): self.REDMASS.append(float(outlines[i + 1].split()[j]))
-                        for j in range(3, nfreqs + 1): self.FORCECONST.append(float(outlines[i + 2].split()[j]))
-
-                        for j in range(0, natoms):
-                            for k in range(0, nfreqs - 2):
-                                self.NORMALMODE[(freqs_so_far + k)].append(
-                                    [float(outlines[i + 5 + j].split()[3 * k + 2]),
-                                     float(outlines[i + 5 + j].split()[3 * k + 3]),
-                                     float(outlines[i + 5 + j].split()[3 * k + 4])])
-                        freqs_so_far = freqs_so_far + nfreqs - 2
-
-        def getatom_types(self, outlines, program):
-            if program == "Gaussian":
-                for i, oline in enumerate(outlines):
-                    if "Input orientation" in oline or "Standard orientation" in oline:
-                        self.atom_nums, self.atom_types, self.cartesians, self.atomictypes, carts = [], [], [], [], \
-                                                                                                    outlines[i + 5:]
-                        for j, line in enumerate(carts):
-                            if "-------" in line:
-                                break
-                            self.atom_nums.append(int(line.split()[1]))
-                            self.atom_types.append(element_id(int(line.split()[1])))
-                            self.atomictypes.append(int(line.split()[2]))
-                            if len(line.split()) > 5:
-                                self.cartesians.append(
-                                    [float(line.split()[3]), float(line.split()[4]), float(line.split()[5])])
-                            else:
-                                self.cartesians.append(
-                                    [float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
-            if program == "Orca":
-                for i, oline in enumerate(outlines):
-                    if "*" in oline and ">" in oline and "xyz" in oline:
-                        self.atom_nums, self.atom_types, self.cartesians, carts = [], [], [], outlines[i + 1:]
-                        for j, line in enumerate(carts):
-                            if ">" in line and "*" in line:
-                                break
-                            if len(line.split()) > 5:
-                                self.cartesians.append(
-                                    [float(line.split()[3]), float(line.split()[4]), float(line.split()[5])])
-                                self.atom_types.append(line.split()[2])
-                                self.atom_nums.append(element_id(line.split()[2], num=True))
-                            else:
-                                self.cartesians.append(
-                                    [float(line.split()[2]), float(line.split()[3]), float(line.split()[4])])
-                                self.atom_types.append(line.split()[1])
-                                self.atom_nums.append(element_id(line.split()[1], num=True))
-            if program == "NWChem":
-                for i, oline in enumerate(outlines):
-                    if "Output coordinates" in oline:
-                        self.atom_nums, self.atom_types, self.cartesians, self.atomictypes, carts = [], [], [], [], outlines[i+4:]
-                        for j, line in enumerate(carts):
-                            if line.strip()=='' :
-                                break
-                            self.atom_nums.append(int(float(line.split()[2])))
-                            self.atom_types.append(element_id(int(float(line.split()[2]))))
-                            self.atomictypes.append(int(float(line.split()[2])))
-                            self.cartesians.append([float(line.split()[3]),float(line.split()[4]),float(line.split()[5])])
-
-        getatom_types(self, data, program)
-        natoms = len(self.atom_types)
+    def __init__(self, filename):
+        data = ccread(filename)
         try:
-            get_freqs(self, data, natoms, program)
+            self.FREQS = data.vibfreqs.tolist()
+            self.REDMASS = data.vibrmasses.tolist()
+            self.FORCECONST = data.vibfconsts.tolist()
+            self.NORMALMODE = data.vibdisps.tolist()
         except:
             pass
+
+        self.atom_nums = data.atomnos.tolist()
+        self.atom_types = [periodictable[atomnum] for atomnum in self.atom_nums]
+        # Assuming that the output file doesn't contain a geometry
+        # optimization at the beginning, we take the first set of atomic
+        # coordinates rather than the last, in the even that a finite
+        # difference frequency calculation was performed and the displaced
+        # geometries are printed.
+        self.cartesians = data.atomcoords[0].tolist()
 
     # Convert coordinates to string that can be used by the symmetry.c program
     def coords_string(self):
@@ -296,13 +221,15 @@ def parse_data(file):
     """
     spe, program, data, version_program, solvation_model, keyword_line, a, charge, multiplicity = 'none', 'none', [], '', '', '', 0, None, None
 
-    if os.path.exists(os.path.splitext(file)[0] + '.log'):
-        with open(os.path.splitext(file)[0] + '.log') as f:
-            data = f.readlines()
-    elif os.path.exists(os.path.splitext(file)[0] + '.out'):
-        with open(os.path.splitext(file)[0] + '.out') as f:
-            data = f.readlines()
-    else:
+    data = None
+    stub = os.path.splitext(file)[0]
+    possible_filenames = (stub + ".log", stub + ".out")
+    for possible_filename in possible_filenames:
+        if os.path.exists(possible_filename):
+            with open(possible_filename) as f:
+                data = f.readlines()
+            ccdata = ccread(possible_filename)
+    if data is None:
         raise ValueError("File {} does not exist".format(file))
 
     for line in data:
@@ -316,18 +243,21 @@ def parse_data(file):
             program = "NWChem"
             break
     repeated_link1 = 0
+    spe = ccdata.scfenergies[-1]
+    if hasattr(ccdata, "mpenergies"):
+        spe = ccdata.mpenergies[-1]
+    if hasattr(ccdata, "ccenergies"):
+        spe = ccdata.ccenergies[-1]
+    spe = convertor(spe, "eV", "hartree")
+    charge = ccdata.charge
+    multiplicity = ccdata.mult
     for line in data:
         if program == "Gaussian":
-            if line.strip().startswith('SCF Done:'):
-                spe = float(line.strip().split()[4])
-            elif line.strip().startswith('E2('):
+            if line.strip().startswith('E2('):
                 spe_value = line.strip().split()[-1]
                 spe = float(spe_value.replace('D','E'))
             elif line.strip().startswith('Counterpoise corrected energy'):
                 spe = float(line.strip().split()[4])
-            # For MP2 calculations replace with EUMP2
-            elif 'EUMP2 =' in line.strip():
-                spe = float((line.strip().split()[5]).replace('D', 'E'))
             # For ONIOM calculations use the extrapolated value rather than SCF value
             elif "ONIOM: extrapolated energy" in line.strip():
                 spe = (float(line.strip().split()[4]))
@@ -349,27 +279,12 @@ def parse_data(file):
                     version_program += line.strip(",").split(",")[i]
                     repeated_link1 = 1
                 version_program = version_program[1:]
-            elif "Charge" in line.strip() and "Multiplicity" in line.strip():
-                charge = int(line.split('Multiplicity')[0].split('=')[-1].strip())
-                multiplicity = line.split('=')[-1].strip()
-        if program == "Orca":
-            if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
-                spe = float(line.strip().split()[4])
+        elif program == "Orca":
             if 'Program Version' in line.strip():
                 version_program = "ORCA version " + line.split()[2]
-            if "Total Charge" in line.strip() and "...." in line.strip():
-                charge = int(line.strip("=").split()[-1])
-            if "Multiplicity" in line.strip() and "...." in line.strip():
-                multiplicity = int(line.strip("=").split()[-1])
-        if program == "NWChem":
-            if line.strip().startswith('Total DFT energy'):
-                spe = float(line.strip().split()[4])
+        elif program == "NWChem":
             if 'nwchem branch' in line.strip():
                 version_program = "NWChem version " + line.split()[3]
-            if "charge" in line.strip():
-                charge = int(line.strip().split()[-1])
-            if "mult " in line.strip():
-                multiplicity = int(line.strip().split()[-1])
 
     # Solvation model and empirical dispersion detection
     if 'Gaussian' in version_program.strip():
@@ -756,7 +671,6 @@ def read_initial(file):
                         break
                     else:
                         for k in range(len(line.strip().split("\n"))):
-                            line.strip().split("\n")[k]
                             keyword_line += line.strip().split("\n")[k]
             if 'Normal termination' in line:
                 progress = 'Normal'
@@ -809,18 +723,17 @@ def read_initial(file):
 
     return level_of_theory, solvation_model, progress, orientation, dft_used
 
-def jobtype(file):
-    """Read output for the level of theory and basis set used."""
-    with open(file) as f:
-        data = f.readlines()
+def gaussian_jobtype(filename):
+    """Read the jobtype from a Gaussian archive string."""
     job = ''
-    for line in data:
-        if line.strip().find('\\SP\\') > -1:
-            job += 'SP'
-        if line.strip().find('\\FOpt\\') > -1:
-            job += 'GS'
-        if line.strip().find('\\FTS\\') > -1:
-            job += 'TS'
-        if line.strip().find('\\Freq\\') > -1:
-            job += 'Freq'
+    with open(filename) as f:
+        for line in f:
+            if line.strip().find('\\SP\\') > -1:
+                job += 'SP'
+            if line.strip().find('\\FOpt\\') > -1:
+                job += 'GS'
+            if line.strip().find('\\FTS\\') > -1:
+                job += 'TS'
+            if line.strip().find('\\Freq\\') > -1:
+                job += 'Freq'
     return job

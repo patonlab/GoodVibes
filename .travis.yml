@@ -10,7 +10,7 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - python -m pip install .
       script:
         - pytest -v
     - os: linux
@@ -19,7 +19,8 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - pip install --upgrade numpy
+        - python -m pip install .
       script:
         - pytest -v
     - os: linux
@@ -29,7 +30,7 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - python -m pip install .
       script:
         - pytest -v
     - os: linux
@@ -39,7 +40,7 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - python -m pip install .
       script:
         - pytest -v
     - os: osx
@@ -48,7 +49,7 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip3 install pytest
-        - python3 setup.py install
+        - python3 -m pip install .
       script:
         - pytest -v
     - os: osx
@@ -58,7 +59,7 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip3 install pytest
-        - python3 setup.py install
+        - python3 -m pip install .
       script:
         - pytest -v
     - os: osx
@@ -68,7 +69,7 @@ matrix:
       install:
         - ./.travis-install.sh
         - pip3 install pytest
-        - python3 setup.py install
+        - python3 -m pip install .
       script:
         - pytest -v
     - os: windows
@@ -79,13 +80,13 @@ matrix:
         - python -m pip install --upgrade pip
         - pip install --upgrade pytest
         - pip install codecov
+        - pip install numpy
         - pip install cython
-        - pip install numpy==1.17.4
       env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - python -m pip install .
       script:
         - pytest -v
     - os: windows
@@ -96,12 +97,13 @@ matrix:
         - python -m pip install --upgrade pip
         - pip install --upgrade pytest
         - pip install codecov
+        - pip install numpy
         - pip install cython
       env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - python -m pip install .
       script:
         - pytest -v
     - os: windows
@@ -112,11 +114,12 @@ matrix:
         - python -m pip install --upgrade pip
         - pip install --upgrade pytest
         - pip install codecov
+        - pip install numpy
         - pip install cython
       env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
       install:
         - ./.travis-install.sh
         - pip install pytest
-        - python setup.py install
+        - python -m pip install .
       script:
         - pytest -v
