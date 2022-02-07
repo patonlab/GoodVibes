@@ -1,7 +1,7 @@
 ![GoodVibes](GoodVibes.png)
 ===
 
-[![Build Status](https://app.travis-ci.com/patonlab/GoodVibes.svg?branch=master)](https://app.travis-ci.com/github/patonlab/GoodVibes)
+[![Build Status](https://travis-ci.org/bobbypaton/GoodVibes.svg?branch=master)](https://travis-ci.org/bobbypaton/GoodVibes)
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/installer/conda.svg)](https://conda.anaconda.org/patonlab)
 [![Anaconda-Server Badge](https://anaconda.org/patonlab/goodvibes/badges/downloads.svg)](https://anaconda.org/patonlab/goodvibes)
