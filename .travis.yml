@@ -1,125 +1,132 @@
 language: python
 osx_image: xcode9.4
 dist: trusty
-
 matrix:
   include:
-    - os: linux
-      python: 3.5
-      env: TOXENV=py35
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - python -m pip install .
-      script:
-        - pytest -v
-    - os: linux
-      python: 3.6
-      env: TOXENV=py36
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - pip install --upgrade numpy
-        - python -m pip install .
-      script:
-        - pytest -v
-    - os: linux
-      python: 3.7
-      env: TOXENV=py37
-      dist: xenial
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - python -m pip install .
-      script:
-        - pytest -v
-    - os: linux
-      python: 3.8
-      env: TOXENV=py38
-      dist: xenial
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - python -m pip install .
-      script:
-        - pytest -v
-    - os: osx
-      language: generic
-      env: TOXENV=py36
-      install:
-        - ./.travis-install.sh
-        - pip3 install pytest
-        - python3 -m pip install .
-      script:
-        - pytest -v
-    - os: osx
-      language: generic
-      env: TOXENV=py37
-      dist: xenial
-      install:
-        - ./.travis-install.sh
-        - pip3 install pytest
-        - python3 -m pip install .
-      script:
-        - pytest -v
-    - os: osx
-      language: generic
-      env: TOXENV=py38
-      dist: xenial
-      install:
-        - ./.travis-install.sh
-        - pip3 install pytest
-        - python3 -m pip install .
-      script:
-        - pytest -v
-    - os: windows
-      language: shell 
-      before_install:
-        - choco install python --version=3.6
-        - python --version
-        - python -m pip install --upgrade pip
-        - pip install --upgrade pytest
-        - pip install codecov
-        - pip install numpy
-        - pip install cython
-      env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - python -m pip install .
-      script:
-        - pytest -v
-    - os: windows
-      language: shell 
-      before_install:
-        - choco install python --version=3.7
-        - python --version
-        - python -m pip install --upgrade pip
-        - pip install --upgrade pytest
-        - pip install codecov
-        - pip install numpy
-        - pip install cython
-      env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - python -m pip install .
-      script:
-        - pytest -v
-    - os: windows
-      language: shell 
-      before_install:
-        - choco install python --version=3.8
-        - python --version
-        - python -m pip install --upgrade pip
-        - pip install --upgrade pytest
-        - pip install codecov
-        - pip install numpy
-        - pip install cython
-      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
-      install:
-        - ./.travis-install.sh
-        - pip install pytest
-        - python -m pip install .
-      script:
-        - pytest -v
+  - os: linux
+    python: 3.5
+    env: TOXENV=py35
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: linux
+    python: 3.6
+    env: TOXENV=py36
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - pip install --upgrade numpy
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: linux
+    python: 3.7
+    env: TOXENV=py37
+    dist: xenial
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: linux
+    python: 3.8
+    env: TOXENV=py38
+    dist: xenial
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: osx
+    language: generic
+    env: TOXENV=py36
+    install:
+    - "./.travis-install.sh"
+    - pip3 install pytest
+    - python3 -m pip install .
+    script:
+    - pytest -v
+  - os: osx
+    language: generic
+    env: TOXENV=py37
+    dist: xenial
+    install:
+    - "./.travis-install.sh"
+    - pip3 install pytest
+    - python3 -m pip install .
+    script:
+    - pytest -v
+  - os: osx
+    language: generic
+    env: TOXENV=py38
+    dist: xenial
+    install:
+    - "./.travis-install.sh"
+    - pip3 install pytest
+    - python3 -m pip install .
+    script:
+    - pytest -v
+  - os: windows
+    language: shell
+    before_install:
+    - choco install python --version=3.6
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install --upgrade pytest
+    - pip install codecov
+    - pip install numpy
+    - pip install cython
+    env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: windows
+    language: shell
+    before_install:
+    - choco install python --version=3.7
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install --upgrade pytest
+    - pip install codecov
+    - pip install numpy
+    - pip install cython
+    env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: windows
+    language: shell
+    before_install:
+    - choco install python --version=3.8
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install --upgrade pytest
+    - pip install codecov
+    - pip install numpy
+    - pip install cython
+    env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+deploy:
+  provider: pypi
+  username: "__token__"
+  password:
+    secure: jOXF0GVrMWf1xQyBU4bw2Dv75fCTsce5JS2omWpIuaTiDnldEfTJyWXm944VPRevqQSWiBfTvmu56TYrjy5kamlbO2qPjbL2RMRK7AWkUs50vngxkqrUQp1ycAG88vOhsCiI9R/FqM3rFfb/MIwCBJxPh1LUu5a47LU6wOMr9Jtnc6eTAe/LYyiCW6UjFhiIfVAdZ4LVlE/E1G4qSAvfeaf5ujBc8SsrFNfiJ24M7ZCfp90tlYNq2WFcHX2AFM0G6hutrIfEHW6HFRGmitDaJAS72yTyZyz14fowWp2CcYRGuuzf5JddkGcJmX27cZpXd0DqV5qcoUqziLqCsQBhsmzpeUM45SFxv2H91DVpqbsC6PXeDpjo0GjdWwuoOr783rCQnt9SlAurxSVoBO4wt2boHckWl0VvBScgc98qZfDgpTLXVUlvqg113WpWrFx8SoEP/zUm5RwHt23hwrcNdTIMNfG9s/99FQLADZ/Ilh/x24/95U+wLevrz8VOODAFF+6uGZWqXCgMvczLVuwpztTFGU4+ZOKTBgCQ8nHsJa9LMl7GLLysyx4NYycgIHrxa5AKrWIcuFtG2gC7AYG2LapIpUjCKKMuitKaaDZYJfj5IEdypE8f8xBPJuayfNgB+m9YEY3a1goWy5vWrORWBOiVk0SROXugJA/VIlZIR/Y=
+  on:
+    tags: true
+    python: 3.7
