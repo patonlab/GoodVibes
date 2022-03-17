@@ -636,7 +636,7 @@ def read_initial(file):
             level = level[1:]
 
     #NWChem specific parsing
-    if program is 'NWChem':
+    if program == 'NWChem':
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''
         keyword_line_3 = ''
@@ -660,7 +660,7 @@ def read_initial(file):
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
 
     # Grab solvation models - Gaussian files
-    if program is 'Gaussian':
+    if program == 'Gaussian':
         for i, line in enumerate(data):
             if '#' in line.strip() and a == 0:
                 for j, line in enumerate(data[i:i + 10]):
@@ -703,7 +703,7 @@ def read_initial(file):
                         end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
     # ORCA parsing for solvation model
-    elif program is 'Orca':
+    elif program == 'Orca':
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''
         keyword_line_3 = ''

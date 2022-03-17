@@ -195,7 +195,7 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
         b_files.extend(glob(b_regex))
 
 
-    if len(a_files) is 0 or len(b_files) is 0:
+    if len(a_files) == 0 or len(b_files) == 0:
         log.write("\n   Warning! Filenames have not been formatted correctly for determining selectivity\n")
         log.write("   Make sure the filename contains either " + A + " or " + B + "\n")
         sys.exit("   Please edit either your filenames or selectivity pattern argument and try again\n")
@@ -760,7 +760,7 @@ def main():
         try:
             if os.path.splitext(elem)[1].lower() in SUPPORTED_EXTENSIONS:  # Look for file names
                 for file in glob(elem):
-                    if options.spc is False or options.spc is 'link':
+                    if options.spc is False or options.spc == 'link':
                         if file is not options.cosmo:
                             files.append(file)
                         if clustering:
@@ -791,7 +791,7 @@ def main():
     if clustering:
         command += '(clustering active)'
     log.write('\n' + command + '\n\n')
-    if options.temperature_interval is False:
+    if options.temperature_interval == False:
         log.write("   Temperature = " + str(options.temperature) + " Kelvin")
     # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming pressure is still 1 atm)
     if options.conc:
