@@ -10,7 +10,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
   name='goodvibes',
   packages=['goodvibes'],
-  version='3.1.0',
+  version='3.1.1',
   description='A python program to compute corrections to thermochemical data from frequency calculations',
   long_description=long_description,
   long_description_content_type='text/markdown',

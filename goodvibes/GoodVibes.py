@@ -79,7 +79,7 @@ except:
         pass
 
 # VERSION NUMBER
-__version__ = "3.1.0"
+__version__ = "3.1.1"
 
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
