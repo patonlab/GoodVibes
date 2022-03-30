@@ -17,7 +17,7 @@ setup(
   author='Paton Research Group',
   author_email='robert.paton@colostate.edu',
   url='https://github.com/bobbypaton/goodvibes',
-  download_url='https://github.com/bobbypaton/GoodVibes/archive/v3.1.0.zip',
+  download_url='https://github.com/bobbypaton/GoodVibes/archive/v3.1.1.zip',
   keywords=['compchem', 'thermochemistry', 'gaussian', 'vibrational-entropies', 'temperature'],
   classifiers=[],
   install_requires=['numpy','cclib'],
