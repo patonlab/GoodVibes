@@ -175,7 +175,7 @@ def cosmo_rs_out(datfile, names, interval=False):
 
                             found = True
             if found:
-                if oldtemp is 0:
+                if oldtemp == 0:
                     oldtemp = temp
                 if temp is not oldtemp:
                     gsolv_dicts.append(gsolv)  # Store dict at one temp
