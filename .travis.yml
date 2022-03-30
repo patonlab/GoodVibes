@@ -25,11 +25,9 @@ matrix:
   - os: linux
     python: 3.7
     env: TOXENV=py37
-    dist: xenial
     install:
     - "./.travis-install.sh"
-    - pip install pytest
-    - pip install -U pluggy
+    - pip install pytest pluggy
     - python -m pip install .
     script:
     - pytest -v
