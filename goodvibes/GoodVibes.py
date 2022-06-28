@@ -62,8 +62,8 @@ from pathlib import Path
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    log.write("\n\n   Warning! matplotlib module is not installed, reaction profile will not be graphed.")
-    log.write("\n   To install matplotlib, run the following commands: \n\t   python -m pip install -U pip" +
+    print("\n\n   Warning! matplotlib module is not installed, reaction profile will not be graphed.")
+    print("\n   To install matplotlib, run the following commands: \n\t   python -m pip install -U pip" +
               "\n\t   python -m pip install -U matplotlib\n\n")
 
 # Importing regardless of relative import
