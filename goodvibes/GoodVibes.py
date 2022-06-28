@@ -57,7 +57,6 @@ from datetime import datetime, timedelta
 from glob import glob
 from argparse import ArgumentParser
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 try:
