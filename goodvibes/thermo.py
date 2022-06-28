@@ -11,6 +11,7 @@ except:
     from io import *
 
 # PHYSICAL CONSTANTS                                      UNITS
+ATMOS = 101.325  # UNIT CONVERSION
 GAS_CONSTANT = 8.3144621  # J / K / mol
 PLANCK_CONSTANT = 6.62606957e-34  # J * s
 BOLTZMANN_CONSTANT = 1.3806488e-23  # J / K
@@ -395,8 +396,8 @@ class calc_bbe:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False):
+    def __init__(self, file, sp_file=None, QS='grimme', QH=False, s_freq_cutoff=100.0, H_FREQ_CUTOFF=100.0, temperature=298.15, conc=0.04087404707082671, freq_scale_factor=1.0, solv=None, spc=False,
+                 invert=False, d3_correction=0.0, ssymm=False, cosmo=None, mm_freq_scale_factor=False, inertia='global', g4=False):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
             0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
@@ -417,11 +418,11 @@ class calc_bbe:
         self.cosmo_qhg = 0.0
         # Read any single point energies if requested
         if spc != False and spc != 'link':
-            name, ext = os.path.splitext(file)
             try:
                 self.sp_energy, self.sp_program, self.sp_version_program, self.sp_solvation_model, self.sp_file, self.sp_charge, self.sp_empirical_dispersion, self.sp_multiplicity = parse_data(
-                    name + '_' + spc + ext)
-                self.cpu = sp_cpu(name + '_' + spc + ext)
+                    sp_file)
+                self.cpu = sp_cpu(sp_file)
+
             except ValueError:
                 self.sp_energy = '!'
                 pass
@@ -711,9 +712,9 @@ class calc_bbe:
             # The D3 term is added to the energy term here. If not requested then this term is zero
             # It is added to the SPC energy if defined (instead of the SCF energy)
             if spc is False:
-                self.scf_energy += d3_term
+                self.scf_energy += d3_correction
             else:
-                self.sp_energy += d3_term
+                self.sp_energy += d3_correction
 
             # Add terms (converted to au) to get Free energy - perform separately
             # for harmonic and quasi-harmonic values out of interest
