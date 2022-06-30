@@ -657,7 +657,8 @@ def read_initial(file):
     """At beginning of procedure, read level of theory, solvation model, and check for normal termination"""
     with open(file) as f:
         data = f.readlines()
-    level, bs, program, keyword_line = 'none', 'none', 'none', 'none'
+
+    level, bs, program, keyword_line, solvation_model = 'none', 'none', 'none', 'none', 'none'
     progress, orientation = 'Incomplete', 'Input'
     a, repeated_theory = 0, 0
     no_grid = True

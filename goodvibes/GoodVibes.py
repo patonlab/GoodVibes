@@ -543,6 +543,8 @@ class GV_options:
                                 "'conf' will compute moment of inertia from parsed rotational constants from each Gaussian output file.")
         parser.add_argument("--g4", dest="g4", action="store_true", default=False,
                             help="Use this option when using G4 calculations in Gaussian")
+        parser.add_argument("--gtype", dest="gtype", action="store", default="G",
+                            help="Use this option to request plotting of either relative E, H or G values")
 
         # Parse Arguments
         (self.options, self.args) = parser.parse_known_args()
@@ -653,7 +655,7 @@ def main():
 
     if options.graph is not False: # Graph reaction profiles
         graph_data = pes.get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
-        pes.graph_reaction_profile(graph_data, options, log, plt)
+        pes.graph_reaction_profile(graph_data, options, log, plt, options.gtype)
 
     log.finalize()
 if __name__ == "__main__":

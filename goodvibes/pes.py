@@ -526,7 +526,7 @@ def jitter(datasets, color, ax, nx, marker, edgecol='black'):
         ax.plot(x, y, alpha=0.5, markersize=7, color=color, marker=marker, markeredgecolor=edgecol,
                 markeredgewidth=1, linestyle='None')
 
-def graph_reaction_profile(graph_data, options, log, plt):
+def graph_reaction_profile(graph_data, options, log, plt, value='G'):
     """
     Graph a reaction profile using quasi-harmonic Gibbs free energy values.
 
@@ -541,14 +541,24 @@ def graph_reaction_profile(graph_data, options, log, plt):
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
 
+    # default to using Gibbs energy values - but change to E or H if requested
+    #sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].qh_gibbs_free_energy))
+    #if value == "E": sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].scf_energy))
+    #elif value == "H": sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].enthalpy))
+
     log.write("\n   Graphing Reaction Profile\n")
     data = {}
+
     # Get PES data
     for i, path in enumerate(graph_data.path):
         g_data = []
-        zero_val = graph_data.qhg_zero[i][0]
+        if value == 'G': zero_val = graph_data.qhg_zero[i][0]
+        if value == 'H': zero_val = graph_data.h_zero[i][0]
+        if value == 'E': zero_val = graph_data.e_zero[i][0]
         for j, e_abs in enumerate(graph_data.e_abs[i]):
-            species = graph_data.qhg_abs[i][j]
+            if value == 'G': species = graph_data.qhg_abs[i][j]
+            if value == 'H': species = graph_data.h_abs[i][j]
+            if value == 'E': species = graph_data.e_abs[i][j]
             relative = species - zero_val
             if graph_data.units == 'kJ/mol':
                 formatted_g = J_TO_AU / 1000.0 * relative
@@ -560,10 +570,12 @@ def graph_reaction_profile(graph_data, options, log, plt):
     # Grab any additional formatting for graph
     with open(options.graph) as f:
         yaml = f.readlines()
+
     #defaults
     ylim, color, show_conf, show_gconf, show_title = None, None, True, False, True
     label_point, label_xaxis, dpi, dec, legend = False, True, False, 2, False,
     colors, gridlines, title =  None, False, 'Potential Energy Surface'
+
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i + 1:]):
@@ -702,7 +714,9 @@ def graph_reaction_profile(graph_data, options, log, plt):
             ax.set_title(title)
         else:
             ax.set_title("Reaction Profile")
-    ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
+    if value == 'G': ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
+    if value == 'H': ax.set_ylabel(r"$H_{rel}$ (kcal / mol)")
+    if value == 'E': ax.set_ylabel(r"$E_{rel}$ (kcal / mol)")
     plt.minorticks_on()
     ax.tick_params(axis='x', which='minor', bottom=False)
     ax.tick_params(which='minor', labelright=True, right=True)
