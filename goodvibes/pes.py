@@ -48,7 +48,7 @@ class get_pes:
         g_species_qhgzero (list):quasi-harmonic Gibbs free energy "zero" values used for graphing.
         g_rel_val (list): relative Gibbs free energy values used for graphing.
     """
-    def __init__(self, file, thermo_data, log, temperature, gconf, QH, cosmo=None, cosmo_int=None):
+    def __init__(self, file, thermo_data, log, temperature, gconf=True, QH=False, cosmo=None, cosmo_int=None):
         # Default values
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
 

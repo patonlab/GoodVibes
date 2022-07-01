@@ -97,7 +97,7 @@ def add_time(tm, cpu):
     return fulldate
 
 
-def calc_cpu(thermo_data, options, log):
+def calc_cpu(thermo_data, log):
     # Initialize the total CPU time
     add_days = 0
     cpu = datetime(100, 1, 1, 00, 00, 00, 00)
@@ -115,7 +115,7 @@ def calc_cpu(thermo_data, options, log):
                                cpu.minute, 'mins', cpu.second, 'secs'))
 
 
-def get_vib_scale_factor(files, level_of_theory, freq_scale_factor, mm_freq_scale_factor, log):
+def get_vib_scale_factor(files, level_of_theory, log, freq_scale_factor=False, mm_freq_scale_factor=False):
     ''' Attempt to automatically obtain frequency scale factor
     Application of freq scale factors requires all outputs to be same level of theory'''
 
@@ -148,7 +148,8 @@ def get_vib_scale_factor(files, level_of_theory, freq_scale_factor, mm_freq_scal
                 levels_l_o_t.append(i)
             filtered_calcs_l_o_t.append(files_l_o_t)
             filtered_calcs_l_o_t.append(levels_l_o_t)
-            io.print_check_fails(log, filtered_calcs_l_o_t[1], filtered_calcs_l_o_t[0], "levels of theory")
+            print(filtered_calcs_l_o_t)
+            #io.print_check_fails(log, filtered_calcs_l_o_t[1], filtered_calcs_l_o_t[0], "levels of theory")
 
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if mm_freq_scale_factor is not False:
@@ -608,7 +609,7 @@ def main():
     bbe_vals = [[]] * len(file_list) # initialize a list that will be populated with thermochemical values
 
     # scaling vibrational Frequencies
-    options.freq_scale_factor, options.mm_freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, options.freq_scale_factor, options.mm_freq_scale_factor, log)
+    options.freq_scale_factor, options.mm_freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, log, options.freq_scale_factor, options.mm_freq_scale_factor)
 
     for i, file in enumerate(file_list):
         d3_term = 0.0 # computes D3 term if requested
@@ -644,7 +645,7 @@ def main():
     gv_summary = io.summary(thermo_data, options, log, boltz_facs, clusters)
 
     if options.cputime: # Print CPU usage if requested
-        cpu = calc_cpu(thermo_data, options, log)
+        cpu = calc_cpu(thermo_data, log)
 
     if options.ee is not False: # Compute selectivity
         [a_name, b_name], [a_files, b_files], ee, er, ratio, dd_free_energy, preference = get_selectivity(options.ee, file_list, boltz_facs, options.temperature, log)

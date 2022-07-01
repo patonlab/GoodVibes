@@ -66,7 +66,7 @@ class Logger:
         log (file object): file to write GV output to.
         thermodata (bool): decides if string passed to logger is thermochemical data, needing to be separated by commas
     """
-    def __init__(self, filein, append, csv):
+    def __init__(self, filein, append='output', csv=False):
         self.csv = csv
         if not self.csv:
             suffix = 'dat'
