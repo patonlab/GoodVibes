@@ -37,22 +37,17 @@ from __future__ import print_function, absolute_import
 #  Enantiomeric excess, diastereomeric ratios and ddG can also be     #
 #  calculated to show preference of stereoisomers.                    #
 #######################################################################
-#  Careful checks may be applied to compare variables between         #
-#  multiple files such as Gaussian version, solvation models, levels  #
-#  of theory, charge and multiplicity, potential duplicate structures #
-#  errors in potentail linear molecules, correct or incorrect         #
-#  transition states, and empirical dispersion models.                #
-#######################################################################
 
 
 #######################################################################
-###########  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ############
-###########               Guilian Luchini, Juan V. Alegre- ############
-###########               Requena, Yanfei Guan, Sibo Lin   ############
-###########  Last modified:  May 27, 2020                 ############
+###########  Authors:     Rob Paton, Guilian Luchini,       ###########
+###########               Juan V. Alegre-Requena,           ###########
+###########               Ignacio Funes-Ardoiz,             ###########
+###########               Yanfei Guan, Sibo Lin             ###########
+###########  Last modified:  April 22, 2022                 ###########
 ####################################################################"""
 
-import math, os.path, sys, time
+import math, os.path, sys, time, json, subprocess, cclib
 from datetime import datetime, timedelta
 from glob import glob
 from argparse import ArgumentParser
@@ -81,7 +76,7 @@ except:
 # VERSION NUMBER
 __version__ = "3.1.1"
 
-SUPPORTED_EXTENSIONS = set(('.out', '.log'))
+SUPPORTED_EXTENSIONS = set(('.out', '.log', '.json'))
 
 # PHYSICAL CONSTANTS                                      UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -364,270 +359,247 @@ def print_check_fails(log, check_attribute, file, attribute, option2=False):
             else:
                 log.write('{}, '.format(filename))
 
+def get_json_data(file,cclib_data):
+    '''
+    Get metadata and GoodVibes data for the json file (for older versions of cclib)
+    '''
+    
+    outfile = open(file, "r")
+    outlines = outfile.readlines()
+    outfile.close()
 
-def check_files(log, files, thermo_data, options, STARS, l_o_t, solvation_model, orientation, grid):
-    """
-    Perform checks for consistency in calculation output files for computational projects
+    # initial loop just to detect the QM program
+    for i,line in enumerate(outlines):
+        # get program
+        if line.strip() == "Cite this work as:":
+            cclib_data['metadata'] = {}
+            qm_program = outlines[i+1]
 
-    Check for consistency in: Gaussian version, solvation state/gas phase,
-    level of theory/basis set, charge and multiplicity, standard concentration,
-    potential linear molecule errors, transition state verification, empirical dispersion models
-    """
-    log.write("\n   Checks for thermochemistry calculations (frequency calculations):")
-    log.write("\n" + STARS)
-    # Check program used and version
-    version_check = [thermo_data[key].version_program for key in thermo_data]
-    file_check = [thermo_data[key].file for key in thermo_data]
-    if all_same(version_check) != False:
-        log.write("\no  Using {} in all calculations.".format(version_check[0]))
-    else:
-        print_check_fails(log, version_check, file_check, "programs or versions")
+            cclib_data['metadata']['QM program'] = qm_program[1:-2]
+            for j in range(i,i+60):
+                if '**********' in outlines[j]:
+                    run_date = outlines[j+2].strip()
+                    cclib_data['metadata']['run date'] = run_date
+                    break
+            break
 
-    # Check level of theory
-    if all_same(l_o_t) is not False:
-        log.write("\no  Using {} in all calculations.".format(l_o_t[0]))
-    elif all_same(l_o_t) is False:
-        print_check_fails(log, l_o_t, file_check, "levels of theory")
+        elif '* O   R   C   A *' in line:
+            for j in range(i,i+100):
+                if 'Program Version' in line.strip():
+                    cclib_data['metadata'] = {}
+                    version_program = "ORCA version " + line.split()[2]
+                    cclib_data['metadata']['QM program'] = version_program
+                    break
 
-    # Check for solvent models
-    solvent_check = [thermo_data[key].solvation_model[0] for key in thermo_data]
-    if all_same(solvent_check):
-        solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
-        log.write("\no  Using {} in all calculations.".format(solvent_check[0]))
-    else:
-        solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
-        print_check_fails(log, solvent_check, file_check, "solvation models")
+        elif "NWChem" in line:
+            if 'nwchem branch' in line.strip():
+                cclib_data['metadata'] = {}
+                cclib_data['metadata']['QM program'] = "NWChem version " + line.split()[3]
+                break
 
-    # Check for -c 1 when solvent is added
-    if all_same(solvent_check):
-        if solvent_check[0] == "gas phase" and str(round(options.conc, 4)) == str(round(0.0408740470708, 4)):
-            log.write("\no  Using a standard concentration of 1 atm for gas phase.")
-        elif solvent_check[0] == "gas phase" and str(round(options.conc, 4)) != str(round(0.0408740470708, 4)):
-            log.write("\nx  Caution! Standard concentration is not 1 atm for gas phase (using {} M).".format(options.conc))
-        elif solvent_check[0] != "gas phase" and str(round(options.conc, 4)) == str(round(0.0408740470708, 4)):
-            log.write("\nx  Using a standard concentration of 1 atm for solvent phase (option -c 1 should be included for 1 M).")
-        elif solvent_check[0] != "gas phase" and str(options.conc) == str(1.0):
-            log.write("\no  Using a standard concentration of 1 M for solvent phase.")
-        elif solvent_check[0] != "gas phase" and str(round(options.conc, 4)) != str(round(0.0408740470708, 4)) and str(
-                options.conc) != str(1.0):
-            log.write("\nx  Caution! Standard concentration is not 1 M for solvent phase (using {} M).".format(options.conc))
-    if all_same(solvent_check) == False and "gas phase" in solvent_check:
-        log.write("\nx  Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
-    if all_same(solvent_check) == False and "gas phase" not in solvent_check:
-        log.write("\nx  Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
+    if cclib_data['metadata']['QM program'].lower().find('gaussian') > -1:
 
-    # Check charge and multiplicity
-    charge_check = [thermo_data[key].charge for key in thermo_data]
-    multiplicity_check = [thermo_data[key].multiplicity for key in thermo_data]
-    if all_same(charge_check) != False and all_same(multiplicity_check) != False:
-        log.write("\no  Using charge {} and multiplicity {} in all calculations.".format(charge_check[0],
-                                                                                         multiplicity_check[0]))
-    else:
-        print_check_fails(log, charge_check, file_check, "charge and multiplicity", multiplicity_check)
+        cclib_data['properties']['rotational'] = {}
+        for i,line in enumerate(outlines):
+            # Extract memory
+            if '%mem' in line:
+                mem = line.strip().split('=')[-1]
+                cclib_data['metadata']['memory'] = mem
 
-    # Check for duplicate structures
-    dup_list = check_dup(files, thermo_data)
-    if len(dup_list) == 0:
-        log.write("\no  No duplicates or enantiomers found")
-    else:
-        log.write("\nx  Caution! Possible duplicates or enantiomers found:")
-        for dup in dup_list:
-            log.write('\n        {} and {}'.format(dup[0], dup[1]))
+            # Extract number of processors
+            elif '%nprocs' in line:
+                nprocs = int(line.strip().split('=')[-1])
+                cclib_data['metadata']['processors'] = nprocs
 
-    # Check for linear molecules with incorrect number of vibrational modes
-    linear_fails, linear_fails_atom, linear_fails_cart, linear_fails_files, linear_fails_list = [], [], [], [], []
-    frequency_list = []
-    for file in files:
-        linear_fails = getoutData(file)
-        linear_fails_cart.append(linear_fails.cartesians)
-        linear_fails_atom.append(linear_fails.atom_types)
-        linear_fails_files.append(file)
-        frequency_list.append(thermo_data[file].frequency_wn)
+            # Extract keywords line, solvation, dispersion and calculation type
+            elif '#' in line and not hasattr(cclib_data, 'keywords_line'):
+                keywords_line = ''
+                for j in range(i,i+10):
+                    if '----------' in outlines[j]:
+                        break
+                    else:
+                        keywords_line += outlines[j].rstrip("\n")[1:]
+                cclib_data['metadata']['keywords line'] = keywords_line[2:]
+                qm_solv,qm_disp = 'gas_phase','none'
+                calc_type = 'ground_state'
+                calcfc_found, ts_found = False, False
+                for keyword in keywords_line.split():
+                    if keyword.lower().find('opt') > -1:
+                        if keyword.lower().find('calcfc') > -1:
+                            calcfc_found = True
+                        if keyword.lower().find('ts') > -1:
+                            ts_found = True
+                    elif keyword.lower().startswith('scrf'):
+                        qm_solv = keyword
+                    elif keyword.lower().startswith('emp'):
+                        qm_disp = keyword
+                if calcfc_found and ts_found:
+                    calc_type = 'transition_state'
+                cclib_data['metadata']['solvation'] = qm_solv
+                cclib_data['metadata']['dispersion model'] = qm_disp
+                cclib_data['metadata']['ground or transition state'] = calc_type
 
-    linear_fails_list.append(linear_fails_atom)
-    linear_fails_list.append(linear_fails_cart)
-    linear_fails_list.append(frequency_list)
-    linear_fails_list.append(linear_fails_files)
+            # Basis set name
+            elif line[1:15] == "Standard basis":
+                cclib_data['metadata']['basis set'] = line.split()[2]
 
-    linear_mol_correct, linear_mol_wrong = [], []
-    for i in range(len(linear_fails_list[0])):
-        count_linear = 0
-        if len(linear_fails_list[0][i]) == 2:
-            if len(linear_fails_list[2][i]) == 1:
-                linear_mol_correct.append(linear_fails_list[3][i])
-            else:
-                linear_mol_wrong.append(linear_fails_list[3][i])
-        if len(linear_fails_list[0][i]) == 3:
-            if linear_fails_list[0][i] == ['I', 'I', 'I'] or linear_fails_list[0][i] == ['O', 'O', 'O'] or \
-                    linear_fails_list[0][i] == ['N', 'N', 'N'] or linear_fails_list[0][i] == ['H', 'C', 'N'] or \
-                    linear_fails_list[0][i] == ['H', 'N', 'C'] or linear_fails_list[0][i] == ['C', 'H', 'N'] or \
-                    linear_fails_list[0][i] == ['C', 'N', 'H'] or linear_fails_list[0][i] == ['N', 'H', 'C'] or \
-                    linear_fails_list[0][i] == ['N', 'C', 'H']:
-                if len(linear_fails_list[2][i]) == 4:
-                    linear_mol_correct.append(linear_fails_list[3][i])
+            # functional
+            if not hasattr(cclib_data, 'BOMD') and line[1:9] == 'SCF Done':
+                t1 = line.split()[2]
+                if t1 == 'E(RHF)':
+                    cclib_data['metadata']['functional'] = 'HF'
                 else:
-                    linear_mol_wrong.append(linear_fails_list[3][i])
-            else:
-                for j in range(len(linear_fails_list[0][i])):
-                    for k in range(len(linear_fails_list[0][i])):
-                        if k > j:
-                            for l in range(len(linear_fails_list[1][i][j])):
-                                if linear_fails_list[0][i][j] == linear_fails_list[0][i][k]:
-                                    if linear_fails_list[1][i][j][l] > (-linear_fails_list[1][i][k][l] - 0.1) and \
-                                            linear_fails_list[1][i][j][l] < (-linear_fails_list[1][i][k][l] + 0.1):
-                                        count_linear = count_linear + 1
-                                        if count_linear == 3:
-                                            if len(linear_fails_list[2][i]) == 4:
-                                                linear_mol_correct.append(linear_fails_list[3][i])
-                                            else:
-                                                linear_mol_wrong.append(linear_fails_list[3][i])
-        if len(linear_fails_list[0][i]) == 4:
-            if linear_fails_list[0][i] == ['C', 'C', 'H', 'H'] or linear_fails_list[0][i] == ['C', 'H', 'C', 'H'] or \
-                    linear_fails_list[0][i] == ['C', 'H', 'H', 'C'] or linear_fails_list[0][i] == ['H', 'C', 'C', 'H'] or \
-                    linear_fails_list[0][i] == ['H', 'C', 'H', 'C'] or linear_fails_list[0][i] == ['H', 'H', 'C', 'C']:
-                if len(linear_fails_list[2][i]) == 7:
-                    linear_mol_correct.append(linear_fails_list[3][i])
-                else:
-                    linear_mol_wrong.append(linear_fails_list[3][i])
-    linear_correct_print, linear_wrong_print = "", ""
-    for i in range(len(linear_mol_correct)):
-        linear_correct_print += ', ' + linear_mol_correct[i]
-    for i in range(len(linear_mol_wrong)):
-        linear_wrong_print += ', ' + linear_mol_wrong[i]
-    linear_correct_print = linear_correct_print[1:]
-    linear_wrong_print = linear_wrong_print[1:]
-    if len(linear_mol_correct) == 0:
-        if len(linear_mol_wrong) == 0:
-            log.write("\n-  No linear molecules found.")
-        if len(linear_mol_wrong) >= 1:
-            log.write("\nx  Caution! Potential linear molecules with wrong number of frequencies found "
-                      "(correct number = 3N-5) -{}.".format(linear_wrong_print))
-    elif len(linear_mol_correct) >= 1:
-        if len(linear_mol_wrong) == 0:
-            log.write("\no  All the linear molecules have the correct number of frequencies -{}.".format(linear_correct_print))
-        if len(linear_mol_wrong) >= 1:
-            log.write("\nx  Caution! Potential linear molecules with wrong number of frequencies found -{}. Correct "
-                      "number of frequencies (3N-5) found in other calculations -{}.".format(linear_wrong_print,
-                                                                                             linear_correct_print))
+                    cclib_data['metadata']['functional'] = t1[t1.index("(") + 2:t1.rindex(")")]
+                break
 
-    # Checks whether any TS have > 1 imaginary frequency and any GS have any imaginary frequencies
-    for file in files:
-        bbe = thermo_data[file]
-        if bbe.job_type.find('TS') > -1 and len(bbe.im_frequency_wn) != 1:
-            log.write("\nx  Caution! TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
-        if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and len(bbe.im_frequency_wn) != 0:
-            log.write("\nx  Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
+        for i in reversed(range(0,len(outlines)-50)):
+            # Grab molecular mass
+            if 'Molecular mass:' in outlines[i]:
+                cclib_data['properties']['molecular mass'] = float(outlines[i].strip().split()[2])
+            # Extract <S**2> before and after spin annihilation
+            if 'S**2 before annihilation' in outlines[i]:
+                cclib_data['properties']['S2 after annihilation'] = float(outlines[i].strip().split()[-1])
+                cclib_data['properties']['S2 before annihilation'] = float(outlines[i].strip().split()[-3][:-1])
+            # Extract symmetry point group
+            elif 'Full point group' in outlines[i]:
+                cclib_data['properties']['rotational']['symmetry point group'] = outlines[i].strip().split()[3]
+                break
+            # For time dependent (TD) calculations
+            elif 'E(TD-HF/TD-DFT)' in outlines[i]:
+                td_e = float(line.strip().split()[-1])
+                cclib_data['properties']['energy']['TD energy'] = cclib.parser.utils.convertor(td_e, "hartree", "eV")
+            # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
+            elif line.strip().startswith('E(ZPE)='): #Overwrite DFT ZPE with G4 ZPE
+                zero_point_corr = float(line.strip().split()[1])
+            elif line.strip().startswith('G4(0 K)'):
+                G4_energy = float(line.strip().split()[2])
+                G4_energy -= zero_point_corr #Remove G4 ZPE
+                cclib_data['properties']['energy']['G4 energy'] = cclib.parser.utils.convertor(G4_energy, "hartree", "eV")
+            # For ONIOM calculations use the extrapolated value rather than SCF value
+            elif "ONIOM: extrapolated energy" in line.strip():
+                oniom_e = float(line.strip().split()[4])
+                cclib_data['properties']['energy']['ONIOM energy'] = cclib.parser.utils.convertor(oniom_e, "hartree", "eV")
+            # Extract symmetry number, rotational constants and rotational temperatures
+            elif 'Rotational symmetry number' in outlines[i]:
+                cclib_data['properties']['rotational']['symmetry number'] = int(outlines[i].strip().split()[3].split(".")[0])
+                
+            elif outlines[i].find('Rotational constants (GHZ):') > -1:
+                try:
+                    roconst = [float(outlines[i].strip().replace(':', ' ').split()[3]),
+                                    float(outlines[i].strip().replace(':', ' ').split()[4]),
+                                    float(outlines[i].strip().replace(':', ' ').split()[5])]
+                except ValueError:
+                    if outlines[i].find('********') > -1:
+                        roconst = [float(outlines[i].strip().replace(':', ' ').split()[4]),
+                                        float(outlines[i].strip().replace(':', ' ').split()[5])]
+                cclib_data['properties']['rotational']['rotational constants'] = roconst
 
-    # Check for empirical dispersion
-    dispersion_check = [thermo_data[key].empirical_dispersion for key in thermo_data]
-    if all_same(dispersion_check):
-        if dispersion_check[0] == 'No empirical dispersion detected':
-            log.write("\n-  No empirical dispersion detected in any of the calculations.")
+            elif outlines[i].find('Rotational temperature ') > -1:
+                rotemp = [float(outlines[i].strip().split()[3])]
+                cclib_data['properties']['rotational']['rotational temperatures'] = rotemp
+
+            elif outlines[i].find('Rotational temperatures') > -1:
+                try:
+                    rotemp = [float(outlines[i].strip().split()[3]), float(outlines[i].strip().split()[4]),
+                                float(outlines[i].strip().split()[5])]
+                except ValueError:
+                    if outlines[i].find('********') > -1:
+                        rotemp = [float(outlines[i].strip().split()[4]), float(outlines[i].strip().split()[5])]
+                cclib_data['properties']['rotational']['rotational temperatures'] = rotemp
+
+    elif cclib_data['metadata']['QM program'].lower().find('orca') > -1:
+        for i in reversed(range(0,outlines)):
+            if outlines[i][:25] == 'FINAL SINGLE POINT ENERGY':
+                # in eV to match the format from cclib
+                cclib_data['properties']['energy']['final single point energy'] = cclib.parser.utils.convertor(float(outlines[i].split()[-1]), "hartree", "eV")
+                break
+
+    elif cclib_data['metadata']['QM program'].lower().find('nwchem') > -1:
+        # reversed loop to save time
+        # this part misses a break in one of the properties to speed up the loop (i.e. after all the properties are read)
+        for i in reversed(range(0,outlines)):
+            # Grab rational symmetry number
+            if line.strip().find('symmetry #') != -1:
+                cclib_data['properties']['rotational']['symmetry number'] = int(line.strip().split()[-1][0:-1])
+            # Grab point group
+            elif line.strip().find('symmetry detected') != -1:
+                cclib_data['properties']['rotational']['symmetry point group'] = line.strip().split()[0]
+            # Grab rotational constants (convert cm-1 to GHz)
+            elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
+                letter=line.strip()[0]
+                h = 0
+                if letter == 'A':
+                    h = 0
+                elif letter == 'B':
+                    h = 1
+                elif letter == 'C':
+                    h = 2
+                roconst[h]=float(line.strip().split()[1])*29.9792458
+                rotemp[h]=float(line.strip().split()[4])
+
+        # this part misses a break in one of the properties to speed up the loop (i.e. after all the properties are read)
+        for i in range(0,outlines):
+            if line.strip().startswith("xc "):
+                cclib_data['metadata']['functional'] = line.strip().split()[1]
+            if line.strip().startswith("* library "):
+                cclib_data['metadata']['basis set'] = line.strip().replace("* library ",'')
+
+            # need to include tags for NWChem solvation
+
+            if outlines[i].strip().find('disp vdw 3') > -1:
+                cclib_data['metadata']['dispersion model'] = "D3"
+            if outlines[i].strip().find('disp vdw 4') > -1:
+                cclib_data['metadata']['dispersion model'] = "D3BJ"
+
+        if 'dispersion model' not in cclib_data['metadata']:
+            cclib_data['metadata']['dispersion model'] = "none"
+    
+    if cclib_data != {}:
+        with open(f'{file.split(".")[0]}.json', 'w') as outfile:
+            json.dump(cclib_data, outfile, indent=1)
+
+    return cclib_data
+
+def cclib_init(file_fun,progress_fun,calc_type):
+    # if the corresponding json file exists, read it instead of creating the file again
+    if f'{file_fun.split(".")[0]}.json' not in glob('*.json'):
+        command_run_1 = ['ccwrite', 'json', file_fun]
+        subprocess.run(command_run_1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    cclib_data,progress_fun[file_fun] = {},''
+    try:
+        with open(f'{file_fun.split(".")[0]}.json') as json_file:
+            cclib_data = json.load(json_file)
+    except FileNotFoundError:
+        progress_fun[file_fun] = 'Error'
+
+    # add parameters that might be missing from cclib (depends on the cclib version)
+    if not hasattr(cclib_data, 'metadata') and 'metadata' not in cclib_data and progress_fun[file_fun] != 'error':
+        cclib_data = get_json_data(file_fun,cclib_data)
+    
+    if calc_type == 'freq':
+        # calculations with 1 atom
+        if cclib_data['properties']['number of atoms'] == 1:
+            cclib_data['vibrations'] = {'frequencies': [], 'displacement': []}
+
+        # other calculations
+        if 'vibrations' in cclib_data:
+            progress_fun[file_fun] = 'Normal'
+
+        # general errors
         else:
-            log.write("\no  Using " + dispersion_check[0] + " in all calculations.")
-    else:
-        print_check_fails(log, dispersion_check, file_check, "dispersion models")
-    log.write("\n" + STARS + "\n")
+            progress_fun[file_fun] = 'Error'
 
-    # Check for single-point corrections
-    if options.spc is not False:
-        log.write("\n   Checks for single-point corrections:")
-        log.write("\n" + STARS)
-        names_spc, version_check_spc = [], []
-        for file in files:
-            name, ext = os.path.splitext(file)
-            if os.path.exists(name + '_' + options.spc + '.log'):
-                names_spc.append(name + '_' + options.spc + '.log')
-            elif os.path.exists(name + '_' + options.spc + '.out'):
-                names_spc.append(name + '_' + options.spc + '.out')
-
-        # Check SPC program versions
-        version_check_spc = [thermo_data[key].sp_version_program for key in thermo_data]
-        if all_same(version_check_spc):
-            log.write("\no  Using {} in all the single-point corrections.".format(version_check_spc[0]))
+    elif calc_type == 'spc':
+        if 'total' in cclib_data['properties']['energy']:
+            progress_fun[file_fun] = 'Normal'
         else:
-            print_check_fails(log, version_check_spc, file_check, "programs or versions")
-
-        # Check SPC solvation
-        solvent_check_spc = [thermo_data[key].sp_solvation_model for key in thermo_data]
-        if all_same(solvent_check_spc):
-            if isinstance(solvent_check_spc[0],list):
-                log.write("\no  Using " + solvent_check_spc[0][0] + " in all single-point corrections.")
-            else:
-                log.write("\no  Using " + solvent_check_spc[0] + " in all single-point corrections.")
-        else:
-            print_check_fails(log, solvent_check_spc, file_check, "solvation models")
-
-        # Check SPC level of theory
-        l_o_t_spc = [level_of_theory(name) for name in names_spc]
-        if all_same(l_o_t_spc):
-            log.write("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
-        else:
-            print_check_fails(log, l_o_t_spc, file_check, "levels of theory")
-
-        # Check SPC charge and multiplicity
-        charge_spc_check = [thermo_data[key].sp_charge for key in thermo_data]
-        multiplicity_spc_check = [thermo_data[key].sp_multiplicity for key in thermo_data]
-        if all_same(charge_spc_check) != False and all_same(multiplicity_spc_check) != False:
-            log.write("\no  Using charge and multiplicity {} {} in all the single-point corrections.".format(
-                charge_spc_check[0], multiplicity_spc_check[0]))
-        else:
-            print_check_fails(log, charge_spc_check, file_check, "charge and multiplicity", multiplicity_spc_check)
-
-        # Check if the geometries of freq calculations match their corresponding structures in single-point calculations
-        geom_duplic_list, geom_duplic_list_spc, geom_duplic_cart, geom_duplic_files, geom_duplic_cart_spc, geom_duplic_files_spc = [], [], [], [], [], []
-        for file in files:
-            geom_duplic = getoutData(file)
-            geom_duplic_cart.append(geom_duplic.cartesians)
-            geom_duplic_files.append(file)
-        geom_duplic_list.append(geom_duplic_cart)
-        geom_duplic_list.append(geom_duplic_files)
-
-        for name in names_spc:
-            geom_duplic_spc = getoutData(name)
-            geom_duplic_cart_spc.append(geom_duplic_spc.cartesians)
-            geom_duplic_files_spc.append(name)
-        geom_duplic_list_spc.append(geom_duplic_cart_spc)
-        geom_duplic_list_spc.append(geom_duplic_files_spc)
-        spc_mismatching = "Caution! Potential differences found between frequency and single-point geometries -"
-        if len(geom_duplic_list[0]) == len(geom_duplic_list_spc[0]):
-            for i in range(len(files)):
-                count = 1
-                for j in range(len(geom_duplic_list[0][i])):
-                    if count == 1:
-                        if geom_duplic_list[0][i][j] == geom_duplic_list_spc[0][i][j]:
-                            count = count
-                        elif '{0:.3f}'.format(geom_duplic_list[0][i][j][0]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][0] * (-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][0]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][0]):
-                            if '{0:.3f}'.format(geom_duplic_list[0][i][j][1]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][1] * (-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][1]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][1] * (-1)):
-                                count = count
-                            if '{0:.3f}'.format(geom_duplic_list[0][i][j][2]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][2] * (-1)) or '{0:.3f}'.format(
-                                geom_duplic_list[0][i][j][2]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][2] * (-1)):
-                                count = count
-                        else:
-                            spc_mismatching += ", " + geom_duplic_list[1][i]
-                            count = count + 1
-            if spc_mismatching == "Caution! Potential differences found between frequency and single-point geometries -":
-                log.write("\no  No potential differences found between frequency and single-point geometries (based on input coordinates).")
-            else:
-                spc_mismatching_1 = spc_mismatching[:84]
-                spc_mismatching_2 = spc_mismatching[85:]
-                log.write("\nx  " + spc_mismatching_1 + spc_mismatching_2 + '.')
-        else:
-            log.write("\nx  One or more geometries from single-point corrections are missing.")
-
-        # Check for SPC dispersion models
-        dispersion_check_spc = [thermo_data[key].sp_empirical_dispersion for key in thermo_data]
-        if all_same(dispersion_check_spc):
-            if dispersion_check_spc[0] == 'No empirical dispersion detected':
-                log.write("\n-  No empirical dispersion detected in any of the calculations.")
-            else:
-                log.write("\no  Using " + dispersion_check_spc[0] + " in all the singe-point calculations.")
-        else:
-            print_check_fails(log, dispersion_check_spc, file_check, "dispersion models")
-        log.write("\n" + STARS + "\n")
-
+            progress_fun[file_fun] = 'Error'
+        
+    return cclib_data,progress_fun
 
 def main():
+    start_time_overall = time.time()
     files = []
     bbe_vals = []
     clusters = []
@@ -658,8 +630,6 @@ def main():
     parser.add_argument("-v", dest="freq_scale_factor", default=False, type=float, metavar="SCALE_FACTOR",
                         help="Frequency scaling factor. If not set, try to find a suitable value in database. "
                              "If not found, use 1.0")
-    parser.add_argument("--vmm", dest="mm_freq_scale_factor", default=False, type=float, metavar="MM_SCALE_FACTOR",
-                        help="Additional frequency scaling factor used in ONIOM calculations")
     parser.add_argument("--spc", dest="spc", type=str, default=False, metavar="SPC",
                         help="Indicates single point corrections (default False)")
     parser.add_argument("--boltz", dest="boltz", action="store_true", default=False,
@@ -699,9 +669,6 @@ def main():
     parser.add_argument("--ee", dest="ee", default=False, type=str,
                         help="Tabulate selectivity values (excess, ratio) from a mixture, provide pattern for two "
                              "types such as *_R*,*_S*")
-    parser.add_argument("--check", dest="check", action="store_true", default=False,
-                        help="Checks if calculations were done with the same program, level of theory and solvent, "
-                             "as well as detects potential duplicates")
     parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
                         help="Entropy correction for standard concentration of solvents")
     parser.add_argument("--custom_ext", type=str, default='',
@@ -710,7 +677,7 @@ def main():
                              "GOODVIBES_CUSTOM_EXT")
     parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
                         help="Graph a reaction profile based on free energies calculated. ")
-    parser.add_argument("--ssymm", dest='ssymm', action="store_true", default=False,
+    parser.add_argument("--nosymm", dest='nosymm', action="store_true", default=False,
                         help="Turn on the symmetry correction.")
     parser.add_argument("--bav", dest='inertia', default="global",type=str,choices=['global','conf'],
                         help="Choice of how the moment of inertia is computed. Options = 'global' or 'conf'."
@@ -718,6 +685,10 @@ def main():
                             "'conf' will compute moment of inertia from parsed rotational constants from each Gaussian output file.")
     parser.add_argument("--g4", dest="g4", action="store_true", default=False,
                         help="Use this option when using G4 calculations in Gaussian")
+    parser.add_argument("--noStrans", dest="noStrans", action="store_true", default=False,
+                        help="Use this option to supress translational entropy")
+    parser.add_argument("--noEtrans", dest="noEtrans", action="store_true", default=False,
+                        help="Use this option to supress translational energy (affecting enthalpy)")
     # Parse Arguments
     (options, args) = parser.parse_known_args()
     # If requested, turn on head-gordon enthalpy correction
@@ -733,7 +704,6 @@ def main():
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
         for ext in custom_extensions:
             SUPPORTED_EXTENSIONS.add(ext.strip())
-
     # Default value for inverting imaginary frequencies
     if options.invert:
         options.invert == -50.0
@@ -804,14 +774,12 @@ def main():
     log.write('\n   All energetic values below shown in Hartree unless otherwise specified.')
     # Initial read of files,
     # Grab level of theory, solvation model, check for Normal Termination
-    l_o_t, s_m, progress, spc_progress, orientation, grid = [], [], {}, {}, {}, {}
+    l_o_t, s_m, progress, spc_progress = [], [], {}, {}
     for file in files:
-        lot_sm_prog = read_initial(file)
-        l_o_t.append(lot_sm_prog[0])
-        s_m.append(lot_sm_prog[1])
-        progress[file] = lot_sm_prog[2]
-        orientation[file] = lot_sm_prog[3]
-        grid[file] = lot_sm_prog[4]
+        cclib_data,progress = cclib_init(file,progress,'freq')
+        level_of_theory = '/'.join([cclib_data['metadata']['functional'] , cclib_data['metadata']['basis set'] ])
+        l_o_t.append(level_of_theory)
+        s_m.append(cclib_data['metadata']['solvation'])
         #check spc files for normal termination
         if options.spc is not False and options.spc != 'link':
             name, ext = os.path.splitext(file)
@@ -819,8 +787,7 @@ def main():
                 spc_file = name + '_' + options.spc + '.log'
             elif os.path.exists(name + '_' + options.spc + '.out'):
                 spc_file = name + '_' + options.spc + '.out'
-            lot_sm_prog = read_initial(spc_file)
-            spc_progress[spc_file] = lot_sm_prog[2]
+            cclib_data,spc_progress = cclib_init(spc_file,spc_progress,'spc')
 
     remove_key = []
     # Remove problem files and print errors
@@ -837,23 +804,21 @@ def main():
     if spc_progress:
         for key in spc_progress:
             if spc_progress[key] == 'Error':
-                sys.exit("\n\nx  ERROR! Error termination found in file {} calculations.".format(key))
+                log.write("\n\nx  ERROR! Error termination found in file {} calculations.".format(key))
             elif spc_progress[key] == 'Incomplete':
-                sys.exit("\n\nx  ERROR! File {} may not have terminated normally or the "
+                log.write("\n\nx  ERROR! File {} may not have terminated normally or the "
                     "calculation may still be running.".format(key))
 
     for [i, key] in list(reversed(remove_key)):
         files.remove(key)
         del l_o_t[i]
         del s_m[i]
-        del orientation[key]
-        del grid[key]
     if len(files) == 0:
         sys.exit("\n\nPlease try again with normally terminated output files.\nFor help, use option '-h'\n")
     # Attempt to automatically obtain frequency scale factor,
     # Application of freq scale factors requires all outputs to be same level of theory
     if options.freq_scale_factor is not False:
-        if 'ONIOM' not in l_o_t[0]:
+        if 'oniom' not in l_o_t[0].lower():
             log.write("\n\n   User-defined vibrational scale factor " + str(options.freq_scale_factor) + " for " +
                       l_o_t[0] + " level of theory")
         else:
@@ -884,15 +849,6 @@ def main():
     if not all_same(l_o_t) and (options.boltz is not False or options.ee is not False):
         sys.exit("\n\nERROR: When comparing files using Boltzmann factors (boltz or ee input options), the level of "
                  "theory used should be the same for all files.\n ")
-    # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
-    if options.mm_freq_scale_factor is not False:
-        if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
-            log.write("\n\n   User-defined vibrational scale factor " +
-                      str(options.mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
-            log.write("\n   REF: {}".format(oniom_scale_ref))
-        else:
-            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
-                     " help use option '-h'\n")
 
     if options.freq_scale_factor is False:
         options.freq_scale_factor = 1.0  # If no scaling factor is found use 1.0
@@ -972,8 +928,8 @@ def main():
         log.write("\n   REF: " + atm_ref + '\n')
 
     # Check if entropy symmetry correction should be applied
-    if options.ssymm:
-        log.write('\n\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
+    if not options.nosymm:
+        log.write('\n\n   Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
         log.write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
         log.write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
         log.write("\n   REF: " + csd_ref + '\n')
@@ -987,41 +943,38 @@ def main():
 
     # Check for special options
     inverted_freqs, inverted_files = [], []
-    if options.ssymm:
-        ssymm_option = options.ssymm
-    else:
-        ssymm_option = False
-    if options.mm_freq_scale_factor is not False:
-        vmm_option = options.mm_freq_scale_factor
-    else:
-        vmm_option = False
 
     # Loop over all specified output files and compute thermochemistry
     for file in files:
+        with open(f'{file.split(".")[0]}.json') as json_file:
+            cclib_data = json.load(json_file)
         if options.cosmo:
             cosmo_option = cosmo_solv[file]
         else:
             cosmo_option = None
-
+        
         # computes D3 term if requested, which is then sent to calc bbe as a correction
         d3_energy = 0.0
         if options.D3 or options.D3BJ:
             verbose, intermolecular, pairwise, abc_term = False, False, False, False
             s6, rs6, s8, bj_a1, bj_a2 = 0.0, 0.0, 0.0, 0.0, 0.0
-            functional = level_of_theory(file).split('/')[0]
-            if options.D3:
-                damp = 'zero'
-            elif options.D3BJ:
-                damp = 'bj'
-            if options.ATM: abc_term = True
-            try:
-                fileData = getoutData(file)
-                d3_calc = D3.calcD3(fileData, functional, s6, rs6, s8, bj_a1, bj_a2, damp, abc_term, intermolecular,
-                                    pairwise, verbose)
-                d3_energy = (d3_calc.attractive_r6_vdw + d3_calc.attractive_r8_vdw + d3_calc.repulsive_abc) / KCAL_TO_AU
-            except:
-                log.write('\n   ! Dispersion Correction Failed')
-                d3_energy = 0.0
+            if all_same(l_o_t):
+                functional = l_o_t[0].split('/')[0]
+                if options.D3:
+                    damp = 'zero'
+                elif options.D3BJ:
+                    damp = 'bj'
+                if options.ATM: abc_term = True
+                try:
+                    fileData = getoutData(cclib_data)
+                    d3_calc = D3.calcD3(fileData, functional, s6, rs6, s8, bj_a1, bj_a2, damp, abc_term, intermolecular,
+                                        pairwise, verbose)
+                    d3_energy = (d3_calc.attractive_r6_vdw + d3_calc.attractive_r8_vdw + d3_calc.repulsive_abc) / KCAL_TO_AU
+                except:
+                    log.write('\n   ! Dispersion correction failed')
+                    d3_energy = 0.0
+            else:
+                log.write('\nx   Dispersion Correction not applied because multiple levels of theory were used')
         conc = options.conc
         #check if media correction should be applied
         if options.media != False:
@@ -1035,10 +988,12 @@ def main():
                 density = solvents[options.media.lower()][1]
                 conc = (density * 1000) / mweight
                 media_conc = conc
-        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
-                       conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                       d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option, inertia=options.inertia, g4=options.g4)
 
+        bbe = calc_bbe(file, cclib_data, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+                       conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
+                       d3_energy, cosmo=cosmo_option, nosymm=options.nosymm, inertia=options.inertia,
+                       g4=options.g4, noStrans=options.noStrans, noEtrans=options.noEtrans)
+        
         # Populate bbe_vals with indivual bbe entries for each file
         bbe_vals.append(bbe)
 
@@ -1066,9 +1021,9 @@ def main():
     # Adjust printing according to options requested
     if options.spc is not False: stars += '*' * 14
     if options.cosmo is not False: stars += '*' * 30
-    if options.imag_freq is True: stars += '*' * 9
-    if options.boltz is True: stars += '*' * 7
-    if options.ssymm is True: stars += '*' * 13
+    if options.imag_freq: stars += '*' * 9
+    if options.boltz: stars += '*' * 7
+    if not options.nosymm: stars += '*' * 13
 
     # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
     if options.temperature_interval is False:
@@ -1098,7 +1053,7 @@ def main():
             log.write('{:>7}'.format("Boltz"), thermodata=True)
         if options.imag_freq is True:
             log.write('{:>9}'.format("im freq"), thermodata=True)
-        if options.ssymm:
+        if not options.nosymm:
             log.write('{:>13}'.format("Point Group"), thermodata=True)
         log.write("\n" + stars + "")
 
@@ -1114,6 +1069,8 @@ def main():
                                                                     options.temperature, dup_list)
 
         for file in files:  # Loop over the output files and compute thermochemistry
+            with open(f'{file.split(".")[0]}.json') as json_file:
+                cclib_data = json.load(json_file)
             duplicate = False
             if len(dup_list) != 0:
                 for dup in dup_list:
@@ -1135,7 +1092,7 @@ def main():
                     add_days += 31
 
                 if options.xyz:  # Write Cartesians
-                    xyzdata = getoutData(file)
+                    xyzdata = getoutData(cclib_data)
                     xyz.write_text(str(len(xyzdata.atom_types)))
                     if hasattr(bbe, "scf_energy"):
                         xyz.write_text(
@@ -1203,7 +1160,7 @@ def main():
                 if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
                     for freq in bbe.im_frequency_wn:
                         log.write('{:9.2f}'.format(freq), thermodata=True)
-                if options.ssymm:
+                if not options.nosymm:
                     if hasattr(bbe, "qh_gibbs_free_energy"):
                         log.write('{:>13}'.format(bbe.point_group))
                     else:
@@ -1224,10 +1181,6 @@ def main():
                                           thermodata=True)
                                 log.write("\n   " + dashes)
         log.write("\n" + stars + "\n")
-
-    # Perform checks for consistent options provided in calculation files (level of theory)
-    if options.check:
-        check_files(log, files, thermo_data, options, stars, l_o_t, s_m, orientation, grid)
 
     # Running a variable temperature analysis of the enthalpy, entropy and the free energy
     elif options.temperature_interval:
@@ -1290,9 +1243,9 @@ def main():
                     cosmo_option = gsolv_dicts[i][file]
                 if options.cosmo_int is False:
                     # haven't implemented D3 for this option
-                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
+                    bbe = calc_bbe(file, cclib_data, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                                   0.0, cosmo=cosmo_option, inertia=options.inertia, g4=options.g4)
+                                   0.0, cosmo=cosmo_option, inertia=options.inertia, g4=options.g4, noStrans=options.noStrans, noEtrans=options.noEtrans)
                 interval_bbe_data[h].append(bbe)
                 linear_warning.append(bbe.linear_warning)
                 if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -1717,6 +1670,8 @@ def main():
         graph_reaction_profile(graph_data, log, options, plt)
 
     # Close the log
+    elapsed_time = round(time.time() - start_time_overall, 2)
+    log.write(f"\nGoodVibes execution time: {elapsed_time} seconds\n")
     log.finalize()
     if options.xyz: xyz.finalize()
 
