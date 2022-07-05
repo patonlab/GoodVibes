@@ -37,22 +37,16 @@ from __future__ import print_function, absolute_import
 #  Enantiomeric excess, diastereomeric ratios and ddG can also be     #
 #  calculated to show preference of stereoisomers.                    #
 #######################################################################
-#  Careful checks may be applied to compare variables between         #
-#  multiple files such as Gaussian version, solvation models, levels  #
-#  of theory, charge and multiplicity, potential duplicate structures #
-#  errors in potentail linear molecules, correct or incorrect         #
-#  transition states, and empirical dispersion models.                #
-#######################################################################
 
 
 #######################################################################
-###########  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ############
-###########               Guilian Luchini, Juan V. Alegre- ############
-###########               Requena, Yanfei Guan, Sibo Lin   ############
-###########  Last modified:  May 27, 2021                 ############
+###########  Authors:     Rob Paton, Guilian Luchini,       ###########
+###########               Juan V. Alegre-Requena,           ###########
+###########               Ignacio Funes-Ardoiz              ###########
+###########  Last modified:  July 5, 2022                 ###########
 ####################################################################"""
 
-import fnmatch, math, os.path, sys, time
+import math, os.path, sys, time, json, subprocess, cclib
 from datetime import datetime, timedelta
 from glob import glob
 from argparse import ArgumentParser
@@ -73,7 +67,7 @@ import goodvibes.pes as pes
 import goodvibes.io as io
 import goodvibes.thermo as thermo
 
-SUPPORTED_EXTENSIONS = set(('.out', '.log'))
+SUPPORTED_EXTENSIONS = set(('.out', '.log', '.json'))
 
 # PHYSICAL CONSTANTS                                      UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -354,6 +348,268 @@ def check_dup(files, thermo_data, log, e_cutoff = 1e-4, ro_cutoff = 0.1):
         del thermo_data[dup]
     return files, thermo_data
 
+def print_check_fails(log, check_attribute, file, attribute, option2=False):
+    """Function for printing checks to the terminal"""
+    unique_attr = {}
+    for i, attr in enumerate(check_attribute):
+        if option2 is not False: attr = (attr, option2[i])
+        if attr not in unique_attr:
+            unique_attr[attr] = [file[i]]
+        else:
+            unique_attr[attr].append(file[i])
+    log.write("\nx  Caution! Different {} found: ".format(attribute))
+    for attr in unique_attr:
+        if option2 is not False:
+            if float(attr[0]) < 0:
+                log.write('\n       {} {}: '.format(attr[0], attr[1]))
+            else:
+                log.write('\n        {} {}: '.format(attr[0], attr[1]))
+        else:
+            log.write('\n        -{}: '.format(attr))
+        for filename in unique_attr[attr]:
+            if filename is unique_attr[attr][-1]:
+                log.write('{}'.format(filename))
+            else:
+                log.write('{}, '.format(filename))
+
+def get_json_data(file,cclib_data):
+    '''
+    Get metadata and GoodVibes data for the json file (for older versions of cclib)
+    '''
+    
+    outfile = open(file, "r")
+    outlines = outfile.readlines()
+    outfile.close()
+
+    # initial loop just to detect the QM program
+    for i,line in enumerate(outlines):
+        # get program
+        if line.strip() == "Cite this work as:":
+            cclib_data['metadata'] = {}
+            qm_program = outlines[i+1]
+
+            cclib_data['metadata']['QM program'] = qm_program[1:-2]
+            for j in range(i,i+60):
+                if '**********' in outlines[j]:
+                    run_date = outlines[j+2].strip()
+                    cclib_data['metadata']['run date'] = run_date
+                    break
+            break
+
+        elif '* O   R   C   A *' in line:
+            for j in range(i,i+100):
+                if 'Program Version' in line.strip():
+                    cclib_data['metadata'] = {}
+                    version_program = "ORCA version " + line.split()[2]
+                    cclib_data['metadata']['QM program'] = version_program
+                    break
+
+        elif "NWChem" in line:
+            if 'nwchem branch' in line.strip():
+                cclib_data['metadata'] = {}
+                cclib_data['metadata']['QM program'] = "NWChem version " + line.split()[3]
+                break
+
+    if cclib_data['metadata']['QM program'].lower().find('gaussian') > -1:
+
+        cclib_data['properties']['rotational'] = {}
+        for i,line in enumerate(outlines):
+            # Extract memory
+            if '%mem' in line:
+                mem = line.strip().split('=')[-1]
+                cclib_data['metadata']['memory'] = mem
+
+            # Extract number of processors
+            elif '%nprocs' in line:
+                nprocs = int(line.strip().split('=')[-1])
+                cclib_data['metadata']['processors'] = nprocs
+
+            # Extract keywords line, solvation, dispersion and calculation type
+            elif '#' in line and not hasattr(cclib_data, 'keywords_line'):
+                keywords_line = ''
+                for j in range(i,i+10):
+                    if '----------' in outlines[j]:
+                        break
+                    else:
+                        keywords_line += outlines[j].rstrip("\n")[1:]
+                cclib_data['metadata']['keywords line'] = keywords_line[2:]
+                qm_solv,qm_disp = 'gas_phase','none'
+                calc_type = 'ground_state'
+                calcfc_found, ts_found = False, False
+                for keyword in keywords_line.split():
+                    if keyword.lower().find('opt') > -1:
+                        if keyword.lower().find('calcfc') > -1:
+                            calcfc_found = True
+                        if keyword.lower().find('ts') > -1:
+                            ts_found = True
+                    elif keyword.lower().startswith('scrf'):
+                        qm_solv = keyword
+                    elif keyword.lower().startswith('emp'):
+                        qm_disp = keyword
+                if calcfc_found and ts_found:
+                    calc_type = 'transition_state'
+                cclib_data['metadata']['solvation'] = qm_solv
+                cclib_data['metadata']['dispersion model'] = qm_disp
+                cclib_data['metadata']['ground or transition state'] = calc_type
+
+            # Basis set name
+            elif line[1:15] == "Standard basis":
+                cclib_data['metadata']['basis set'] = line.split()[2]
+
+            # functional
+            if not hasattr(cclib_data, 'BOMD') and line[1:9] == 'SCF Done':
+                t1 = line.split()[2]
+                if t1 == 'E(RHF)':
+                    cclib_data['metadata']['functional'] = 'HF'
+                else:
+                    cclib_data['metadata']['functional'] = t1[t1.index("(") + 2:t1.rindex(")")]
+                break
+
+        for i in reversed(range(0,len(outlines)-50)):
+            # Grab molecular mass
+            if 'Molecular mass:' in outlines[i]:
+                cclib_data['properties']['molecular mass'] = float(outlines[i].strip().split()[2])
+            # Extract <S**2> before and after spin annihilation
+            if 'S**2 before annihilation' in outlines[i]:
+                cclib_data['properties']['S2 after annihilation'] = float(outlines[i].strip().split()[-1])
+                cclib_data['properties']['S2 before annihilation'] = float(outlines[i].strip().split()[-3][:-1])
+            # Extract symmetry point group
+            elif 'Full point group' in outlines[i]:
+                cclib_data['properties']['rotational']['symmetry point group'] = outlines[i].strip().split()[3]
+                break
+            # For time dependent (TD) calculations
+            elif 'E(TD-HF/TD-DFT)' in outlines[i]:
+                td_e = float(line.strip().split()[-1])
+                cclib_data['properties']['energy']['TD energy'] = cclib.parser.utils.convertor(td_e, "hartree", "eV")
+            # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
+            elif line.strip().startswith('E(ZPE)='): #Overwrite DFT ZPE with G4 ZPE
+                zero_point_corr = float(line.strip().split()[1])
+            elif line.strip().startswith('G4(0 K)'):
+                G4_energy = float(line.strip().split()[2])
+                G4_energy -= zero_point_corr #Remove G4 ZPE
+                cclib_data['properties']['energy']['G4 energy'] = cclib.parser.utils.convertor(G4_energy, "hartree", "eV")
+            # For ONIOM calculations use the extrapolated value rather than SCF value
+            elif "ONIOM: extrapolated energy" in line.strip():
+                oniom_e = float(line.strip().split()[4])
+                cclib_data['properties']['energy']['ONIOM energy'] = cclib.parser.utils.convertor(oniom_e, "hartree", "eV")
+            # Extract symmetry number, rotational constants and rotational temperatures
+            elif 'Rotational symmetry number' in outlines[i]:
+                cclib_data['properties']['rotational']['symmetry number'] = int(outlines[i].strip().split()[3].split(".")[0])
+                
+            elif outlines[i].find('Rotational constants (GHZ):') > -1:
+                try:
+                    roconst = [float(outlines[i].strip().replace(':', ' ').split()[3]),
+                                    float(outlines[i].strip().replace(':', ' ').split()[4]),
+                                    float(outlines[i].strip().replace(':', ' ').split()[5])]
+                except ValueError:
+                    if outlines[i].find('********') > -1:
+                        roconst = [float(outlines[i].strip().replace(':', ' ').split()[4]),
+                                        float(outlines[i].strip().replace(':', ' ').split()[5])]
+                cclib_data['properties']['rotational']['rotational constants'] = roconst
+
+            elif outlines[i].find('Rotational temperature ') > -1:
+                rotemp = [float(outlines[i].strip().split()[3])]
+                cclib_data['properties']['rotational']['rotational temperatures'] = rotemp
+
+            elif outlines[i].find('Rotational temperatures') > -1:
+                try:
+                    rotemp = [float(outlines[i].strip().split()[3]), float(outlines[i].strip().split()[4]),
+                                float(outlines[i].strip().split()[5])]
+                except ValueError:
+                    if outlines[i].find('********') > -1:
+                        rotemp = [float(outlines[i].strip().split()[4]), float(outlines[i].strip().split()[5])]
+                cclib_data['properties']['rotational']['rotational temperatures'] = rotemp
+
+    elif cclib_data['metadata']['QM program'].lower().find('orca') > -1:
+        for i in reversed(range(0,outlines)):
+            if outlines[i][:25] == 'FINAL SINGLE POINT ENERGY':
+                # in eV to match the format from cclib
+                cclib_data['properties']['energy']['final single point energy'] = cclib.parser.utils.convertor(float(outlines[i].split()[-1]), "hartree", "eV")
+                break
+
+    elif cclib_data['metadata']['QM program'].lower().find('nwchem') > -1:
+        # reversed loop to save time
+        # this part misses a break in one of the properties to speed up the loop (i.e. after all the properties are read)
+        for i in reversed(range(0,outlines)):
+            # Grab rational symmetry number
+            if line.strip().find('symmetry #') != -1:
+                cclib_data['properties']['rotational']['symmetry number'] = int(line.strip().split()[-1][0:-1])
+            # Grab point group
+            elif line.strip().find('symmetry detected') != -1:
+                cclib_data['properties']['rotational']['symmetry point group'] = line.strip().split()[0]
+            # Grab rotational constants (convert cm-1 to GHz)
+            elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
+                letter=line.strip()[0]
+                h = 0
+                if letter == 'A':
+                    h = 0
+                elif letter == 'B':
+                    h = 1
+                elif letter == 'C':
+                    h = 2
+                roconst[h]=float(line.strip().split()[1])*29.9792458
+                rotemp[h]=float(line.strip().split()[4])
+
+        # this part misses a break in one of the properties to speed up the loop (i.e. after all the properties are read)
+        for i in range(0,outlines):
+            if line.strip().startswith("xc "):
+                cclib_data['metadata']['functional'] = line.strip().split()[1]
+            if line.strip().startswith("* library "):
+                cclib_data['metadata']['basis set'] = line.strip().replace("* library ",'')
+
+            # need to include tags for NWChem solvation
+
+            if outlines[i].strip().find('disp vdw 3') > -1:
+                cclib_data['metadata']['dispersion model'] = "D3"
+            if outlines[i].strip().find('disp vdw 4') > -1:
+                cclib_data['metadata']['dispersion model'] = "D3BJ"
+
+        if 'dispersion model' not in cclib_data['metadata']:
+            cclib_data['metadata']['dispersion model'] = "none"
+    
+    if cclib_data != {}:
+        with open(f'{file.split(".")[0]}.json', 'w') as outfile:
+            json.dump(cclib_data, outfile, indent=1)
+
+    return cclib_data
+
+def cclib_init(file_fun,progress_fun,calc_type):
+    # if the corresponding json file exists, read it instead of creating the file again
+    if f'{file_fun.split(".")[0]}.json' not in glob('*.json'):
+        command_run_1 = ['ccwrite', 'json', file_fun]
+        subprocess.run(command_run_1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    cclib_data,progress_fun[file_fun] = {},''
+    try:
+        with open(f'{file_fun.split(".")[0]}.json') as json_file:
+            cclib_data = json.load(json_file)
+    except FileNotFoundError:
+        progress_fun[file_fun] = 'Error'
+
+    # add parameters that might be missing from cclib (depends on the cclib version)
+    if not hasattr(cclib_data, 'metadata') and 'metadata' not in cclib_data and progress_fun[file_fun] != 'error':
+        cclib_data = get_json_data(file_fun,cclib_data)
+    
+    if calc_type == 'freq':
+        # calculations with 1 atom
+        if cclib_data['properties']['number of atoms'] == 1:
+            cclib_data['vibrations'] = {'frequencies': [], 'displacement': []}
+
+        # other calculations
+        if 'vibrations' in cclib_data:
+            progress_fun[file_fun] = 'Normal'
+
+        # general errors
+        else:
+            progress_fun[file_fun] = 'Error'
+
+    elif calc_type == 'spc':
+        if 'total' in cclib_data['properties']['energy']:
+            progress_fun[file_fun] = 'Normal'
+        else:
+            progress_fun[file_fun] = 'Error'
+        
+    return cclib_data,progress_fun
 
 def sort_by_stability(thermo_data, value):
     ''' order the dictionary object of thermochemical data by energy, enthalpy or quasi-harmnonic Gibbs energy'''
@@ -405,18 +661,20 @@ def get_output_files(args, spc = False, spcdir = '.', clustering = False, cosmo 
 
 def filter_output_files(files, log, spc = False, sp_files = None):
     # Grab level of theory, solvation model, check for Normal Termination
-    l_o_t, s_m, progress, spc_progress, orientation, grid = [], [], {}, {}, {}, {}
-    for i, file in enumerate(files):
-        lot_sm_prog = io.read_initial(file)
-        l_o_t.append(lot_sm_prog[0])
-        s_m.append(lot_sm_prog[1])
-        progress[file] = lot_sm_prog[2]
-        orientation[file] = lot_sm_prog[3]
-        grid[file] = lot_sm_prog[4]
+    l_o_t, s_m, progress, spc_progress = [], [], {}, {}
+    for file in files:
+        cclib_data,progress = cclib_init(file,progress,'freq')
+        level_of_theory = '/'.join([cclib_data['metadata']['functional'] , cclib_data['metadata']['basis set'] ])
+        l_o_t.append(level_of_theory)
+        s_m.append(cclib_data['metadata']['solvation'])
         #check spc files for normal termination
-        if spc is not False and spc != 'link':
-            lot_sm_prog = io.read_initial(sp_files[i])
-            spc_progress[sp_files[i]] = lot_sm_prog[2]
+        if options.spc is not False and options.spc != 'link':
+            name, ext = os.path.splitext(file)
+            if os.path.exists(name + '_' + options.spc + '.log'):
+                spc_file = name + '_' + options.spc + '.log'
+            elif os.path.exists(name + '_' + options.spc + '.out'):
+                spc_file = name + '_' + options.spc + '.out'
+            cclib_data,spc_progress = cclib_init(spc_file,spc_progress,'spc')
 
     remove_key = []
     # Remove problem files and print errors
@@ -434,9 +692,9 @@ def filter_output_files(files, log, spc = False, sp_files = None):
     if spc_progress:
         for key in spc_progress:
             if spc_progress[key] == 'Error':
-                sys.exit("\n\nx  ERROR! Error termination found in file {} calculations.".format(key))
+                log.write("\n\nx  ERROR! Error termination found in file {} calculations.".format(key))
             elif spc_progress[key] == 'Incomplete':
-                sys.exit("\n\nx  ERROR! File {} may not have terminated normally or the "
+                log.write("\n\nx  ERROR! File {} may not have terminated normally or the "
                     "calculation may still be running.".format(key))
 
     for [i, key] in list(reversed(remove_key)):
@@ -476,16 +734,12 @@ class GV_options:
         parser.add_argument("-v", dest="freq_scale_factor", default=False, type=float, metavar="SCALE_FACTOR",
                             help="Frequency scaling factor. If not set, try to find a suitable value in database. "
                                  "If not found, use 1.0")
-        parser.add_argument("--vmm", dest="mm_freq_scale_factor", default=False, type=float, metavar="MM_SCALE_FACTOR",
-                            help="Additional frequency scaling factor used in ONIOM calculations")
         parser.add_argument("--spc", dest="spc", type=str, default=False, metavar="SPC",
                             help="Indicates single point corrections (default False)")
         parser.add_argument("--spcdir", dest="spcdir", type=str, default='.', metavar="SPCDIR",
                             help="Directory containing single point corrections (default .)")
         parser.add_argument("--boltz", dest="boltz", action="store_true", default=False,
                             help="Show Boltzmann factors")
-        parser.add_argument("--cpu", dest="cputime", action="store_true", default=False,
-                            help="Total CPU time")
         parser.add_argument("--d3", dest="D3", action="store_true", default=False,
                             help="Zero-damped DFTD3 correction will be computed")
         parser.add_argument("--d3bj", dest="D3BJ", action="store_true", default=False,
@@ -525,9 +779,6 @@ class GV_options:
                                  "types such as *_R*,*_S*")
         parser.add_argument("--selplot", dest="selplot", action="store_true", default=False,
                             help="Plot relative energies in selectivity prediction")
-        parser.add_argument("--check", dest="check", action="store_true", default=False,
-                            help="Checks if calculations were done with the same program, level of theory and solvent, "
-                                 "as well as detects potential duplicates")
         parser.add_argument("--media", dest="media", default=False, metavar="MEDIA",
                             help="Entropy correction for standard concentration of solvents")
         parser.add_argument("--custom_ext", type=str, default='',
@@ -546,7 +797,11 @@ class GV_options:
                             help="Use this option when using G4 calculations in Gaussian")
         parser.add_argument("--gtype", dest="gtype", action="store", default="G",
                             help="Use this option to request plotting of either relative E, H or G values")
-
+        parser.add_argument("--noStrans", dest="noStrans", action="store_true", default=False,
+                            help="Use this option to supress translational entropy")
+        parser.add_argument("--noEtrans", dest="noEtrans", action="store_true", default=False,
+                            help="Use this option to supress translational energy (affecting enthalpy)")
+                        
         # Parse Arguments
         (self.options, self.args) = parser.parse_known_args()
 
@@ -573,7 +828,6 @@ class GV_options:
                 if arg != 'clust:' and os.path.splitext(arg)[1].lower() not in SUPPORTED_EXTENSIONS :
                     self.options.command += arg + ' '
             if self.options.clustering: self.options.command += '(clustering active)'
-
 
 def main():
     # Fetch default parameters and any specified at the command line
@@ -615,9 +869,10 @@ def main():
         d3_term = 0.0 # computes D3 term if requested
         cosmo_option = None # computes COSMO term if requested
 
-        bbe_vals[i] = thermo.calc_bbe(file, sp_files[i], options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
+        bbe_vals[i] = thermo.calc_bbe(file, cclib_data, sp_files[i], options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                       d3_correction = d3_term, cosmo = cosmo_option, ssymm = options.ssymm, mm_freq_scale_factor = options.mm_freq_scale_factor, inertia = options.inertia, g4 = options.g4)
+                       d3_correction = d3_term, cosmo = cosmo_option, ssymm = options.ssymm, mm_freq_scale_factor = options.mm_freq_scale_factor, inertia = options.inertia, 
+                       g4 = options.g4, noStrans=options.noStrans, noEtrans=options.noEtrans)
 
     # Creates a new dictionary object thermo_data, which attaches the bbe data to each file-name
     thermo_data = dict(zip(file_list, bbe_vals))  # The collected thermochemical data for all files
