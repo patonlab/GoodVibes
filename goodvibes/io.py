@@ -134,13 +134,16 @@ class write_structures:
                     cclib_data = json.load(json_file)
 
                 xyzdata = getoutData(cclib_data)
-                xyz.write_text(str(len(xyzdata.atom_types)))
+                xyz.write(str(len(xyzdata.atom_types))+'\n')
                 E_xyz = thermo.get_energy(cclib_data)
-                xyz.write_text(
-                        '{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(file))[0], 
+                xyz.write(
+                        '{:<39} {:>13} {:13.6f}\n'.format(os.path.splitext(os.path.basename(file))[0], 
                         'Eopt', E_xyz))
-                if hasattr(xyzdata, 'cartesians') and hasattr(xyzdata, 'atom_types'):
-                    xyz.write_coords(xyzdata.atom_types, xyzdata.cartesians)
+                for n, carts in enumerate(xyzdata.cartesians):
+                    xyz.write('{:>1}'.format(xyzdata.atom_types[n]))
+                    for cart in carts:
+                        xyz.write('{:13.6f}'.format(cart))
+                    xyz.write('\n')
 
 class getoutData:
     """
