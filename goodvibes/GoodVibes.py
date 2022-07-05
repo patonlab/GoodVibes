@@ -109,7 +109,7 @@ def calc_cpu(thermo_data, log):
                                cpu.minute, 'mins', cpu.second, 'secs'))
 
 
-def get_vib_scale_factor(files, level_of_theory, log, freq_scale_factor=False, mm_freq_scale_factor=False):
+def get_vib_scale_factor(files, level_of_theory, log, freq_scale_factor=False):
     ''' Attempt to automatically obtain frequency scale factor
     Application of freq scale factors requires all outputs to be same level of theory'''
 
@@ -152,7 +152,7 @@ def get_vib_scale_factor(files, level_of_theory, log, freq_scale_factor=False, m
             log.write("\n   Using vibrational scale factor {}: differing levels of theory "
                       "detected.".format(freq_scale_factor))
 
-    return freq_scale_factor, mm_freq_scale_factor
+    return freq_scale_factor
 
 
 def get_selectivity(pattern, files, boltz_facs, temperature, log):
@@ -773,8 +773,8 @@ class GV_options:
                                  "GOODVIBES_CUSTOM_EXT")
         parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
                             help="Graph a reaction profile based on free energies calculated. ")
-        parser.add_argument("--ssymm", dest='ssymm', action="store_true", default=False,
-                            help="Turn on the symmetry correction.")
+        parser.add_argument("--nosymm", dest='nosymm', action="store_true", default=False,
+                            help="Disable symmetry correction.")
         parser.add_argument("--bav", dest='inertia', default="global",type=str,choices=['global','conf'],
                             help="Choice of how the moment of inertia is computed. Options = 'global' or 'conf'."
                                 "'global' will use the same moment of inertia for all input molecules of 10*10-44,"
@@ -838,7 +838,7 @@ def main():
     files, sp_files, clusters = get_output_files(sys.argv[1:], options.spc, options.spcdir, options.clustering, options.cosmo)
 
     # Initial read of files
-    files, l_o_t, s_m = filter_output_files(files, log, options.spc, sp_files)
+    files, cclib_data, l_o_t, s_m = filter_output_files(files, log, options.spc, sp_files)
 
     # Check if user has specified any files, if not quit now
     if len(files) == 0:
@@ -849,7 +849,7 @@ def main():
     bbe_vals = [[]] * len(file_list) # initialize a list that will be populated with thermochemical values
 
     # scaling vibrational Frequencies
-    options.freq_scale_factor, options.mm_freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, log, options.freq_scale_factor, options.mm_freq_scale_factor)
+    options.freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, log, options.freq_scale_factor)
 
     for i, file in enumerate(file_list):
 
@@ -861,7 +861,7 @@ def main():
 
         bbe_vals[i] = thermo.calc_bbe(file, cclib_data, sp_files[i], options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        options.conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                       d3_correction = d3_term, cosmo = cosmo_option, ssymm = options.ssymm, mm_freq_scale_factor = options.mm_freq_scale_factor, inertia = options.inertia, 
+                       d3_correction = d3_term, cosmo = cosmo_option, nosymm = options.nosymm, inertia = options.inertia, 
                        g4 = options.g4, noStrans=options.noStrans, noEtrans=options.noEtrans)
 
     # Creates a new dictionary object thermo_data, which attaches the bbe data to each file-name

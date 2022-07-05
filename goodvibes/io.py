@@ -294,8 +294,8 @@ def intro(options, log):
         log.write("\n   " + atm_ref + '\n')
 
     # Check if entropy symmetry correction should be applied
-    if options.ssymm:
-        log.write('\n   Ssymm requested. Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
+    if not options.nosymm:
+        log.write('\n   Symmetry contribution to entropy to be calculated using S. Patchkovskii\'s \n   open source software "Brute Force Symmetry Analyzer" available under GNU General Public License.')
         log.write('\n   REF: (C) 1996, 2003 S. Patchkovskii, Serguei.Patchkovskii@sympatico.ca')
         log.write('\n\n   Atomic radii used to calculate internal symmetry based on Cambridge Structural Database covalent radii.')
         log.write("\n   REF: " + csd_ref + '\n')
@@ -317,7 +317,7 @@ def summary(thermo_data, options, log, boltz_facs=None, clusters=[]):
     if options.cosmo is not False: stars += '*' * 30
     if options.imag_freq is True: stars += '*' * 9
     if options.boltz is True: stars += '*' * 7
-    if options.ssymm is True: stars += '*' * 13
+    if not options.nosymm: stars += '*' * 13
 
     # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
     if options.spc is False:
@@ -346,7 +346,7 @@ def summary(thermo_data, options, log, boltz_facs=None, clusters=[]):
         log.write('{:>7}'.format("Boltz"), thermodata=True)
     if options.imag_freq is True:
         log.write('{:>9}'.format("im freq"), thermodata=True)
-    if options.ssymm:
+    if not options.nosymm:
         log.write('{:>13}'.format("Point Group"), thermodata=True)
     log.write("\n" + stars + "")
 
@@ -465,7 +465,7 @@ def summary(thermo_data, options, log, boltz_facs=None, clusters=[]):
             if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
                 for freq in bbe.im_frequency_wn:
                     log.write('{:9.2f}'.format(freq), thermodata=True)
-            if options.ssymm:
+            if not options.nosymm:
                 if hasattr(bbe, "qh_gibbs_free_energy"):
                     log.write('{:>13}'.format(bbe.point_group))
                 else:
