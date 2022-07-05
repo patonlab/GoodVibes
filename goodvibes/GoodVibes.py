@@ -46,7 +46,7 @@ from __future__ import print_function, absolute_import
 ###########  Last modified:  July 5, 2022                 ###########
 ####################################################################"""
 
-import math, os.path, sys, time, json, subprocess, cclib
+import math, os.path, sys, time, json, subprocess, cclib, fnmatch
 from datetime import datetime, timedelta
 from glob import glob
 from argparse import ArgumentParser
@@ -142,18 +142,6 @@ def get_vib_scale_factor(files, level_of_theory, log, freq_scale_factor=False, m
                 levels_l_o_t.append(i)
             filtered_calcs_l_o_t.append(files_l_o_t)
             filtered_calcs_l_o_t.append(levels_l_o_t)
-            print(filtered_calcs_l_o_t)
-            #io.print_check_fails(log, filtered_calcs_l_o_t[1], filtered_calcs_l_o_t[0], "levels of theory")
-
-    # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
-    if mm_freq_scale_factor is not False:
-        if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
-            log.write("\n\no  User-defined vibrational scale factor " +
-                      str(mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
-            log.write("\n   REF: {}".format(oniom_scale_ref))
-        else:
-            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
-                     " help use option '-h'\n")
 
     if freq_scale_factor is False:
         freq_scale_factor = 1.0  # If no scaling factor is found use 1.0
@@ -258,7 +246,7 @@ def get_selectivity(pattern, files, boltz_facs, temperature, log):
     return [A, B], [a_files, b_files], ee, r, ratio, dd_free_energy, pref
 
 
-def get_boltz(thermo_data, clustering, clusters, temperature, log):
+def get_boltz(thermo_data, clustering, clusters, temperature):
     """
     Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
 
@@ -668,12 +656,12 @@ def filter_output_files(files, log, spc = False, sp_files = None):
         l_o_t.append(level_of_theory)
         s_m.append(cclib_data['metadata']['solvation'])
         #check spc files for normal termination
-        if options.spc is not False and options.spc != 'link':
+        if spc is not False:
             name, ext = os.path.splitext(file)
-            if os.path.exists(name + '_' + options.spc + '.log'):
-                spc_file = name + '_' + options.spc + '.log'
-            elif os.path.exists(name + '_' + options.spc + '.out'):
-                spc_file = name + '_' + options.spc + '.out'
+            if os.path.exists(name + '_' + spc + '.log'):
+                spc_file = name + '_' + spc + '.log'
+            elif os.path.exists(name + '_' + spc + '.out'):
+                spc_file = name + '_' + spc + '.out'
             cclib_data,spc_progress = cclib_init(spc_file,spc_progress,'spc')
 
     remove_key = []
@@ -701,10 +689,8 @@ def filter_output_files(files, log, spc = False, sp_files = None):
         files.remove(key)
         del l_o_t[i]
         del s_m[i]
-        del orientation[key]
-        del grid[key]
 
-    return files, l_o_t, s_m
+    return files, cclib_data, l_o_t, s_m
 
 
 class GV_options:
@@ -866,6 +852,10 @@ def main():
     options.freq_scale_factor, options.mm_freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, log, options.freq_scale_factor, options.mm_freq_scale_factor)
 
     for i, file in enumerate(file_list):
+
+        with open(f'{file.split(".")[0]}.json') as json_file:
+            cclib_data = json.load(json_file)
+
         d3_term = 0.0 # computes D3 term if requested
         cosmo_option = None # computes COSMO term if requested
 
@@ -889,18 +879,12 @@ def main():
     if options.xyz or options.sdf: # If necessary, create a file with Cartesians
         io.write_structures("Goodvibes_output", file_list, xyz = options.xyz, sdf = options.sdf)
 
-    if options.check: # Perform checks for consistent options provided in calculation files (level of theory)
-        io.check_files(thermo_data, options, log)
-
     if options.boltz is not False: # Compute Boltzmann factors
         boltz_facs, weighted_free_energy = get_boltz(thermo_data, options.clustering, clusters, options.temperature, log)
     else: boltz_facs = None
 
     # Printing absolute values
     gv_summary = io.summary(thermo_data, options, log, boltz_facs, clusters)
-
-    if options.cputime: # Print CPU usage if requested
-        cpu = calc_cpu(thermo_data, log)
 
     if options.ee is not False: # Compute selectivity
         [a_name, b_name], [a_files, b_files], ee, er, ratio, dd_free_energy, preference = get_selectivity(options.ee, file_list, boltz_facs, options.temperature, log)

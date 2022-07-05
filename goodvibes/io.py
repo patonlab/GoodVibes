@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
-import os.path
+import os.path, sys, math, json
 import numpy as np
+import goodvibes.thermo as thermo
+import goodvibes.GoodVibes as GoodVibes
 
 # VERSION NUMBER
 __version__ = "3.1.1"
 
-# PHYSICAL CONSTANTS UNITS
+# PHYSICAL CONSTANTS
 KCAL_TO_AU = 627.509541  # UNIT CONVERSION
+GAS_CONSTANT = 8.3144621  # J / K / mol
+J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
+
+alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
 # Radii used to determine connectivity in symmetry corrections
 # Covalent radii taken from Cambridge Structural Database
@@ -117,30 +123,24 @@ class write_structures:
     Attributes:
         xyz (file object): path in current working directory to write Cartesian coordinates.
     """
-    def __init__(self, out_file, file_data, xyz = False, sdf = False):
+    def __init__(self, out_file, file_list, xyz = False, sdf = False):
 
         if xyz != False:
             xyz_file = out_file + '.xyz'
-            self.xyz = open(xyz_file, 'w')
+            xyz = open(xyz_file, 'w')
 
-            for data in file_data:
-                file = ccread(data)
-                if hasattr(file, 'natom'): self.xyz.write(str(file.natom)+"\n")
-                if hasattr(file, "scfenergies"):
-                    self.xyz.write(
-                        '{:<39} {:>13} {:13.6f}\n'.format(os.path.splitext(os.path.basename(data))[0], 'Eopt',
-                                                        file.scfenergies[-1]))
-                else:
-                    self.xyz.write('{:<39}\n'.format(os.path.splitext(os.path.basename(data))[0]))
-                if hasattr(file, 'atomcoords') and hasattr(file, 'atomnos'):
-                    for n, atom in enumerate(file.atomnos):
-                        self.xyz.write('{:>1}'.format(periodictable[int(atom)]))
-                        for cart in file.atomcoords[-1][n]:
-                            self.xyz.write('{:13.6f}'.format(cart))
-                        self.xyz.write('\n')
+            for file in file_list:
+                with open(f'{file.split(".")[0]}.json') as json_file:
+                    cclib_data = json.load(json_file)
 
-            self.xyz.close()
-
+                xyzdata = getoutData(cclib_data)
+                xyz.write_text(str(len(xyzdata.atom_types)))
+                E_xyz = thermo.get_energy(cclib_data)
+                xyz.write_text(
+                        '{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(file))[0], 
+                        'Eopt', E_xyz))
+                if hasattr(xyzdata, 'cartesians') and hasattr(xyzdata, 'atom_types'):
+                    xyz.write_coords(xyzdata.atom_types, xyzdata.cartesians)
 
 class getoutData:
     """
@@ -319,10 +319,6 @@ def summary(thermo_data, options, log, boltz_facs=None, clusters=[]):
     if options.boltz is True: stars += '*' * 7
     if options.ssymm is True: stars += '*' * 13
 
-    # Boltzmann factors and averaging over clusters
-    #if options.boltz != False or options.ee != False:
-    #    boltz_facs, weighted_free_energy, boltz_sum = get_boltz(thermo_data, options.clustering, clusters, options.temperature, log)
-
     # Standard mode: tabulate thermochemistry ouput from file(s) at a single temperature and concentration
     if options.spc is False:
         log.write("\n\n   ")
@@ -353,6 +349,19 @@ def summary(thermo_data, options, log, boltz_facs=None, clusters=[]):
     if options.ssymm:
         log.write('{:>13}'.format("Point Group"), thermodata=True)
     log.write("\n" + stars + "")
+
+    if options.cosmo is not False:  # Read from COSMO-RS output
+        try:
+            cosmo_solv = cosmo_rs_out(options.cosmo, thermo_data)
+            log.write('\n\n   Reading COSMO-RS file: ' + options.cosmo)
+        except ValueError:
+            cosmo_solv = None
+            log.write('\n\n   Warning! COSMO-RS file ' + options.cosmo + ' requested but not found')
+
+    # Boltzmann factors and averaging over clusters
+    if options.boltz != False:
+        boltz_facs, weighted_free_energy, boltz_sum = GoodVibes.get_boltz(thermo_data, options.clustering, clusters,
+                                                                options.temperature)
 
     for file in thermo_data:  # Loop over the output files and compute thermochemistry
 
@@ -447,7 +456,7 @@ def summary(thermo_data, options, log, boltz_facs=None, clusters=[]):
                                                                 (options.temperature * bbe.entropy),
                                                                 (options.temperature * bbe.qh_entropy),
                                                                 bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                              thermodata=True)
+                                                                thermodata=True)
             # Append requested options to end of output
             if options.cosmo and cosmo_solv is not None:
                 log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))

@@ -381,7 +381,7 @@ class calc_bbe:
     """
 
     def __init__(self, file, cclib_data, sp_file=None, QS='grimme', QH=False, s_freq_cutoff=100.0, H_FREQ_CUTOFF=100.0, temperature=298.15, conc=0.04087404707082671, freq_scale_factor=1.0, solv=None, spc=False,
-                 invert=False, d3_correction=0.0, nossymm=False, cosmo=None, mm_freq_scale_factor=False, inertia='global', g4=False, noStrans=False, noEtrans=False):
+                 invert=False, d3_correction=0.0, nosymm=False, cosmo=None, inertia='global', g4=False, noStrans=False, noEtrans=False):
 
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
