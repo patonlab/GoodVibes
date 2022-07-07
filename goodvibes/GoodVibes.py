@@ -46,7 +46,7 @@ from __future__ import print_function, absolute_import
 ###########  Last modified:  July 5, 2022                 ###########
 ####################################################################"""
 
-import math, os.path, sys, time, json, subprocess, cclib, fnmatch
+import math, os.path, sys, time, json, cclib, fnmatch
 from datetime import datetime, timedelta
 from glob import glob
 from argparse import ArgumentParser
@@ -564,8 +564,11 @@ def get_json_data(file,cclib_data):
 def cclib_init(file_fun,progress_fun,calc_type):
     # if the corresponding json file exists, read it instead of creating the file again
     if f'{file_fun.split(".")[0]}.json' not in glob('*.json'):
-        command_run_1 = ['ccwrite', 'json', file_fun]
-        subprocess.run(command_run_1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        data = cclib.io.ccread(file_fun)
+        text = cclib.io.ccwrite(outputtype='json',ccobj=data)
+        f = open(f'{file_fun.split(".")[0]}.json', "w")
+        f.write(text)
+        f.close()
 
     cclib_data,progress_fun[file_fun] = {},''
     try:
