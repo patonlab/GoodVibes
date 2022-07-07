@@ -562,18 +562,19 @@ def get_json_data(file,cclib_data):
     return cclib_data
 
 def cclib_init(file_fun,progress_fun,calc_type):
+    json_file = f'{file_fun.split(".")[0]}.json'
     # if the corresponding json file exists, read it instead of creating the file again
-    if f'{file_fun.split(".")[0]}.json' not in glob('*.json'):
+    if json_file not in glob('*.json'):
         data = cclib.io.ccread(file_fun)
         text = cclib.io.ccwrite(outputtype='json',ccobj=data)
-        f = open(f'{file_fun.split(".")[0]}.json', "w")
+        f = open(json_file, "w")
         f.write(text)
         f.close()
 
     cclib_data,progress_fun[file_fun] = {},''
     try:
-        with open(f'{file_fun.split(".")[0]}.json') as json_file:
-            cclib_data = json.load(json_file)
+        with open(json_file) as file:
+            cclib_data = json.load(file)
     except FileNotFoundError:
         progress_fun[file_fun] = 'Error'
 
@@ -585,6 +586,9 @@ def cclib_init(file_fun,progress_fun,calc_type):
         # calculations with 1 atom
         if cclib_data['properties']['number of atoms'] == 1:
             cclib_data['vibrations'] = {'frequencies': [], 'displacement': []}
+            outfile = open(json_file, "w")
+            json.dump(cclib_data, outfile, indent=1)
+            outfile.close()
 
         # other calculations
         if 'vibrations' in cclib_data:
@@ -599,11 +603,11 @@ def cclib_init(file_fun,progress_fun,calc_type):
             progress_fun[file_fun] = 'Normal'
         else:
             progress_fun[file_fun] = 'Error'
-        
+    
     return cclib_data,progress_fun
 
 def sort_by_stability(thermo_data, value):
-    ''' order the dictionary object of thermochemical data by energy, enthalpy or quasi-harmnonic Gibbs energy'''
+    ''' order the dictionary object of thermochemical data by energy, enthalpy or quasi-harmonic Gibbs energy'''
     try:
         if value == "E": sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].scf_energy))
         elif value == "H": sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].enthalpy))

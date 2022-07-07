@@ -395,7 +395,6 @@ class calc_bbe:
 
         # get frequency information
         all_freqs = cclib_data['vibrations']['frequencies']
-        most_low_freq = min(all_freqs)
         for x in all_freqs:
             # Only deal with real frequencies
             if x > 0.00:
@@ -405,7 +404,7 @@ class calc_bbe:
                 if invert is not False:
                     if invert == 'auto':
                         if "TSFreq" in self.job_type:
-                            if x == most_low_freq:
+                            if x == min(all_freqs):
                                 im_frequency_wn.append(x)
                             else:
                                 frequency_wn.append(x * -1.)
