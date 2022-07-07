@@ -7,7 +7,7 @@ import goodvibes.thermo as thermo
 import goodvibes.GoodVibes as GoodVibes
 
 # VERSION NUMBER
-__version__ = "3.1.1"
+__version__ = "4.0"
 
 # PHYSICAL CONSTANTS
 KCAL_TO_AU = 627.509541  # UNIT CONVERSION
