@@ -445,6 +445,8 @@ def get_json_data(file,cclib_data):
             # Basis set name
             elif line[1:15] == "Standard basis":
                 cclib_data['metadata']['basis set'] = line.split()[2]
+            elif  "General basis read from cards" in line.strip():
+                cclib_data['metadata']['basis set'] = 'User-Specified General Basis'
 
             # functional
             if not hasattr(cclib_data, 'BOMD') and line[1:9] == 'SCF Done':
