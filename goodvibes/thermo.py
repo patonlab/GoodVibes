@@ -426,10 +426,14 @@ class calc_bbe:
         self.scf_energy = get_energy(cclib_data)
 
         if spc != False and spc != 'link':
-            name, ext = os.path.splitext(file)
-            file_spc = name + '_' + spc + ext
-            with open(f'{file_spc.split(".")[0]}.json') as json_file:
-                cclib_data_spc = json.load(json_file)
+            if sp_file:
+                with open(f'{sp_file.split(".")[0]}.json') as json_file:
+                    cclib_data_spc = json.load(json_file)
+            else:
+                name, ext = os.path.splitext(file)
+                file_spc = name + '_' + spc + ext
+                with open(f'{file_spc.split(".")[0]}.json') as json_file:
+                    cclib_data_spc = json.load(json_file)
             
             self.sp_energy = get_energy(cclib_data_spc)
 

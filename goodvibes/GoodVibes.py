@@ -663,19 +663,24 @@ def get_output_files(args, spc = False, spcdir = '.', clustering = False, cosmo 
 def filter_output_files(files, log, spc = False, sp_files = None):
     # Grab level of theory, solvation model, check for Normal Termination
     l_o_t, s_m, progress, spc_progress = [], [], {}, {}
-    for file in files:
+    for i,file in enumerate(files):
         cclib_data,progress = cclib_init(file,progress,'freq')
         level_of_theory = '/'.join([cclib_data['metadata']['functional'] , cclib_data['metadata']['basis set'] ])
         l_o_t.append(level_of_theory)
         s_m.append(cclib_data['metadata']['solvation'])
         #check spc files for normal termination
         if spc is not False:
-            name, ext = os.path.splitext(file)
-            if os.path.exists(name + '_' + spc + '.log'):
-                spc_file = name + '_' + spc + '.log'
-            elif os.path.exists(name + '_' + spc + '.out'):
-                spc_file = name + '_' + spc + '.out'
+            if sp_files:
+                spc_file = sp_files[i]
+            else:
+                name, ext = os.path.splitext(file)
+                if os.path.exists(name + '_' + spc + '.log'):
+                    spc_file = name + '_' + spc + '.log'
+                elif os.path.exists(name + '_' + spc + '.out'):
+                    spc_file = name + '_' + spc + '.out'
+
             cclib_data,spc_progress = cclib_init(spc_file,spc_progress,'spc')
+
 
     remove_key = []
     # Remove problem files and print errors
