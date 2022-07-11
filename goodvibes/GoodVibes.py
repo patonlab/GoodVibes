@@ -906,7 +906,7 @@ def main():
     if options.xyz or options.sdf: # If necessary, create a file with Cartesians
         io.write_structures("Goodvibes_output", file_list, xyz = options.xyz, sdf = options.sdf)
 
-    if options.boltz is not False: # Compute Boltzmann factors
+    if options.boltz: # Compute Boltzmann factors
         boltz_facs, weighted_free_energy, boltz_sum = get_boltz(thermo_data, options.clustering, clusters, options.temperature)
     else: boltz_facs = None
 
@@ -914,6 +914,7 @@ def main():
     gv_summary = io.summary(thermo_data, options, log, boltz_facs, clusters)
 
     if options.ee is not False: # Compute selectivity
+        boltz_facs, weighted_free_energy, boltz_sum = get_boltz(thermo_data, options.clustering, clusters, options.temperature)
         [a_name, b_name], [a_files, b_files], ee, er, ratio, dd_free_energy, preference = get_selectivity(options.ee, file_list, boltz_facs, options.temperature, log)
         if options.selplot is not False: pes.sel_striplot(a_name, b_name, a_files, b_files, thermo_data, plt)
 
