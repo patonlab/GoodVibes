@@ -856,6 +856,9 @@ def main():
     # Get the filenames from the command line prompt
     files, sp_files, clusters = get_output_files(sys.argv[1:], options.spc, options.spcdir, options.clustering, options.cosmo)
 
+    if len(files) == 0:
+        sys.exit("\nNo valid output files specified.\nFor help, use option '-h'\n")
+
     # Initial read of files
     files, cclib_data, l_o_t, s_m = filter_output_files(files, log, options.spc, sp_files)
 
