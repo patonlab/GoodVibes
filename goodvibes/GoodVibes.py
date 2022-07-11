@@ -716,7 +716,7 @@ class GV_options:
                             help="Type of quasi-harmonic entropy correction (Grimme or Truhlar) (default Grimme)", )
         parser.add_argument("--qh", dest="QH", action="store_true", default=False,
                             help="Type of quasi-harmonic enthalpy correction (Head-Gordon)")
-        parser.add_argument("--freq", dest="freq_cutoff", default=100.0, type=float, metavar="FREQ_CUTOFF",
+        parser.add_argument("--freq", dest="freq_cutoff", default=None, type=float, metavar="FREQ_CUTOFF",
                             help="Cut-off frequency for both entropy and enthalpy (wavenumbers) (default = 100)", )
         parser.add_argument("--fs", dest="S_freq_cutoff", default=100.0, type=float, metavar="S_FREQ_CUTOFF",
                             help="Cut-off frequency for entropy (wavenumbers) (default = 100)")
@@ -862,6 +862,11 @@ def main():
 
     # scaling vibrational Frequencies
     options.freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, log, options.freq_scale_factor)
+
+    #set frequency cutoff values if requested
+    if options.freq_cutoff:
+        options.S_freq_cutoff = options.freq_cutoff
+        options.H_freq_cutoff = options.freq_cutoff
 
     for i, file in enumerate(file_list):
 
