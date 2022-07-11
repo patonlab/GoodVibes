@@ -297,7 +297,7 @@ def get_boltz(thermo_data, clustering, clusters, temperature):
     # normalize
     boltz_total = sum(boltz_facs.values(), 0.0)
     boltz_facs = {k: v / boltz_total for k, v in boltz_facs.items()}
-    return boltz_facs, weighted_free_energy
+    return boltz_facs, weighted_free_energy, boltz_total
 
 
 def check_dup(files, thermo_data, log, e_cutoff = 1e-4, ro_cutoff = 0.1):
@@ -336,6 +336,7 @@ def check_dup(files, thermo_data, log, e_cutoff = 1e-4, ro_cutoff = 0.1):
         del thermo_data[dup]
     return files, thermo_data
 
+
 def print_check_fails(log, check_attribute, file, attribute, option2=False):
     """Function for printing checks to the terminal"""
     unique_attr = {}
@@ -359,6 +360,7 @@ def print_check_fails(log, check_attribute, file, attribute, option2=False):
                 log.write('{}'.format(filename))
             else:
                 log.write('{}, '.format(filename))
+
 
 def get_json_data(file,cclib_data):
     '''
@@ -561,6 +563,7 @@ def get_json_data(file,cclib_data):
 
     return cclib_data
 
+
 def cclib_init(file_fun,progress_fun,calc_type):
     json_file = f'{file_fun.split(".")[0]}.json'
     # if the corresponding json file exists, read it instead of creating the file again
@@ -605,6 +608,7 @@ def cclib_init(file_fun,progress_fun,calc_type):
             progress_fun[file_fun] = 'Error'
     
     return cclib_data,progress_fun
+
 
 def sort_by_stability(thermo_data, value):
     ''' order the dictionary object of thermochemical data by energy, enthalpy or quasi-harmonic Gibbs energy'''
@@ -822,6 +826,7 @@ class GV_options:
                     self.options.command += arg + ' '
             if self.options.clustering: self.options.command += '(clustering active)'
 
+
 def main():
     # Fetch default parameters and any specified at the command line
     gv = GV_options()
@@ -887,7 +892,7 @@ def main():
         io.write_structures("Goodvibes_output", file_list, xyz = options.xyz, sdf = options.sdf)
 
     if options.boltz is not False: # Compute Boltzmann factors
-        boltz_facs, weighted_free_energy = get_boltz(thermo_data, options.clustering, clusters, options.temperature, log)
+        boltz_facs, weighted_free_energy, boltz_sum = get_boltz(thermo_data, options.clustering, clusters, options.temperature)
     else: boltz_facs = None
 
     # Printing absolute values
