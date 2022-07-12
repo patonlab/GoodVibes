@@ -365,12 +365,20 @@ def get_ex_sym(xyzcoords, file):
         os.popen(copy).close()
         symmetry = ctypes.CDLL(path2)
     elif platform.startswith('darwin'):  # macOS - .dylib file
-        path1 = sharepath('symmetry_mac.dylib')
-        newlib = 'lib_' + file + '.dylib'
-        path2 = sharepath(newlib)
-        copy = 'cp ' + path1 + ' ' + path2
-        os.popen(copy).close()
-        symmetry = ctypes.CDLL(path2)
+        try:
+            path1 = sharepath('symmetry_mac.dylib')
+            newlib = 'lib_' + file + '.dylib'
+            path2 = sharepath(newlib)
+            copy = 'cp ' + path1 + ' ' + path2
+            os.popen(copy).close()
+            symmetry = ctypes.CDLL(path2)
+        except:
+            path1 = sharepath('symmetry_arm64.dylib')
+            newlib = 'lib_' + file + '.dylib'
+            path2 = sharepath(newlib)
+            copy = 'cp ' + path1 + ' ' + path2
+            os.popen(copy).close()
+            symmetry = ctypes.CDLL(path2)
     elif platform.startswith('win'):  # windows - .dll file
         path1 = sharepath('symmetry_windows.dll')
         newlib = 'lib_' + file + '.dll'
