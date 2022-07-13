@@ -475,38 +475,198 @@ def cc_parser(file, sp_file=None):
     outfile = open(file, "r")
     outlines = outfile.readlines()
 
+    level, basis, program, keyword_line, solvation_model = 'none', 'none', 'none', 'none', 'none'
+    a, repeated_theory = 0, 0
+    remove_key = []
     if data:
-        for j,line in enumerate(outlines):
-            if outlines[j].find('Rotational constants (GHZ):') > -1:
+        for i,line in enumerate(outlines):
+            # Determine program
+            if "Gaussian" in line:
+                program = "Gaussian"
+                break
+            if "* O   R   C   A *" in line:
+                program = "Orca"
+                break
+            if "NWChem" in line:
+                program = "NWChem"
+                break
+            if "Q-Chem, Inc." in line:
+                program = "Q-Chem"
+                break
+        #NWChem and Orca specific parsing
+        if program == 'NWChem' or program == 'Orca':
+            keyword_line_1 = "gas phase"
+            keyword_line_2 = ''
+            keyword_line_3 = ''
+
+
+        for i,line in enumerate(outlines):
+            if line.find('Rotational constants (GHZ):') > -1:
                 try:
-                    roconst = [float(outlines[j].strip().replace(':', ' ').split()[3]),
-                                    float(outlines[j].strip().replace(':', ' ').split()[4]),
-                                    float(outlines[j].strip().replace(':', ' ').split()[5])]
+                    roconst = [float(line.strip().replace(':', ' ').split()[3]),
+                                    float(line.strip().replace(':', ' ').split()[4]),
+                                    float(line.strip().replace(':', ' ').split()[5])]
                 except ValueError:
-                    if outlines[j].find('********') > -1:
-                        roconst = [float(outlines[j].strip().replace(':', ' ').split()[4]),
-                                        float(outlines[j].strip().replace(':', ' ').split()[5])]
+                    if line.find('********') > -1:
+                        roconst = [float(line.strip().replace(':', ' ').split()[4]),
+                                        float(line.strip().replace(':', ' ').split()[5])]
                 data.roconsts = roconst
 
-            if outlines[j].find('Rotational temperature ') > -1:
-                rotemp = [float(outlines[j].strip().split()[3])]
+            if line.find('Rotational temperature ') > -1:
+                rotemp = [float(line.strip().split()[3])]
                 data.rotemps = rotemp
 
-            if outlines[j].find('Rotational temperatures') > -1:
+            if line.find('Rotational temperatures') > -1:
                 try:
-                    rotemp = [float(outlines[j].strip().split()[3]), float(outlines[j].strip().split()[4]),
-                                float(outlines[j].strip().split()[5])]
+                    rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]),
+                                float(line.strip().split()[5])]
                 except ValueError:
-                    if outlines[i].find('********') > -1:
-                        rotemp = [float(outlines[j].strip().split()[4]), float(outlines[j].strip().split()[5])]
+                    if line.find('********') > -1:
+                        rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
                 data.rotemps = rotemp
 
-            if 'Rotational symmetry number' in outlines[j]:
-                data.symmno = int(outlines[j].strip().split()[3].split(".")[0])
+            if 'Rotational symmetry number' in line:
+                data.symmno = int(line.strip().split()[3].split(".")[0])
 
-            if 'Molecular mass:' in outlines[j]:
-                data.mass = float(outlines[j].strip().split()[2])
-    ##
+            if 'Molecular mass:' in line:
+                data.mass = float(line.strip().split()[2])
+            
+            # Level of Theory and Progress Info
+            if line.strip().find('External calculation') > -1:
+                level, basis = 'ext', 'ext'
+            if '\\Freq\\' in line.strip() and repeated_theory == 0:
+                try:
+                    level, basis = (line.strip().split("\\")[4:6])
+                    repeated_theory = 1
+                except IndexError:
+                    pass
+            elif '|Freq|' in line.strip() and repeated_theory == 0:
+                try:
+                    level, basis = (line.strip().split("|")[4:6])
+                    repeated_theory = 1
+                except IndexError:
+                    pass
+            if '\\SP\\' in line.strip() and repeated_theory == 0:
+                try:
+                    level, basis = (line.strip().split("\\")[4:6])
+                    repeated_theory = 1
+                except IndexError:
+                    pass
+            elif '|SP|' in line.strip() and repeated_theory == 0:
+                try:
+                    level, basis = (line.strip().split("|")[4:6])
+                    repeated_theory = 1
+                except IndexError:
+                    pass
+            if 'DLPNO BASED TRIPLES CORRECTION' in line.strip():
+                level = 'DLPNO-CCSD(T)'
+            if 'Estimated CBS total energy' in line.strip():
+                try:
+                    basis = ("Extrapol." + line.strip().split()[4])
+                except IndexError:
+                    pass
+            # Remove the restricted R or unrestricted U label
+            if level[0] in ('R', 'U'):
+                level = level[1:]
+
+            """ integrate this into ^^ loop"""
+            if program == 'NWChem':
+                if line.strip().startswith("xc "):
+                    level=line.strip().split()[1]
+                if line.strip().startswith("* library "):
+                    basis = line.strip().replace("* library ",'')
+                #need to update these tags for NWChem solvation later
+                if 'CPCM SOLVATION MODEL' in line.strip():
+                    keyword_line_1 = "CPCM,"
+                if 'SMD CDS free energy correction energy' in line.strip():
+                    keyword_line_2 = "SMD,"
+                if "Solvent:              " in line.strip():
+                    keyword_line_3 = line.strip().split()[-1]
+                #need to update NWChem keyword for error calculation
+                if 'Total times' in line:
+                    progress = 'Normal'
+                elif 'error termination' in line:
+                    progress = 'Error'
+            
+
+            if program == 'Q-Chem':
+                if 'Total energy in the final basis set' in line.strip(): 
+                    progress = 'Normal'
+                if 'Error' in line.strip(): 
+                    progress = 'Error'
+                solvation_model = 'unknown'
+
+            # Grab solvation models - Gaussian files
+            if program == 'Gaussian':
+                if '#' in line.strip() and a == 0:
+                    for j in range(i,i+10):
+                        if '--' in outlines[j].strip():
+                            a = a + 1
+                            break
+                        if a != 0:
+                            break
+                        else:
+                            for k in range(len(outlines[j].strip().split("\n"))):
+                                keyword_line += outlines[j].strip().split("\n")[k]
+                if 'Normal termination' in line:
+                    progress = 'Normal'
+                elif 'Error termination' in line:
+                    progress = 'Error'
+                keyword_line = keyword_line.lower()
+                if 'scrf' not in keyword_line.strip():
+                    solvation_model = "gas phase"
+                else:
+                    start_scrf = keyword_line.strip().find('scrf') + 5
+                    if keyword_line[start_scrf] == "(":
+                        end_scrf = keyword_line.find(")", start_scrf)
+                        solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+                        if solvation_model[-1] != ")":
+                            solvation_model = solvation_model + ")"
+                    else:
+                        start_scrf2 = keyword_line.strip().find('scrf') + 4
+                        if keyword_line.find(" ", start_scrf) > -1:
+                            end_scrf = keyword_line.find(" ", start_scrf)
+                        else:
+                            end_scrf = len(keyword_line)
+                        if keyword_line[start_scrf2] == "(":
+                            solvation_model = "scrf=(" + keyword_line[start_scrf:end_scrf]
+                            if solvation_model[-1] != ")":
+                                solvation_model = solvation_model + ")"
+                        else:
+                            if keyword_line.find(" ", start_scrf) > -1:
+                                end_scrf = keyword_line.find(" ", start_scrf)
+                            else:
+                                end_scrf = len(keyword_line)
+                            solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+            # ORCA parsing for solvation model
+            if program == 'Orca':
+                if 'CPCM SOLVATION MODEL' in line.strip():
+                    keyword_line_1 = "CPCM,"
+                if 'SMD CDS free energy correction energy' in line.strip():
+                    keyword_line_2 = "SMD,"
+                if "Solvent:              " in line.strip():
+                    keyword_line_3 = line.strip().split()[-1]
+                if 'ORCA TERMINATED NORMALLY' in line:
+                    progress = 'Normal'
+                elif 'error termination' in line:
+                    progress = 'Error'
+        
+        level_of_theory = '/'.join([level, basis])
+        if program == "NWChem" or program == "Orca": 
+            solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
+
+        data.l_o_t = level_of_theory
+        data.solvation_model = solvation_model
+        data.progress = progress
+        if progress == 'Error':
+            log.write("\nx  Warning! Error termination found in file {}. This file will be omitted from further "
+                      "calculations.".format(key))
+            remove_key.append([i, key])
+        elif progress[key] == 'Incomplete':
+            log.write("\nx  Warning! File {} may not have terminated normally or the calculation may still be "
+                      "running. This file will be omitted from further calculations.".format(key))
+            remove_key.append([i, key])
+
     return data, sp_data
 
 
@@ -662,28 +822,34 @@ def main():
     # Get the filenames from the command line prompt
     files, sp_files, clusters = get_output_files(sys.argv[1:], options.spc, options.spcdir, options.clustering, options.cosmo)
 
-    # Initial read of files
-    ''' IDEA!
-    move cclib parsing to here and skip the method below
-    would need to remove bad outputs etc
-    data, sp_data = cc_parser(file, sp_file)
-    '''
-    files, l_o_t, s_m = filter_output_files(files, log, options.spc, sp_files)
-
     # Check if user has specified any files, if not quit now
     if len(files) == 0:
         sys.exit("\nNo valid output files specified.\nFor help, use option '-h'\n")
 
     # Loop over all specified output files and compute thermochemistry
     file_list = sorted (files, key = lambda x: ( isinstance (x, str ), x)) #alphanumeric sorting
+    sp_files = sorted (sp_files, key = lambda x: ( isinstance (x, str ), x)) #alphanumeric sorting
+    
     bbe_vals = [[]] * len(file_list) # initialize a list that will be populated with thermochemical values
+
+    # Initial read of files
+    ''' IDEA!
+    move cclib parsing to here and skip the method below
+    would need to remove bad outputs etc
+    data, sp_data = cc_parser(file, sp_file)
+    '''
+    #files, l_o_t, s_m = filter_output_files(files, log, options.spc, sp_files)
+    data_list = [(cc_parser(file, sp_file)) for file, sp_file in zip(files, sp_files)]
+
+    l_o_t = [data[0].l_o_t for data in data_list]
 
     # scaling vibrational Frequencies
     options.freq_scale_factor, options.mm_freq_scale_factor =  get_vib_scale_factor(file_list, l_o_t, log, options.freq_scale_factor, options.mm_freq_scale_factor)
 
-    for i, (file, sp_file) in enumerate(zip(file_list, sp_files)):
-
-        data, sp_data = cc_parser(file, sp_file)
+    #for i, (file, sp_file) in enumerate(zip(file_list, sp_files)):
+    for i, (data,sp_data) in enumerate(data_list):
+        #data, sp_data = cc_parser(file, sp_file)
+        file = file_list[i]
         d3_term = 0.0 # computes D3 term if requested
         cosmo_option = None # computes COSMO term if requested
 
