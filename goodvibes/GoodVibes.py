@@ -658,14 +658,14 @@ def cc_parser(file, sp_file=None):
         data.l_o_t = level_of_theory
         data.solvation_model = solvation_model
         data.progress = progress
-        if progress == 'Error':
-            log.write("\nx  Warning! Error termination found in file {}. This file will be omitted from further "
-                      "calculations.".format(key))
-            remove_key.append([i, key])
-        elif progress[key] == 'Incomplete':
-            log.write("\nx  Warning! File {} may not have terminated normally or the calculation may still be "
-                      "running. This file will be omitted from further calculations.".format(key))
-            remove_key.append([i, key])
+        # if progress == 'Error':
+        #     log.write("\nx  Warning! Error termination found in file {}. This file will be omitted from further "
+        #               "calculations.".format(key))
+        #     remove_key.append([i, key])
+        # elif progress[key] == 'Incomplete':
+        #     log.write("\nx  Warning! File {} may not have terminated normally or the calculation may still be "
+        #               "running. This file will be omitted from further calculations.".format(key))
+        #     remove_key.append([i, key])
 
     return data, sp_data
 

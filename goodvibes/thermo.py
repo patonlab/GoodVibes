@@ -350,8 +350,7 @@ def calc_damp(frequency_wn, freq_cutoff):
 
 # Get external symmetry number
 ### !! do we really need the filename - could just be a temporary file? ###
-def get_ex_sym(xyzcoords, file):
-    coords_string = xyzcoords.coords_string()
+def get_ex_sym(coords_string, file):
     coords = coords_string.encode('utf-8')
     c_coords = ctypes.c_char_p(coords)
 
@@ -408,15 +407,31 @@ def get_ex_sym(xyzcoords, file):
     return ex_sym, pgroup
 
 
-def get_int_sym(xyzcoords):
-    xyzcoords.get_connectivity()
+def get_int_sym(cclib_data):
+    connectivity = []
+    tolerance = 0.2
+    atom_nums = cclib_data.atomnos.tolist()
+    atom_types = [periodictable[atomnum] for atomnum in atom_nums]
+    cartesians = cclib_data.atomcoords[-1].tolist()
+
+    for i, ai in enumerate(atom_types):
+        row = []
+        for j, aj in enumerate(atom_types):
+            if i == j:
+                continue
+            cutoff = RADII[ai] + RADII[aj] + tolerance
+            distance = np.linalg.norm(np.array(cartesians[i]) - np.array(cartesians[j]))
+            if distance < cutoff:
+                row.append(j)
+        connectivity.append(row)
+
     cap = [1, 9, 17]
     neighbor = [5, 6, 7, 8, 14, 15, 16]
     int_sym = 1
 
-    for i, row in enumerate(xyzcoords.connectivity):
-        if xyzcoords.atom_nums[i] != 6: continue
-        As = np.array(xyzcoords.atom_nums)[row]
+    for i, row in enumerate(connectivity):
+        if atom_nums[i] != 6: continue
+        As = np.array(atom_nums)[row]
         if len(As == 4):
             neighbors = [x for x in As if x in neighbor]
             caps = [x for x in As if x in cap]
@@ -425,13 +440,17 @@ def get_int_sym(xyzcoords):
     return int_sym
 
 
-def sym_correction(filename):
-    #### ! Would be good to not parse this! ####
-    #### BEfore we call this - we already have the cclib data ####
-    xyzcoords = getoutData(filename)
+def sym_correction(filename,cclib_data):
+    atom_nums = cclib_data.atomnos.tolist()
+    cartesians = cclib_data.atomcoords[-1].tolist()
+    xyzstring = str(len(atom_nums)) + '\n'
+    for atom, xyz in zip(atom_nums, cartesians):
+        xyzstring += "{0} {1:.6f} {2:.6f} {3:.6f}\n".format(atom, *xyz)
+
+
     name = filename.split('.')[0].replace('/', '_')
-    ex_sym, pgroup = get_ex_sym(xyzcoords, name)
-    int_sym = get_int_sym(xyzcoords)
+    ex_sym, pgroup = get_ex_sym(xyzstring, name)
+    int_sym = get_int_sym(cclib_data)
     #override int_sym
     int_sym = 1
     sym_num = ex_sym * int_sym
@@ -651,7 +670,7 @@ class calc_bbe:
 
             # Symmetry - entropy correction for molecular symmetry
             if ssymm:
-                sym_entropy_correction, pgroup = sym_correction(file)
+                sym_entropy_correction, pgroup = sym_correction(file,cclib_data)
                 self.point_group = pgroup
                 self.entropy += sym_entropy_correction
                 self.qh_entropy += sym_entropy_correction
