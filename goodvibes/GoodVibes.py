@@ -60,6 +60,10 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 
+#quiet cclib user warning for linear mols
+import warnings
+warnings.filterwarnings("ignore", message='Optimal rotation is not uniquely or poorly defined for the given sets of vectors.') 
+
 # Importing regardless of relative import
 from goodvibes.vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 from goodvibes.media import solvents
@@ -142,14 +146,12 @@ def get_vib_scale_factor(files, level_of_theory, log, freq_scale_factor=False, m
                 levels_l_o_t.append(i)
             filtered_calcs_l_o_t.append(files_l_o_t)
             filtered_calcs_l_o_t.append(levels_l_o_t)
-            #print(filtered_calcs_l_o_t)
-            #io.print_check_fails(log, filtered_calcs_l_o_t[1], filtered_calcs_l_o_t[0], "levels of theory")
 
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if mm_freq_scale_factor is not False:
-        if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
+        if all_same(level_of_theory) and 'ONIOM' in level_of_theory[0]:
             log.write("\n\no  User-defined vibrational scale factor " +
-                      str(mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
+                      str(mm_freq_scale_factor) + " for MM region of " + level_of_theory[0])
             log.write("\n   REF: {}".format(oniom_scale_ref))
         else:
             sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
@@ -401,24 +403,27 @@ def get_output_files(args, spc = False, spcdir = '.', clustering = False, cosmo 
     return files, sp_files, clusters
 
 
-def filter_output_files(files, log, spc = False, sp_files = None):
-    # Grab level of theory, solvation model, check for Normal Termination
-    l_o_t, s_m, progress, spc_progress, orientation, grid = [], [], {}, {}, {}, {}
-    for i, file in enumerate(files):
-        lot_sm_prog = io.read_initial(file)
-        l_o_t.append(lot_sm_prog[0])
-        s_m.append(lot_sm_prog[1])
-        progress[file] = lot_sm_prog[2]
-        orientation[file] = lot_sm_prog[3]
-        grid[file] = lot_sm_prog[4]
-        #check spc files for normal termination
-        if spc is not False and spc != 'link':
-            lot_sm_prog = io.read_initial(sp_files[i])
-            spc_progress[sp_files[i]] = lot_sm_prog[2]
+def filter_output_files(data_list,file_list,sp_file,log):
+    #Filter any erroneous files out here 
 
+    # first check if there were any errors parsing
+    remove_key = []
+    for i, key in enumerate(file_list):
+        if data_list[i][0] == None:
+            log.write("\nx  Warning! Error parsing file {}. This file will be omitted from further "
+                      "calculations.".format(key))
+            remove_key.append([i, key])
+    for [i, key] in list(reversed(remove_key)):
+            file_list.remove(key)
+            del data_list[i]
+    if len(data_list) == 0:
+        sys.exit()
+    
+    #check for any errors in calculation files
+    progress = {file:data[0].progress for file,data in zip(file_list,data_list)}
     remove_key = []
     # Remove problem files and print errors
-    for i, key in enumerate(files):
+    for i, key in enumerate(file_list):
         if progress[key] == 'Error':
             log.write("\nx  Warning! Error termination found in file {}. This file will be omitted from further "
                       "calculations.".format(key))
@@ -427,57 +432,56 @@ def filter_output_files(files, log, spc = False, sp_files = None):
             log.write("\nx  Warning! File {} may not have terminated normally or the calculation may still be "
                       "running. This file will be omitted from further calculations.".format(key))
             remove_key.append([i, key])
-
+    
     #check spc files for normal termination
+    spc_progress = False
+    if data_list[0][1]: spc_progress = {file:data[1].progress for file,data in zip(sp_file,data_list)}
     if spc_progress:
         for key in spc_progress:
             if spc_progress[key] == 'Error':
-                sys.exit("\n\nx  ERROR! Error termination found in file {} calculations.".format(key))
+                sys.exit("\n\nx  ERROR! Error termination found in file {}.".format(key))
             elif spc_progress[key] == 'Incomplete':
                 sys.exit("\n\nx  ERROR! File {} may not have terminated normally or the "
                     "calculation may still be running.".format(key))
-
+    
+    #remove problem files
     for [i, key] in list(reversed(remove_key)):
-        files.remove(key)
-        del l_o_t[i]
-        del s_m[i]
-        del orientation[key]
-        del grid[key]
+        file_list.remove(key)
+        del data_list[i]
+    
+    #exit if all supplied files have issues
+    if len(data_list) == 0:
+        sys.exit()
 
-    return files, l_o_t, s_m
+    return data_list,file_list
 
-
-'''
-IDEA!
-
-def cc_parser(file, sp_file=None):
-    does the json file exist:
-
-        if yes = read it and create the cclib object (assume that all the data is there becuase we already created it!)
-
-        if no:
-            parse the output file to create the cclib object - we also have to augment with some extra stuff, then save as json
-
-            use cclib first
-            we need to know what program it is and then try out own gaussianparser
-
-'''
 
 def cc_parser(file, sp_file=None):
 
-    try: data = cclib.io.ccread(file)
-    except: data = None
+    try: 
+        data = cclib.io.ccread(file)
+        data = get_metadata(file,data)
+    except: 
+        data = None
 
-    try: sp_data = cclib.io.ccread(sp_file)
-    except: sp_data = None
+    try: 
+        sp_data = cclib.io.ccread(sp_file)
+        sp_data = get_metadata(sp_file,sp_data)
+    except: 
+        sp_data = None
 
-    ## adding essential ingredients not in standard cclib parse
+    return data, sp_data
+
+
+def get_metadata(file,data):
+    ## add essential ingredients not in standard cclib parser
     outfile = open(file, "r")
     outlines = outfile.readlines()
 
-    level, basis, program, keyword_line, solvation_model = 'none', 'none', 'none', 'none', 'none'
+    level, basis, program, keyword_line,  = 'none', 'none', 'none', 'none'
+    level_of_theory, solvation_model, progress = 'none', 'none', 'Incomplete',
     a, repeated_theory = 0, 0
-    remove_key = []
+
     if data:
         for i,line in enumerate(outlines):
             # Determine program
@@ -658,16 +662,8 @@ def cc_parser(file, sp_file=None):
         data.l_o_t = level_of_theory
         data.solvation_model = solvation_model
         data.progress = progress
-        # if progress == 'Error':
-        #     log.write("\nx  Warning! Error termination found in file {}. This file will be omitted from further "
-        #               "calculations.".format(key))
-        #     remove_key.append([i, key])
-        # elif progress[key] == 'Incomplete':
-        #     log.write("\nx  Warning! File {} may not have terminated normally or the calculation may still be "
-        #               "running. This file will be omitted from further calculations.".format(key))
-        #     remove_key.append([i, key])
 
-    return data, sp_data
+    return data
 
 
 class GV_options:
@@ -839,7 +835,8 @@ def main():
     data, sp_data = cc_parser(file, sp_file)
     '''
     #files, l_o_t, s_m = filter_output_files(files, log, options.spc, sp_files)
-    data_list = [(cc_parser(file, sp_file)) for file, sp_file in zip(files, sp_files)]
+    data_list = [(cc_parser(file, sp_file)) for file, sp_file in zip(file_list, sp_files)]
+    data_list,file_list = filter_output_files(data_list,file_list,sp_files,log)
 
     l_o_t = [data[0].l_o_t for data in data_list]
 
