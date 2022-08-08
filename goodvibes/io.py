@@ -228,7 +228,7 @@ def parse_data(file):
         if os.path.exists(possible_filename):
             with open(possible_filename) as f:
                 data = f.readlines()
-            ccdata = ccread(possible_filename)
+
     if data is None:
         raise ValueError("File {} does not exist".format(file))
 
@@ -243,14 +243,28 @@ def parse_data(file):
             program = "NWChem"
             break
     repeated_link1 = 0
-    spe = ccdata.scfenergies[-1]
-    if hasattr(ccdata, "mpenergies"):
-        spe = ccdata.mpenergies[-1]
-    if hasattr(ccdata, "ccenergies"):
-        spe = ccdata.ccenergies[-1]
-    spe = convertor(spe, "eV", "hartree")
-    charge = ccdata.charge
-    multiplicity = ccdata.mult
+    
+    if program != "Orca":
+        try:
+            possible_filenames = (stub + ".log", stub + ".out")
+            for possible_filename in possible_filenames:
+                if os.path.exists(possible_filename):
+                    ccdata = ccread(possible_filename)
+        except IndexError:
+            ccdata = None
+        if ccdata:
+            try:
+                spe = ccdata.scfenergies[-1]
+                if hasattr(ccdata, "mpenergies"):
+                    spe = ccdata.mpenergies[-1]
+                if hasattr(ccdata, "ccenergies"):
+                    spe = ccdata.ccenergies[-1]
+                spe = convertor(spe, "eV", "hartree")
+                charge = ccdata.charge
+                multiplicity = ccdata.mult
+            except AttributeError:
+                pass
+
     for line in data:
         if program == "Gaussian":
             if line.strip().startswith('E2('):
@@ -282,9 +296,22 @@ def parse_data(file):
         elif program == "Orca":
             if 'Program Version' in line.strip():
                 version_program = "ORCA version " + line.split()[2]
+            if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
+                spe = float(line.strip().split()[4])
+            if "Total Charge" in line.strip() and "...." in line.strip():
+                charge = int(line.strip("=").split()[-1])
+            if "Multiplicity" in line.strip() and "...." in line.strip():
+                multiplicity = int(line.strip("=").split()[-1])
         elif program == "NWChem":
             if 'nwchem branch' in line.strip():
                 version_program = "NWChem version " + line.split()[3]
+            if ccdata == None:
+                if line.strip().startswith('Total DFT energy'):
+                    spe = float(line.strip().split()[4])
+                if "charge" in line.strip():
+                    charge = int(line.strip().split()[-1])
+                if "mult " in line.strip():
+                    multiplicity = int(line.strip().split()[-1])
 
     # Solvation model and empirical dispersion detection
     if 'Gaussian' in version_program.strip():
@@ -434,17 +461,6 @@ def parse_data(file):
                 empirical_dispersion3 = ' with zero damping'
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
     if 'NWChem' in version_program.strip():
-        # keyword_line_1 = "gas phase"
-        # keyword_line_2 = ''
-        # keyword_line_3 = ''
-        # for i, line in enumerate(data):
-        #     if 'CPCM SOLVATION MODEL' in line.strip():
-        #         keyword_line_1 = "CPCM,"
-        #     if 'SMD CDS free energy correction energy' in line.strip():
-        #         keyword_line_2 = "SMD,"
-        #     if "Solvent:              " in line.strip():
-        #         keyword_line_3 = line.strip().split()[-1]
-        # solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
         empirical_dispersion1 = 'No empirical dispersion detected'
         empirical_dispersion2 = ''
         empirical_dispersion3 = ''
