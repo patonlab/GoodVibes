@@ -6,6 +6,7 @@ matrix:
   - os: linux
     python: 3.6
     env: TOXENV=py36
+    dist: trusty
     install:
     - "./.travis-install.sh"
     - pip install pytest
@@ -16,6 +17,7 @@ matrix:
   - os: linux
     python: 3.7
     env: TOXENV=py37
+    dist: xenial
     install:
     - "./.travis-install.sh"
     - pip install pytest
@@ -46,7 +48,7 @@ matrix:
   - os: linux
     python: 3.10
     env: TOXENV=py310
-    dist: xenial
+    dist: focal
     install:
     - "./.travis-install.sh"
     - pip install pytest
@@ -164,6 +166,23 @@ matrix:
     - pip install numpy
     - pip install cython
     env: PATH=/c/Python39:/c/Python39/Scripts:$PATH
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: windows
+    language: shell
+    before_install:
+    - choco install python --version=3.10
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install --upgrade pytest
+    - pip install codecov
+    - pip install numpy
+    - pip install cython
+    env: PATH=/c/Python310:/c/Python310/Scripts:$PATH
     install:
     - "./.travis-install.sh"
     - pip install pytest
