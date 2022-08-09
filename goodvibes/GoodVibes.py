@@ -49,7 +49,7 @@ from __future__ import print_function, absolute_import
 ###########  Authors:     Rob Paton, Ignacio Funes-Ardoiz  ############
 ###########               Guilian Luchini, Juan V. Alegre- ############
 ###########               Requena, Yanfei Guan, Sibo Lin   ############
-###########  Last modified:  May 27, 2020                 ############
+###########  Last modified:  August 8, 2022                ############
 ####################################################################"""
 
 import math, os.path, sys, time
@@ -79,7 +79,7 @@ except:
         pass
 
 # VERSION NUMBER
-__version__ = "3.1.1"
+__version__ = "3.2"
 
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 

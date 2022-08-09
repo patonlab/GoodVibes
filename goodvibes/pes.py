@@ -663,8 +663,8 @@ def graph_reaction_profile(graph_data, log, options, plt):
                          [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
                     fc="none", transform=ax.transData, color=color)
             ax.add_patch(path_patch)
-            plt.hlines(data[path][j], j - 0.15, j + 0.15)
-        plt.hlines(data[path][-1], len(data[path]) - 1.15, len(data[path]) - 0.85)
+            plt.hlines(data[path][j], j - 0.15, j + 0.15,colors=['k'])
+        plt.hlines(data[path][-1], len(data[path]) - 1.15, len(data[path]) - 0.85,colors=['k'])
 
     if show_conf:
         markers = ['o', 's', 'x', 'P', 'D']

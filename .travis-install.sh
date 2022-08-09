@@ -4,10 +4,6 @@ if [[$TRAVIS_OS_NAME == 'osx']]; then
     brew update
     brew install pyenv-virtualenv
     case "${TOXENV}" in
-        py35)
-            pyenv install 3.5.2
-            export PYENV_VERSION=3.5.2
-            ;;
         py36)
             pyenv install 3.6.7
             export PYENV_VERSION=3.6.7
@@ -19,6 +15,14 @@ if [[$TRAVIS_OS_NAME == 'osx']]; then
         py38)
             pyenv install 3.8.1
             export PYENV_VERSION=3.8.1
+            ;;
+        py39)
+            pyenv install 3.9
+            export PYENV_VERSION=3.9
+            ;;
+        py310)
+            pyenv install 3.10
+            export PYENV_VERSION=3.10
             ;;
     esac
     export PATH="/Users/travis/.pyenv/shims:${PATH}"
