@@ -131,7 +131,7 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.
 
     Returns:
-    float: zerp point energy of chemical system.
+    float: zero point energy of chemical system.
     """
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
@@ -396,7 +396,7 @@ class calc_bbe:
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False):
+                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
             0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
@@ -582,7 +582,6 @@ class calc_bbe:
                     self.cpu = [days, hours, mins, secs, msecs]
 
         if self.sp_program == 'NWChem' or self.program == 'NWChem':
-            print("Parsing NWChem output...")
             # Iterate
             for i,line in enumerate(g_output):
                 #scanning for low frequencies...
@@ -633,7 +632,6 @@ class calc_bbe:
                         linear_mol = 1
                 # Grab rotational constants (convert cm-1 to GHz)
                 elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
-                    print(line.strip().split()[1])
                     letter=line.strip()[0]
                     h = 0
                     if letter == 'A':
@@ -642,7 +640,7 @@ class calc_bbe:
                         h = 1
                     elif letter == 'C':
                         h = 2
-                    roconst[h]=float(line.strip().split()[1])*29.9792458
+                    self.roconst[h]=float(line.strip().split()[1])*29.9792458
                     rotemp[h]=float(line.strip().split()[4])
                 if "Total times" in line.strip():
                     days = 0
@@ -654,6 +652,27 @@ class calc_bbe:
 
         self.inverted_freqs = inverted_freqs
 
+        if glowfreq != '':
+            frequency_wn = []
+            if not os.path.exists(f'{glowfreq}.MECPprop'):
+                print(f'x  The {glowfreq}.MECPprop file provided in the glowfreq option doesn\'t exist!')
+                sys.exit()
+            elif not os.path.exists(f'{glowfreq}.ROVIBprop'):
+                print(f'x  The {glowfreq}.ROVIBprop file provided in the glowfreq option doesn\'t exist!')
+                sys.exit()
+            with open(f'{glowfreq}.MECPprop') as f:
+                prop_output = f.readlines()
+            for i, line in enumerate(prop_output):
+                if 'The molecules both have' in line:
+                    n_atoms = int(line.strip().split()[-2])
+                    break
+            with open(f'{glowfreq}.ROVIBprop') as f:
+                vib_output = f.readlines()
+            # currently, this only works for non-linear molecules
+            n_freqs = (n_atoms*3)-6
+            for i in range(2,2+n_freqs):
+                frequency_wn.append(float(vib_output[i].split()[-1]))
+        
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             cutoffs = [s_freq_cutoff for freq in frequency_wn]
