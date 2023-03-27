@@ -446,8 +446,10 @@ def parse_data(file):
                 keyword_line_1 = "CPCM,"
             if 'SMD CDS free energy correction energy' in line.strip():
                 keyword_line_2 = "SMD,"
-            if "Solvent:              " in line.strip():
-                keyword_line_3 = line.strip().split()[-1]
+            if 'cpcm(' in line.lower().strip():
+                keyword_line_3 = line.strip().split('cpcm(')[-1].split(')')[0]
+            elif 'smdsolvent' in line.lower().strip():
+                keyword_line_3 = line.strip().split('\"')[1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
         empirical_dispersion1 = 'No empirical dispersion detected'
         empirical_dispersion2 = ''
@@ -718,18 +720,24 @@ def read_initial(file):
                     else:
                         end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
-    # ORCA parsing for solvation model
+    # ORCA parsing for solvation model and level of theory
     elif program == 'Orca':
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''
         keyword_line_3 = ''
         for i, line in enumerate(data):
+            if line.strip().startswith('functional is recognized', -24):
+                level = line.strip().split()[1]
+            if line.strip().startswith('Your calculation utilizes the basis'):
+                bs = line.strip().split()[5]
             if 'CPCM SOLVATION MODEL' in line.strip():
                 keyword_line_1 = "CPCM,"
             if 'SMD CDS free energy correction energy' in line.strip():
                 keyword_line_2 = "SMD,"
-            if "Solvent:              " in line.strip():
-                keyword_line_3 = line.strip().split()[-1]
+            if 'cpcm(' in line.lower().strip():
+                keyword_line_3 = line.strip().split('cpcm(')[-1].split(')')[0]
+            elif 'smdsolvent' in line.lower().strip():
+                keyword_line_3 = line.strip().split('\"')[1]
             if 'ORCA TERMINATED NORMALLY' in line:
                 progress = 'Normal'
             elif 'error termination' in line:
@@ -739,17 +747,46 @@ def read_initial(file):
 
     return level_of_theory, solvation_model, progress, orientation, dft_used
 
-def gaussian_jobtype(filename):
+def jobtype(filename):
+    with open(filename) as f:
+        data = f.readlines()
+    for line in data:
+        # Determine program
+        if "Gaussian" in line:
+            program = "Gaussian"
+            break
+        if "* O   R   C   A *" in line:
+            program = "Orca"
+            break
+        if "NWChem" in line:
+            program = "NWChem"
+            break
     """Read the jobtype from a Gaussian archive string."""
     job = ''
-    with open(filename) as f:
-        for line in f:
-            if line.strip().find('\\SP\\') > -1:
-                job += 'SP'
-            if line.strip().find('\\FOpt\\') > -1:
-                job += 'GS'
-            if line.strip().find('\\FTS\\') > -1:
-                job += 'TS'
-            if line.strip().find('\\Freq\\') > -1:
-                job += 'Freq'
+    if program == 'Gaussian':
+        with open(filename) as f:
+            for line in f:
+                if line.strip().find('\\SP\\') > -1:
+                    job += 'SP'
+                if line.strip().find('\\FOpt\\') > -1:
+                    job += 'GS'
+                if line.strip().find('\\FTS\\') > -1:
+                    job += 'TS'
+                if line.strip().find('\\Freq\\') > -1:
+                    job += 'Freq'
+
+    if program == 'Orca':
+        with open(filename) as f:
+            for line in f:
+                if line.strip().find('Single Point Calculation') > -1:
+                    job += 'SP'
+                if line.startswith("!"):
+                    line = line.lower()
+                    if line.strip().find('opt') > -1:
+                        job += 'GS'
+                    if line.strip().find('optts') > -1:
+                        job += 'TS'
+                    if line.strip().find('freq') > -1:
+                        job += 'Freq'
+
     return job

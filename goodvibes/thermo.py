@@ -395,7 +395,7 @@ class calc_bbe:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
+    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, value_up, freq_range, num_files, rand, conc, freq_scale_factor, solv, spc,
                  invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
@@ -407,7 +407,7 @@ class calc_bbe:
             fract_modelsys = []
             freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
         self.xyz = getoutData(file)
-        self.job_type = gaussian_jobtype(file)
+        self.job_type = jobtype(file)
         self.roconst = []
         # Parse some useful information from the file
         self.sp_energy, self.program, self.version_program, self.solvation_model, self.file, self.charge, self.empirical_dispersion, self.multiplicity = parse_data(
@@ -650,6 +650,135 @@ class calc_bbe:
                     msecs = 0
                     self.cpu = [days,hours,mins,secs,msecs]
 
+        # ORCA file
+        if self.sp_program == 'Orca' or self.program == 'Orca':
+            # Count number of links
+            for line in g_output:
+                # Only read first link + freq not other link jobs
+                if "ORCA TERMINATED NORMALLY" in line:
+                    linkmax += 1
+                else:
+                    frequency_wn = []
+                if 'freq. ' in line:
+                    freqloc = linkmax
+
+            # Iterate over output
+            if freqloc == 0:
+                freqloc = len(g_output)
+            for i, line in enumerate(g_output):
+                # Link counter
+                if "ORCA TERMINATED NORMALLY" in line:
+                    link += 1
+                    # Reset frequencies if in final freq link
+                    if link == freqloc:
+                        frequency_wn = []
+                        im_frequency_wn = []
+                        if mm_freq_scale_factor is not False:
+                            fract_modelsys = []
+                # If spc specified will take last Energy from file, otherwise will break after freq calc
+                if not g4:
+                    if link > freqloc:
+                        break
+                # Iterate over output: look out for low frequencies
+                if line.strip().startswith('freq.'):
+                    if mm_freq_scale_factor is not False:
+                        newline = g_output[i + 3]
+                    all_freqs = []
+                    for j in range(1,2):
+                        try:
+                            fr = float(line.strip().split()[j])
+                            all_freqs.append(fr)
+                        except IndexError:
+                            pass
+                    most_low_freq = min(all_freqs)
+                    for j in range(1,2):
+                        try:
+                            x = float(line.strip().split()[j])
+                            # If given MM freq scale factor fill the fract_modelsys array:
+                            if mm_freq_scale_factor is not False:
+                                y = float(newline.strip().split()[j]) / 100.0
+                                y = float('{:.6f}'.format(y))
+                            else:
+                                y = 1.0
+                            # Only deal with real frequencies
+                            if x > 0.00:
+                                frequency_wn.append(x)
+                                if mm_freq_scale_factor is not False: fract_modelsys.append(y)
+                            # Check if we want to make any low lying imaginary frequencies positive
+                            elif x < -1 * im_freq_cutoff:
+                                if invert is not False:
+                                    if invert == 'auto':
+                                        if "TSFreq" in self.job_type:
+                                            if x == most_low_freq:
+                                                im_frequency_wn.append(x)
+                                            else:
+                                                frequency_wn.append(x * -1.)
+                                                inverted_freqs.append(x)
+                                        else:
+                                            frequency_wn.append(x * -1.)
+                                            inverted_freqs.append(x)
+                                    elif x > float(invert):
+                                        frequency_wn.append(x * -1.)
+                                        inverted_freqs.append(x)
+                                    else:
+                                        im_frequency_wn.append(x)
+                                else:
+                                    im_frequency_wn.append(x)
+                        except IndexError:
+                            pass
+                # For QM calculations look for SCF energies, last one will be the optimized energy
+                elif line.strip().startswith('FINAL SINGLE POINT ENERGY'):
+                    self.scf_energy = float(line.strip().split()[4])
+                # Look for thermal corrections, paying attention to point group symmetry
+                elif line.strip().startswith('Zero point energy'):
+                    self.zero_point_corr = float(line.strip().split()[4])
+                # Grab Multiplicity
+                elif 'Multiplicity' in line.strip():
+                    try:
+                        self.mult = int(line.strip().split()[3])
+                    except:
+                        self.mult = int(line.split()[3])
+                # Grab molecular mass
+                elif line.strip().startswith('Total Mass'):
+                    molecular_mass = float(line.strip().split()[3])
+                # Grab rational symmetry number
+                elif line.strip().startswith('Point Group:'):
+                    if not ssymm:
+                        symmno = int((line.strip().split()[5]))
+                # Grab point group
+                elif line.strip().startswith('Point Group:'):
+                    if line.strip().split()[2] == 'Dinfh' or line.strip().split()[2] == 'Cinfv':
+                        linear_mol = 1
+                # Grab rotational constants
+                elif line.strip().startswith('Rotational constants in MHz :'): #(GHZ was before)
+                    try:
+                        self.roconst = [float(line.strip().split()[5]),
+                                        float(line.strip().split()[6]),
+                                        float(line.strip().split()[7])]
+                    except ValueError:
+                        if line.strip().find('********'):
+                            linear_warning = True
+                            self.roconst = [float(line.strip().replace(':', ' ').split()[4]),
+                                            float(line.strip().replace(':', ' ').split()[5])]
+                # Grab rotational temperatures
+                elif line.strip().startswith('Rotational temperature'):
+                    rotemp = [float(line.strip().split()[4])]
+                elif line.strip().startswith('Rotational constants in cm-1:'):
+                    try:
+                        rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5]),
+                                  float(line.strip().split()[6])]
+                    except ValueError:
+                        rotemp = None
+                        if line.strip().find('********'):
+                            linear_warning = True
+                            rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
+                if "TOTAL RUN TIME:" in line.strip():
+                    days = int(line.split()[3])
+                    hours = int(line.split()[5])
+                    mins = int(line.split()[7])
+                    secs = int(line.split()[9])
+                    msecs = int(float(line.split()[11]))
+                    self.cpu = [days, hours, mins, secs, msecs]
         self.inverted_freqs = inverted_freqs
 
         if glowfreq != '':
@@ -684,6 +813,10 @@ class calc_bbe:
 
             # Rotational and Vibrational contributions to the energy entropy
             if len(frequency_wn) > 0:
+                if value_up > 0:
+                    frequency_wn = [np.random.uniform(i+freq_range, i-freq_range) for i in frequency_wn if i < value_up] + [x for x in frequency_wn if x >= value_up]
+                    frequency_wn = [f for f in frequency_wn if f > 0] + [f*(-1) for f in frequency_wn if f < 0]
+                    frequency_wn = sorted(frequency_wn)
                 zpe = calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys)
                 u_rot = calc_rotational_energy(self.zero_point_corr, symmno, temperature, linear_mol)
                 u_vib = calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
