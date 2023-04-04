@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
-import ctypes, math, os.path, sys
+import ctypes, math, os.path, sys, re
 import numpy as np
 
 # Importing regardless of relative import
@@ -395,7 +395,7 @@ class calc_bbe:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, value_up, freq_range, num_files, rand, conc, freq_scale_factor, solv, spc,
+    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, value_up, freq_range, num_files, rand, symmbyhand, conc, freq_scale_factor, solv, spc,
                  invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
@@ -548,6 +548,7 @@ class calc_bbe:
                         symmno = int((line.strip().split()[3]).split(".")[0])
                 # Grab point group
                 elif line.strip().startswith('Full point group'):
+                    self.point_group = line.strip().split()[3].lower().capitalize()
                     if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V':
                         linear_mol = 1
                 # Grab rotational constants
@@ -628,6 +629,7 @@ class calc_bbe:
                         symmno = int(line.strip().split()[-1][0:-1])
                 # Grab point group
                 elif line.strip().find('symmetry detected') != -1:
+                    self.point_group = line.strip().split()[0].lower().capitalize()
                     if line.strip().split()[0] == 'D*H' or line.strip().split()[0] == 'C*V':
                         linear_mol = 1
                 # Grab rotational constants (convert cm-1 to GHz)
@@ -745,10 +747,9 @@ class calc_bbe:
                 elif line.strip().startswith('Point Group:'):
                     if not ssymm:
                         symmno = int((line.strip().split()[5]))
-                # Grab point group
-                elif line.strip().startswith('Point Group:'):
-                    if line.strip().split()[2] == 'Dinfh' or line.strip().split()[2] == 'Cinfv':
-                        linear_mol = 1
+                        self.point_group = line.strip().split()[2][:-1].lower().capitalize()
+                        if line.strip().split()[2] == 'Dinfh' or line.strip().split()[2] == 'Cinfv':
+                            linear_mol = 1
                 # Grab rotational constants
                 elif line.strip().startswith('Rotational constants in MHz :'): #(GHZ was before)
                     try:
@@ -780,6 +781,15 @@ class calc_bbe:
                     msecs = int(float(line.split()[11]))
                     self.cpu = [days, hours, mins, secs, msecs]
         self.inverted_freqs = inverted_freqs
+
+        if symmbyhand:
+            name, ext = os.path.splitext(file)
+            nam = name.split("_")
+            for n in nam:
+                if re.findall("symm*", n) != []:
+                    point_group = n[4:].lower().capitalize()
+                    symmno = pg_sm.get(point_group)
+                    self.point_group = point_group
 
         if glowfreq != '':
             frequency_wn = []
