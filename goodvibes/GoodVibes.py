@@ -683,7 +683,7 @@ def main():
     parser.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
                         help="Print imaginary frequencies (default False)")
     parser.add_argument("--invertifreq", dest="invert", nargs='?', const=True, default=False,
-                        help="Make low lying imaginary frequencies positive (cutoff > -50.0 wavenumbers)")
+                        help="Make low lying imaginary frequencies positive")
     parser.add_argument("--freespace", dest="freespace", default="none", type=str, metavar="FREESPACE",
                         help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)")
     parser.add_argument("--dup", dest="duplicate", action="store_true", default=False,
@@ -739,12 +739,6 @@ def main():
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
         for ext in custom_extensions:
             SUPPORTED_EXTENSIONS.add(ext.strip())
-
-    # Default value for inverting imaginary frequencies
-    if options.invert:
-        options.invert == -50.0
-    elif options.invert > 0:
-        options.invert = -1 * options.invert
 
     # Start a log for the results
     log = Logger("Goodvibes", options.output, options.csv)

@@ -467,7 +467,7 @@ class calc_bbe:
                             all_freqs.append(fr)
                         except IndexError:
                             pass
-                    most_low_freq = min(all_freqs)
+                    lowest_freq = min(all_freqs)
                     for j in range(2, 5):
                         try:
                             x = float(line.strip().split()[j])
@@ -486,7 +486,7 @@ class calc_bbe:
                                 if invert is not False:
                                     if invert == 'auto':
                                         if "TSFreq" in self.job_type:
-                                            if x == most_low_freq:
+                                            if x == lowest_freq:
                                                 im_frequency_wn.append(x)
                                             else:
                                                 frequency_wn.append(x * -1.)
@@ -681,6 +681,29 @@ class calc_bbe:
                 if not g4:
                     if link > freqloc:
                         break
+                imags = []
+                imag_freqs = re.findall("imaginary mode", line)
+                if len(imag_freqs) > 0:
+                    for im in imag_freqs:
+                        x = float(line.strip().split()[1])
+                        if invert is not False:
+                            if invert == 'auto':
+                                if "TSFreq" in self.job_type:
+                                    if x == lowest_freq:
+                                        im_frequency_wn.append(x)
+                                    else:
+                                        frequency_wn.append(x * -1.)
+                                        inverted_freqs.append(x)
+                                else:
+                                    frequency_wn.append(x * -1.)
+                                    inverted_freqs.append(x)
+                            elif x > -abs(float(invert)):
+                                frequency_wn.append(x * -1.)
+                                inverted_freqs.append(x)
+                            else:
+                                im_frequency_wn.append(x)
+                        else:
+                            im_frequency_wn.append(x)
                 # Iterate over output: look out for low frequencies
                 if line.strip().startswith('freq.'):
                     if mm_freq_scale_factor is not False:
@@ -692,7 +715,7 @@ class calc_bbe:
                             all_freqs.append(fr)
                         except IndexError:
                             pass
-                    most_low_freq = min(all_freqs)
+                    lowest_freq = min(all_freqs)
                     for j in range(1,2):
                         try:
                             x = float(line.strip().split()[j])
@@ -706,26 +729,6 @@ class calc_bbe:
                             if x > 0.00:
                                 frequency_wn.append(x)
                                 if mm_freq_scale_factor is not False: fract_modelsys.append(y)
-                            # Check if we want to make any low lying imaginary frequencies positive
-                            elif x < -1 * im_freq_cutoff:
-                                if invert is not False:
-                                    if invert == 'auto':
-                                        if "TSFreq" in self.job_type:
-                                            if x == most_low_freq:
-                                                im_frequency_wn.append(x)
-                                            else:
-                                                frequency_wn.append(x * -1.)
-                                                inverted_freqs.append(x)
-                                        else:
-                                            frequency_wn.append(x * -1.)
-                                            inverted_freqs.append(x)
-                                    elif x > float(invert):
-                                        frequency_wn.append(x * -1.)
-                                        inverted_freqs.append(x)
-                                    else:
-                                        im_frequency_wn.append(x)
-                                else:
-                                    im_frequency_wn.append(x)
                         except IndexError:
                             pass
                 # For QM calculations look for SCF energies, last one will be the optimized energy
@@ -762,17 +765,13 @@ class calc_bbe:
                             self.roconst = [float(line.strip().replace(':', ' ').split()[4]),
                                             float(line.strip().replace(':', ' ').split()[5])]
                 # Grab rotational temperatures
-                elif line.strip().startswith('Rotational temperature'):
-                    rotemp = [float(line.strip().split()[4])]
                 elif line.strip().startswith('Rotational constants in cm-1:'):
                     try:
-                        rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5]),
-                                  float(line.strip().split()[6])]
+                        rotemp = [float(line.strip().split()[4])*PLANCK_CONSTANT*SPEED_OF_LIGHT/(BOLTZMANN_CONSTANT), 
+                                  float(line.strip().split()[5])*PLANCK_CONSTANT*SPEED_OF_LIGHT/(BOLTZMANN_CONSTANT),
+                                  float(line.strip().split()[6])*PLANCK_CONSTANT*SPEED_OF_LIGHT/(BOLTZMANN_CONSTANT)]
                     except ValueError:
                         rotemp = None
-                        if line.strip().find('********'):
-                            linear_warning = True
-                            rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
                 if "TOTAL RUN TIME:" in line.strip():
                     days = int(line.split()[3])
                     hours = int(line.split()[5])
