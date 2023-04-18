@@ -729,9 +729,9 @@ def main():
     # If requested, turn on head-gordon enthalpy correction
     if options.Q: options.QH = True
     if options.QH:
-        stars = "   " + "*" * 142
+        stars = "   " + "*" * 145
     else:
-        stars = "   " + "*" * 128
+        stars = "   " + "*" * 131
     # If necessary, create an xyz file for Cartesians
     if options.xyz: xyz = xyz_out("Goodvibes", "xyz", "output")
     # If user has specified different file extensions
@@ -1185,13 +1185,13 @@ def main():
                         if all(getattr(bbe, attrib) for attrib in
                                ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                             if options.QH:
-                                log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                                log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(
                                     bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
                                     (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
                                     bbe.qh_gibbs_free_energy), thermodata=True)
                             else:
                                 log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                          '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
+                                          '{:13.10f}'.format(bbe.zpe, bbe.enthalpy,
                                                             (options.temperature * bbe.entropy),
                                                             (options.temperature * bbe.qh_entropy),
                                                             bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
@@ -1323,23 +1323,23 @@ def main():
                                ["scf_energy", "zpe", "enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                             if options.QH:
                                 if options.cosmo_int:
-                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.scf_energy, bbe.zpe,
+                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(bbe.scf_energy, bbe.zpe,
                                         bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
                                         (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.cosmo_qhg),
                                         thermodata=True)
                                 else:
-                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.scf_energy, bbe.zpe,
+                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(bbe.scf_energy, bbe.zpe,
                                         bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
                                         (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                         thermodata=True)
                             else:
                                 if options.cosmo_int:
-                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.scf_energy, bbe.zpe, bbe.enthalpy, (
+                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(bbe.scf_energy, bbe.zpe, bbe.enthalpy, (
                                             options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
                                                                                                      bbe.cosmo_qhg),
                                               thermodata=True)
                                 else:
-                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.scf_energy, bbe.zpe, bbe.enthalpy, (
+                                    log.write('{:15.6f} {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(bbe.scf_energy, bbe.zpe, bbe.enthalpy, (
                                             options.temperature * bbe.entropy), (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                               thermodata=True)
                         if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
@@ -1439,23 +1439,23 @@ def main():
                                ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                             if options.QH:
                                 if options.cosmo_int:
-                                    log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                                    log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(
                                         bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
                                         (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.cosmo_qhg),
                                         thermodata=True)
                                 else:
-                                    log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                                    log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(
                                         bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
                                         (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                         thermodata=True)
                             else:
                                 if options.cosmo_int:
-                                    log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
+                                    log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(bbe.enthalpy, (
                                             temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy,
                                                                                                      bbe.cosmo_qhg),
                                               thermodata=True)
                                 else:
-                                    log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
+                                    log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.10f}'.format(bbe.enthalpy, (
                                             temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                               thermodata=True)
                         if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
