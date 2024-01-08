@@ -581,7 +581,7 @@ class calc_bbe:
                     msecs = int(float(line.split()[9]) * 1000.0) + self.cpu[4]
                     self.cpu = [days, hours, mins, secs, msecs]
 
-        if self.sp_program == 'NWChem' or self.program == 'NWChem':
+        elif self.sp_program == 'NWChem' or self.program == 'NWChem':
             # Iterate
             for i,line in enumerate(g_output):
                 #scanning for low frequencies...
@@ -650,7 +650,7 @@ class calc_bbe:
                     msecs = 0
                     self.cpu = [days,hours,mins,secs,msecs]
         
-        if self.sp_program == 'Orca' or self.program == 'Orca':
+        elif self.sp_program == 'Orca' or self.program == 'Orca':
             import re
             # scan and parse all frequencies wavenumbers
             for i,line in enumerate(g_output):
