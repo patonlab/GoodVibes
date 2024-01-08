@@ -649,6 +649,88 @@ class calc_bbe:
                     secs = line.strip().split()[3][0:-1]
                     msecs = 0
                     self.cpu = [days,hours,mins,secs,msecs]
+        
+        if self.sp_program == 'Orca' or self.program == 'Orca':
+            import re
+            # scan and parse all frequencies wavenumbers
+            for i,line in enumerate(g_output):
+                if line.strip().startswith('THERMOCHEMISTRY AT'):
+                    start_line = i
+                elif line.strip().startswith('INNER ENERGY'):
+                    end_line = i+1
+            for line in g_output[start_line:end_line]:
+                freq_data = re.search('freq\. +([0-9]+\.[0-9]+)\s+E\(vib\).*([0-9]+\.[0-9]+)', line)
+                y = 1.0
+                if freq_data:
+                    x = float(freq_data.groups()[0])
+                    # Only deal with real frequencies
+                    if x > 0:
+                        frequency_wn.append(x)
+                        if mm_freq_scale_factor: 
+                            fract_modelsys.append(y)
+                    # Check if we want to make any low lying imaginary frequencies positive
+                    elif x < (-1 * im_freq_cutoff):
+                        if invert is not False:
+                            if x > float(invert):
+                                frequency_wn.append(x * -1.)
+                                inverted_freqs.append(x)
+                            else:
+                                im_frequency_wn.append(x)
+                        else:
+                            im_frequency_wn.append(x)
+            
+            # get SCF energy
+            scf_energies = []
+            for line in g_output:
+                scf_data = re.search('FINAL SINGLE POINT ENERGY\s+(\-[0-9]+\.[0-9]+)', line)
+                if scf_data:
+                    energy = float(scf_data.groups()[0])
+                    scf_energies.append(energy)
+            self.scf_energy = scf_energies[-1]
+
+            # get ZPE correction
+            for line in g_output:
+                zpe_data = re.search('Zero point energy.*([0-9]+\.[0-9]+) Eh', line)
+                if zpe_data:
+                    zpe_corr = float(zpe_data.groups()[0])
+            self.zero_point_corr = zpe_corr
+
+            # get multiplicity
+            for line in g_output:
+                multi_data = re.search('Multiplicity\s+Mult.*([0-9]+)', line)
+                if multi_data:
+                    multiplicity = int(multi_data.groups()[0])
+            self.mult = multiplicity
+            
+            # get molecular mass
+            for line in g_output:
+                mass_data = re.search('Total Mass.*([0-9]+\.[0-9]+)', line)
+                if mass_data:
+                    molecular_mass = float(mass_data.groups()[0])
+
+            # get symmetry point group and symmetry number
+            # TODO: this is a partial implementation,ie
+            # is not conform to the symmno and linear_mol variables
+            # as implemented for NWChem
+            for line in g_output:
+                symmetry_data = re.search('Point Group:\s+([A-Za-z0-9]+),\s+Symmetry Number:\s+([0-9]+)', line)
+                if symmetry_data:
+                    symmetry_pg, symmetry_number = symmetry_data.groups()
+                    symmetry_number = int(symmetry_number)
+            
+            # get rotational constants and convert them from cm-1 to GHz
+            # Warning: keeps only the first match of "Rotational constants in ..."", 
+            # also it only parses rotational constants in the same line of "Rotational constants in..."
+            for line in g_output:
+                rotational_data = re.search('Rotational constants in cm-1:\s+', line)
+                if rotational_data:
+                    rotational_constants = re.findall('[0-9]+\.[0-9]+', line)
+                    rotational_constants = [(float(i) * 29.9792458) for i in rotational_constants]
+                    self.roconst = rotational_constants
+                    break
+            
+            # get rotational temperatures
+            # TODO (I did not found this information in the ORCA 5.0.4 output file)
 
         self.inverted_freqs = inverted_freqs
 
