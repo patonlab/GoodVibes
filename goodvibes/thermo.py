@@ -395,7 +395,7 @@ class calc_bbe:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, value_up, freq_range, num_files, rand, symmbyhand, conc, freq_scale_factor, solv, spc,
+    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, value_up, freq_range, num_files, rand, symmbyhand, NoRot, conc, freq_scale_factor, solv, spc,
                  invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
@@ -830,6 +830,9 @@ class calc_bbe:
                 u_rot = calc_rotational_energy(self.zero_point_corr, symmno, temperature, linear_mol)
                 u_vib = calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
                 s_rot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, rotemp, temperature)
+                if NoRot:
+                    u_rot = 0.0
+                    s_rot = 0.0
 
                 # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
                 Svib_rrho = calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)

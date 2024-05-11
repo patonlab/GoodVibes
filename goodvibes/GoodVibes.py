@@ -644,13 +644,15 @@ def main():
     parser.add_argument("--qh", dest="QH", action="store_true", default=False,
                         help="Type of quasi-harmonic enthalpy correction (Head-Gordon)")
     parser.add_argument("-f", dest="freq_cutoff", default=175, type=float, metavar="FREQ_CUTOFF",
-                        help="Cut-off frequency for both entropy and enthalpy (wavenumbers) (default = 175)", )
+                        help="Cut-off frequency for both entropy and enthalpy (wavenumbers) (default = 0)", )
     parser.add_argument("--fs", dest="S_freq_cutoff", default=175.0, type=float, metavar="S_FREQ_CUTOFF",
-                        help="Cut-off frequency for entropy (wavenumbers) (default = 175)")
-    parser.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
+                        help="Cut-off frequency for entropy (wavenumbers) (default = 0)")
+    parser.add_argument("--fh", dest="H_freq_cutoff", default=175.0, type=float, metavar="H_FREQ_CUTOFF",
                         help="Cut-off frequency for enthalpy (wavenumbers) (default = 100)")
     parser.add_argument("-t", dest="temperature", default=298.15, type=float, metavar="TEMP",
                         help="Temperature (K) (default 298.15)")
+    parser.add_argument("--norot", dest="norot", default=False, action="store_true",
+                        help="Turning off rotational contributions to free energy")
     parser.add_argument("-c", dest="conc", default=False, type=float, metavar="CONC",
                         help="Concentration (mol/l) (default 1 atm)")
     parser.add_argument("--ti", dest="temperature_interval", default=False, metavar="TI",
@@ -935,7 +937,7 @@ def main():
             cosmo_solv = None
             log.write('\n\n   Warning! COSMO-RS file ' + options.cosmo + ' requested but not found')
 
-    if options.freq_cutoff != 100.0:
+    if options.freq_cutoff != 175.0:
         options.S_freq_cutoff = options.freq_cutoff
         options.H_freq_cutoff = options.freq_cutoff
 
@@ -987,6 +989,8 @@ def main():
     # Symmetry adding message
     if options.symmbyhand:
         log.write("\n   Adding symmetry by user for each molecule using file name")
+    if options.norot:
+        log.write("\n Turning off rotational contributions to free energy")
 
     # Check for special options
     inverted_freqs, inverted_files = [], []
@@ -1038,7 +1042,7 @@ def main():
                 density = solvents[options.media.lower()][1]
                 conc = (density * 1000) / mweight
                 media_conc = conc
-        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 0, 0, 0, 0, options.symmbyhand,
+        bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 0, 0, 0, 0, options.symmbyhand, options.norot,
                        conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                        d3_energy, cosmo=cosmo_option, ssymm=ssymm_option, mm_freq_scale_factor=vmm_option, 
                        inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
@@ -1292,12 +1296,12 @@ def main():
                 interval_bbe_data[h].append(bbe)
                 linear_warning.append(bbe.linear_warning) 
                 if rand == 0:
-                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 0, 0, num_files, rand, options.symmbyhand, 
+                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, 0, 0, num_files, rand, options.symmbyhand, options.norot, 
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                                    0.0, cosmo=cosmo_option, inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
                     interval_bbe_data[h].append(bbe)
                 else:
-                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, value_up, freq_range, num_files, rand, options.symmbyhand, 
+                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature, value_up, freq_range, num_files, rand, options.symmbyhand,options.norot, 
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                                    0.0, cosmo=cosmo_option, inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
                     interval_bbe_data[h].append(bbe)
@@ -1412,7 +1416,7 @@ def main():
                     cosmo_option = gsolv_dicts[i][file]
                 if options.cosmo_int is False:
                     # haven't implemented D3 for this option
-                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp, value_up, freq_range, 0, 0, options.symmbyhand, 
+                    bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp, value_up, freq_range, 0, 0, options.symmbyhand, options.norot, 
                                    conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                                    0.0, cosmo=cosmo_option, inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
                 interval_bbe_data[h].append(bbe)
