@@ -652,6 +652,27 @@ class calc_bbe:
                     msecs = 0
                     self.cpu = [days,hours,mins,secs,msecs]
 
+        if glowfreq != '':
+            frequency_wn = []
+            if not os.path.exists(f'{glowfreq}.MECPprop'):
+                print(f'x  The {glowfreq}.MECPprop file provided in the glowfreq option doesn\'t exist!')
+                sys.exit()
+            elif not os.path.exists(f'{glowfreq}.ROVIBprop'):
+                print(f'x  The {glowfreq}.ROVIBprop file provided in the glowfreq option doesn\'t exist!')
+                sys.exit()
+            with open(f'{glowfreq}.MECPprop') as f:
+                prop_output = f.readlines()
+            for i, line in enumerate(prop_output):
+                if 'The molecules both have' in line:
+                    n_atoms = int(line.strip().split()[-2])
+                    break
+            with open(f'{glowfreq}.ROVIBprop') as f:
+                vib_output = f.readlines()
+            # currently, this only works for non-linear molecules
+            n_freqs = (n_atoms*3)-6
+            for i in range(2,2+n_freqs):
+                frequency_wn.append(float(vib_output[i].split()[-1]))
+
         # ORCA file
         if self.sp_program == 'Orca' or self.program == 'Orca':
             # Count number of links
@@ -746,6 +767,8 @@ class calc_bbe:
                 # Grab molecular mass
                 elif line.strip().startswith('Total Mass'):
                     molecular_mass = float(line.strip().split()[3])
+                elif line.strip().startswith('Number of atoms'):
+                    number_of_atoms = float(line.strip().split()[-1])                    
                 # Grab rational symmetry number
                 elif line.strip().startswith('Point Group:'):
                     if not ssymm:
@@ -779,6 +802,8 @@ class calc_bbe:
                     secs = int(line.split()[9])
                     msecs = int(float(line.split()[11]))
                     self.cpu = [days, hours, mins, secs, msecs]
+            frequency_wn = frequency_wn[-int(3*number_of_atoms-6):]
+            
         self.inverted_freqs = inverted_freqs
 
         if symmbyhand:
@@ -790,27 +815,6 @@ class calc_bbe:
                     symmno = pg_sm.get(point_group)
                     self.point_group = point_group
 
-        if glowfreq != '':
-            frequency_wn = []
-            if not os.path.exists(f'{glowfreq}.MECPprop'):
-                print(f'x  The {glowfreq}.MECPprop file provided in the glowfreq option doesn\'t exist!')
-                sys.exit()
-            elif not os.path.exists(f'{glowfreq}.ROVIBprop'):
-                print(f'x  The {glowfreq}.ROVIBprop file provided in the glowfreq option doesn\'t exist!')
-                sys.exit()
-            with open(f'{glowfreq}.MECPprop') as f:
-                prop_output = f.readlines()
-            for i, line in enumerate(prop_output):
-                if 'The molecules both have' in line:
-                    n_atoms = int(line.strip().split()[-2])
-                    break
-            with open(f'{glowfreq}.ROVIBprop') as f:
-                vib_output = f.readlines()
-            # currently, this only works for non-linear molecules
-            n_freqs = (n_atoms*3)-6
-            for i in range(2,2+n_freqs):
-                frequency_wn.append(float(vib_output[i].split()[-1]))
-        
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
         if hasattr(self, "zero_point_corr") and rotemp:
             cutoffs = [s_freq_cutoff for freq in frequency_wn]
@@ -819,7 +823,7 @@ class calc_bbe:
             u_trans = calc_translational_energy(temperature)
             s_trans = calc_translational_entropy(molecular_mass, conc, temperature, solv)
             s_elec = calc_electronic_entropy(self.mult)
-
+            print("LEN", len(frequency_wn))
             # Rotational and Vibrational contributions to the energy entropy
             if len(frequency_wn) > 0:
                 if value_up > 0:
