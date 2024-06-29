@@ -4,11 +4,6 @@ from __future__ import print_function, absolute_import
 import math, os.path, sys
 import numpy as np
 
-# PHYSICAL CONSTANTS                                      UNITS
-GAS_CONSTANT = 8.3144621  # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
-KCAL_TO_AU = 627.509541  # UNIT CONVERSION
-
 class get_pes:
     """
     Obtain relative thermochemistry between species and for reactions.

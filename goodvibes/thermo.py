@@ -396,7 +396,7 @@ class calc_bbe:
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
+                 invert, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
             0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
@@ -726,13 +726,6 @@ class calc_bbe:
                     qh_u_vib = sum(vib_energy)
             else:
                 zpe, u_rot, u_vib, qh_u_vib, s_rot, h_s_vib, qh_s_vib = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-
-            # The D3 term is added to the energy term here. If not requested then this term is zero
-            # It is added to the SPC energy if defined (instead of the SCF energy)
-            if spc is False:
-                self.scf_energy += d3_term
-            else:
-                self.sp_energy += d3_term
 
             # Add terms (converted to au) to get Free energy - perform separately
             # for harmonic and quasi-harmonic values out of interest
