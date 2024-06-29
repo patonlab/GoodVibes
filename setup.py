@@ -20,7 +20,7 @@ setup(
   download_url='https://github.com/patonlab/GoodVibes/archive/v3.2.zip',
   keywords=['compchem', 'thermochemistry', 'gaussian', 'vibrational-entropies', 'temperature'],
   classifiers=[],
-  install_requires=['numpy','cclib'],
+  install_requires=['numpy'],
   python_requires='>=3.0',
   include_package_data=True,
   entry_points={

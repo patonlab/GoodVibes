@@ -5,27 +5,8 @@ import ctypes, math, os.path, sys
 import numpy as np
 
 # Importing regardless of relative import
-try:
-    from .io import *
-except:
-    from io import *
-
-# PHYSICAL CONSTANTS                                      UNITS
-GAS_CONSTANT = 8.3144621  # J / K / mol
-PLANCK_CONSTANT = 6.62606957e-34  # J * s
-BOLTZMANN_CONSTANT = 1.3806488e-23  # J / K
-SPEED_OF_LIGHT = 2.99792458e10  # cm / s
-AVOGADRO_CONSTANT = 6.0221415e23  # 1 / mol
-AMU_to_KG = 1.66053886E-27  # UNIT CONVERSION
-J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
-
-# Symmetry numbers for different point groups
-pg_sm = {"C1": 1, "Cs": 1, "Ci": 1, "C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "C7": 7, "C8": 8, "D2": 4, "D3": 6,
-         "D4": 8, "D5": 10, "D6": 12, "D7": 14, "D8": 16, "C2v": 2, "C3v": 3, "C4v": 4, "C5v": 5, "C6v": 6, "C7v": 7,
-         "C8v": 8, "C2h": 2, "C3h": 3, "C4h": 4, "C5h": 5, "C6h": 6, "C7h": 7, "C8h": 8, "D2h": 4, "D3h": 6, "D4h": 8,
-         "D5h": 10, "D6h": 12, "D7h": 14, "D8h": 16, "D2d": 4, "D3d": 6, "D4d": 8, "D5d": 10, "D6d": 12, "D7d": 14,
-         "D8d": 16, "S4": 4, "S6": 6, "S8": 8, "T": 6, "Th": 12, "Td": 12, "O": 12, "Oh": 24, "Cinfv": 1, "Dinfh": 2,
-         "I": 30, "Ih": 60, "Kh": 1}
+from goodvibes.utils import *
+from goodvibes.io import *
 
 def sharepath(filename):
     """
@@ -395,8 +376,8 @@ class calc_bbe:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
+    def __init__(self, file, QS="grimme", QH=False, s_freq_cutoff=100.0, h_freq_cutoff=100.0, temperature=298.15, conc=0.040874, freq_scale_factor=1.0, solv=None, spc=False,
+                 invert=False, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
         # List of frequencies and default values
         im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
             0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
@@ -406,7 +387,10 @@ class calc_bbe:
         else:
             fract_modelsys = []
             freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
+        self.name = file
         self.xyz = getoutData(file)
+        self.atomtypes = self.xyz.atom_types
+        self.cartesians = self.xyz.cartesians
         self.job_type = gaussian_jobtype(file)
         self.roconst = []
         # Parse some useful information from the file
@@ -700,7 +684,7 @@ class calc_bbe:
                 # check for qh
                 if QH:
                     Uvib_qrrho = calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor)
-                    H_damp = calc_damp(frequency_wn, H_FREQ_CUTOFF)
+                    H_damp = calc_damp(frequency_wn, h_freq_cutoff)
 
                 # Compute entropy (cal/mol/K) using the two values and damping function
                 vib_entropy = []

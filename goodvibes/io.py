@@ -4,7 +4,7 @@ from __future__ import print_function, absolute_import
 import os.path, time
 import numpy as np
 
-from .utils import *
+from goodvibes.utils import *
 
 from cclib.io import ccread
 from cclib.parser.utils import convertor
@@ -21,39 +21,6 @@ oniom_scale_ref = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-542
 d3_ref = "Grimme, S.; Atony, J.; Ehrlich S.; Krieg, H. J. Chem. Phys. 2010, 132, 154104"
 d3bj_ref = "Grimme S.; Ehrlich, S.; Goerigk, L. J. Comput. Chem. 2011, 32, 1456-1465"
 atm_ref = "Axilrod, B. M.; Teller, E. J. Chem. Phys. 1943, 11, 299 \n Muto, Y. Proc. Phys. Math. Soc. Jpn. 1944, 17, 629"
-
-alphabet = 'abcdefghijklmnopqrstuvwxyz'
-
-# PHYSICAL CONSTANTS                                      UNITS
-KCAL_TO_AU = 627.509541  # UNIT CONVERSION
-
-# Radii used to determine connectivity in symmetry corrections
-# Covalent radii taken from Cambridge Structural Database
-RADII = {'H': 0.32, 'He': 0.93, 'Li': 1.23, 'Be': 0.90, 'B': 0.82, 'C': 0.77, 'N': 0.75, 'O': 0.73, 'F': 0.72,
-         'Ne': 0.71, 'Na': 1.54, 'Mg': 1.36, 'Al': 1.18, 'Si': 1.11, 'P': 1.06, 'S': 1.02, 'Cl': 0.99, 'Ar': 0.98,
-         'K': 2.03, 'Ca': 1.74, 'Sc': 1.44, 'Ti': 1.32, 'V': 1.22, 'Cr': 1.18, 'Mn': 1.17, 'Fe': 1.17, 'Co': 1.16,
-         'Ni': 1.15, 'Cu': 1.17, 'Zn': 1.25, 'Ga': 1.26, 'Ge': 1.22, 'As': 1.20, 'Se': 1.16, 'Br': 1.14, 'Kr': 1.12,
-         'Rb': 2.16, 'Sr': 1.91, 'Y': 1.62, 'Zr': 1.45, 'Nb': 1.34, 'Mo': 1.30, 'Tc': 1.27, 'Ru': 1.25, 'Rh': 1.25,
-         'Pd': 1.28, 'Ag': 1.34, 'Cd': 1.48, 'In': 1.44, 'Sn': 1.41, 'Sb': 1.40, 'Te': 1.36, 'I': 1.33, 'Xe': 1.31,
-         'Cs': 2.35, 'Ba': 1.98, 'La': 1.69, 'Lu': 1.60, 'Hf': 1.44, 'Ta': 1.34, 'W': 1.30, 'Re': 1.28, 'Os': 1.26,
-         'Ir': 1.27, 'Pt': 1.30, 'Au': 1.34, 'Hg': 1.49, 'Tl': 1.48, 'Pb': 1.47, 'Bi': 1.46, 'X': 0}
-# Bondi van der Waals radii for all atoms from: Bondi, A. J. Phys. Chem. 1964, 68, 441-452,
-# except hydrogen, which is taken from Rowland, R. S.; Taylor, R. J. Phys. Chem. 1996, 100, 7384-7391.
-# Radii unavailable in either of these publications are set to 2 Angstrom
-# (Unfinished)
-BONDI = {'H': 1.09, 'He': 1.40, 'Li': 1.82, 'Be': 2.00, 'B': 2.00, 'C': 1.70, 'N': 1.55, 'O': 1.52, 'F': 1.47,
-         'Ne': 1.54}
-
-# Some useful arrays
-periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si",
-                 "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-                 "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd",
-                 "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm",
-                 "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt",
-                 "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu",
-                 "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
-                 "Rg", "Uub", "Uut", "Uuq", "Uup", "Uuh", "Uus", "Uuo"]
-
 
 class Logger:
     """
@@ -92,8 +59,7 @@ class Logger:
     def finalize(self):
         self.log.close()
         
-
-def gv_summary(log, files, thermo_data, options):    
+def gv_summary(log, thermo_data, options):    
     if options.spc is False:
         log.write("\n\n   ")
         if options.QH:
@@ -125,27 +91,27 @@ def gv_summary(log, files, thermo_data, options):
     #log.write("\n" + stars + "")
 
     # Look for duplicates or enantiomers
-    if options.duplicate:
-        dup_list = check_dup(files, thermo_data)
-    else:
-        dup_list = []
+    #if options.duplicate:
+    #    dup_list = check_dup(files, thermo_data)
+    #else:
+    #    dup_list = []
 
     # Boltzmann factors and averaging over clusters
     if options.boltz != False:
         boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files, thermo_data, clustering, clusters,
                                                                 options.temperature, dup_list)
 
-    for file in files:  # Loop over the output files and compute thermochemistry
-        duplicate = False
-        if len(dup_list) != 0:
-            for dup in dup_list:
-                if dup[0] == file:
-                    duplicate = True
-                    log.write('\nx  {} is a duplicate or enantiomer of {}'.format(dup[0].rsplit('.', 1)[0],
-                                                                                    dup[1].rsplit('.', 1)[0]))
-                    break
-        if not duplicate:
-            bbe = thermo_data[file]
+    for bbe in thermo_data:  # Loop over the output files and compute thermochemistry
+        #duplicate = False
+        #if len(dup_list) != 0:
+        #    for dup in dup_list:
+        #        if dup[0] == file:
+        #            duplicate = True
+        #            log.write('\nx  {} is a duplicate or enantiomer of {}'.format(dup[0].rsplit('.', 1)[0],
+        #                                                                            dup[1].rsplit('.', 1)[0]))
+        #            break
+        #if not duplicate:
+        #    bbe = thermo_data[file]
             
             #if options.cputime != False:  # Add up CPU times
             #    if hasattr(bbe, "cpu"):
@@ -157,74 +123,73 @@ def gv_summary(log, files, thermo_data, options):
             #if total_cpu_time.month > 1:
             #    add_days += 31
 
-            # Check for possible error in Gaussian calculation of linear molecules which can return 2 rotational constants instead of 3
-            if bbe.linear_warning:
-                log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
-                log.write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
-            else:
-                if hasattr(bbe, "gibbs_free_energy"):
-                    if options.spc is not False:
-                        if bbe.sp_energy != '!':
-                            log.write("\no  ")
-                            log.write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]), thermodata=True)
-                            log.write(' {:13.6f}'.format(bbe.sp_energy), thermodata=True)
-                        if bbe.sp_energy == '!':
-                            log.write("\nx  ")
-                            log.write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]), thermodata=True)
-                            log.write(' {:>13}'.format('----'), thermodata=True)
-                    else:
+        # Check for possible error in Gaussian calculation of linear molecules which can return 2 rotational constants instead of 3
+        if bbe.linear_warning:
+            log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
+            log.write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
+        else:
+            if hasattr(bbe, "gibbs_free_energy"):
+                if options.spc is not False:
+                    if bbe.sp_energy != '!':
                         log.write("\no  ")
-                        log.write('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]), thermodata=True)
-                # Gaussian SPC file handling
-                if hasattr(bbe, "scf_energy") and not hasattr(bbe, "gibbs_free_energy"):
-                    log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
-                # ORCA spc files
-                elif not hasattr(bbe, "scf_energy") and not hasattr(bbe, "gibbs_free_energy"):
-                    log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
-                if hasattr(bbe, "scf_energy"):
-                    log.write(' {:13.6f}'.format(bbe.scf_energy), thermodata=True)
-                # No freqs found
-                if not hasattr(bbe, "gibbs_free_energy"):
-                    log.write("   Warning! Couldn't find frequency information ...")
+                        log.write('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]), thermodata=True)
+                        log.write(' {:13.6f}'.format(bbe.sp_energy), thermodata=True)
+                    if bbe.sp_energy == '!':
+                        log.write("\nx  ")
+                        log.write('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]), thermodata=True)
+                        log.write(' {:>13}'.format('----'), thermodata=True)
                 else:
-                    if all(getattr(bbe, attrib) for attrib in
-                            ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                        if options.QH:
-                            log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                                bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
-                                (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
-                                bbe.qh_gibbs_free_energy), thermodata=True)
-                        else:
-                            log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                        '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                        (options.temperature * bbe.entropy),
-                                                        (options.temperature * bbe.qh_entropy),
-                                                        bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                        thermodata=True)
+                    log.write("\no  ")
+                    log.write('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]), thermodata=True)
+            # Gaussian SPC file handling
+            if hasattr(bbe, "scf_energy") and not hasattr(bbe, "gibbs_free_energy"):
+                log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
+            # ORCA spc files
+            elif not hasattr(bbe, "scf_energy") and not hasattr(bbe, "gibbs_free_energy"):
+                log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
+            if hasattr(bbe, "scf_energy"):
+                log.write(' {:13.6f}'.format(bbe.scf_energy), thermodata=True)
+            # No freqs found
+            if not hasattr(bbe, "gibbs_free_energy"):
+                log.write("   Warning! Couldn't find frequency information ...")
+            else:
+                if all(getattr(bbe, attrib) for attrib in
+                        ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
+                    if options.QH:
+                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                            bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
+                            (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
+                            bbe.qh_gibbs_free_energy), thermodata=True)
+                    else:
+                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
+                                    '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
+                                                    (options.temperature * bbe.entropy),
+                                                    (options.temperature * bbe.qh_entropy),
+                                                    bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
+                                    thermodata=True)
 
-                    if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
-                            os.path.splitext(os.path.basename(file))[0].lower():
-                        log.write("  Solvent: {:4.2f}M ".format(media_conc))
+                if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
+                        os.path.splitext(os.path.basename(file))[0].lower():
+                    log.write("  Solvent: {:4.2f}M ".format(media_conc))
 
-            # Append requested options to end of output
-            if options.cosmo and cosmo_solv is not None:
-                log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))
-            if options.boltz is True:
-                log.write('{:7.3f}'.format(boltz_facs[file] / boltz_sum), thermodata=True)
-            if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
-                for freq in bbe.im_frequency_wn:
-                    log.write('{:9.2f}'.format(freq), thermodata=True)
-            if options.ssymm:
-                if hasattr(bbe, "qh_gibbs_free_energy"):
-                    log.write('{:>13}'.format(bbe.point_group))
-                else:
-                    log.write('{:>37}'.format('---'))
-    #log.write("\n" + stars + "\n")
+        # Append requested options to end of output
+        if options.cosmo and cosmo_solv is not None:
+            log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))
+        if options.boltz is True:
+            log.write('{:7.3f}'.format(boltz_facs[file] / boltz_sum), thermodata=True)
+        if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
+            for freq in bbe.im_frequency_wn:
+                log.write('{:9.2f}'.format(freq), thermodata=True)
+        if options.ssymm:
+            if hasattr(bbe, "qh_gibbs_free_energy"):
+                log.write('{:>13}'.format(bbe.point_group))
+            else:
+                log.write('{:>37}'.format('---'))
+#log.write("\n" + stars + "\n")
 
-    #log.write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} '
-    #            '{:>4}\n'.format('TOTAL CPU', total_cpu_time.day + add_days - 1, 'days', total_cpu_time.hour, 'hrs',
-    #                            total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
-
+#log.write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} '
+#            '{:>4}\n'.format('TOTAL CPU', total_cpu_time.day + add_days - 1, 'days', total_cpu_time.hour, 'hrs',
+#                            total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
 
 def element_id(massno, num=False):
     """
@@ -248,9 +213,7 @@ def element_id(massno, num=False):
 class xyz_out:
     """
     Enables output of optimized coordinates to a single xyz-formatted file.
-
     Writes Cartesian coordinates of parsed chemical input.
-
     Attributes:
         xyz (file object): path in current working directory to write Cartesian coordinates.
     """
@@ -271,27 +234,26 @@ class xyz_out:
         self.xyz.close()
 
 
-def write_to_xyz(log, files, thermo_data):
+def write_to_xyz(log, thermo_data):
     xyz = xyz_out("Goodvibes", "xyz", "output")
-    for file in files:
-        bbe = thermo_data[file]        
-        xyzdata = getoutData(file)
-        xyz.write_text(str(len(xyzdata.atom_types)))
+    for bbe in thermo_data:
+        
+        xyz.write_text(str(len(bbe.atomtypes)))
         if hasattr(bbe, "scf_energy"):
             xyz.write_text(
-                '{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(file))[0], 'Eopt',
+                '{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(bbe.name))[0], 'Eopt',
                                                 bbe.scf_energy))
         else:
-            xyz.write_text('{:<39}'.format(os.path.splitext(os.path.basename(file))[0]))
-        if hasattr(xyzdata, 'cartesians') and hasattr(xyzdata, 'atom_types'):
-            xyz.write_coords(xyzdata.atom_types, xyzdata.cartesians)
+            xyz.write_text('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
+        if hasattr(bbe, 'cartesians') and hasattr(bbe, 'atomtypes'):
+            xyz.write_coords(bbe.atomtypes, bbe.cartesians)
     xyz.finalize()
 
 def gv_header(log, files, options, __version__):
     # Start printing results
     
     start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
-    log.write("   GoodVibes v" + __version__ + " " + start + "\n   Citation: " + goodvibes_ref + "\n")
+    log.write("   GoodVibes v" + __version__ + " " + start + "\n   REF: " + goodvibes_ref + "\n")
     # Check if user has specified any files, if not quit now
     if len(files) == 0:
         sys.exit("\nPlease provide GoodVibes with calculation output files on the command line.\n"
