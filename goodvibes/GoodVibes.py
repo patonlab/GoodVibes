@@ -7,18 +7,18 @@ from __future__ import print_function, absolute_import
 
 import os.path
 import sys
-from glob import glob
 from argparse import ArgumentParser
+import warnings
 
-from goodvibes.io import gv_header, gv_summary, write_to_xyz, Logger
-from goodvibes.thermo import calc_bbe
-from goodvibes.utils import check_files
+from goodvibes.io import Logger, gv_header, gv_summary, write_to_xyz, write_to_sdf
+from goodvibes.io import SUPPORTED_EXTENSIONS, load_filelist, get_cc_packages, get_cc_species, get_levels_of_theory
+from goodvibes.thermo import QrrhoThermo
+from goodvibes.utils import detect_symm, get_vib_scaling
+
+warnings.filterwarnings("ignore") # this is to suppress warnings from cclib/scipy
 
 # VERSION NUMBER
 __version__ = "4.0"
-
-# most compchem outputs look like this:
-SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
 def parse_args():
     '''user defined arguments: use -h to list all possible arguments and default values'''
@@ -119,31 +119,6 @@ def parse_args():
 
     return options
 
-def load_files(arglist, spc = False):
-    '''returns file list with acceptable extensions and user-requested arguments'''
-    files = []
-    user_args = '   Requested: '
-    for elem in arglist:
-        try:
-            if os.path.splitext(elem)[1].lower() in SUPPORTED_EXTENSIONS:  # Look for file names
-                for file in glob(elem):
-                    # if we don't expect single point calculations then grab everything
-                    if spc is False or spc == 'link':
-                        files.append(file)
-                    # need to check for both opt and single point calculations separately
-                    elif file.find('_' + spc + ".") == -1:
-                        files.append(file)
-                        name, ext = os.path.splitext(file)
-                        if not (os.path.exists(name + '_' + spc + '.log') or os.path.exists(
-                                name + '_' + spc + '.out')) and spc != 'link':
-                            sys.exit(f"\n   Error! SPC output file '{name}+'_'+{spc}' not found! "
-                                    "files should be named 'filename_spc' or specify link job.'\n")
-            else:
-                user_args += elem + ' '
-        except IndexError:
-            pass
-    return files, user_args
-
 def main():
     '''Main function for GoodVibes. Called when the script is run from the command line.'''
     # Get command line inputs.
@@ -159,7 +134,7 @@ def main():
     log = Logger("Goodvibes", options.output, options.csv)
 
     # Get the filenames from the command line prompt
-    files, user_args = load_files(sys.argv[1:], options.spc)
+    files, user_args = load_filelist(sys.argv[1:], options.spc)
     log.write('\n' + user_args + '\n\n')
 
     # Global summary of user defined options and methods to be used
@@ -167,42 +142,42 @@ def main():
     gv_header(log, files, options, __version__)
 
     # Do some file parsing
+    package_list = get_cc_packages(log, files)
+    species_list = get_cc_species(log, files, package_list)
 
-    
-    # assign point groups
+    if options.ssymm: # auto-detect point group symmetry
+        detect_symm(species_list)
 
+    model_chemistry = get_levels_of_theory(log, species_list)  # methods used and vibrational scaling factors
+    options.freq_scale_factor = get_vib_scaling(log, model_chemistry, options.freq_scale_factor)
 
-    # Filter duplicate conformers
+    # Filter duplicate conformers and sort by energy
     # ?
 
-    # Loop over all specified output files and compute quasi-harmonic thermochemistry
     thermo_data = []
-    for file in files:
-        thermo_calc = calc_bbe(file, QS=options.QS, QH=options.QH, s_freq_cutoff=options.S_freq_cutoff,
-            h_freq_cutoff=options.H_freq_cutoff, temperature=options.temperature, conc=options.conc, 
-            freq_scale_factor=options.freq_scale_factor,
-            solv=options.freespace, spc=options.spc, invert=options.invert, cosmo=options.cosmo,
-            ssymm=options.ssymm, mm_freq_scale_factor=options.mm_freq_scale_factor,
+    print()
+    for species in species_list:
+        try:
+            thermo = QrrhoThermo(species, qs=options.QS, qh=options.QH, s_freq_cutoff=options.S_freq_cutoff,
+            h_freq_cutoff=options.H_freq_cutoff, temperature=options.temperature, conc=options.conc,
+            freq_scale_factor=options.freq_scale_factor, solv=options.freespace, spc=options.spc,
+            invert=options.invert, cosmo=options.cosmo, mm_freq_scale_factor=options.mm_freq_scale_factor,
             inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
-        thermo_data.append(thermo_calc)
-   
-    # Perform checks for consistent options provided in calculation files (level of theory)
-    if options.check:
-        check_files(log, files, thermo_data, options)
+            thermo_data.append(thermo)
+        except:
+            log.write(f'x  Failed to generate information for {species.name}')
 
     # Standard mode: tabulate thermochemistry for file(s) at a single temperature and concentration
     if options.temperature_interval is False:
         gv_summary(log, thermo_data, options)
 
-    # Create an xyz file for the structures
-    if options.xyz:
-        write_to_xyz(log, thermo_data)
+    if options.xyz: # Create an xyz file for the structures
+        write_to_xyz(log, thermo_data, 'Goodvibes_output.xyz')
 
-    # Create an sdf file for the structures
-    # if options.sdf:
-    #    io.write_to_sdf(log, files, thermo_data)
+    if options.sdf: # Create an sdf file for the structures
+        write_to_sdf(log, thermo_data, 'Goodvibes_output.sdf')
 
-    # Close the log
+   # Close the log
     log.finalize()
 
 if __name__ == "__main__":

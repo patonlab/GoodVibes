@@ -3,6 +3,9 @@ from __future__ import print_function, absolute_import
 
 import os.path
 import numpy as np
+import pymsym
+
+from goodvibes.vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
 
 # PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -14,23 +17,8 @@ BOLTZMANN_CONSTANT = 1.3806488e-23  # J / K
 SPEED_OF_LIGHT = 2.99792458e10  # cm / s
 AVOGADRO_CONSTANT = 6.0221415e23  # 1 / mol
 AMU_to_KG = 1.66053886E-27  # UNIT CONVERSION
-
-# Radii used to determine connectivity in symmetry corrections
-# Covalent radii taken from Cambridge Structural Database
-RADII = {'H': 0.32, 'He': 0.93, 'Li': 1.23, 'Be': 0.90, 'B': 0.82, 'C': 0.77, 'N': 0.75, 'O': 0.73, 'F': 0.72,
-         'Ne': 0.71, 'Na': 1.54, 'Mg': 1.36, 'Al': 1.18, 'Si': 1.11, 'P': 1.06, 'S': 1.02, 'Cl': 0.99, 'Ar': 0.98,
-         'K': 2.03, 'Ca': 1.74, 'Sc': 1.44, 'Ti': 1.32, 'V': 1.22, 'Cr': 1.18, 'Mn': 1.17, 'Fe': 1.17, 'Co': 1.16,
-         'Ni': 1.15, 'Cu': 1.17, 'Zn': 1.25, 'Ga': 1.26, 'Ge': 1.22, 'As': 1.20, 'Se': 1.16, 'Br': 1.14, 'Kr': 1.12,
-         'Rb': 2.16, 'Sr': 1.91, 'Y': 1.62, 'Zr': 1.45, 'Nb': 1.34, 'Mo': 1.30, 'Tc': 1.27, 'Ru': 1.25, 'Rh': 1.25,
-         'Pd': 1.28, 'Ag': 1.34, 'Cd': 1.48, 'In': 1.44, 'Sn': 1.41, 'Sb': 1.40, 'Te': 1.36, 'I': 1.33, 'Xe': 1.31,
-         'Cs': 2.35, 'Ba': 1.98, 'La': 1.69, 'Lu': 1.60, 'Hf': 1.44, 'Ta': 1.34, 'W': 1.30, 'Re': 1.28, 'Os': 1.26,
-         'Ir': 1.27, 'Pt': 1.30, 'Au': 1.34, 'Hg': 1.49, 'Tl': 1.48, 'Pb': 1.47, 'Bi': 1.46, 'X': 0}
-
-# Bondi van der Waals radii for all atoms from: Bondi, A. J. Phys. Chem. 1964, 68, 441-452,
-# except hydrogen, which is taken from Rowland, R. S.; Taylor, R. J. Phys. Chem. 1996, 100, 7384-7391.
-# Radii unavailable in either of these publications are set to 2 Angstrom
-BONDI = {'H': 1.09, 'He': 1.40, 'Li': 1.82, 'Be': 2.00, 'B': 2.00, 'C': 1.70, 'N': 1.55, 'O': 1.52, 'F': 1.47,
-         'Ne': 1.54}
+GHz_to_K = 0.0479924341590786 # UNIT CONVERSION
+eV_to_Hartree = 1.0 / 27.21138505 # UNIT CONVERSION
 
 # Some useful arrays
 periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si",
@@ -47,13 +35,22 @@ pg_sm = {"C1": 1, "Cs": 1, "Ci": 1, "C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6,
          "D4": 8, "D5": 10, "D6": 12, "D7": 14, "D8": 16, "C2v": 2, "C3v": 3, "C4v": 4, "C5v": 5, "C6v": 6, "C7v": 7,
          "C8v": 8, "C2h": 2, "C3h": 3, "C4h": 4, "C5h": 5, "C6h": 6, "C7h": 7, "C8h": 8, "D2h": 4, "D3h": 6, "D4h": 8,
          "D5h": 10, "D6h": 12, "D7h": 14, "D8h": 16, "D2d": 4, "D3d": 6, "D4d": 8, "D5d": 10, "D6d": 12, "D7d": 14,
-         "D8d": 16, "S4": 4, "S6": 6, "S8": 8, "T": 6, "Th": 12, "Td": 12, "O": 12, "Oh": 24, "Cinfv": 1, "Dinfh": 2,
+         "D8d": 16, "S4": 4, "S6": 6, "S8": 8, "T": 6, "Th": 12, "Td": 12, "O": 12, "Oh": 24, "C*v": 1, "D*h": 2,
          "I": 30, "Ih": 60, "Kh": 1}
+
+def detect_symm(species_list):
+    ''' Detects the point group and symmetry number of a species using pymsym.'''
+    for species in species_list:
+        try: 
+            species.point_group = pymsym.get_point_group(species.atomnos, species.atomcoords[-1])
+            species.symm_no = pymsym.get_symmetry_number(species.atomnos, species.atomcoords[-1])
+        except:
+            species.point_group = 'C1'
+            species.symm_no = 1
 
 def all_same(items):
     """Returns bool for checking if all items in a list are the same."""
     return all(x == items[0] for x in items)
-
 
 def add_time(tm, cpu):
     """Calculate elapsed time."""
@@ -62,6 +59,68 @@ def add_time(tm, cpu):
     fulldate = fulldate + timedelta(days=days, hours=hrs, minutes=mins, seconds=secs, microseconds=msecs * 1000)
     return fulldate
 
+def element_id(massno, num=False):
+    """
+    Get element symbol from mass number.
+
+    Used in parsing output files to determine elements present in file.
+
+    Parameter:
+    massno (int): mass of element.
+
+    Returns:
+    str: element symbol, or 'XX' if not found in periodic table.
+    """
+    try:
+        if num:
+            return periodictable.index(massno)
+        return periodictable[massno]
+    except IndexError:
+        return "XX"
+
+def get_vib_scaling(log, model_chemistry, freq_scale_factor, mm_freq_scale_factor=False):
+    '''Attempt to automatically obtain frequency scale factor,
+    Application of freq scale factors requires all outputs to be same level of theory'''
+    # if the user has defined a scaling factor, use that where possible
+    if freq_scale_factor is not False:
+        if model_chemistry != 'mixed':
+            # user manually defines vibrational scaling factor
+            if 'ONIOM' not in model_chemistry:
+                log.write("\n   User-defined vibrational scale factor " + str(freq_scale_factor) + " for " +
+                        model_chemistry + " level of theory")
+            else:
+                log.write("\n   User-defined vibrational scale factor " + str(freq_scale_factor) +
+                        " for QM region of " + model_chemistry)
+        else:
+            freq_scale_factor = 1.0
+            log.write("\n   Vibrational scale factor " + str(freq_scale_factor) +
+                        " applied due to mixed levels of theory ")
+
+    # Otherwise, try to find a suitable value in the database    
+    if freq_scale_factor is False:
+        for data in (scaling_data_dict, scaling_data_dict_mod):
+            if model_chemistry.upper() in data:
+                freq_scale_factor = data[model_chemistry.upper()].zpe_fac
+                ref = scaling_refs[data[model_chemistry.upper()].zpe_ref]
+                log.write("\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
+                        "   {}".format(freq_scale_factor, model_chemistry, ref))
+
+    if freq_scale_factor is False: # if no scaling factor is found, use 1.0
+        freq_scale_factor = 1.0
+        log.write("\n   Vibrational scale factor " + str(freq_scale_factor) +
+                        " applied throughout ")
+
+    # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
+    if mm_freq_scale_factor is not False:
+        if 'ONIOM' in model_chemistry:
+            log.write("\n   User-defined vibrational scale factor " +
+                    str(mm_freq_scale_factor) + " for MM region of " + model_chemistry)
+            log.write("\n   REF: {}".format(SIMON_REF_scale_ref))
+        else:
+            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
+                    " help use option '-h'\n")
+
+    return freq_scale_factor
 
 def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup_list):
     """
@@ -154,7 +213,6 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
         dd_free_energy = 0.0
     return ee, r, ratio, dd_free_energy, failed, pref
 
-
 def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
     """
     Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
@@ -212,7 +270,6 @@ def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
 
     return boltz_facs, weighted_free_energy, boltz_sum
 
-
 def check_dup(files, thermo_data):
     """
     Check for duplicate species from among all files based on energy, rotational constants and frequencies
@@ -246,7 +303,6 @@ def check_dup(files, thermo_data):
                 dup_list.append([files[i], files[j]])
     return dup_list
 
-
 def print_check_fails(log, check_attribute, file, attribute, option2=False):
     """Function for printing checks to the terminal"""
     unique_attr = {}
@@ -270,7 +326,6 @@ def print_check_fails(log, check_attribute, file, attribute, option2=False):
                 log.write('{}'.format(filename))
             else:
                 log.write('{}, '.format(filename))
-
 
 def check_files(log, files, thermo_data, options):
     """
