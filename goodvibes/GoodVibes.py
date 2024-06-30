@@ -141,7 +141,7 @@ def main():
     # Do some file parsing
     package_list = get_cc_packages(log, files)
     species_list = get_cc_species(log, files, package_list)
-    
+
     if options.ssymm: # auto-detect point group symmetry
         detect_symm(species_list)
 
@@ -152,15 +152,15 @@ def main():
     if options.spc is not False:
         sp_package_list = get_cc_packages(log, sp_files)
         sp_list = get_cc_species(log, sp_files, sp_package_list)
-    else: 
+    else:
         sp_list = []
 
     # Filter duplicate conformers and sort by energy
     # ?
-  
+
     thermo_data = [] # main thermochemistry analysis
     for i, species in enumerate(species_list):
-        
+
         if options.spc is not False:
             spc = sp_list[i]
         else:
@@ -168,21 +168,21 @@ def main():
         try:
             thermo = QrrhoThermo(species, qs=options.QS, qh=options.QH, s_freq_cutoff=options.S_freq_cutoff,
             h_freq_cutoff=options.H_freq_cutoff, temperature=options.temperature, conc=options.conc,
-            freq_scale_factor=options.freq_scale_factor, spc=spc, invert=options.invert, 
+            freq_scale_factor=options.freq_scale_factor, spc=spc, invert=options.invert,
             cosmo=options.cosmo, mm_freq_scale_factor=options.mm_freq_scale_factor,
             inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
             thermo_data.append(thermo)
         except:
             log.write(f'x  Failed to generate information for {species.name}\n')
-        
+
     # Standard mode: tabulate thermochemistry for file(s) at a single temperature and concentration
     if options.temperature_interval is False:
         gv_summary(log, thermo_data, options)
-    
-    if options.cputime is not False: # Total CPU time for all calculations       
+
+    if options.cputime is not False: # Total CPU time for all calculations
         total_cpu = get_cpu_time(species_list + sp_list)
         log.write(f'\n\n   Total CPU time for all calculations: {total_cpu}\n')
-            
+
     if options.xyz: # Create an xyz file for the structures
         write_to_xyz(log, thermo_data, 'Goodvibes_output.xyz')
 

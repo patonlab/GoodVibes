@@ -61,7 +61,7 @@ def load_filelist(arglist, spc = False):
         filenames = [os.path.basename(file).split('.')[0] for file in files]
         spnames = [os.path.basename(file).split('.')[0] for file in sp_files]
         for name in filenames:
-            if not (name + '_' + spc) in  spnames:
+            if not name+'_'+spc in spnames:
                 sys.exit(f"\n   Error! SPC output {name}_{spc} not found!\n")
 
     return files, sp_files, user_args
@@ -107,7 +107,6 @@ def get_levels_of_theory(log, species_list):
             level = species.metadata['functional'] + '/' + species.metadata['basis_set']
         except KeyError:
             level = 'Unknown'
-        
         level_of_theory.append(level)
 
     # remove duplicates

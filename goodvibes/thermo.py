@@ -129,7 +129,7 @@ def calc_translational_entropy(molecular_mass, conc, temperature):
     float: translational entropy of chemical system.
     """
     lmda = ((2.0 * math.pi * molecular_mass * AMU_to_KG * BOLTZMANN_CONSTANT * temperature) ** 0.5) / PLANCK_CONSTANT
-    ndens = conc * 1000 * AVOGADRO_CONSTANT 
+    ndens = conc * 1000 * AVOGADRO_CONSTANT
     entropy = GAS_CONSTANT * (2.5 + math.log(lmda ** 3 / ndens))
     return entropy
 
@@ -335,13 +335,12 @@ class QrrhoThermo:
         if spc is not False:
             if species.name not in spc.name:
                 print("x  Species name mismatch: {} vs {}".format(species.name, spc.name))
-                      
             try:
                 self.spc_name = spc.name
                 self.sp_energy = spc.scfenergies[-1] * eV_to_Hartree
             except AttributeError:
                 self.sp_energy = np.nan
-                
+
         if not hasattr(species, 'point_group'): # inherit point group otherwise assign as C1
             try:
                 self.point_group = species.metadata['symmetry_detected'].capitalize()
