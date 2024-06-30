@@ -3,6 +3,7 @@ from __future__ import print_function, absolute_import
 
 import os.path
 import numpy as np
+import datetime
 import pymsym
 
 from goodvibes.vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
@@ -86,15 +87,15 @@ def get_vib_scaling(log, model_chemistry, freq_scale_factor, mm_freq_scale_facto
         if model_chemistry != 'mixed':
             # user manually defines vibrational scaling factor
             if 'ONIOM' not in model_chemistry:
-                log.write("\n   User-defined vibrational scale factor " + str(freq_scale_factor) + " for " +
-                        model_chemistry + " level of theory")
+                log.write("\n\n   User-defined vibrational scale factor " + str(freq_scale_factor) + " for " +
+                        model_chemistry + " level of theory\n")
             else:
-                log.write("\n   User-defined vibrational scale factor " + str(freq_scale_factor) +
-                        " for QM region of " + model_chemistry)
+                log.write("\n\n   User-defined vibrational scale factor " + str(freq_scale_factor) +
+                        " for QM region of " + model_chemistry+"\n")
         else:
             freq_scale_factor = 1.0
-            log.write("\n   Vibrational scale factor " + str(freq_scale_factor) +
-                        " applied due to mixed levels of theory ")
+            log.write("\n\n   Vibrational scale factor " + str(freq_scale_factor) +
+                        " applied due to mixed levels of theory\m")
 
     # Otherwise, try to find a suitable value in the database    
     if freq_scale_factor is False:
@@ -103,24 +104,36 @@ def get_vib_scaling(log, model_chemistry, freq_scale_factor, mm_freq_scale_facto
                 freq_scale_factor = data[model_chemistry.upper()].zpe_fac
                 ref = scaling_refs[data[model_chemistry.upper()].zpe_ref]
                 log.write("\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
-                        "   {}".format(freq_scale_factor, model_chemistry, ref))
+                        "   {}\n".format(freq_scale_factor, model_chemistry, ref))
 
     if freq_scale_factor is False: # if no scaling factor is found, use 1.0
         freq_scale_factor = 1.0
-        log.write("\n   Vibrational scale factor " + str(freq_scale_factor) +
-                        " applied throughout ")
+        log.write("\n\n   Vibrational scale factor " + str(freq_scale_factor) +
+                        " applied throughout\n")
 
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if mm_freq_scale_factor is not False:
         if 'ONIOM' in model_chemistry:
-            log.write("\n   User-defined vibrational scale factor " +
+            log.write("\n\n   User-defined vibrational scale factor " +
                     str(mm_freq_scale_factor) + " for MM region of " + model_chemistry)
-            log.write("\n   REF: {}".format(SIMON_REF_scale_ref))
+            log.write("\n   REF: {}\n".format(SIMON_REF_scale_ref))
         else:
-            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
+            sys.exit("\n\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
                     " help use option '-h'\n")
 
     return freq_scale_factor
+
+def get_cpu_time(species_list):
+    '''Calculate the total CPU time for all calculations'''    
+    total_cpu_time = datetime.timedelta(hours=0)
+    
+    for species in species_list:  
+        try:
+            for cpu_time in species.metadata['cpu_time']:
+                total_cpu_time += cpu_time
+        except:
+            pass
+    return total_cpu_time
 
 def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup_list):
     """

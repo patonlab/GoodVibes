@@ -13,7 +13,7 @@ import warnings
 from goodvibes.io import Logger, gv_header, gv_summary, write_to_xyz, write_to_sdf
 from goodvibes.io import SUPPORTED_EXTENSIONS, load_filelist, get_cc_packages, get_cc_species, get_levels_of_theory
 from goodvibes.thermo import QrrhoThermo
-from goodvibes.utils import detect_symm, get_vib_scaling
+from goodvibes.utils import detect_symm, get_vib_scaling, get_cpu_time
 
 warnings.filterwarnings("ignore") # this is to suppress warnings from cclib/scipy
 
@@ -65,8 +65,6 @@ def parse_args():
         help="Print imaginary frequencies (default False)")
     parser.add_argument("--invertifreq", dest="invert", nargs='?', const=True, default=False,
         help="Make low lying imaginary frequencies positive (cutoff > -50.0 cm-1)")
-    parser.add_argument("--freespace", dest="freespace", default=None, type=str,
-        help="Solvent (H2O, toluene, DMF, AcOH, chloroform) (default none)")
     parser.add_argument("--dup", dest="duplicate", action="store_true", default=False,
         help="Remove possible duplicates from thermochemical analysis")
     parser.add_argument("--cosmo", dest="cosmo", default=False, metavar="COSMO-RS",
@@ -134,43 +132,57 @@ def main():
     log = Logger("Goodvibes", options.output, options.csv)
 
     # Get the filenames from the command line prompt
-    files, user_args = load_filelist(sys.argv[1:], options.spc)
+    files, sp_files, user_args = load_filelist(sys.argv[1:], options.spc)
     log.write('\n' + user_args + '\n\n')
 
     # Global summary of user defined options and methods to be used
-    # need to separate this out into updating options vs printing !
     gv_header(log, files, options, __version__)
 
     # Do some file parsing
     package_list = get_cc_packages(log, files)
     species_list = get_cc_species(log, files, package_list)
-
+    
     if options.ssymm: # auto-detect point group symmetry
         detect_symm(species_list)
 
     model_chemistry = get_levels_of_theory(log, species_list)  # methods used and vibrational scaling factors
     options.freq_scale_factor = get_vib_scaling(log, model_chemistry, options.freq_scale_factor)
 
+    # Single point corrections if requested
+    if options.spc is not False:
+        sp_package_list = get_cc_packages(log, sp_files)
+        sp_list = get_cc_species(log, sp_files, sp_package_list)
+    else: 
+        sp_list = []
+
     # Filter duplicate conformers and sort by energy
     # ?
-
-    thermo_data = []
-    print()
-    for species in species_list:
+  
+    thermo_data = [] # main thermochemistry analysis
+    for i, species in enumerate(species_list):
+        
+        if options.spc is not False:
+            spc = sp_list[i]
+        else:
+            spc = False
         try:
             thermo = QrrhoThermo(species, qs=options.QS, qh=options.QH, s_freq_cutoff=options.S_freq_cutoff,
             h_freq_cutoff=options.H_freq_cutoff, temperature=options.temperature, conc=options.conc,
-            freq_scale_factor=options.freq_scale_factor, solv=options.freespace, spc=options.spc,
-            invert=options.invert, cosmo=options.cosmo, mm_freq_scale_factor=options.mm_freq_scale_factor,
+            freq_scale_factor=options.freq_scale_factor, spc=spc, invert=options.invert, 
+            cosmo=options.cosmo, mm_freq_scale_factor=options.mm_freq_scale_factor,
             inertia=options.inertia, g4=options.g4, glowfreq=options.glowfreq)
             thermo_data.append(thermo)
         except:
-            log.write(f'x  Failed to generate information for {species.name}')
-
+            log.write(f'x  Failed to generate information for {species.name}\n')
+        
     # Standard mode: tabulate thermochemistry for file(s) at a single temperature and concentration
     if options.temperature_interval is False:
         gv_summary(log, thermo_data, options)
-
+    
+    if options.cputime is not False: # Total CPU time for all calculations       
+        total_cpu = get_cpu_time(species_list + sp_list)
+        log.write(f'\n\n   Total CPU time for all calculations: {total_cpu}\n')
+            
     if options.xyz: # Create an xyz file for the structures
         write_to_xyz(log, thermo_data, 'Goodvibes_output.xyz')
 

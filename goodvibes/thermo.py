@@ -112,37 +112,7 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     energy = [0.5 * entry * GAS_CONSTANT for entry in factor]
     return sum(energy)
 
-def get_free_space(solv):
-    """
-    Computed the amount of accessible free space (ml per L) in solution.
-
-    Calculates the free space in a litre of bulk solvent, based on
-    Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830).
-    Free space based on accessible to a solute immersed in bulk solvent,
-    i.e. this is the volume not occupied by solvent molecules, calculated using
-    literature values for molarity and B3LYP/6-31G* computed molecular volumes.
-
-    Parameter:
-    solv (str): solvent used in chemical calculation.
-
-    Returns:
-    float: accessible free space in solution.
-    """
-    solvent_list = ["none", "H2O", "toluene", "DMF", "AcOH", "chloroform"]
-    molarity = [1.0, 55.6, 9.4, 12.9, 17.4, 12.5]  # mol/l
-    molecular_vol = [1.0, 27.944, 149.070, 77.442, 86.10, 97.0]  # Angstrom^3
-
-    try:
-        posn = solvent_list.index(solv)
-        solv_molarity = molarity[posn]
-        solv_volume = molecular_vol[posn]
-        v_free = 8 * ((1E27 / (solv_molarity * AVOGADRO_CONSTANT)) ** 0.333333 - solv_volume ** 0.333333) ** 3
-        freespace = v_free * solv_molarity * AVOGADRO_CONSTANT * 1E-24
-    except ValueError:
-        freespace = 1000.0
-    return freespace
-
-def calc_translational_entropy(molecular_mass, conc, temperature, solv):
+def calc_translational_entropy(molecular_mass, conc, temperature):
     """
     Translational entropy evaluation.
 
@@ -154,14 +124,12 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     molecular_mass (float): total molecular mass of chemical system.
     conc (float): concentration to perform calculations at.
     temperature (float): temperature for calculations to be performed at.
-    solv (str): solvent used in chemical calculation.
 
     Returns:
     float: translational entropy of chemical system.
     """
     lmda = ((2.0 * math.pi * molecular_mass * AMU_to_KG * BOLTZMANN_CONSTANT * temperature) ** 0.5) / PLANCK_CONSTANT
-    freespace = get_free_space(solv)
-    ndens = conc * 1000 * AVOGADRO_CONSTANT / (freespace / 1000.0)
+    ndens = conc * 1000 * AVOGADRO_CONSTANT 
     entropy = GAS_CONSTANT * (2.5 + math.log(lmda ** 3 / ndens))
     return entropy
 
@@ -342,7 +310,7 @@ class QrrhoThermo:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, species, qs="grimme", qh=False, s_freq_cutoff=100.0, h_freq_cutoff=100.0, temperature=298.15, conc=0.040874, freq_scale_factor=1.0, solv=None, spc=False,
+    def __init__(self, species, qs="grimme", qh=False, s_freq_cutoff=100.0, h_freq_cutoff=100.0, temperature=298.15, conc=0.040874, freq_scale_factor=1.0, spc=False,
                  invert=False, cosmo=None, mm_freq_scale_factor=False, inertia='global', g4=False, glowfreq=''):
 
         im_freq_cutoff = 0.0 # can be increased to discard low lying imaginary frequencies
@@ -361,8 +329,19 @@ class QrrhoThermo:
             f = Formula(mol_formula)
             self.monoisotopic_mass = f.monoisotopic_mass # molecular mass
         except AttributeError:
-            print("x  Unable to extract any molecular data from {}".format(species.name))
+            pass
+            #print("x  Unable to extract any molecular data from {}\n".format(species.name))
 
+        if spc is not False:
+            if species.name not in spc.name:
+                print("x  Species name mismatch: {} vs {}".format(species.name, spc.name))
+                      
+            try:
+                self.spc_name = spc.name
+                self.sp_energy = spc.scfenergies[-1] * eV_to_Hartree
+            except AttributeError:
+                self.sp_energy = np.nan
+                
         if not hasattr(species, 'point_group'): # inherit point group otherwise assign as C1
             try:
                 self.point_group = species.metadata['symmetry_detected'].capitalize()
@@ -421,7 +400,7 @@ class QrrhoThermo:
         if hasattr(self, "zpve"):
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
             u_trans = calc_translational_energy(temperature)
-            s_trans = calc_translational_entropy(self.monoisotopic_mass, conc, temperature, solv)
+            s_trans = calc_translational_entropy(self.monoisotopic_mass, conc, temperature)
             s_elec = calc_electronic_entropy(self.mult)
 
             # Rotational and Vibrational contributions to the energy entropy

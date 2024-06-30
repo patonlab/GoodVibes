@@ -32,6 +32,7 @@ SIMON_REF = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
 def load_filelist(arglist, spc = False):
     '''returns file list with acceptable extensions and user-requested arguments'''
     files = []
+    sp_files = []
     user_args = '   Requested: '
     for elem in arglist:
         try:
@@ -44,15 +45,26 @@ def load_filelist(arglist, spc = False):
                     elif file.find('_' + spc + ".") == -1:
                         files.append(file)
                         name, ext = os.path.splitext(file)
-                        if not (os.path.exists(name + '_' + spc + '.log') or os.path.exists(
-                                name + '_' + spc + '.out')) and spc != 'link':
-                            sys.exit(f"\n   Error! SPC output file '{name}+'_'+{spc}' not found! "
-                                    "files should be named 'filename_spc' or specify link job.'\n")
+                    else:
+                        sp_files.append(file)
+                        #if not (os.path.exists(name + '_' + spc + '.log') or os.path.exists(
+                        #        name + '_' + spc + '.out')) and spc != 'link':
+                        #    sys.exit(f"\n   Error! SPC output file '{name}_{spc}' not found! "
+                        #            "files should be named 'filename_spc' or specify link job.'\n")
             else:
                 user_args += elem + ' '
         except IndexError:
             pass
-    return files, user_args
+
+    # check that we have corresponding singlepoint outputs
+    if spc is not False and spc != 'link':
+        filenames = [os.path.basename(file).split('.')[0] for file in files]
+        spnames = [os.path.basename(file).split('.')[0] for file in sp_files]
+        for name in filenames:
+            if not (name + '_' + spc) in  spnames:
+                sys.exit(f"\n   Error! SPC output {name}_{spc} not found!\n")
+
+    return files, sp_files, user_args
 
 def get_cc_packages(log, files):
     '''Use cclib to detect which package(s) were used to generate the output files'''
@@ -102,7 +114,7 @@ def get_levels_of_theory(log, species_list):
     model_chemistry =  (list(set(level_of_theory)))
 
     if len(model_chemistry) == 1:
-        log.write('   A model chemistry detected: ' + model_chemistry[0] + '\n')
+        log.write('   A model chemistry detected: ' + model_chemistry[0])
         model = model_chemistry[0]
 
     else:
