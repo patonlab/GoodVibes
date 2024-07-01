@@ -315,6 +315,7 @@ class QrrhoThermo:
 
         im_freq_cutoff = 0.0 # can be increased to discard low lying imaginary frequencies
 
+       
         # we need to inherit the following molecule attributes:
         try:
             self.name = species.name
@@ -354,9 +355,9 @@ class QrrhoThermo:
 
         try: # most important attributes for thermochemistry!
             self.zpve = species.zpve # ZPE
+            self.vibfreqs = species.vibfreqs # frequencies
             self.rotconsts = species.rotconsts[-1] # rotational constants
             self.rotemps = [GHz_to_K * roconst for roconst in species.rotconsts[-1]] # rotational temperatures
-            self.vibfreqs = species.vibfreqs # frequencies
         except AttributeError:
             if self.natoms > 1:
                 print("x  Unable to extract frequency information from {}".format(species.name))

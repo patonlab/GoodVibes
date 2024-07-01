@@ -14,7 +14,7 @@ import cclib
 from goodvibes.utils import ATMOS, GAS_CONSTANT, KCAL_TO_AU
 
 # compchem packages supported by GoodVibes
-SUPPORTED_PACKAGES = set(('Gaussian', 'Orca'))
+SUPPORTED_PACKAGES = set(('Gaussian', 'ORCA', 'QChem'))
 
 # most compchem outputs look like this:
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
@@ -79,7 +79,7 @@ def get_cc_packages(log, files):
         if package not in SUPPORTED_PACKAGES:
             log.write('\nx  Warning: Unsupported package detected: ' + package + ' !\n')
         else:
-            log.write('\no  Supported compchem packages detected: ' + package + '\n')
+            log.write('\no  Supported compchem packages detected: ' + package)
 
     return package_list
 
@@ -110,7 +110,8 @@ def get_levels_of_theory(log, species_list):
     model_chemistry =  (list(set(level_of_theory)))
 
     if len(model_chemistry) == 1:
-        log.write('o  A model chemistry detected: ' + model_chemistry[0])
+        if model_chemistry[0] != 'Unknown':
+            log.write('\no  A model chemistry detected: ' + model_chemistry[0])
         model = model_chemistry[0]
 
     else:
