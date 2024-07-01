@@ -13,7 +13,7 @@ import warnings
 from goodvibes.io import Logger, gv_header, gv_summary, write_to_xyz, write_to_sdf
 from goodvibes.io import SUPPORTED_EXTENSIONS, load_filelist, get_cc_packages, get_cc_species, get_levels_of_theory
 from goodvibes.thermo import QrrhoThermo
-from goodvibes.utils import detect_symm, get_vib_scaling, get_cpu_time
+from goodvibes.utils import detect_symm, get_vib_scaling, get_cpu_time, check_dup, sort_conformers, get_boltz_facs, get_selectivity
 
 warnings.filterwarnings("ignore") # this is to suppress warnings from cclib/scipy
 
@@ -67,6 +67,8 @@ def parse_args():
         help="Make low lying imaginary frequencies positive (cutoff > -50.0 cm-1)")
     parser.add_argument("--dup", dest="duplicate", action="store_true", default=False,
         help="Remove possible duplicates from thermochemical analysis")
+    parser.add_argument("--sort", dest="sort", action="store_true", default=False,
+        help="Sort results by energy")
     parser.add_argument("--cosmo", dest="cosmo", default=False, metavar="COSMO-RS",
         help="Filename of a COSMO-RS .tab output file")
     parser.add_argument("--cosmo_int", dest="cosmo_int", default=False, metavar="COSMO-RS",
@@ -155,10 +157,8 @@ def main():
     else:
         sp_list = []
 
-    # Filter duplicate conformers and sort by energy
-    # ?
-
-    thermo_data = [] # main thermochemistry analysis
+    # Generate thermochemical data for each species
+    thermo_data = [] 
     for i, species in enumerate(species_list):
 
         if options.spc is not False:
@@ -175,13 +175,26 @@ def main():
         except:
             log.write(f'x  Failed to generate information for {species.name}\n')
 
+    if options.duplicate is not False: # Filter duplicate species
+        check_dup(thermo_data)
+    
+    if options.sort is not False: # Sort conformers by energy
+        sort_conformers(thermo_data)
+        
+    if options.boltz is not False: # Generate Boltzmann factors
+        get_boltz_facs(thermo_data, options.temperature)
+
     # Standard mode: tabulate thermochemistry for file(s) at a single temperature and concentration
     if options.temperature_interval is False:
         gv_summary(log, thermo_data, options)
 
-    if options.cputime is not False: # Total CPU time for all calculations
+    if options.ee is not False and options.boltz is not False: # Calculate selectivity
+        excess, ratio, ddg = get_selectivity(options.ee, thermo_data, options.temperature)
+        log.write(f'\n\n   {options.ee} selectivity: {ratio} an excess of {excess:.2f} effective DDG: {ddg:.2f} kcal/mol\n')
+        
+    if options.cputime is not False: # Total CPU time for all calculations (including those that were filtered)
         total_cpu = get_cpu_time(species_list + sp_list)
-        log.write(f'\n\n   Total CPU time for all calculations: {total_cpu}\n')
+        log.write(f'\n   Total CPU time for all calculations: {total_cpu}\n\n')
 
     if options.xyz: # Create an xyz file for the structures
         write_to_xyz(log, thermo_data, 'Goodvibes_output.xyz')

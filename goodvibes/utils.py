@@ -2,6 +2,8 @@
 from __future__ import print_function, absolute_import
 
 import os.path
+import math
+import sys
 import numpy as np
 import datetime
 import pymsym
@@ -88,28 +90,30 @@ def get_vib_scaling(log, model_chemistry, freq_scale_factor, mm_freq_scale_facto
             # user manually defines vibrational scaling factor
             if 'ONIOM' not in model_chemistry:
                 log.write("\n\n   User-defined vibrational scale factor " + str(freq_scale_factor) + " for " +
-                        model_chemistry + " level of theory\n")
+                        model_chemistry + " level of theory\n\n")
             else:
                 log.write("\n\n   User-defined vibrational scale factor " + str(freq_scale_factor) +
-                        " for QM region of " + model_chemistry+"\n")
+                        " for QM region of " + model_chemistry+"\n\n")
         else:
             freq_scale_factor = 1.0
             log.write("\n\n   Vibrational scale factor " + str(freq_scale_factor) +
-                        " applied due to mixed levels of theory\m")
+                        " applied due to mixed levels of theory\n")
 
     # Otherwise, try to find a suitable value in the database    
     if freq_scale_factor is False:
         for data in (scaling_data_dict, scaling_data_dict_mod):
+            
             if model_chemistry.upper() in data:
                 freq_scale_factor = data[model_chemistry.upper()].zpe_fac
                 ref = scaling_refs[data[model_chemistry.upper()].zpe_ref]
-                log.write("\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
-                        "   {}\n".format(freq_scale_factor, model_chemistry, ref))
+                log.write("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
+                        "   {}\n\n".format(freq_scale_factor, model_chemistry, ref))
+                break
 
     if freq_scale_factor is False: # if no scaling factor is found, use 1.0
         freq_scale_factor = 1.0
         log.write("\n\n   Vibrational scale factor " + str(freq_scale_factor) +
-                        " applied throughout\n")
+                        " applied throughout\n\n")
 
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if mm_freq_scale_factor is not False:
@@ -135,187 +139,52 @@ def get_cpu_time(species_list):
             pass
     return total_cpu_time
 
-def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup_list):
-    """
-    Calculate selectivity as enantioselectivity/diastereomeric ratio.
+def check_dup(thermo_data, e_cutoff=1e-4, ro_cutoff=0.1):
+        """
+        Check for duplicate species from among all files based on energy, rotational constants and frequencies
+        Defaults
+        Energy cutoff = 1 microHartree
+        RMS Rotational Constant cutoff = 1kHz
+        """
+        
+        for i, thermo in enumerate(thermo_data):
+            ref_name = thermo.name
+            ref_energy = thermo.scf_energy
+            
+            try: 
+                ref_rotconsts = thermo.rotconsts
+            except:
+                ref_rotconsts = None
 
-    Parameters:
-    pattern (str): pattern to recognize for selectivity calculation, i.e. "R":"S".
-    files (str): files to use for selectivity calculation.
-    boltz_facs (dict): dictionary of Boltzmann factors for each file used in the calculation.
-    boltz_sum (float)
-    temperature (float)
+            for j in range(i+1, len(thermo_data)):
+                name = thermo_data[j].name
+                energy = thermo_data[j].scf_energy
+                
+                try:
+                    rotconsts = thermo_data[j].rotconsts
+                except:
+                    rotconsts = None
+                
+                e_diff = abs(ref_energy - energy)
+                if e_diff < e_cutoff: # only check this if the energies are similar
+                    if ref_rotconsts is not None and rotconsts is not None and len(ref_rotconsts) == len(rotconsts):
+                        ro_diff = np.linalg.norm(np.array(ref_rotconsts) - np.array(rotconsts))
+                        if ro_diff < ro_cutoff:
+                            #print(f'!  {ref_name} and {name} have similar energies: {e_diff}')
+                            #print(f'!  {ref_name} and {name} have similar rotational constants: {ro_diff}')
+                            thermo_data[j].duplicate_of = ref_name
+    
+        for thermo in thermo_data:
+            if hasattr(thermo, 'duplicate_of'):
+                print(f'!  {thermo.name} is a duplicate of {thermo.duplicate_of}: removing...')  
+                thermo_data.remove(thermo)
 
-    Returns:
-    float: enantiomeric/diasteriomeric ratio.
-    str: pattern used to identify ratio.
-    float: Gibbs free energy barrier.
-    bool: flag for failed selectivity calculation.
-    str: preferred enantiomer/diastereomer configuration.
-    """
-    dirs = []
-    for file in files:
-        dirs.append(os.path.dirname(file))
-    dirs = list(set(dirs))
-    a_files, b_files, a_sum, b_sum, failed, pref = [], [], 0.0, 0.0, False, ''
-
-    [a_regex,b_regex] = pattern.split(':')
-    [a_regex,b_regex] = [a_regex.strip(), b_regex.strip()]
-
-    A = ''.join(a for a in a_regex if a.isalnum())
-    B = ''.join(b for b in b_regex if b.isalnum())
-
-    if len(dirs) > 1 or dirs[0] != '':
-        for dir in dirs:
-            a_files.extend(glob(dir+'/'+a_regex))
-            b_files.extend(glob(dir+'/'+b_regex))
-    else:
-        a_files.extend(glob(a_regex))
-        b_files.extend(glob(b_regex))
-
-
-    if len(a_files) == 0 or len(b_files) == 0:
-        log.write("\n   Warning! Filenames have not been formatted correctly for determining selectivity\n")
-        log.write("   Make sure the filename contains either " + A + " or " + B + "\n")
-        sys.exit("   Please edit either your filenames or selectivity pattern argument and try again\n")
-    # Grab Boltzmann sums
-    for file in files:
-        duplicate = False
-        if len(dup_list) != 0:
-            for dup in dup_list:
-                if dup[0] == file: duplicate = True
-        if duplicate == False:
-            if file in a_files:
-                a_sum += boltz_facs[file] / boltz_sum
-            elif file in b_files:
-                b_sum += boltz_facs[file] / boltz_sum
-    # Get ratios
-    A_round = round(a_sum * 100)
-    B_round = round(b_sum * 100)
-    r = str(A_round) + ':' + str(B_round)
-    if a_sum > b_sum:
-        pref = A
-        try:
-            ratio = a_sum / b_sum
-            if ratio < 3:
-                ratio = str(round(ratio, 1)) + ':1'
-            else:
-                ratio = str(round(ratio)) + ':1'
-        except ZeroDivisionError:
-            ratio = '1:0'
-    else:
-        pref = B
-        try:
-            ratio = b_sum / a_sum
-            if ratio < 3:
-                ratio = '1:' + str(round(ratio, 1))
-            else:
-                ratio = '1:' + str(round(ratio))
-        except ZeroDivisionError:
-            ratio = '0:1'
-    ee = (a_sum - b_sum) * 100.
-    if ee == 0:
-        log.write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
-        failed = True
-    ee = abs(ee)
-    if ee > 99.99:
-        ee = 99.99
-    try:
-        dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(ee) / 2.0) / (50 - abs(ee) / 2.0)) * KCAL_TO_AU
-    except ZeroDivisionError:
-        dd_free_energy = 0.0
-    return ee, r, ratio, dd_free_energy, failed, pref
-
-def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
-    """
-    Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
-
-    Used for selectivity and boltzmann requested options.
-
-    Parameters:
-    files (list): list of files to find Boltzmann factors for.
-    thermo_data (dict): dict of calc_bbe objects with thermodynamic data to use for Boltzmann averaging.
-    clustering (bool): flag for file clustering
-    clusters (list): definitions for the requested clusters
-    temperature (float): temperature to compute Boltzmann populations at
-    dup_list (list): list of potential duplicates
-
-    Returns:boltz_facs, weighted_free_energy, boltz_sum
-    dict: dictionary of files with corresponding Boltzmann factors.
-    dict: dictionary of files with corresponding weighted Gibbs free energy.
-    float: Boltzmann sum computed from Boltzmann factors and Gibbs free energy.
-    """
-    boltz_facs, weighted_free_energy, e_rel, e_min, boltz_sum = {}, {}, {}, sys.float_info.max, 0.0
-
-    for file in files:  # Need the most stable structure
-        bbe = thermo_data[file]
-        if hasattr(bbe, "qh_gibbs_free_energy"):
-            if bbe.qh_gibbs_free_energy != None:
-                if bbe.qh_gibbs_free_energy < e_min:
-                    e_min = bbe.qh_gibbs_free_energy
-
-    if clustering:
-        for n, cluster in enumerate(clusters):
-            boltz_facs['cluster-' + alphabet[n].upper()] = 0.0
-            weighted_free_energy['cluster-' + alphabet[n].upper()] = 0.0
-    # Calculate E_rel and Boltzmann factors
-    for file in files:
-        duplicate = False
-        if len(dup_list) != 0:
-            for dup in dup_list:
-                if dup[0] == file: duplicate = True
-        if not duplicate:
-
-            bbe = thermo_data[file]
-            if hasattr(bbe, "qh_gibbs_free_energy"):
-                if bbe.qh_gibbs_free_energy != None:
-                    e_rel[file] = bbe.qh_gibbs_free_energy - e_min
-                    boltz_facs[file] = math.exp(-e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature)
-                    if clustering:
-                        for n, cluster in enumerate(clusters):
-                            for structure in cluster:
-                                if structure == file:
-                                    boltz_facs['cluster-' + alphabet[n].upper()] += math.exp(
-                                        -e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature)
-                                    weighted_free_energy['cluster-' + alphabet[n].upper()] += math.exp(
-                                        -e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature) * bbe.qh_gibbs_free_energy
-                    boltz_sum += math.exp(-e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature)
-
-    return boltz_facs, weighted_free_energy, boltz_sum
-
-def check_dup(files, thermo_data):
-    """
-    Check for duplicate species from among all files based on energy, rotational constants and frequencies
-
-    Energy cutoff = 1 microHartree
-    RMS Rotational Constant cutoff = 1kHz
-    RMS Freq cutoff = 10 wavenumbers
-    """
-    e_cutoff = 1e-4
-    ro_cutoff = 0.1
-    mae_freq_cutoff = 10
-    max_freq_cutoff = 10
-    dup_list = []
-    freq_diff, mae_freq_diff, max_freq_diff, e_diff, ro_diff = 100, 3, 10, 1, 1
-    for i, file in enumerate(files):
-        for j in range(0, i):
-            bbe_i, bbe_j = thermo_data[files[i]], thermo_data[files[j]]
-            if hasattr(bbe_i, "scf_energy") and hasattr(bbe_j, "scf_energy"):
-                e_diff = bbe_i.scf_energy - bbe_j.scf_energy
-            if hasattr(bbe_i, "roconst") and hasattr(bbe_j, "roconst"):
-                if len(bbe_i.roconst) == len(bbe_j.roconst):
-                    ro_diff = np.linalg.norm(np.array(bbe_i.roconst) - np.array(bbe_j.roconst))
-            if hasattr(bbe_i, "frequency_wn") and hasattr(bbe_j, "frequency_wn"):
-                if len(bbe_i.frequency_wn) == len(bbe_j.frequency_wn) and len(bbe_i.frequency_wn) > 0:
-                    freq_diff = [np.linalg.norm(freqi - freqj) for freqi, freqj in
-                                 zip(bbe_i.frequency_wn, bbe_j.frequency_wn)]
-                    mae_freq_diff, max_freq_diff = np.mean(freq_diff), np.max(freq_diff)
-                elif len(bbe_i.frequency_wn) == len(bbe_j.frequency_wn) and len(bbe_i.frequency_wn) == 0:
-                    mae_freq_diff, max_freq_diff = 0., 0.
-            if e_diff < e_cutoff and ro_diff < ro_cutoff and mae_freq_diff < mae_freq_cutoff and max_freq_diff < max_freq_cutoff:
-                dup_list.append([files[i], files[j]])
-    return dup_list
-
+def sort_conformers(thermo_data, use_gibbs=True):
+        if use_gibbs: 
+            thermo_data.sort(key=lambda x: x.qh_gibbs_free_energy if x.qh_gibbs_free_energy is not None else 0)
+        else:
+            thermo_data.sort(key=lambda x: x.scf_energy if x.scf_energy is not None else 0)
+    
 def print_check_fails(log, check_attribute, file, attribute, option2=False):
     """Function for printing checks to the terminal"""
     unique_attr = {}
@@ -601,3 +470,99 @@ def check_files(log, files, thermo_data, options):
             print_check_fails(log, dispersion_check_spc, file_check, "dispersion models")
         log.write("\n" + STARS + "\n")
 
+def get_boltz_facs(thermo_data, temperature, use_gibbs=True):
+    """
+    Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
+    The assumption is that duplicates have already been removed!
+    Used for selectivity and boltzmann requested options.
+
+    Parameters:
+    thermo_data (dict): dict of calc_bbe objects with thermodynamic data to use for Boltzmann averaging.
+    temperature (float): temperature to compute Boltzmann populations at
+    use_gibbs (bool): use Gibbs free energy instead of energy for Boltzmann averaging.
+
+    Returns:boltz_facs, weighted_free_energy, boltz_sum
+    dict: dictionary of files with corresponding Boltzmann factors.
+    dict: dictionary of files with corresponding weighted Gibbs free energy.
+    float: Boltzmann sum computed from Boltzmann factors and Gibbs free energy.
+    """
+    
+    glob_min, boltz_sum = 0.0, 0.0
+
+    for thermo in thermo_data:  # Need the most stable structure
+        if use_gibbs is True:
+            if hasattr(thermo, "qh_gibbs_free_energy"):
+                if thermo.qh_gibbs_free_energy < glob_min:
+                    glob_min = thermo.qh_gibbs_free_energy
+        else:
+            if hasattr(thermo, "scf_energy"):
+                if thermo.scf_energy < glob_min:
+                    glob_min = thermo.scf_energy
+
+    # Calculate G_rel and Boltzmann factors
+    for thermo in thermo_data:
+        if use_gibbs is True:
+            if hasattr(thermo, "qh_gibbs_free_energy"):
+                thermo.g_rel = thermo.qh_gibbs_free_energy - glob_min # in Hartree
+                thermo.boltz_fac = math.exp(-thermo.g_rel * J_TO_AU / GAS_CONSTANT / temperature)
+                boltz_sum += thermo.boltz_fac
+        else:
+            if hasattr(thermo, "scf_energy"):
+                thermo.e_rel = thermo.scf_energy - glob_min # in Hartree
+                thermo.boltz_fac = math.exp(-thermo.e_rel * J_TO_AU / GAS_CONSTANT / temperature)
+                boltz_sum += thermo.boltz_fac
+
+    for thermo in thermo_data:
+        thermo.boltz_fac = thermo.boltz_fac / boltz_sum
+
+def get_selectivity(pattern, thermo_data, temperature):
+    """
+    Calculate selectivity as enantioselectivity/diastereomeric ratio.
+
+    Parameters:
+    pattern (str): pattern to recognize for selectivity calculation, i.e. "R":"S".
+    thermo_data (str): objects to use for selectivity calculation.
+    temperature (float)
+
+    Returns:
+    float: enantiomeric/diasteriomeric ratio.
+    str: pattern used to identify ratio.
+    float: Gibbs free energy barrier.
+    bool: flag for failed selectivity calculation.
+    str: preferred enantiomer/diastereomer configuration.
+    """
+    
+    [a_regex,b_regex] = pattern.split(':')
+    [a_regex,b_regex] = [a_regex.strip(), b_regex.strip()]
+    
+    species_a, species_b = [], []
+    for thermo in thermo_data:
+        if a_regex in thermo.name:
+            species_a.append(thermo)
+        if b_regex in thermo.name:
+            species_b.append(thermo)
+    
+    if len(species_a) + len(species_b) != len(thermo_data):
+        print(f'\n\nx  Selectivity pattern {pattern} leads to groups {a_regex} with {len(species_a)} and {b_regex} with {len(species_b)} species')
+        print(f'   However, there are {len(thermo_data)} species to match in total! Try a different pattern...\n')
+        sys.exit()
+    
+    # Add up Boltzmann Factors for the two groups
+    a_sum, b_sum = 0, 0
+    for thermo in species_a:
+        a_sum += thermo.boltz_fac
+    for thermo in species_b:
+        b_sum += thermo.boltz_fac
+    
+    # Ratio
+    A_round = round(a_sum * 100)
+    B_round = round(b_sum * 100)
+    ratio = str(A_round) + ':' + str(B_round)
+    excess = (a_sum - b_sum) / (a_sum + b_sum) * 100.0
+
+    try:
+        ddg = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(excess) / 2.0) / (50 - abs(excess) / 2.0)) * KCAL_TO_AU * np.sign(excess)
+
+    except ZeroDivisionError:
+        ddg = 0.0
+    return excess, ratio, ddg

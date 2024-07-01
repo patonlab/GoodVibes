@@ -47,10 +47,6 @@ def load_filelist(arglist, spc = False):
                         name, ext = os.path.splitext(file)
                     else:
                         sp_files.append(file)
-                        #if not (os.path.exists(name + '_' + spc + '.log') or os.path.exists(
-                        #        name + '_' + spc + '.out')) and spc != 'link':
-                        #    sys.exit(f"\n   Error! SPC output file '{name}_{spc}' not found! "
-                        #            "files should be named 'filename_spc' or specify link job.'\n")
             else:
                 user_args += elem + ' '
         except IndexError:
@@ -72,7 +68,8 @@ def get_cc_packages(log, files):
     for file in files:
         try:
             parser = cclib.io.ccopen(file)
-            package = parser.metadata['package']
+            data = parser.parse()
+            package = data.metadata['package']
             package_list.append(package)
         except:
             package_list.append('Unknown')
@@ -113,7 +110,7 @@ def get_levels_of_theory(log, species_list):
     model_chemistry =  (list(set(level_of_theory)))
 
     if len(model_chemistry) == 1:
-        log.write('   A model chemistry detected: ' + model_chemistry[0])
+        log.write('o  A model chemistry detected: ' + model_chemistry[0])
         model = model_chemistry[0]
 
     else:
@@ -401,9 +398,9 @@ def gv_summary(log, thermo_data, options):
     #    dup_list = []
 
     # Boltzmann factors and averaging over clusters
-    if options.boltz is not False:
-        boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files, thermo_data, clustering, clusters,
-                                                                options.temperature, dup_list)
+    #if options.boltz is not False:
+    #    boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files, thermo_data, clustering, clusters,
+    #                                                           options.temperature, dup_list)
 
     for bbe in thermo_data:  # Loop over the output files and compute thermochemistry
         #print(dir(bbe))
@@ -481,7 +478,7 @@ def gv_summary(log, thermo_data, options):
         if options.cosmo and cosmo_solv is not None:
             log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))
         if options.boltz is True:
-            log.write('{:7.3f}'.format(boltz_facs[file] / boltz_sum), thermodata=True)
+            log.write('{:7.3f}'.format(bbe.boltz_fac), thermodata=True)
         if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
             for freq in bbe.im_frequency_wn:
                 log.write('{:9.2f}'.format(freq), thermodata=True)
