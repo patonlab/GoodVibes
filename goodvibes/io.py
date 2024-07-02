@@ -112,7 +112,7 @@ class getoutData:
         # coordinates rather than the last, in the even that a finite
         # difference frequency calculation was performed and the displaced
         # geometries are printed.
-        self.cartesians = data.atomcoords[0].tolist()
+        self.cartesians = data.atomcoords[-1].tolist()
 
     # Convert coordinates to string that can be used by the symmetry.c program
     def coords_string(self):
