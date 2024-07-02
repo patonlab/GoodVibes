@@ -83,6 +83,16 @@ matrix:
     - python3 -m pip install .
     script:
     - pytest -v
+   - os: osx
+    language: generic
+    env: TOXENV=py311
+    dist: xenial
+    install:
+    - "./.travis-install.sh"
+    - pip3 install pytest
+    - python3 -m pip install .
+    script:
+    - pytest -v
   - os: windows
     language: shell
     before_install:
@@ -145,6 +155,23 @@ matrix:
     - pip install numpy
     - pip install cython
     env: PATH=/c/Python310:/c/Python310/Scripts:$PATH
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: windows
+    language: shell
+    before_install:
+    - choco install python --version=3.11
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install --upgrade pytest
+    - pip install codecov
+    - pip install numpy
+    - pip install cython
+    env: PATH=/c/Python311:/c/Python311/Scripts:$PATH
     install:
     - "./.travis-install.sh"
     - pip install pytest
