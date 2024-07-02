@@ -204,6 +204,6 @@ def main():
 
    # Close the log
     log.finalize()
-
+    
 if __name__ == "__main__":
     main()

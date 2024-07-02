@@ -10,7 +10,7 @@
 
 GoodVibes is a Python package to compute thermochemical data from one or a series of electronic structure calculations. It has been used since 2015 by several groups, primarily to correct the poor description of low frequency vibrations by the rigid-rotor harmonic oscillator treatment. The current version includes thermochemistry at variable temperature/concentration, various quasi-harmonic entropy and enthalpy schemes, automated detection of frequency scaling factors, Boltzmann averaging, duplicate conformer filtering, automated tabulation and plotting of energy profiles, and error checking.
 
-All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 Kelvin and 1 atmosphere. 
+All (electronic, translational, rotational and vibrational) partition functions are recomputed and will be adjusted to any temperature or concentration. These default to 298.15 Kelvin and 1 atmosphere.
 
 The program will attempt to parse the level of theory and basis set used in the calculations and then try to apply the appropriate vibrational (zpe) scaling factor. Scaling factors are taken from the [Truhlar group database](https://t1.chem.umn.edu/freqscale/index.html).
 
@@ -35,10 +35,11 @@ Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Au
 python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_cutoff_freq] [--fh H_cutoff_freq]
 [--check] [-t temperature] [-c concentration] [--ti 't_initial, t_final, step'] [--ee] [--bav "global" or "conf"]
 [--cosmo cosmo_filename] [--cosmoint cosmo_filename,initial_temp,final_temp] [-v frequency_scale_factor]
-[--vmm mm_freq_scale_factor][--ssymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf]
+[--nosymm] [--spc link/filename] [--boltz] [--dup][--pes pes_yaml] [--nogconf]
 [--graph graph_yaml] [--cpu] [--imag] [--invertifreq] [--freespace solvent_name] [--output output_name]
 [--media solvent_name] [--xyz] [--csv] [--custom_ext file_extension] <output_file(s)>
 ```
+
 See [read-the-docs: Usage](https://goodvibespy.readthedocs.io/en/latest/source/README.html#using-goodvibes) for an explanation of these arguments
 
 See [read-the-docs: Examples](https://goodvibespy.readthedocs.io/en/latest/source/README.html#examples) for example usage.
@@ -48,6 +49,7 @@ See [read-the-docs: Checks](https://goodvibespy.readthedocs.io/en/latest/source/
 #### Symmetry
 GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry. As of version 4 this uses the python interface to the [pymsym](https://github.com/corinwagen/pymsym) package.
 
+
 #### Tips and Troubleshooting
 *	The python file doesn’t need to be in the same folder as the Gaussian files. Just set the location of GoodVibes.py in the `$PATH` variable of your system (this is not necessary if installed with pip or conda)
 *	It is possible to run on any number of files at once using wildcards to specify all of the Gaussian files in a directory (specify `*.out` or `*.log`)
@@ -55,6 +57,7 @@ GoodVibes is able to detect a probable symmetry point group for each species and
 *	The script will not work if terse output was requested in the Gaussian job
 *  Problems may occur with Restart Gaussian jobs due to missing information in the output file.
 *  HF, DFT, MP2, semi-empirical, time dependent (TD) DFT and HF, ONIOM, and G4 calculations from Gaussian are also supported.
+
 
 #### Contributors
 
@@ -73,6 +76,6 @@ GoodVibes is able to detect a probable symmetry point group for each species and
 - [F Roessler](https://github.com/fdroessler)
 
 ---
-#### License: 
+#### License:
 
 GoodVibes is freely available under an [MIT](https://opensource.org/licenses/MIT) License
