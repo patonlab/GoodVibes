@@ -3,11 +3,7 @@ from __future__ import print_function, absolute_import
 
 import math, os.path, sys
 import numpy as np
-
-# PHYSICAL CONSTANTS                                      UNITS
-GAS_CONSTANT = 8.3144621  # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
-KCAL_TO_AU = 627.509541  # UNIT CONVERSION
+import goodvibes.thermo as thermo
 
 class get_pes:
     """
@@ -47,7 +43,7 @@ class get_pes:
         g_species_qhgzero (list):quasi-harmonic Gibbs free energy "zero" values used for graphing.
         g_rel_val (list): relative Gibbs free energy values used for graphing.
     """
-    def __init__(self, file, thermo_data, log, temperature, gconf, QH, cosmo=None, cosmo_int=None):
+    def __init__(self, file, thermo_data, log, temperature, gconf=True, QH=False, cosmo=None, cosmo_int=None):
         # Default values
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
 
@@ -525,7 +521,7 @@ def jitter(datasets, color, ax, nx, marker, edgecol='black'):
         ax.plot(x, y, alpha=0.5, markersize=7, color=color, marker=marker, markeredgecolor=edgecol,
                 markeredgewidth=1, linestyle='None')
 
-def graph_reaction_profile(graph_data, log, options, plt):
+def graph_reaction_profile(graph_data, options, log, plt, value='G'):
     """
     Graph a reaction profile using quasi-harmonic Gibbs free energy values.
 
@@ -540,14 +536,24 @@ def graph_reaction_profile(graph_data, log, options, plt):
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
 
+    # default to using Gibbs energy values - but change to E or H if requested
+    #sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].qh_gibbs_free_energy))
+    #if value == "E": sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].scf_energy))
+    #elif value == "H": sorted_thermo_data = dict(sorted(thermo_data.items(), key=lambda item: item[1].enthalpy))
+
     log.write("\n   Graphing Reaction Profile\n")
     data = {}
+
     # Get PES data
     for i, path in enumerate(graph_data.path):
         g_data = []
-        zero_val = graph_data.qhg_zero[i][0]
+        if value == 'G': zero_val = graph_data.qhg_zero[i][0]
+        if value == 'H': zero_val = graph_data.h_zero[i][0]
+        if value == 'E': zero_val = graph_data.e_zero[i][0]
         for j, e_abs in enumerate(graph_data.e_abs[i]):
-            species = graph_data.qhg_abs[i][j]
+            if value == 'G': species = graph_data.qhg_abs[i][j]
+            if value == 'H': species = graph_data.h_abs[i][j]
+            if value == 'E': species = graph_data.e_abs[i][j]
             relative = species - zero_val
             if graph_data.units == 'kJ/mol':
                 formatted_g = J_TO_AU / 1000.0 * relative
@@ -559,10 +565,12 @@ def graph_reaction_profile(graph_data, log, options, plt):
     # Grab any additional formatting for graph
     with open(options.graph) as f:
         yaml = f.readlines()
+
     #defaults
     ylim, color, show_conf, show_gconf, show_title = None, None, True, False, True
     label_point, label_xaxis, dpi, dec, legend = False, True, False, 2, False,
     colors, gridlines, title =  None, False, 'Potential Energy Surface'
+
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i + 1:]):
@@ -637,6 +645,7 @@ def graph_reaction_profile(graph_data, log, options, plt):
                             gridlines = True
                     except IndexError:
                         pass
+
     # Do some graphing
     Path = mpath.Path
     fig, ax = plt.subplots()
@@ -700,7 +709,9 @@ def graph_reaction_profile(graph_data, log, options, plt):
             ax.set_title(title)
         else:
             ax.set_title("Reaction Profile")
-    ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
+    if value == 'G': ax.set_ylabel(r"$G_{rel}$ (kcal / mol)")
+    if value == 'H': ax.set_ylabel(r"$H_{rel}$ (kcal / mol)")
+    if value == 'E': ax.set_ylabel(r"$E_{rel}$ (kcal / mol)")
     plt.minorticks_on()
     ax.tick_params(axis='x', which='minor', bottom=False)
     ax.tick_params(which='minor', labelright=True, right=True)
@@ -752,4 +763,372 @@ def graph_reaction_profile(graph_data, log, options, plt):
         plt.legend()
     if dpi is not False:
         plt.savefig('Rxn_profile_' + options.graph.split('.')[0] + '.png', dpi=dpi)
+    plt.show()
+
+def tabulate(thermo_data, options, log, show=False):
+    table = []
+    ''' Tabulate relative values'''
+    stars = "   " + "*" * 128
+    if options.spc: stars = stars + "*" * 23
+    if show != False:
+        if options.gconf:
+            log.write('\n   Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors\n')
+        for key in thermo_data:
+            if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
+                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
+                sys.exit(pes_error)
+            if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
+                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
+                sys.exit(pes_error)
+    # Interval applied to PES
+    if options.temperature_interval:
+        stars = stars + '*' * 22
+        for i in range(len(interval)):
+            bbe_vals = []
+            for j in range(len(interval_bbe_data)):
+                bbe_vals.append(interval_bbe_data[j][i])
+            interval_thermo_data.append(dict(zip(file_list, bbe_vals)))
+        j = 0
+        for i in interval:
+            temp = float(i)
+            if options.cosmo_int is False:
+                pes = get_pes(options.pes, interval_thermo_data[j], options, log, temp, options.gconf, options.QH)
+            else:
+                pes = get_pes(options.pes, interval_thermo_data[j], options, log, temp, options.gconf, options.QH,
+                              cosmo=True)
+            for k, path in enumerate(pes.path):
+                if options.QH:
+                    zero_vals = [pes.spc_zero[k][0], pes.e_zero[k][0], pes.zpe_zero[k][0], pes.h_zero[k][0],
+                                 pes.qh_zero[k][0], temp * pes.ts_zero[k][0], temp * pes.qhts_zero[k][0],
+                                 pes.g_zero[k][0], pes.qhg_zero[k][0]]
+                else:
+                    zero_vals = [pes.spc_zero[k][0], pes.e_zero[k][0], pes.zpe_zero[k][0], pes.h_zero[k][0],
+                                 temp * pes.ts_zero[k][0], temp * pes.qhts_zero[k][0], pes.g_zero[k][0],
+                                 pes.qhg_zero[k][0]]
+                if options.cosmo_int:
+                    zero_vals.append(pes.solv_qhg_abs[k][0])
+                if pes.boltz:
+                    e_sum, h_sum, g_sum, qhg_sum = 0.0, 0.0, 0.0, 0.0
+                    sels = []
+                    for l, e_abs in enumerate(pes.e_abs[k]):
+                        if options.QH:
+                            species = [pes.spc_abs[k][l], pes.e_abs[k][l], pes.zpe_abs[k][l], pes.h_abs[k][l],
+                                       pes.qh_abs[k][l], temp * pes.s_abs[k][l], temp * pes.qs_abs[k][l],
+                                       pes.g_abs[k][l], pes.qhg_abs[k][l]]
+                        else:
+                            species = [pes.spc_abs[k][l], pes.e_abs[k][l], pes.zpe_abs[k][l], pes.h_abs[k][l],
+                                       temp * pes.s_abs[k][l], temp * pes.qs_abs[k][l], pes.g_abs[k][l],
+                                       pes.qhg_abs[k][l]]
+                        relative = [species[x] - zero_vals[x] for x in range(len(zero_vals))]
+                        e_sum += math.exp(-relative[1] * thermo.J_TO_AU / thermo.GAS_CONSTANT / temp)
+                        h_sum += math.exp(-relative[3] * thermo.J_TO_AU / thermo.GAS_CONSTANT / temp)
+                        g_sum += math.exp(-relative[7] * thermo.J_TO_AU / thermo.GAS_CONSTANT / temp)
+                        qhg_sum += math.exp(-relative[8] * thermo.J_TO_AU / thermo.GAS_CONSTANT / temp)
+                if options.spc is False:
+                    log.write("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ")  at T: " + str(temp)))
+                    if options.QH and options.cosmo_int:
+                        log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)",
+                                                  "qh-DG(T)", 'Solv-qh-G(T)'), thermodata=True)
+                    elif options.QH:
+                        log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)",
+                                                  "qh-DG(T)"), thermodata=True)
+                    elif options.cosmo_int:
+                        log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)",
+                                                  'Solv-qh-G(T)'), thermodata=True)
+                    else:
+                        log.write('{:>13} {:>10} {:>13} {:>10} {:>10} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)"),
+                                  thermodata=True)
+                else:
+                    log.write("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ")  at T: " +
+                                                        str(temp)))
+                    if options.QH and options.cosmo_int:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} {:>14}'.format(
+                            " DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC",
+                            "qh-DG(T)_SPC", 'Solv-qh-G(T)_SPC'), thermodata=True)
+                    elif options.QH:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS",
+                                                  "T.qh-DS", "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
+                    elif options.cosmo_int:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS",
+                                                  "DG(T)_SPC", "qh-DG(T)_SPC", 'Solv-qh-G(T)_SPC'),
+                                  thermodata=True)
+                    else:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS",
+                                                  "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
+                log.write("\n" + stars)
+
+                for l, e_abs in enumerate(pes.e_abs[k]):
+                    if options.QH:
+                        species = [pes.spc_abs[k][l], pes.e_abs[k][l], pes.zpe_abs[k][l], pes.h_abs[k][l],
+                                   pes.qh_abs[k][l], temp * pes.s_abs[k][l], temp * pes.qs_abs[k][l],
+                                   pes.g_abs[k][l], pes.qhg_abs[k][l]]
+                    else:
+                        species = [pes.spc_abs[k][l], pes.e_abs[k][l], pes.zpe_abs[k][l], pes.h_abs[k][l],
+                                   temp * pes.s_abs[k][l], temp * pes.qs_abs[k][l], pes.g_abs[k][l],
+                                   pes.qhg_abs[k][l]]
+                    if options.cosmo_int:
+                        species.append(pes.solv_qhg_abs[k][l])
+                    relative = [species[x] - zero_vals[x] for x in range(len(zero_vals))]
+                    if pes.units == 'kJ/mol':
+                        formatted_list = [thermo.J_TO_AU / 1000.0 * x for x in relative]
+                    else:
+                        formatted_list = [thermo.KCAL_TO_AU * x for x in relative]  # Defaults to kcal/mol
+                    log.write("\no  ")
+                    if options.spc is False:
+                        formatted_list = formatted_list[1:]
+                        format_1 = '{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} ' \
+                                   '{:13.1f} {:13.1f}'
+                        format_2 = '{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} ' \
+                                   '{:13.2f} {:13.2f}'
+                        if options.QH and options.cosmo_int:
+                            if pes.dec == 1:
+                                log.write(format_1.format(pes.species[k][l], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write(format_2.format(pes.species[k][l], *formatted_list), thermodata=True)
+                        elif options.QH or options.cosmo_int:
+                            if pes.dec == 1:
+                                log.write(format_1.format(pes.species[k][l], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write(format_2.format(pes.species[k][l], *formatted_list), thermodata=True)
+                        else:
+                            if pes.dec == 1:
+                                log.write(format_1.format(pes.species[k][l], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write(format_2.format(pes.species[k][l], *formatted_list), thermodata=True)
+                    else:
+                        if options.QH and options.cosmo_int:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} '
+                                          '{:13.1f} {:13.1f} {:13.1f}'.format(pes.species[k][l], *formatted_list),
+                                          thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f} {:13.2f}'.format(
+                                        pes.species[k][l], *formatted_list), thermodata=True)
+                        elif options.QH or options.cosmo_int:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                        pes.species[k][l], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                        pes.species[k][l], *formatted_list), thermodata=True)
+                        else:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} {:13.1f}'.format(
+                                        pes.species[k][l], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} {:13.2f}'.format(
+                                        pes.species[k][l], *formatted_list), thermodata=True)
+                    if pes.boltz:
+                        boltz = [math.exp(-relative[1] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / e_sum,
+                                 math.exp(-relative[3] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / h_sum,
+                                 math.exp(-relative[6] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / g_sum,
+                                 math.exp(-relative[7] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / qhg_sum]
+                        selectivity = [boltz[x] * 100.0 for x in range(len(boltz))]
+                        log.write("\n  " + '{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
+                        sels.append(selectivity)
+                    formatted_list = [round(formatted_list[x], 6) for x in range(len(formatted_list))]
+                if pes.boltz == 'ee' and len(sels) == 2:
+                    ee = [sels[0][x] - sels[1][x] for x in range(len(sels[0]))]
+                    if options.spc is False:
+                        log.write("\n" + stars + "\n   " + '{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)',
+                                                                                                          *ee))
+                    else:
+                        log.write("\n" + stars + "\n   " + '{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)',
+                                                                                                          *ee))
+                log.write("\n" + stars + "\n")
+            j += 1
+    else:
+        if options.cosmo:
+            pes = get_pes(thermo_data, options, log, cosmo=True)
+        else:
+            pes = get_pes(options.pes, thermo_data, log, options.temperature, options.gconf, options.QH)
+
+        # Output the relative energy data
+        for i, path in enumerate(pes.path):
+            if options.QH:
+                zero_vals = [pes.spc_zero[i][0], pes.e_zero[i][0], pes.zpe_zero[i][0], pes.h_zero[i][0],
+                             pes.qh_zero[i][0], options.temperature * pes.ts_zero[i][0],
+                             options.temperature * pes.qhts_zero[i][0], pes.g_zero[i][0], pes.qhg_zero[i][0]]
+            else:
+                zero_vals = [pes.spc_zero[i][0], pes.e_zero[i][0], pes.zpe_zero[i][0], pes.h_zero[i][0],
+                             options.temperature * pes.ts_zero[i][0], options.temperature * pes.qhts_zero[i][0],
+                             pes.g_zero[i][0], pes.qhg_zero[i][0]]
+            if options.cosmo:
+                zero_vals.append(pes.solv_qhg_zero[i][0])
+            if pes.boltz:
+                e_sum, h_sum, g_sum, qhg_sum, solv_qhg_sum = 0.0, 0.0, 0.0, 0.0, 0.0
+                sels = []
+                for j, e_abs in enumerate(pes.e_abs[i]):
+                    if options.QH:
+                        species = [pes.spc_abs[i][j], pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j],
+                                   pes.qh_abs[i][j], options.temperature * pes.s_abs[i][j],
+                                   options.temperature * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
+                    else:
+                        species = [pes.spc_abs[i][j], pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j],
+                                   options.temperature * pes.s_abs[i][j], options.temperature * pes.qs_abs[i][j],
+                                   pes.g_abs[i][j], pes.qhg_abs[i][j]]
+                    if options.cosmo:
+                        species.append(pes.solv_qhg_abs[i][j])
+
+                    relative = [species[x] - zero_vals[x] for x in range(len(zero_vals))]
+                    e_sum += math.exp(-relative[1] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature)
+                    h_sum += math.exp(-relative[3] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature)
+                    g_sum += math.exp(-relative[7] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature)
+                    qhg_sum += math.exp(-relative[8] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature)
+                    solv_qhg_sum += math.exp(-relative[9] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature)
+
+            if show != False:
+                if options.spc is False:
+                    log.write("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ") ", ))
+                    if options.QH and options.cosmo:
+                        log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)",
+                                                  'Solv-qh-G(T)'), thermodata=True)
+                    elif options.QH:
+                        log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "qh-DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)"),
+                                  thermodata=True)
+                    elif options.cosmo:
+                        log.write('{:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)",
+                                                  'Solv-qh-G(T)'), thermodata=True)
+                    else:
+                        log.write('{:>13} {:>10} {:>13} {:>10} {:>10} {:>13} '
+                                  '{:>13}'.format(" DE", "DZPE", "DH", "T.DS", "T.qh-DS", "DG(T)", "qh-DG(T)"),
+                                  thermodata=True)
+                else:
+                    log.write("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ") ", ))
+                    if options.QH and options.cosmo:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS",
+                                                  "DG(T)_SPC", "qh-DG(T)_SPC", 'Solv-qh-G(T)_SPC'), thermodata=True)
+                    elif options.QH:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "qh-DH_SPC", "T.DS", "T.qh-DS",
+                                                  "DG(T)_SPC", "qh-DG(T)_SPC"), thermodata=True)
+                    elif options.cosmo:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS",
+                                                  "DG(T)_SPC", "qh-DG(T)_SPC", 'Solv-qh-G(T)_SPC'), thermodata=True)
+                    else:
+                        log.write('{:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>14} '
+                                  '{:>14}'.format(" DE_SPC", "DE", "DZPE", "DH_SPC", "T.DS", "T.qh-DS", "DG(T)_SPC",
+                                                  "qh-DG(T)_SPC"), thermodata=True)
+
+                log.write("\n" + stars)
+
+            for j, e_abs in enumerate(pes.e_abs[i]):
+                if options.QH:
+                    species = [pes.spc_abs[i][j], pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j],
+                               pes.qh_abs[i][j], options.temperature * pes.s_abs[i][j],
+                               options.temperature * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
+                else:
+                    species = [pes.spc_abs[i][j], pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j],
+                               options.temperature * pes.s_abs[i][j], options.temperature * pes.qs_abs[i][j],
+                               pes.g_abs[i][j], pes.qhg_abs[i][j]]
+                if options.cosmo:
+                    species.append(pes.solv_qhg_abs[i][j])
+                relative = [species[x] - zero_vals[x] for x in range(len(zero_vals))]
+                if pes.units == 'kJ/mol':
+                    formatted_list = [thermo.J_TO_AU / 1000.0 * x for x in relative]
+                else:
+                    formatted_list = [thermo.KCAL_TO_AU * x for x in relative]  # Defaults to kcal/mol
+                if show != False: log.write("\no  ")
+                if options.spc is False:
+                    formatted_list = formatted_list[1:]
+                    if show != False:
+                        if options.QH and options.cosmo:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} '
+                                          '{:13.1f} {:13.1f}'.format(pes.species[i][j], *formatted_list),
+                                          thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} '
+                                          '{:13.2f} {:13.2f}'.format(pes.species[i][j], *formatted_list),
+                                          thermodata=True)
+                        elif options.QH or options.cosmo:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} '
+                                          '{:13.1f}'.format(pes.species[i][j], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} '
+                                          '{:13.2f}'.format(pes.species[i][j], *formatted_list), thermodata=True)
+                        else:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} '
+                                          '{:13.1f}'.format(pes.species[i][j], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} '
+                                          '{:13.2f}'.format(pes.species[i][j], *formatted_list), thermodata=True)
+                else:
+                    if show != False:
+                        if options.QH and options.cosmo:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} '
+                                          '{:13.1f} {:13.1f} {:13.1f}'.format(pes.species[i][j], *formatted_list),
+                                          thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} '
+                                          '{:13.2f} {:13.2f} {:13.2f}'.format(pes.species[i][j], *formatted_list),
+                                          thermodata=True)
+                        elif options.QH or options.cosmo:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:13.1f} {:10.1f} {:10.1f} '
+                                          '{:13.1f} {:13.1f}'.format(pes.species[i][j], *formatted_list),
+                                          thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.1f} {:13.2f} {:10.2f} {:13.2f} {:13.2f} {:10.2f} {:10.2f} '
+                                          '{:13.2f} {:13.2f}'.format(pes.species[i][j], *formatted_list),
+                                          thermodata=True)
+                        else:
+                            if pes.dec == 1:
+                                log.write('{:<39} {:13.1f} {:13.1f} {:10.1f} {:13.1f} {:10.1f} {:10.1f} {:13.1f} '
+                                          '{:13.1f}'.format(pes.species[i][j], *formatted_list), thermodata=True)
+                            if pes.dec == 2:
+                                log.write('{:<39} {:13.2f} {:13.2f} {:10.2f} {:13.2f} {:10.2f} {:10.2f} {:13.2f} '
+                                          '{:13.2f}'.format(pes.species[i][j], *formatted_list), thermodata=True)
+                if pes.boltz:
+                    boltz = [math.exp(-relative[1] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / e_sum,
+                             math.exp(-relative[3] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / h_sum,
+                             math.exp(-relative[6] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / g_sum,
+                             math.exp(-relative[7] * thermo.J_TO_AU / thermo.GAS_CONSTANT / options.temperature) / qhg_sum]
+                    selectivity = [boltz[x] * 100.0 for x in range(len(boltz))]
+                    log.write("\n  " + '{:<39} {:13.2f}%{:24.2f}%{:35.2f}%{:13.2f}%'.format('', *selectivity))
+                    sels.append(selectivity)
+                formatted_list = [round(formatted_list[x], 6) for x in range(len(formatted_list))]
+                table.append(formatted_list)
+            if pes.boltz == 'ee' and len(sels) == 2:
+                ee = [sels[0][x] - sels[1][x] for x in range(len(sels[0]))]
+                if show != False:
+                    if options.spc is False:
+                        log.write("\n" + stars + "\n   " + '{:<39} {:13.1f}%{:24.1f}%{:35.1f}%{:13.1f}%'.format('ee (%)', *ee))
+                    else:
+                        log.write("\n" + stars + "\n   " + '{:<39} {:27.1f} {:24.1f} {:35.1f} {:13.1f} '.format('ee (%)', *ee))
+            if show != False: log.write("\n" + stars + "\n")
+
+    return pes.species, table
+
+def sel_striplot(a_name, b_name, a_files, b_files, thermo_data, plt):
+    import seaborn
+    names = [a_name] * len(a_files) + [b_name] * len(b_files)
+
+    a_thermo = [thermo_data[a] for a in a_files]
+    b_thermo = [thermo_data[b] for b in b_files]
+
+    a_energy = [item.scf_energy for item in a_thermo]
+    b_energy = [item.scf_energy for item in b_thermo]
+    glob_min = min(a_energy+b_energy)
+
+    a_energy = [(en - glob_min) * KCAL_TO_AU for en in a_energy]
+    b_energy = [(en - glob_min) * KCAL_TO_AU for en in b_energy]
+
+    seaborn.set(style = 'whitegrid')
+    seaborn.stripplot(x=names, y=a_energy+b_energy, jitter=0.1)
     plt.show()
