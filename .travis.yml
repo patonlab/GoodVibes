@@ -33,6 +33,16 @@ matrix:
     - python -m pip install .
     script:
     - pytest -v
+  - os: linux
+    python: 3.11
+    env: TOXENV=py311
+    dist: focal
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
   - os: osx
     language: generic
     env: TOXENV=py37
