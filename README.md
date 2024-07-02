@@ -40,11 +40,11 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 [--media solvent_name] [--xyz] [--csv] [--custom_ext file_extension] <output_file(s)>
 ```
 
-See [read-the-docs: Usage](https://goodvibespy.readthedocs.io/en/latest/source/README.html#using-goodvibes) for an explanation of these arguments
+[**Usage**](https://goodvibespy.readthedocs.io/en/latest/source/README.html#using-goodvibes) for an explanation of these arguments
 
-See [read-the-docs: Examples](https://goodvibespy.readthedocs.io/en/latest/source/README.html#examples) for example usage.
+[**Examples**](https://goodvibespy.readthedocs.io/en/latest/source/README.html#examples) for example usage.
 
-See [read-the-docs: Checks](https://goodvibespy.readthedocs.io/en/latest/source/README.html#checks) for information on automated job checking
+[**Checks**](https://goodvibespy.readthedocs.io/en/latest/source/README.html#checks) for information on automated job checking
 
 #### Symmetry
 GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry. As of version 4 this uses the python interface to the [pymsym](https://github.com/corinwagen/pymsym) package.
