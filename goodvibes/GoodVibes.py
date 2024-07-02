@@ -239,8 +239,8 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
         log.write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
         failed = True
     ee = abs(ee)
-    if ee > 99.99:
-        ee = 99.99
+    #if ee > 99.99:
+    #    ee = 99.99
     try:
         dd_free_energy = GAS_CONSTANT / J_TO_AU * temperature * math.log((50 + abs(ee) / 2.0) / (50 - abs(ee) / 2.0)) * KCAL_TO_AU
     except ZeroDivisionError:
