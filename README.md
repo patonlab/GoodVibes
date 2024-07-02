@@ -47,7 +47,7 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 [**Checks**](https://goodvibespy.readthedocs.io/en/latest/source/README.html#checks) for information on automated job checking
 
 #### Symmetry
-GoodVibes is able to detect a probable symmetry point group for each species and apply a symmetry correction to the entropy (S<sub>sym</sub>) by finding a molecule's internal symmetry. As of version 4 this uses the python interface to the [pymsym](https://github.com/corinwagen/pymsym) package.
+GoodVibes is able to detect a probable point group for each species and apply a symmetry correction to the entropy. As of version 4 this uses the python interface to the [pymsym](https://github.com/corinwagen/pymsym) package.
 
 
 #### Tips and Troubleshooting
