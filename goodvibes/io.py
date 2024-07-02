@@ -119,8 +119,6 @@ def get_levels_of_theory(log, species_list):
             log.write('\n   Multiple levels of theory detected: ' + model)
         model = 'mixed'
 
-    return model
-
 def cosmo_rs_out(datfile, names, interval=False):
     """
     Read solvation free energies from a COSMO-RS data file

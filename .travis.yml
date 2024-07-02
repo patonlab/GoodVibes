@@ -4,17 +4,6 @@ dist: trusty
 matrix:
   include:
   - os: linux
-    python: 3.6
-    env: TOXENV=py36
-    dist: trusty
-    install:
-    - "./.travis-install.sh"
-    - pip install pytest
-    - pip install --upgrade numpy
-    - python -m pip install .
-    script:
-    - pytest -v
-  - os: linux
     python: 3.8
     env: TOXENV=py38
     dist: xenial
@@ -44,13 +33,14 @@ matrix:
     - python -m pip install .
     script:
     - pytest -v
-  - os: osx
-    language: generic
-    env: TOXENV=py36
+  - os: linux
+    python: 3.11
+    env: TOXENV=py311
+    dist: focal
     install:
     - "./.travis-install.sh"
-    - pip3 install pytest
-    - python3 -m pip install .
+    - pip install pytest
+    - python -m pip install .
     script:
     - pytest -v
   - os: osx
@@ -93,21 +83,14 @@ matrix:
     - python3 -m pip install .
     script:
     - pytest -v
-  - os: windows
-    language: shell
-    before_install:
-    - choco install python --version=3.6
-    - python --version
-    - python -m pip install --upgrade pip
-    - pip install --upgrade pytest
-    - pip install codecov
-    - pip install numpy
-    - pip install cython
-    env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
+   - os: osx
+    language: generic
+    env: TOXENV=py311
+    dist: xenial
     install:
     - "./.travis-install.sh"
-    - pip install pytest
-    - python -m pip install .
+    - pip3 install pytest
+    - python3 -m pip install .
     script:
     - pytest -v
   - os: windows
@@ -172,6 +155,23 @@ matrix:
     - pip install numpy
     - pip install cython
     env: PATH=/c/Python310:/c/Python310/Scripts:$PATH
+    install:
+    - "./.travis-install.sh"
+    - pip install pytest
+    - python -m pip install .
+    script:
+    - pytest -v
+  - os: windows
+    language: shell
+    before_install:
+    - choco install python --version=3.11
+    - python --version
+    - python -m pip install --upgrade pip
+    - pip install --upgrade pytest
+    - pip install codecov
+    - pip install numpy
+    - pip install cython
+    env: PATH=/c/Python311:/c/Python311/Scripts:$PATH
     install:
     - "./.travis-install.sh"
     - pip install pytest

@@ -1,5 +1,5 @@
-![GoodVibes](https://github.com/patonlab/GoodVibes/blob/GV4/GoodVibes.png)
-===
+![GoodVibes](https://github.com/patonlab/GoodVibes/blob/master/GoodVibes.png)
+
 
 [![Build Status](https://app.travis-ci.com/patonlab/GoodVibes.svg?branch=master)](https://app.travis-ci.com/github/patonlab/GoodVibes)
 [![PyPI version](https://badge.fury.io/py/goodvibes.svg)](https://badge.fury.io/py/goodvibes)
