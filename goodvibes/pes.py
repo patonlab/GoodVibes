@@ -5,11 +5,6 @@ import math, os.path, sys
 import numpy as np
 import goodvibes.thermo as thermo
 
-# PHYSICAL CONSTANTS                                      UNITS
-GAS_CONSTANT = 8.3144621  # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
-KCAL_TO_AU = 627.509541  # UNIT CONVERSION
-
 class get_pes:
     """
     Obtain relative thermochemistry between species and for reactions.
@@ -677,8 +672,8 @@ def graph_reaction_profile(graph_data, options, log, plt, value='G'):
                          [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
                     fc="none", transform=ax.transData, color=color)
             ax.add_patch(path_patch)
-            plt.hlines(data[path][j], j - 0.15, j + 0.15)
-        plt.hlines(data[path][-1], len(data[path]) - 1.15, len(data[path]) - 0.85)
+            plt.hlines(data[path][j], j - 0.15, j + 0.15,colors=['k'])
+        plt.hlines(data[path][-1], len(data[path]) - 1.15, len(data[path]) - 0.85,colors=['k'])
 
     if show_conf:
         markers = ['o', 's', 'x', 'P', 'D']
