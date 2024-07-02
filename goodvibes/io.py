@@ -7,7 +7,7 @@ import os.path
 import sys
 import time
 from glob import glob
-import xyz2mol
+import goodvibes.xyz2mol as xyz2mol
 from rdkit import Chem
 import cclib
 
