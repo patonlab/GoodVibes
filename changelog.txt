@@ -1,0 +1,92 @@
+# GoodVibes changelog
+
+## 3.0.1
+- Symmetry entropy correction included for Windows, macOS and Linux operating systems
+
+## 3.0.0 
+
+2019-07-22
+
+### Added
+
+- Writes thermochemical data to .CSV
+- Quasi-harmonic enthalpy correction implementation (applies to zeolitic systems, as per Head-Gordon et al.)
+- Checks for similar level of theory, program version, solvation, 
+    detection of potential duplicates, linear molecules, valid transition states,
+    and empirical dispersion for frequency and single-point calculations
+- Correction for entropy based on solvent molecule standard concentration 
+- Correction to free energy related to multiple accessible conformers in potential energy surface
+- Graphing of potential energy surface 
+- Using temperature intervals with potential energy surface calculations
+- Using temperature intervals with COSMO-RS interval calculations
+- Correction to entropy related to molecular symmetry
+- Selectivity calculations for %ee, er, dr
+- Ability to convert low-lying imaginary frequencies to positive values
+- Method for detecting duplicate structures, exclusion from potential further Boltzmann weighting
+
+### Fixed
+
+- Temperature interval works with single point calculation energy files
+
+### Improved 
+
+- Updated vibrational scaling-factors based on Truhlar's database
+- More methods working better together
+		- Can use --spc with --cosmo
+		- Can use --spc with --cosmo_int
+		- Can use --ti with --pes
+		- Can use --ti with --spc
+- Added more helpful/relevant error messages
+- Minor Pythonic speed enhancements
+- Test cases for implemented methods
+- More comments!
+
+## 2.0.3
+
+2018-09-26
+
+- Imaginary frequency analysis
+- Boltzmann weighting
+- Selectivity prediction from multiple structures
+- Improved printing including CSV option
+- Total CPU time from all calculations, including single points
+- Single point corrections include Orca output
+- reads COSMO-RS solvation free energies
+- collected xyz output
+- installation via pip install goodvibes
+- installation via conda -c patonlab goodvibes
+
+## 2.0.2
+
+2018-05-16
+
+### Fixed 
+
+- run as python -m goodvibes
+
+## 2.0.1
+
+2017-09-04
+
+### Added
+
+- Supports external single point energies (Gaussian or Orca)
+- Writes Cartesians to xyz file
+
+## 1.0.2
+
+2017-08-10
+
+### Added
+
+- Automatically detects level of theory and applies scaling-factor from Truhlar's database
+- Supports linked jobs containing single point energies
+- GoodVibes.py -h now prints out all available options
+
+### Improved
+
+- More pythonic
+- Fixed monoatomic species
+- Minor fixes to output formatting
+
+
