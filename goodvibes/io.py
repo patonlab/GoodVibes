@@ -7,11 +7,13 @@ import os.path
 import sys
 import time
 from glob import glob
-import goodvibes.xyz2mol as xyz2mol
+import pandas as pd
 from rdkit import Chem
 import cclib
 
-from goodvibes.utils import ATMOS, GAS_CONSTANT, KCAL_TO_AU
+import goodvibes.xyz2mol as xyz2mol
+from goodvibes.utils import KCAL_TO_AU
+from goodvibes.version import __version__
 
 # compchem packages supported by GoodVibes
 SUPPORTED_PACKAGES = set(('Gaussian', 'ORCA', 'QChem'))
@@ -56,9 +58,14 @@ def load_filelist(arglist, spc = False):
     if spc is not False and spc != 'link':
         filenames = [os.path.basename(file).split('.')[0] for file in files]
         spnames = [os.path.basename(file).split('.')[0] for file in sp_files]
+        sp_starts = [name.split('_'+spc)[0] for name in spnames]
+
         for name in filenames:
             if not name+'_'+spc in spnames:
                 sys.exit(f"\n   Error! SPC output {name}_{spc} not found!\n")
+
+        # remove any superfluous sp files
+        sp_files = [file for file,start in zip(sp_files,sp_starts) if start in filenames]
 
     return files, sp_files, user_args
 
@@ -71,15 +78,15 @@ def get_cc_packages(log, files):
             data = parser.parse()
             package = data.metadata['package']
             package_list.append(package)
-        except:
+        except KeyError:
             package_list.append('Unknown')
-            log.write('\n   ! Unable to parse {} !'.format(file) + '\n')
+            log.write(f'\n   ! Unable to parse {file} !\n')
 
     for package in list(set(package_list)):
         if package not in SUPPORTED_PACKAGES:
             log.write('\nx  Warning: Unsupported package detected: ' + package + ' !\n')
         else:
-            log.write('\no  Supported compchem packages detected: ' + package)
+            log.write('\no  Supported compchem packages detected: ' + package+'\n')
 
     return package_list
 
@@ -93,7 +100,7 @@ def get_cc_species(log, files, package_list):
             data.name = os.path.basename(file.split('.')[0])
             species_list.append(data)
         else:
-            log.write('\n   ! Unable to parse {} !'.format(file) + '\n')
+            log.write(f'\n   ! Unable to parse {file} !\n')
     return species_list
 
 def get_levels_of_theory(log, species_list):
@@ -111,13 +118,15 @@ def get_levels_of_theory(log, species_list):
 
     if len(model_chemistry) == 1:
         if model_chemistry[0] != 'Unknown':
-            log.write('\no  A model chemistry detected: ' + model_chemistry[0])
+            log.write('\no  A model chemistry detected: ' + model_chemistry[0] + '!')
         model = model_chemistry[0]
 
     else:
         for model in model_chemistry:
             log.write('\n   Multiple levels of theory detected: ' + model)
         model = 'mixed'
+
+    return model
 
 def cosmo_rs_out(datfile, names, interval=False):
     """
@@ -133,7 +142,7 @@ def cosmo_rs_out(datfile, names, interval=False):
         with open(datfile) as f:
             data = f.readlines()
     else:
-        raise ValueError("File {} does not exist".format(datfile))
+        raise ValueError(f"File {datfile} does not exist")
 
     temp = 0
     t_interval = []
@@ -182,7 +191,7 @@ def cosmo_rs_out(datfile, names, interval=False):
 
 
 ''' Functions used to write structure files '''
-class xyz_out:
+class Xyz_Out:
     """
     Enables output of optimized coordinates to a single xyz-formatted file.
     Writes Cartesian coordinates of parsed chemical input.
@@ -199,9 +208,9 @@ class xyz_out:
     def write_coords(self, atoms, coords):
         '''Writes the atoms and coordinates to the xyz file.'''
         for n, carts in enumerate(coords):
-            self.xyz.write('{:>1}'.format(atoms[n]))
+            self.xyz.write(f'{atoms[n]:>1}')
             for cart in carts:
-                self.xyz.write('{:13.6f}'.format(cart))
+                self.xyz.write(f'{cart:13.6f}')
             self.xyz.write('\n')
 
     def finalize(self):
@@ -210,16 +219,15 @@ class xyz_out:
 
 def write_to_xyz(log, thermo_data, filename):
     '''Writes the optimized coordinates of the species to a single xyz-formatted file.'''
-    xyz = xyz_out(filename)
+    xyz = Xyz_Out(filename)
     for bbe in thermo_data:
         if hasattr(bbe, "atomtypes") and hasattr(bbe, "cartesians") and  hasattr(bbe, "qh_gibbs_free_energy"):
             xyz.write_text(str(len(bbe.atomtypes)))
             xyz.write_text(
-                    '{:<39} {:>13} {:13.6f}'.format(os.path.splitext(os.path.basename(bbe.name))[0], 'qh-G(',
-                                                    bbe.qh_gibbs_free_energy))
+                    f'{bbe.name:<39} qh-g: {bbe.qh_gibbs_free_energy:13.6f}')
             xyz.write_coords(bbe.atomtypes, bbe.cartesians)
         else:
-            log.write("\nx  Error writing {} to XYZ ...".format(bbe.name))
+            log.write(f"\nx  Error writing {bbe.name} to XYZ ...")
     xyz.finalize()
 
 def write_to_sdf(log, thermo_data, filename):
@@ -238,10 +246,10 @@ def write_to_sdf(log, thermo_data, filename):
                     mol.SetProp('qh-S', str(bbe.qh_entropy))
                     mol.SetProp('G(T)', str(bbe.gibbs_free_energy))
                     mol.SetProp('qh-G(T)', str(bbe.qh_gibbs_free_energy))
-                    mol.SetProp('im freq', str(bbe.im_frequency_wn))
+                    mol.SetProp('im freq', str(bbe.im_freq))
                     w.write(mol)
-            except:
-                log.write("\nx  Error writing {} to SDF ...".format(bbe.name))
+            except ValueError:
+                log.write(f"\nx  Error writing {bbe.name} to SDF ...")
 
 
 ''' Logger class and functions used for writing to terminal and file'''
@@ -256,23 +264,29 @@ class Logger:
         log (file object): file to write GV output to.
         thermodata (bool): decides if string passed to logger is thermochemical data, needing to be separated by commas
     """
-    def __init__(self, filein, append, csv):
-        self.csv = csv
-        if not self.csv:
-            suffix = 'dat'
-        else:
-            suffix = 'csv'
-        self.log = open('{0}_{1}.{2}'.format(filein, append, suffix), 'w')
+    def __init__(self, filein, append):
+        log_file = filein+'_'+append+'.dat'
+        self.log = open(log_file, 'w')
 
-    def write(self, message, thermodata=False):
+    def write(self, message):
         '''Writes a string to the log file.'''
-        self.thermodata = thermodata
         print(message, end='')
-        if self.csv and self.thermodata:
-            items = message.split()
-            message = ",".join(items)
-            message = message + ","
         self.log.write(message)
+
+    def write_df(self, df, dp=5):
+        '''Writes a dataframe to the log file using {dp} decimal places.'''
+
+        if dp == 3:
+            pd.options.display.float_format = '{:.3f}'.format
+        if dp == 4:
+            pd.options.display.float_format = '{:.4f}'.format
+        elif dp == 6:
+            pd.options.display.float_format = '{:.6f}'.format
+        else:
+            pd.options.display.float_format = '{:.5f}'.format
+
+        print(df)
+        self.log.write(df.to_string())
 
     def fatal(self, message):
         '''Writes a fatal error message to the log file and exits the program.'''
@@ -285,7 +299,7 @@ class Logger:
         '''Closes the log file.'''
         self.log.close()
 
-def gv_header(log, files, options, __version__):
+def gv_header(log, files, temp=298.15, temperature_interval=False, conc=False, cosmo_int=False, cosmo = False, s_freq_cutoff=100.0, h_freq_cutoff=100.0, qs='grimme', qh=False, spc=False, media=False):
     '''Prints the header of the GoodVibes output file.'''
 
     start = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
@@ -296,198 +310,97 @@ def gv_header(log, files, options, __version__):
         sys.exit("\n   Please provide GoodVibes with calculation output files on the command line.\n"
                 "   For help, use option '-h'\n")
 
-    if options.temperature_interval is False:
-        log.write("   Temperature = " + str(options.temperature) + " Kelvin")
+    if temperature_interval is False:
+        log.write("   Temperature = " + str(temp) + " Kelvin")
 
     # If not at standard temp, need to correct the molarity of 1 atmosphere (assuming pressure is still 1 atm)
-    if options.conc:
-        log.write("   Concentration = " + str(options.conc) + " mol/L")
+    if conc:
+        log.write("   Concentration = " + str(conc) + " mol/L")
     else:
-        options.conc = ATMOS / (GAS_CONSTANT * options.temperature)
         log.write("   Pressure = 1 atm")
     log.write('\n   All energetic values below shown in Hartree unless otherwise specified.')
 
     # COSMO-RS temperature interval
-    if options.cosmo_int:
-        args = options.cosmo_int.split(',')
+    if cosmo_int:
+        args = cosmo_int.split(',')
         cfile = args[0]
         cinterval = args[1:]
         log.write('\n\n   Reading COSMO-RS file: ' + cfile + ' over a T range of ' + cinterval[0] + '-' +
                 cinterval[1] + ' K.')
 
         t_interval, gsolv_dicts = cosmo_rs_out(cfile, files, interval=cinterval)
-        options.temperature_interval = True
+        temperature_interval = True
 
-    elif options.cosmo is not False:  # Read from COSMO-RS output
+    elif cosmo is not False:  # Read from COSMO-RS output
         try:
-            cosmo_solv = cosmo_rs_out(options.cosmo, files)
-            log.write('\n\n   Reading COSMO-RS file: ' + options.cosmo)
+            cosmo_solv = cosmo_rs_out(cosmo, files)
+            log.write('\n\n   Reading COSMO-RS file: ' + cosmo)
         except ValueError:
             cosmo_solv = None
-            log.write('\n\n   Warning! COSMO-RS file ' + options.cosmo + ' requested but not found')
-
-    if options.freq_cutoff != 100.0:
-        options.S_freq_cutoff = options.freq_cutoff
-        options.H_freq_cutoff = options.freq_cutoff
+            log.write('\n\n   Warning! COSMO-RS file ' + cosmo + ' requested but not found')
 
     # Summary of the quasi-harmonic treatment; print out the relevant reference
     log.write("\n\n   Entropic quasi-harmonic treatment: frequency cut-off value of " + str(
-        options.S_freq_cutoff) + " wavenumbers will be applied.")
-    if options.QS == "grimme":
+        s_freq_cutoff) + " wavenumbers will be applied.")
+    if qs == "grimme":
         log.write("\n   QS = Grimme: Using a mixture of RRHO and Free-rotor vibrational entropies.")
         qs_ref = GRIMME_REF
-    elif options.QS == "truhlar":
+    elif qs == "truhlar":
         log.write("\n   QS = Truhlar: Using an RRHO treatment where low frequencies are adjusted to the cut-off value.")
         qs_ref = TRUHLAR_REF
     else:
-        log.fatal("\n   FATAL ERROR: Unknown quasi-harmonic model " + options.QS + " specified (QS must = grimme or truhlar).")
+        log.fatal("\n   FATAL ERROR: Unknown quasi-harmonic model " + qs + " specified (QS must = grimme or truhlar).")
     log.write("\n   REF: " + qs_ref + '\n')
 
     # Check if qh-H correction should be applied
-    if options.QH:
+    if qh is not False:
         log.write("\n\n   Enthalpy quasi-harmonic treatment: frequency cut-off value of " + str(
-            options.H_freq_cutoff) + " wavenumbers will be applied.")
+            h_freq_cutoff) + " wavenumbers will be applied.")
         log.write("\n   QH = Head-Gordon: Using an RRHO treatement with an approximation term for vibrational energy.")
         qh_ref = HEAD_GORDON_REF
         log.write("\n   REF: " + qh_ref + '\n')
 
     # Whether single-point energies are to be used
-    if options.spc:
+    if spc:
         log.write("\n   Combining final single point energy with thermal corrections.")
     # Solvent correction message
-    if options.media:
+    if media:
         log.write("\n   Applying standard concentration correction (based on density at 20C) to solvent media.")
 
-def gv_summary(log, thermo_data, options):
-    '''Prints the main summary to the GoodVibes output file.'''
-    if options.spc is False:
-        log.write("\n\n   ")
-        if options.QH:
-            log.write('{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
-                        '{:>13}'.format("Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),
-                        thermodata=True)
-        else:
-            log.write('{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H",
-                                                                                        "T.S", "T.qh-S", "G(T)",
-                                                                                        "qh-G(T)"), thermodata=True)
+def gv_tabulate(thermo_data):
+    '''Returns a pandas DataFrame of the thermochemical data.'''
+    thermo_df = pd.DataFrame([vars(dat) for dat in thermo_data])
+    return thermo_df
+
+def gv_summary(gv_df, spc=False, symm=False, imag=False, boltz=False):
+    '''Print a summary of the thermochemistry for the species in the log files'''    
+
+    if spc is not False:
+        columns = ['name', 'charge', 'mult', 'sp_energy', 'scf_energy', 'zpe', 'sp_enthalpy', 'ts', 'qhts',
+            'sp_gibbs_free_energy', 'sp_qh_gibbs_free_energy']
+
     else:
-        log.write("\n\n   ")
-        if options.QH:
-            log.write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
-                        '{:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
-                                        "G(T)_SPC", "qh-G(T)_SPC"), thermodata=True)
-        else:
-            log.write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} '
-                        '{:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
-                                        "qh-G(T)_SPC"), thermodata=True)
-    if options.cosmo is not False:
-        log.write('{:>13} {:>16}'.format("COSMO-RS", "COSMO-qh-G(T)"), thermodata=True)
-    if options.boltz is True:
-        log.write('{:>7}'.format("Boltz"), thermodata=True)
-    if options.imag_freq is True:
-        log.write('{:>9}'.format("im freq"), thermodata=True)
-    if options.ssymm:
-        log.write('{:>13}'.format("Point Group"), thermodata=True)
-    #log.write("\n" + stars + "")
+        columns = ['name', 'charge', 'mult', 'scf_energy', 'zpe', 'enthalpy', 'ts', 'qhts',
+            'gibbs_free_energy', 'qh_gibbs_free_energy']
 
-    # Look for duplicates or enantiomers
-    #if options.duplicate:
-    #    dup_list = check_dup(files, thermo_data)
-    #else:
-    #    dup_list = []
+    if symm is not False:
+        columns += ['point_group']
+    if imag is not False:
+        columns += ['im_freq']
+    if boltz is not False:
+        columns += ['boltz_fac']
 
-    # Boltzmann factors and averaging over clusters
-    #if options.boltz is not False:
-    #    boltz_facs, weighted_free_energy, boltz_sum = get_boltz(files, thermo_data, clustering, clusters,
-    #                                                           options.temperature, dup_list)
+    nice_df = gv_df[columns].copy()
 
-    for bbe in thermo_data:  # Loop over the output files and compute thermochemistry
-        #print(dir(bbe))
-        #duplicate = False
-        #if len(dup_list) != 0:
-        #    for dup in dup_list:
-        #        if dup[0] == file:
-        #            duplicate = True
-        #            log.write('\nx  {} is a duplicate or enantiomer of {}'.format(dup[0].rsplit('.', 1)[0],
-        #                                                                            dup[1].rsplit('.', 1)[0]))
-        #            break
-        #if not duplicate:
-        #    bbe = thermo_data[file]
+    nice_df.rename(columns={'name': 'Species', 'charge': 'chg', 'sp_energy': 'E spc', 'scf_energy': 'E', 'zpe': 'ZPE', 'sp_gibbs_free_energy': 'G(T) spc', 'sp_qh_gibbs_free_energy': 'qh-G(T) spc', 'gibbs_free_energy': 'G(T)', 'qh_gibbs_free_energy': 'qh-G(T)', 'sp_enthalpy': 'H spc','enthalpy': 'H', 'ts': 'T.S', 'qhts': 'T.qh-S'}, inplace=True)
+    nice_df.rename(columns={'point_group': 'PG'}, inplace=True)
 
-            #if options.cputime != False:  # Add up CPU times
-            #    if hasattr(bbe, "cpu"):
-            #        if bbe.cpu != None:
-            #            total_cpu_time = add_time(total_cpu_time, bbe.cpu)
-            #    if hasattr(bbe, "sp_cpu"):
-            #        if bbe.sp_cpu != None:
-            #            total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
-            #if total_cpu_time.month > 1:
-            #    add_days += 31
+    if imag is not False:
+        nice_df['v_im'] = [str(round(val[0],2)) if len(val) > 0 else '' for val in nice_df["im_freq"]]
+        nice_df.drop(columns=['im_freq'], inplace=True)
 
-        # Check for possible error in Gaussian calculation of linear molecules which can return 2 rotational constants instead of 3
-        if bbe.linear_warning:
-            log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
-            log.write('          ----   Caution! Potential invalid calculation of linear molecule from Gaussian')
-        else:
-            if hasattr(bbe, "gibbs_free_energy"):
-                if options.spc is not False:
-                    if bbe.sp_energy != '!':
-                        log.write("\no  ")
-                        log.write('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]), thermodata=True)
-                        log.write(' {:13.6f}'.format(bbe.sp_energy), thermodata=True)
-                    if bbe.sp_energy == '!':
-                        log.write("\nx  ")
-                        log.write('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]), thermodata=True)
-                        log.write(' {:>13}'.format('----'), thermodata=True)
-                else:
-                    log.write("\no  ")
-                    log.write('{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]), thermodata=True)
-            # Gaussian SPC file handling
-            if hasattr(bbe, "scf_energy") and not hasattr(bbe, "gibbs_free_energy"):
-                log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
-            # ORCA spc files
-            elif not hasattr(bbe, "scf_energy") and not hasattr(bbe, "gibbs_free_energy"):
-                log.write("\nx  " + '{:<39}'.format(os.path.splitext(os.path.basename(bbe.name))[0]))
-            if hasattr(bbe, "scf_energy"):
-                log.write(' {:13.6f}'.format(bbe.scf_energy), thermodata=True)
-            # No freqs found
-            if not hasattr(bbe, "gibbs_free_energy"):
-                log.write("   Warning! Couldn't find frequency information ...")
-            else:
-                if all(getattr(bbe, attrib) for attrib in
-                        ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                    if options.QH:
-                        log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
-                            bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
-                            (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
-                            bbe.qh_gibbs_free_energy), thermodata=True)
-                    else:
-                        log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                    '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                    (options.temperature * bbe.entropy),
-                                                    (options.temperature * bbe.qh_entropy),
-                                                    bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                                    thermodata=True)
+    if boltz is not False:
+        nice_df['Boltz'] = [str(round(val,3)) for val in nice_df["boltz_fac"]]
+        nice_df.drop(columns=['boltz_fac'], inplace=True)
 
-                if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
-                        os.path.splitext(os.path.basename(file))[0].lower():
-                    log.write("  Solvent: {:4.2f}M ".format(media_conc))
-
-        # Append requested options to end of output
-        if options.cosmo and cosmo_solv is not None:
-            log.write('{:13.6f} {:16.6f}'.format(cosmo_solv[file], bbe.qh_gibbs_free_energy + cosmo_solv[file]))
-        if options.boltz is True:
-            log.write('{:7.3f}'.format(bbe.boltz_fac), thermodata=True)
-        if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
-            for freq in bbe.im_frequency_wn:
-                log.write('{:9.2f}'.format(freq), thermodata=True)
-        if options.ssymm:
-            if hasattr(bbe, "qh_gibbs_free_energy"):
-                log.write('{:>13}'.format(bbe.point_group))
-            else:
-                log.write('{:>37}'.format('---'))
-#log.write("\n" + stars + "\n")
-
-#log.write('   {:<13} {:>2} {:>4} {:>2} {:>3} {:>2} {:>4} {:>2} '
-#            '{:>4}\n'.format('TOTAL CPU', total_cpu_time.day + add_days - 1, 'days', total_cpu_time.hour, 'hrs',
-#                            total_cpu_time.minute, 'mins', total_cpu_time.second, 'secs'))
+    return nice_df

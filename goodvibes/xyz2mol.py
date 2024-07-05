@@ -62,7 +62,7 @@ atomic_valence[17] = [1]
 atomic_valence[32] = [4]
 atomic_valence[35] = [1]
 atomic_valence[53] = [1]
-
+atomic_valence[27] = [6]
 atomic_valence_electrons = {}
 atomic_valence_electrons[1] = 1
 atomic_valence_electrons[5] = 3
@@ -77,6 +77,7 @@ atomic_valence_electrons[17] = 7
 atomic_valence_electrons[32] = 4
 atomic_valence_electrons[35] = 7
 atomic_valence_electrons[53] = 7
+atomic_valence_electrons[27] = 7
 
 
 def str_atom(atom):
@@ -440,7 +441,7 @@ def AC2BO(AC, atoms, charge, allow_charged_fragments=True, use_graph=True):
         # valence can't be smaller than number of neighbourgs
         possible_valence = [x for x in atomic_valence[atomicNum] if x >= valence]
         if not possible_valence:
-            print('Valence of atom',i,'is',valence,'which bigger than allowed max',max(atomic_valence[atomicNum]),'. Stopping')
+            print('Valence of atom',i,'is',valence,'which bigger than allowed max',(atomic_valence[atomicNum]),'. Stopping')
             sys.exit()
         valences_list_of_lists.append(possible_valence)
 
@@ -485,6 +486,8 @@ def AC2mol(mol, AC, atoms, charge, allow_charged_fragments=True,
            use_graph=True, use_atom_maps=False):
     """
     """
+    #print(mol)
+    #print("charge", charge)
 
     # convert AC matrix to bond order (BO) matrix
     BO, atomic_valence_electrons = AC2BO(
@@ -504,13 +507,18 @@ def AC2mol(mol, AC, atoms, charge, allow_charged_fragments=True,
         allow_charged_fragments=allow_charged_fragments,
         use_atom_maps=use_atom_maps)
 
+    #print("mol", mol)
+    #print(Chem.GetFormalCharge(mol))
     # If charge is not correct don't return mol
-    if Chem.GetFormalCharge(mol) != charge:
-        return []
+    #if Chem.GetFormalCharge(mol) != charge and len(atoms) > 1:
+    #    print('issue with charge')
+    #   return []
 
     # BO2mol returns an arbitrary resonance form. Let's make the rest
     mols = rdchem.ResonanceMolSupplier(mol, Chem.UNCONSTRAINED_CATIONS, Chem.UNCONSTRAINED_ANIONS)
     mols = [mol for mol in mols]
+
+    #print("mols", mols)
 
     return mols
 
@@ -726,7 +734,7 @@ def xyz2mol(atoms, coordinates, charge=0, allow_charged_fragments=True,
                      allow_charged_fragments=allow_charged_fragments,
                      use_graph=use_graph,
                      use_atom_maps=use_atom_maps)
-
+    
     # Check for stereocenters and chiral centers
     if embed_chiral:
         for new_mol in new_mols:
