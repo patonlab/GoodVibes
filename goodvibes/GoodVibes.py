@@ -11,7 +11,7 @@ import time
 from argparse import ArgumentParser
 import warnings
 
-from goodvibes.io import Logger, gv_header, write_to_xyz, write_to_sdf, gv_summary
+from goodvibes.io import Logger, gv_header, write_to_xyz, write_to_sdf, gv_summary, repair_gauss_outputs
 from goodvibes.io import SUPPORTED_EXTENSIONS, load_filelist, get_cc_packages, get_cc_species, get_levels_of_theory, gv_tabulate
 from goodvibes.thermo import QrrhoThermo
 from goodvibes.utils import detect_symm, get_vib_scaling, get_cpu_time, check_dup, sort_conformers, get_boltz_facs, get_selectivity
@@ -99,8 +99,8 @@ def parse_args():
         help="Decimal places used in printing (default = 5). ")
     parser.add_argument("--graph", dest='graph', default=False, metavar="GRAPH",
         help="Graph a reaction profile based on free energies calculated. ")
-    parser.add_argument("--ssymm", dest='ssymm', action="store_true", default=False,
-        help="Turn on the symmetry correction.")
+    parser.add_argument("--nosymm", dest='nosymm', action="store_true", default=False,
+        help="Turn off symmetry detection.")
     parser.add_argument("--bav", dest='inertia', default="global",type=str,
         choices=['global','conf'],
         help="Choice of how the moment of inertia is computed. Options = 'global' or 'conf'."
@@ -143,6 +143,9 @@ def main():
     files, sp_files, user_args = load_filelist(sys.argv[1:], options.spc)
     log.write('\n' + user_args + '\n\n')
 
+    # fix issues with Gaussian output files
+    repair_gauss_outputs(files)
+        
     # Global summary of user defined options and methods to be used
     gv_header(log, files)
 
@@ -150,7 +153,11 @@ def main():
     package_list = get_cc_packages(log, files)
     species_list = get_cc_species(log, files, package_list)
 
-    if options.ssymm: # auto-detect point group symmetry
+    if len(species_list) == 0:
+        log.write('\nx  No species found. Exiting.\n\n')
+        sys.exit()
+
+    if not options.nosymm: # auto-detect point group symmetry
         detect_symm(species_list)
 
     model_chemistry = get_levels_of_theory(log, species_list)  # methods used and vibrational scaling factors
@@ -200,7 +207,7 @@ def main():
     # Standard mode: tabulate thermochemistry for file(s) at a single temperature and concentration
     if options.temperature_interval is False:
         gv_df = gv_tabulate(thermo_data) # convert thermochemical data to a pandas dataframe
-        formatted_df = gv_summary(gv_df, spc=options.spc, symm=options.ssymm, imag=options.imag_freq, boltz=options.boltz) # nice print
+        formatted_df = gv_summary(gv_df, spc=options.spc, nosymm=options.nosymm, imag=options.imag_freq, boltz=options.boltz) # nice print
         log.write_df(formatted_df, options.decimalplaces)
 
     if options.csv is not False: # Write the data to a csv file

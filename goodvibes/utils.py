@@ -22,6 +22,17 @@ AVOGADRO_CONSTANT = 6.0221415e23  # 1 / mol
 AMU_TO_KG = 1.66053886E-27  # UNIT CONVERSION
 GHZ_TO_K = 0.0479924341590786 # UNIT CONVERSION
 EV_TO_H = 1.0 / 27.21138505 # UNIT CONVERSION
+AMUANG2_TO_GHZ = 505.379008966721 # UNIT CONVERSION
+WN_TO_GHZ = 29.9792458 # UNIT CONVERSION
+BOHR_TO_ANG = 0.52917721067 # UNIT CONVERSION
+
+# Some literature references
+GRIMME_REF = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
+TRUHLAR_REF = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
+HEAD_GORDON_REF = "Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
+GOODVIBES_REF = ("Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. F1000Research, 2020, 9, 291."
+                 "\n   DOI: 10.12688/f1000research.22758.1")
+SIMON_REF = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
 
 # Some useful arrays
 periodictable = ["", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si",
@@ -95,9 +106,9 @@ def get_vib_scaling(log, model_chemistry, freq_scale_factor, mm_freq_scale_facto
 
             if model_chemistry.upper() in data:
                 freq_scale_factor = data[model_chemistry.upper()].zpe_fac
-                ref = scaling_refs[data[model_chemistry.upper()].zpe_ref]
+                vib_ref = scaling_refs[data[model_chemistry.upper()].zpe_ref]
                 log.write(f"\n\no  Found vibrational scaling factor of {freq_scale_factor:.3f} for {model_chemistry} level of theory\n"
-                        "   {ref}\n\n")
+                        "   {vib_ref}\n\n")
                 break
 
     if freq_scale_factor is False: # if no scaling factor is found, use 1.0

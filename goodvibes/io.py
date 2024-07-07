@@ -12,7 +12,7 @@ from rdkit import Chem
 import cclib
 
 import goodvibes.xyz2mol as xyz2mol
-from goodvibes.utils import KCAL_TO_AU
+from goodvibes.utils import KCAL_TO_AU, AMUANG2_TO_GHZ, WN_TO_GHZ, BOHR_TO_ANG, EV_TO_H, GRIMME_REF, TRUHLAR_REF, HEAD_GORDON_REF, GOODVIBES_REF
 from goodvibes.version import __version__
 
 # compchem packages supported by GoodVibes
@@ -21,14 +21,88 @@ SUPPORTED_PACKAGES = set(('Gaussian', 'ORCA', 'QChem'))
 # most compchem outputs look like this:
 SUPPORTED_EXTENSIONS = set(('.out', '.log'))
 
-# Some literature references
-GRIMME_REF = "Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964"
-TRUHLAR_REF = "Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. J. Phys. Chem. B 2011, 115, 14556-14562"
-HEAD_GORDON_REF = "Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. J. Phys. Chem. C 2015, 119, 1840-1850"
-GOODVIBES_REF = ("Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. F1000Research, 2020, 9, 291."
-                 "\n   DOI: 10.12688/f1000research.22758.1")
-SIMON_REF = "Simon, L.; Paton, R. S. J. Am. Chem. Soc. 2018, 140, 5412-5420"
+def gv_parse(file, package, property):
+    '''look for things missed by cclib. A better solution would be to 
+    update cclib's own parser for these properties, but this is a quick fix for now.'''
 
+    if property == 'scfenergies':
+        scfenergies = []
+
+        if package == 'QChem':
+            with open(file) as f:
+                data = f.readlines()
+            for i, line in enumerate(data):
+                if line.find('SCF   energy =') > -1:
+                    try:
+                        energy = float(line.split()[-1]) / EV_TO_H
+                        scfenergies.append(energy)
+                    except:
+                        pass
+
+        return scfenergies
+
+    if property == 'functional':
+        ex_functional = []
+        corr_functional = []
+        functional = None
+
+        if package == 'ORCA':
+            with open(file) as f:
+                data = f.readlines()
+            for i, line in enumerate(data):
+                if line.find('Exchange Functional') > -1:
+                    try:
+                        ex_functional.append(line.split()[-1])
+                    except:
+                        pass
+                if line.find('Correlation Functional') > -1:
+                    try:
+                        corr_functional.append(line.split()[-1])
+                    except:
+                        pass
+
+            if len(ex_functional) > 0 and len(corr_functional) > 0:
+                if ex_functional[-1] == corr_functional[-1]:
+                    functional = ex_functional[-1]
+
+        return functional
+
+
+    if property == 'rotconsts':
+        rotconsts = []
+
+        if package == 'Gaussian':
+            with open(file) as f:
+                data = f.readlines()
+            for i, line in enumerate(data):
+                if line.find('Rotational constants (GHZ):') > -1:
+                    rotconsts.append([float(x) for x in data[i+1].split()])
+
+        elif package == 'ORCA':
+            with open(file) as f:
+                data = f.readlines()
+            for i, line in enumerate(data):
+                if line.find('Rotational constants in cm-1:') > -1:
+                    try:
+                        consts = [float(const) for const in line.split()[-3:]]
+                        consts = [const * WN_TO_GHZ for const in consts] # conversion cm-1 to GHZ
+                        rotconsts.append(consts)
+                    except:
+                        pass
+
+        elif package == 'QChem':
+            with open(file) as f:
+                data = f.readlines()
+            for i, line in enumerate(data):
+                if line.find('Eigenvalues --') > -1:
+                    try:
+                        eigenvals = [float(const) for const in line.split()[-3:]]
+                        consts = [AMUANG2_TO_GHZ / BOHR_TO_ANG ** 2 / val for val in eigenvals] # conversion cm-1 to GHZ
+                        rotconsts.append(consts)
+                    except:
+                        pass
+
+        return rotconsts
 
 ''' Functions used to load and parse compchem output files '''
 def load_filelist(arglist, spc = False):
@@ -78,7 +152,7 @@ def get_cc_packages(log, files):
             data = parser.parse()
             package = data.metadata['package']
             package_list.append(package)
-        except KeyError:
+        except:
             package_list.append('Unknown')
             log.write(f'\n   ! Unable to parse {file} !\n')
 
@@ -98,9 +172,22 @@ def get_cc_species(log, files, package_list):
             parser = cclib.io.ccopen(file)
             data = parser.parse()
             data.name = os.path.basename(file.split('.')[0])
+
+            # tends to be missed or messed up by cclib
+            if not hasattr(data, 'rotconsts'):
+                data.rotconsts = gv_parse(file, package, 'rotconsts')
+
+            # tends to be missed or messed up by cclib
+            if not 'functional' in data.metadata:
+                data.metadata['functional'] = gv_parse(file, package, 'functional')
+
+            # tends to be missed by cclib
+            if not hasattr(data, 'scfenergies'):
+                data.scfenergies = gv_parse(file, package, 'scfenergies')
+
             species_list.append(data)
         else:
-            log.write(f'\n   ! Unable to parse {file} !\n')
+            log.write(f'\n!  {file} was ignored: {package} package is not yet supported !\n')
     return species_list
 
 def get_levels_of_theory(log, species_list):
@@ -111,6 +198,12 @@ def get_levels_of_theory(log, species_list):
             level = species.metadata['functional'] + '/' + species.metadata['basis_set']
         except KeyError:
             level = 'Unknown'
+
+        # Some replacements since different packages use different nomenclature
+        level = level.replace('**', '(d,p)') # replace * with (d) and ** with (d,p)
+        level = level.replace('*', '(d)') # replace * with (d) and ** with (d,p)
+        level = level.replace('def2-', 'def2')
+        level = level.replace('WB97', 'wB97') # standard is with lowercase w
         level_of_theory.append(level)
 
     # remove duplicates
@@ -188,6 +281,26 @@ def cosmo_rs_out(datfile, names, interval=False):
         return t_interval, gsolv_dicts
     else:
         return gsolv
+
+def repair_gauss_outputs(files):
+    '''Repairs a line in Gaussian output files that cclib cannot parse.'''
+    for i, file in enumerate(files):
+
+        # Read in the file
+        with open(file, 'r') as infile:
+            filedata = infile.read()
+
+        if 'Rotational constants (GHZ):      ************' not in filedata:
+            pass
+        else:
+            # Replace the target string
+            filedata = filedata.replace('Rotational constants (GHZ):      ************', 'Rotational constants (GHZ):      999999.99999')
+
+            # Write the file out again
+            print(f'!  Repairing Gaussian output file: {file}')
+
+            with open(file, 'w') as outfile:
+                outfile.write(filedata)
 
 
 ''' Functions used to write structure files '''
@@ -372,7 +485,7 @@ def gv_tabulate(thermo_data):
     thermo_df = pd.DataFrame([vars(dat) for dat in thermo_data])
     return thermo_df
 
-def gv_summary(gv_df, spc=False, symm=False, imag=False, boltz=False):
+def gv_summary(gv_df, nosymm=False, spc=False, imag=False, boltz=False):
     '''Print a summary of the thermochemistry for the species in the log files'''    
 
     if spc is not False:
@@ -383,7 +496,7 @@ def gv_summary(gv_df, spc=False, symm=False, imag=False, boltz=False):
         columns = ['name', 'charge', 'mult', 'scf_energy', 'zpe', 'enthalpy', 'ts', 'qhts',
             'gibbs_free_energy', 'qh_gibbs_free_energy']
 
-    if symm is not False:
+    if nosymm is False:
         columns += ['point_group']
     if imag is not False:
         columns += ['im_freq']
