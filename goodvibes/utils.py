@@ -186,7 +186,7 @@ def sort_conformers(thermo_data, use_gibbs=True):
     else:
         thermo_data.sort(key=lambda x: x.scf_energy if x.scf_energy is not None else 0)
 
-def get_boltz_facs(thermo_data, temperature=298.15, use_gibbs=True):
+def get_boltz_facs(thermo_data, temperature=298.15, use_gibbs=True, spc=False):
     """
     Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
     The assumption is that duplicates have already been removed!
@@ -206,28 +206,51 @@ def get_boltz_facs(thermo_data, temperature=298.15, use_gibbs=True):
     glob_min, boltz_sum = 0.0, 0.0
 
     for thermo in thermo_data:  # Need the most stable structure
-        if use_gibbs is True:
-            if hasattr(thermo, "qh_gibbs_free_energy"):
-                glob_min = min(glob_min, thermo.qh_gibbs_free_energy)
+        if spc is True:
+            if use_gibbs is True:
+                if hasattr(thermo, "sp_qh_gibbs_free_energy"):
+                    glob_min = min(glob_min, thermo.sp_qh_gibbs_free_energy)
+            else:
+                if hasattr(thermo, "sp_energy"):
+                    glob_min = min(glob_min, thermo.sp_energy)
         else:
-            if hasattr(thermo, "scf_energy"):
-                glob_min = min(glob_min, thermo.scf_energy)
+            if use_gibbs is True:
+                if hasattr(thermo, "qh_gibbs_free_energy"):
+                    glob_min = min(glob_min, thermo.qh_gibbs_free_energy)
+            else:
+                if hasattr(thermo, "scf_energy"):
+                    glob_min = min(glob_min, thermo.scf_energy)
 
+    if glob_min == 0.0:
+        print("\n\nx  No energy data found for Boltzmann averaging. Exiting...\n")
+        
     # Calculate G_rel and Boltzmann factors
     for thermo in thermo_data:
-        if use_gibbs is True:
-            if hasattr(thermo, "qh_gibbs_free_energy"):
-                thermo.g_rel = thermo.qh_gibbs_free_energy - glob_min # in Hartree
-                thermo.boltz_fac = math.exp(-thermo.g_rel * J_TO_AU / GAS_CONSTANT / temperature)
-                boltz_sum += thermo.boltz_fac
+        if spc is True:
+            if use_gibbs is True:
+                if hasattr(thermo, "sp_qh_gibbs_free_energy"):
+                    thermo.g_rel = thermo.sp_qh_gibbs_free_energy - glob_min # in Hartree
+                    thermo.boltz_fac = math.exp(-thermo.g_rel * J_TO_AU / GAS_CONSTANT / temperature)
+                    boltz_sum += thermo.boltz_fac
             else:
-                thermo.boltz_fac = np.nan
-
+                if hasattr(thermo, "sp_energy"):
+                    thermo.e_rel = thermo.sp_energy - glob_min # in Hartree
+                    thermo.boltz_fac = math.exp(-thermo.e_rel * J_TO_AU / GAS_CONSTANT / temperature)
+                    boltz_sum += thermo.boltz_fac               
         else:
-            if hasattr(thermo, "scf_energy"):
-                thermo.e_rel = thermo.scf_energy - glob_min # in Hartree
-                thermo.boltz_fac = math.exp(-thermo.e_rel * J_TO_AU / GAS_CONSTANT / temperature)
-                boltz_sum += thermo.boltz_fac
+            if use_gibbs is True:
+                if hasattr(thermo, "qh_gibbs_free_energy"):
+                    thermo.g_rel = thermo.qh_gibbs_free_energy - glob_min # in Hartree
+                    thermo.boltz_fac = math.exp(-thermo.g_rel * J_TO_AU / GAS_CONSTANT / temperature)
+                    boltz_sum += thermo.boltz_fac
+                else:
+                    thermo.boltz_fac = np.nan
+
+            else:
+                if hasattr(thermo, "scf_energy"):
+                    thermo.e_rel = thermo.scf_energy - glob_min # in Hartree
+                    thermo.boltz_fac = math.exp(-thermo.e_rel * J_TO_AU / GAS_CONSTANT / temperature)
+                    boltz_sum += thermo.boltz_fac
 
     for thermo in thermo_data:
         thermo.boltz_fac = thermo.boltz_fac / boltz_sum

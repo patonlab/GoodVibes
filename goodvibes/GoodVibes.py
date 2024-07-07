@@ -202,8 +202,9 @@ def main():
         sort_conformers(thermo_data)
 
     if options.boltz is not False: # Generate Boltzmann factors
-        get_boltz_facs(thermo_data, temperature = options.temperature)
-
+        if options.spc: get_boltz_facs(thermo_data, temperature = options.temperature, use_gibbs=True, spc=True)
+        else: get_boltz_facs(thermo_data, temperature = options.temperature, use_gibbs=True)
+    
     # Standard mode: tabulate thermochemistry for file(s) at a single temperature and concentration
     if options.temperature_interval is False:
         gv_df = gv_tabulate(thermo_data) # convert thermochemical data to a pandas dataframe
@@ -215,7 +216,7 @@ def main():
 
     if options.ee is not False and options.boltz is not False: # Calculate selectivity
         excess, ratio, ddg = get_selectivity(options.ee, thermo_data, options.temperature)
-        log.write(f'\n\n   {options.ee} selectivity: {ratio} an excess of {excess:.2f} effective DDG: {ddg:.2f} kcal/mol\n')
+        log.write(f'\n\n!  SELECTIVITY: {options.ee}: {ratio} | an excess of {excess:.2f} | effective DDG: {ddg:.2f} kcal/mol\n')
 
     if options.cputime is not False: # Total CPU time for all calculations (including those that were filtered)
         total_cpu = get_cpu_time(species_list + sp_list)
