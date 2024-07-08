@@ -25,6 +25,7 @@ The second type of quasi-harmonic approximation available is applied to the vibr
 #### Installation
 *  With pypi: `pip install goodvibes`
 *  With conda: `conda install -c conda-forge goodvibes`
+*  Due to package dependencies python >= 3.7 is now required
 
 #### Citing GoodVibes
 Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)

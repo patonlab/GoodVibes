@@ -6,10 +6,11 @@ from __future__ import print_function, absolute_import
 
 import math
 import sys
+import numpy as np
 from molmass import Formula
 
 # Importing regardless of relative import
-from goodvibes.utils import GAS_CONSTANT, PLANCK_CONSTANT, SPEED_OF_LIGHT, BOLTZMANN_CONSTANT, AVOGADRO_CONSTANT, AMU_to_KG, GHz_to_K, eV_to_Hartree, J_TO_AU, periodictable, pg_sm
+from goodvibes.utils import ATMOS, GAS_CONSTANT, PLANCK_CONSTANT, SPEED_OF_LIGHT, BOLTZMANN_CONSTANT, AVOGADRO_CONSTANT, AMU_TO_KG, GHZ_TO_K, EV_TO_H, J_TO_AU, periodictable, pg_sm
 
 def calc_translational_energy(temperature):
     """
@@ -128,7 +129,7 @@ def calc_translational_entropy(molecular_mass, conc, temperature):
     Returns:
     float: translational entropy of chemical system.
     """
-    lmda = ((2.0 * math.pi * molecular_mass * AMU_to_KG * BOLTZMANN_CONSTANT * temperature) ** 0.5) / PLANCK_CONSTANT
+    lmda = ((2.0 * math.pi * molecular_mass * AMU_TO_KG * BOLTZMANN_CONSTANT * temperature) ** 0.5) / PLANCK_CONSTANT
     ndens = conc * 1000 * AVOGADRO_CONSTANT
     entropy = GAS_CONSTANT * (2.5 + math.log(lmda ** 3 / ndens))
     return entropy
@@ -310,37 +311,62 @@ class QrrhoThermo:
         cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, species, qs="grimme", qh=False, s_freq_cutoff=100.0, h_freq_cutoff=100.0, temperature=298.15, conc=0.040874, freq_scale_factor=1.0, spc=False,
-                 invert=False, cosmo=None, mm_freq_scale_factor=False, inertia='global', g4=False, glowfreq=''):
+    def __init__(self, species, qs="grimme", qh=False, s_freq_cutoff=100.0, h_freq_cutoff=100.0, temperature=298.15, conc=False, freq_scale_factor=1.0, spc=False,
+                 invert=False, cosmo=None, mm_freq_scale_factor=False, inertia='global'):
+
+        if not conc: # if the concentration is not provided, assume 1 atm
+            conc = ATMOS / (GAS_CONSTANT * temperature)
 
         im_freq_cutoff = 0.0 # can be increased to discard low lying imaginary frequencies
 
-       
-        # we need to inherit the following molecule attributes:
         try:
-            self.name = species.name
-            self.scf_energy = species.scfenergies[-1] * eV_to_Hartree
-            self.cartesians = species.atomcoords[-1] # cartesian coordinates
-            self.atomnos = species.atomnos # atomic numbers
-            self.natoms = len(species.atomnos) # num. atoms
-            self.atomtypes = [periodictable[at] for at in species.atomnos] # atom types
-            self.charge = species.charge # molecular charge
-            self.mult = species.mult # molecular multiplicity
-            mol_formula = ''.join(self.atomtypes)
-            f = Formula(mol_formula)
-            self.monoisotopic_mass = f.monoisotopic_mass # molecular mass
+            self.nbasis = species.nbasis
         except AttributeError:
             pass
-            #print("x  Unable to extract any molecular data from {}\n".format(species.name))
+
+        # the following molecule attributes are essential for the thermochemistry calculations
+        try:
+            self.name = species.name
+            self.scf_energy = species.scfenergies[-1] * EV_TO_H
+            self.atomnos = species.atomnos # atomic numbers
+            self.mult = species.mult # molecular multiplicity
+        except AttributeError:
+            print(f"x  Unable to extract molecular data from {species.name}\n")
+
+        # calculate the molecular mass and formula
+        if hasattr(self, 'atomnos'):
+            self.natoms = len(self.atomnos) # num. atoms
+            self.atomtypes = [periodictable[at] for at in self.atomnos] # atom types
+            mol_formula = ''.join(self.atomtypes)
+            formula = Formula(mol_formula)
+            self.monoisotopic_mass = formula.monoisotopic_mass # molecular mass
+
+        if not hasattr(self, 'monoisotopic_mass'):
+            print(f"x  Unable to compute molecular mass for {self.name}")
+
+        # not strictly necessary for thermochemistry but required for printing
+        try:
+            self.charge = species.charge # molecular charge
+        except AttributeError:
+            self.charge = np.nan
+
+        try:
+            self.cartesians = species.atomcoords[-1] # cartesian coordinates
+        except AttributeError:
+            pass
 
         if spc is not False:
-            if species.name not in spc.name:
-                print("x  Species name mismatch: {} vs {}".format(species.name, spc.name))
+            if species.name+'_' not in spc.name:
+                print(f"x  Species name mismatch: {species.name} vs {spc.name}")
             try:
                 self.spc_name = spc.name
-                self.sp_energy = spc.scfenergies[-1] * eV_to_Hartree
+                self.sp_energy = spc.scfenergies[-1] * EV_TO_H
             except AttributeError:
                 self.sp_energy = np.nan
+            try:
+                self.sp_nbasis = spc.nbasis
+            except AttributeError:
+                pass
 
         if not hasattr(species, 'point_group'): # inherit point group otherwise assign as C1
             try:
@@ -357,12 +383,13 @@ class QrrhoThermo:
             self.zpve = species.zpve # ZPE
             self.vibfreqs = species.vibfreqs # frequencies
             self.rotconsts = species.rotconsts[-1] # rotational constants
-            self.rotemps = [GHz_to_K * roconst for roconst in species.rotconsts[-1]] # rotational temperatures
         except AttributeError:
-            if self.natoms > 1:
-                print("x  Unable to extract frequency information from {}".format(species.name))
+            if self.natoms > 1: # for single atoms there are no vibrational modes to parse
+                print(f"x  Unable to extract frequency information from {species.name}")
 
-        linear_warning = False
+        if hasattr(self, 'rotconsts'):
+            self.rotemps = [GHZ_TO_K * roconst for roconst in self.rotconsts] # rotational temperatures
+
         if self.point_group in ('D*h', 'C*v', 'Cinfv', 'Dinfh'):
             linear_mol = 1
             self.rotconsts = self.rotconsts[2:]
@@ -397,7 +424,7 @@ class QrrhoThermo:
                         im_frequency_wn.append(freq)
 
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
-        if hasattr(self, "zpve"):
+        if hasattr(self, "zpve") and hasattr(self, 'atomnos'):
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
             u_trans = calc_translational_energy(temperature)
             s_trans = calc_translational_entropy(self.monoisotopic_mass, conc, temperature)
@@ -457,10 +484,10 @@ class QrrhoThermo:
                 self.qh_enthalpy = self.scf_energy + (u_trans + u_rot + qh_u_vib + GAS_CONSTANT * temperature) / J_TO_AU
             # Single point correction replaces energy from optimization with single point value
             if spc is not False:
-                try:
-                    self.enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
-                except TypeError:
-                    pass
+                #try:
+                #    self.enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
+                #except TypeError:
+                #    pass
                 if qh:
                     try:
                         self.qh_enthalpy = self.qh_enthalpy - self.scf_energy + self.sp_energy
@@ -488,5 +515,38 @@ class QrrhoThermo:
                     self.im_freq.append(freq)
 
         self.frequency_wn = frequency_wn
-        self.im_frequency_wn = im_frequency_wn
-        self.linear_warning = linear_warning
+
+        try:
+            self.ts = self.entropy * temperature
+            self.qhts = self.qh_entropy * temperature
+        except AttributeError:
+            self.ts = np.nan
+            self.qhts = np.nan
+
+        if hasattr(self, 'sp_energy'):
+            try:
+                self.sp_enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
+                self.sp_gibbs_free_energy = self.gibbs_free_energy - self.scf_energy + self.sp_energy
+                self.sp_qh_gibbs_free_energy = self.qh_gibbs_free_energy - self.scf_energy + self.sp_energy
+            except TypeError:
+                pass
+        if not hasattr(self,'scf_energy'):
+            self.scf_energy = np.nan
+        if not hasattr(self,'enthalpy'):
+            self.enthalpy = np.nan
+        if not hasattr(self,'qh_enthalpy'):
+            self.qh_enthalpy = np.nan
+        if not hasattr(self,'entropy'):
+            self.entropy = np.nan
+        if not hasattr(self,'qh_entropy'):
+            self.qh_entropy = np.nan
+        if not hasattr(self,'gibbs_free_energy'):
+            self.gibbs_free_energy = np.nan
+        if not hasattr(self,'qh_gibbs_free_energy'):
+            self.qh_gibbs_free_energy = np.nan
+        if not hasattr(self, 'zpe'):
+            self.zpe = np.nan
+        if not hasattr(self, 'im_freq'):
+            self.im_freq = []
+        if not hasattr(self, 'mult'):
+            self.mult = np.nan
