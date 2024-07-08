@@ -319,6 +319,11 @@ class QrrhoThermo:
 
         im_freq_cutoff = 0.0 # can be increased to discard low lying imaginary frequencies
 
+        try:
+            self.nbasis = species.nbasis
+        except AttributeError:
+            pass
+
         # the following molecule attributes are essential for the thermochemistry calculations
         try:
             self.name = species.name
@@ -351,13 +356,17 @@ class QrrhoThermo:
             pass
 
         if spc is not False:
-            if species.name not in spc.name:
+            if species.name+'_' not in spc.name:
                 print(f"x  Species name mismatch: {species.name} vs {spc.name}")
             try:
                 self.spc_name = spc.name
                 self.sp_energy = spc.scfenergies[-1] * EV_TO_H
             except AttributeError:
                 self.sp_energy = np.nan
+            try:
+                self.sp_nbasis = spc.nbasis
+            except AttributeError:
+                pass
 
         if not hasattr(species, 'point_group'): # inherit point group otherwise assign as C1
             try:

@@ -11,10 +11,11 @@ import time
 from argparse import ArgumentParser
 import warnings
 
-from goodvibes.io import Logger, gv_header, write_to_xyz, write_to_sdf, gv_summary, repair_gauss_outputs
-from goodvibes.io import SUPPORTED_EXTENSIONS, load_filelist, get_cc_packages, get_cc_species, get_levels_of_theory, gv_tabulate
+from goodvibes.io import Logger, gv_header, write_to_xyz, write_to_sdf, gv_summary, repair_gauss_outputs, pes_tabulate
+from goodvibes.io import SUPPORTED_EXTENSIONS, load_filelist, get_cc_packages, get_cc_species, get_levels_of_theory, gv_tabulate, read_pes_yaml, pes_summary
 from goodvibes.thermo import QrrhoThermo
 from goodvibes.utils import detect_symm, get_vib_scaling, get_cpu_time, check_dup, sort_conformers, get_boltz_facs, get_selectivity
+from goodvibes.pes import create_pes
 from goodvibes.version import __version__
 
 warnings.filterwarnings("ignore") # this is to suppress warnings from cclib/scipy
@@ -175,13 +176,12 @@ def main():
         log.write('\n\nx  Number of species and single point corrections do not match!\n\n')
         sys.exit()
 
+    # Generate thermochemical data
     thermo_data = []
     for i, species in enumerate(species_list):
+        # attempt to match a single point energy output otherwise return False
+        spc = next((x for x in sp_list if x.name == species.name+'_'+options.spc), False)
 
-        if options.spc is not False:
-            spc = sp_list[i]
-        else:
-            spc = False
         try:
             thermo = QrrhoThermo(species, qs=options.QS, qh=options.QH, s_freq_cutoff=options.S_freq_cutoff,
             h_freq_cutoff=options.H_freq_cutoff, temperature=options.temperature, conc=options.conc,
@@ -221,6 +221,15 @@ def main():
     if options.cputime is not False: # Total CPU time for all calculations (including those that were filtered)
         total_cpu = get_cpu_time(species_list + sp_list)
         log.write(f'\n   Total CPU time for all calculations: {total_cpu}\n')
+
+    if options.pes: # Compute relative values from a yaml file defining the pathways
+        pes_format = read_pes_yaml(options.pes, thermo_data) # gets the user arguments from the yaml file
+        pes_list =  [create_pes(pes_format, thermo_data, i, spc=options.spc, temperature=options.temperature, gconf=True, QH=False, cosmo=None, cosmo_int=None) for i, rxn in enumerate(pes_format.rxns)]
+        
+        pes_dfs = [pes_tabulate(pes) for pes in pes_list] # convert to dataframes and print
+        for pes_df in pes_dfs:
+            df = pes_summary(pes_df, pes_format, spc = options.spc)
+            log.write_df(df, pes_format.decimalplaces)
 
     if options.xyz: # Create an xyz file for the structures
         write_to_xyz(log, thermo_data, xyzfile)

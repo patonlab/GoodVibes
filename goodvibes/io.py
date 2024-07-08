@@ -6,6 +6,7 @@ from __future__ import print_function, absolute_import
 import os.path
 import sys
 import time
+import yaml
 from glob import glob
 import pandas as pd
 from rdkit import Chem
@@ -302,6 +303,75 @@ def repair_gauss_outputs(files):
             with open(file, 'w') as outfile:
                 outfile.write(filedata)
 
+class read_pes_yaml:
+    """
+    Obtain relative thermochemistry between species and for reactions.
+
+    Routine that computes Boltzmann populations of conformer sets at each step of a reaction, obtaining
+    relative energetic and thermodynamic values for each step in a reaction pathway.
+    Determines reaction pathway from .yaml formatted file containing definitions for where files fit in pathway.
+
+    Attributes:
+    file (str): path to .yaml file containing thermochemistry data.
+    thermo_data (dict): dictionary containing thermochemistry data for each species.
+    """
+    def __init__(self, file, thermo_data):
+        
+        # Default values can be change via the yaml file
+        self.dec, self.units, self.boltz = 2, 'kcal/mol', False
+
+
+        # check yaml file exists
+        if not os.path.exists(file):
+            print("\nx  Error! PES file " + file + " not found\n")
+            sys.exit()
+
+        with open(file) as f:
+            data = yaml.load(f, Loader=yaml.SafeLoader)
+
+        try: # required data
+            self.pes_data = data.get('pes')
+            self.pes_species_names = data.get('species')
+        except:
+            print("\nx  Error! PES file " + file + " is not formatted correctly\n")
+            sys.exit()
+            
+        self.rxns = [pes for pes in self.pes_data]
+        
+        # formatting options
+        try:
+            format_data = data.get('format')
+        except:
+            pass
+       
+        # match thermo data to pes names
+        for name in self.pes_species_names:    
+            matched = False   
+            for thermo in thermo_data: # this will break sometimes when there are multiple matches
+                if self.pes_species_names[name] in thermo.name:
+                    thermo.pes_name = name
+                    #print(f"!  Matched {thermo.name} to {thermo.pes_name}")  
+                    matched = True
+                    
+            if not matched:
+                print(f"\n!  Caution: {name} doesn't match any of the outputs!\n")      
+
+        if 'dec' in format_data.keys():
+            try: self.decimalplaces = int(format_data['dec'])
+            except: pass
+        if 'zero' in format_data.keys():
+            try: 
+                self.zero = []
+                for zero_species in format_data['zero'].split('+'):
+                    self.zero.append(zero_species.strip())
+            except: self.zero = []
+        if 'units' in format_data.keys():
+            try: self.units = format_data['units']
+            except: pass
+        if 'boltz' in format_data.keys():
+            try: self.boltz = format_data['boltz']
+            except: pass
+
 
 ''' Functions used to write structure files '''
 class Xyz_Out:
@@ -388,14 +458,18 @@ class Logger:
 
     def write_df(self, df, dp=5):
         '''Writes a dataframe to the log file using {dp} decimal places.'''
-
+        
+        if dp == 1:
+            pd.options.display.float_format = '{:.1f}'.format
+        if dp == 2:
+            pd.options.display.float_format = '{:.2f}'.format
         if dp == 3:
             pd.options.display.float_format = '{:.3f}'.format
         if dp == 4:
             pd.options.display.float_format = '{:.4f}'.format
-        elif dp == 6:
+        if dp == 6:
             pd.options.display.float_format = '{:.6f}'.format
-        else:
+        if dp == 5:
             pd.options.display.float_format = '{:.5f}'.format
 
         print(df)
@@ -485,6 +559,44 @@ def gv_tabulate(thermo_data):
     thermo_df = pd.DataFrame([vars(dat) for dat in thermo_data])
     return thermo_df
 
+def pes_tabulate(pes):
+
+    '''Returns several pandas DataFrame of the pes data.'''
+    rxn = pes.rxn
+    path = pes.path
+    nbasis = pes.nbasis
+    scf_energy = pes.scf_energy
+    enthalpy = pes.enthalpy
+    gibbs_free_energy = pes.gibbs_free_energy
+    qh_gibbs_free_energy = pes.qh_gibbs_free_energy
+    
+    try: 
+        sp_energy = pes.sp_energy
+        sp_enthalpy = pes.sp_enthalpy
+        sp_gibbs_free_energy = pes.sp_gibbs_free_energy
+        sp_qh_gibbs_free_energy = pes.sp_qh_gibbs_free_energy
+    except:
+        sp_energy = [None] * len(path)
+        sp_enthalpy = [None] * len(path)
+        sp_gibbs_free_energy = [None] * len(path)
+        sp_qh_gibbs_free_energy = [None] * len(path)
+
+    pes_df = pd.DataFrame(
+    {'RXN': rxn,
+    'PATH': path,
+    'NBASIS': nbasis,
+    'E spc': sp_energy,
+    'E': scf_energy,
+    'H': enthalpy,
+    'H spc': sp_enthalpy,
+    'G(T)': gibbs_free_energy,
+    'qh-G(T)': qh_gibbs_free_energy,
+    'G(T) spc': sp_gibbs_free_energy,
+    'qh-G(T) spc': sp_qh_gibbs_free_energy
+    })
+    
+    return pes_df
+
 def gv_summary(gv_df, nosymm=False, spc=False, imag=False, boltz=False):
     '''Print a summary of the thermochemistry for the species in the log files'''    
 
@@ -515,5 +627,19 @@ def gv_summary(gv_df, nosymm=False, spc=False, imag=False, boltz=False):
     if boltz is not False:
         nice_df['Boltz'] = [str(round(val,3)) for val in nice_df["boltz_fac"]]
         nice_df.drop(columns=['boltz_fac'], inplace=True)
+
+    return nice_df
+
+def pes_summary(pes_df, pes_format=False, spc=False):
+    '''Print a summary of the PES'''    
+
+    if spc is not False:
+        columns = ['PATH', 'NBASIS', 'E spc', 'E', 'H spc', 'G(T) spc', 'qh-G(T) spc']
+
+    else:
+        columns = ['PATH', 'NBASIS', 'E', 'H', 'G(T)', 'qh-G(T)']
+
+    nice_df = pes_df[columns].copy()
+    nice_df.rename(columns={'PATH': 'Species', 'NBASIS': 'nbasis'}, inplace=True)
 
     return nice_df
