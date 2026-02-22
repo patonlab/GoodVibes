@@ -76,9 +76,9 @@ python -m goodvibes [-q] [--qs grimme/truhlar] [--qh] [-f cutoff_freq] [--fs S_c
 *	The `--xyz` option will write all molecular Cartesian coordinates to a .xyz output file.
 *	The `--csv` option will write GoodVibes calculated thermochemical data to a .csv output file.
 *   The `--custom_ext` option allows for custom file extensions to be used. Current default calculation output files accepted are `.log` or `.out` file extensions. New extensions can be detected by using GoodVibes with the option `--custom_ext file_extension`.
-*	The `--bav` option allows the user to choose how the average moment of inertia is computed, used in computing the free-rotor entropy. Options are `--bav global` to have all molecules computed with the same moment of inertia=10*10-44 kg m2 or `--bav conf` to use the averaged rotational constants parsed from Gaussian output files to compute the average moment of inert
+*	The `--bav` option allows the user to choose how the average moment of inertia is computed, used in computing the free-rotor entropy. Options are `--bav global` to have all molecules computed with the same moment of inertia=10*10-44 kg m2 or `--bav conf` to use the averaged rotational constants parsed from Gaussian output files to compute the average moment of inertia
 
-#### Examples 
+#### Examples
 
 ###### 1: Grimme-type quasi-harmonic correction with a (Grimme type) cut-off of 150 cm<sup>-1</sup>
 ```python
@@ -119,7 +119,7 @@ o  ethane              -79.858399    -79.830421   0.073508    -79.780448   0.027
 
 ###### 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
 ```python
-python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
+python -m goodvibes examples/methylaniline.out -t 1000 -c 1.0
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
@@ -146,7 +146,7 @@ o  methylaniline           1000.0              -326.452307   0.232169   0.231614
    ******************************************************************************************************
 ```
 
-Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below than 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
+Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
 
 ###### 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
 ```python
@@ -256,7 +256,7 @@ A computational workflow can become less effective without consistency throughou
 *   Same solvation state/gas phase used across all output files
 *   Same level of theory and basis set used
 *   Same charge and multiplicity used
-*   Check if standard concenctration of 1 atm was used in calculation
+*   Check if standard concentration of 1 atm was used in calculation
 *   Check for duplicate structures or enantiomeric conformers based on E, H, qh_T.S and qh_G with a cutoff of 0.1 kcal/mol
 *   Check for potential calculation error in linear molecules by Gaussian
 *   Check for transition states (one imaginary frequency in output file)
@@ -317,7 +317,7 @@ When using the --pes or --graph options in GoodVibes, a .yaml file must be provi
         Py-TS2      : TS_II_Py*
         Py-Int3     : Int_III_Py*
         EtOH        : ethanol*
-        
+
     --- # FORMAT
         dec :  2 
         legend : False
@@ -358,7 +358,7 @@ options in the # FORMAT block are optional, but allow for stylistic choices to b
 * Elm, J. *J. Phys. Chem. A* **2017**, *121*, 8288−8295 [**DOI:** 10.1021/acs.jpca.7b08962](http://dx.doi.org/10.1021/acs.jpca.7b08962)
 * Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *ACS Catal.* **2017**, *7*, 6430–6439 [**DOI:** 10.1021/acscatal.7b02446](http://dx.doi.org/10.1021/acscatal.7b02446)
 * Elm, J. *J. Phys. Chem. A* **2017**, *121*, 8288–8295 [**DOI:** 10.1021/acs.jpca.7b08962](http://dx.doi.org/10.1021/acs.jpca.7b08962)
-* Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *Chem. Eur. J.* **2017**, *23*, 15336–15347[**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
+* Alegre-Requena, J. V.; Marqués-López, E.; Herrera, R. P. *Chem. Eur. J.* **2017**, *23*, 15336–15347 [**DOI:** 10.1002/chem.201702841](http://dx.doi.org/10.1002/chem.201702841)
 * Funes‐Ardoiz, I.; Nelson, D. J.; Maseras, F. *Chem. Eur. J.* **2017**, *23*, 16728–16733 [**DOI:** 10.1002/chem.201702331](http://dx.doi.org/10.1002/chem.201702331)
 * Morris, D. S.; van Rees, K.; Curcio, M.; Cokoja, M.; Kühn, F. E.; Duarte, F.; Love, J. B. *Catal. Sci. Technol.* **2017**, 5644–5649 [**DOI:** 10.1039/C7CY01728F ](http://dx.doi.org/10.1039/C7CY01728F)
 * Elm, J.; Passananti, M.; Kurtén, T.; Vehkamäki, H. *J. Phys. Chem. A* **2017**, *121*, 6155–6164 [**DOI:** 10.1021/acs.jpca.7b05658](http://dx.doi.org/10.1021/acs.jpca.7b05658)
@@ -392,8 +392,8 @@ options in the # FORMAT block are optional, but allow for stylistic choices to b
 
 #### References for the underlying theory
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)
-2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 [**DOI:** 10.1021/jp509921r](http://dx.doi.org/10.1002/chem.201200497)
-3. Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. *J. Phys. Chem. C* **2015**, *119*, 1840-1850 [**DOI:** 10.1002/chem.201200497](http://dx.doi.org/10.1021/jp509921r)
+2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955–9964 [**DOI:** 10.1002/chem.201200497](http://dx.doi.org/10.1002/chem.201200497)
+3. Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. *J. Phys. Chem. C* **2015**, *119*, 1840-1850 [**DOI:** 10.1021/jp509921r](http://dx.doi.org/10.1021/jp509921r)
 4. Alecu, I. M.; Zheng, J.; Zhao, Y.; Truhlar, D. G.; *J. Chem. Theory Comput.* **2010**, *6*, 2872-2887 [**DOI:** 10.1021/ct100326h](http://dx.doi.org/10.1021/ct100326h)
 5. Mammen, M.; Shakhnovich, E. I.; Deutch, J. M.; Whitesides, G. M. *J. Org. Chem.* **1998**, *63*, 3821-3830 [**DOI:** 10.1021/jo970944f](http://dx.doi.org/10.1021/jo970944f)
 

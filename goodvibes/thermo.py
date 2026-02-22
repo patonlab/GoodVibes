@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
-import ctypes, math, os.path, sys
+import math
+import os.path
+import sys
 import numpy as np
 
 # Importing regardless of relative import
 try:
-    from .io import *
-except:
-    from io import *
+    from .io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
+except ImportError:
+    from io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
 
-# PHYSICAL CONSTANTS                                      UNITS
+# PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
 PLANCK_CONSTANT = 6.62606957e-34  # J * s
 BOLTZMANN_CONSTANT = 1.3806488e-23  # J / K
@@ -18,6 +20,8 @@ SPEED_OF_LIGHT = 2.99792458e10  # cm / s
 AVOGADRO_CONSTANT = 6.0221415e23  # 1 / mol
 AMU_to_KG = 1.66053886E-27  # UNIT CONVERSION
 J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
+GRIMME_BAV = 1.00e-44  # Default average moment of inertia (kg m^2) from Grimme
+
 
 # Symmetry numbers for different point groups
 pg_sm = {"C1": 1, "Cs": 1, "Ci": 1, "C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "C7": 7, "C8": 8, "D2": 4, "D3": 6,
@@ -27,20 +31,8 @@ pg_sm = {"C1": 1, "Cs": 1, "Ci": 1, "C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6,
          "D8d": 16, "S4": 4, "S6": 6, "S8": 8, "T": 6, "Th": 12, "Td": 12, "O": 12, "Oh": 24, "Cinfv": 1, "Dinfh": 2,
          "I": 30, "Ih": 60, "Kh": 1}
 
-def sharepath(filename):
-    """
-    Get absolute pathway to GoodVibes project.
 
-    Used in finding location of compiled C files used in symmetry corrections.
 
-    Parameter:
-    filename (str): name of compiled C file, OS specific.
-
-    Returns:
-    str: absolute path on machine to compiled C file.
-    """
-    here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(here, 'share', filename)
 
 def calc_translational_energy(temperature):
     """
@@ -52,7 +44,7 @@ def calc_translational_energy(temperature):
     Etrans = 3/2 RT!
 
     Parameter:
-    temperature (float): temperature for calculations to be performed at.
+    temperature (float): temperature for calculations to be performed at (K)
 
     Returns:
     float: translational energy of chemical system.
@@ -60,31 +52,32 @@ def calc_translational_energy(temperature):
     energy = 1.5 * GAS_CONSTANT * temperature
     return energy
 
-def calc_rotational_energy(zpe, symmno, temperature, linear):
+
+def calc_rotational_energy(temperature, monatomic=False, linear=False):
     """
     Rotational energy evaluation
 
     Calculates the rotational energy (J/mol)
-    Etrans = 0 (atomic) ; RT (linear); 3/2 RT (non-linear)
+    Erot = 0 (atomic) ; RT (linear); 3/2 RT (non-linear)
 
     Parameters:
-    zpe (float): zero point energy of chemical system.
-    symmno (float): symmetry number, used for adding a symmetry correction.
-    temperature (float): temperature for calculations to be performed at.
-    linear (bool): flag for linear molecules, changes how calculation is performed.
+    temperature (float): temperature for calculations to be performed at (K)
+    monatomic (bool): True for single atoms (zero rotational energy).
+    linear (bool): True for linear molecules (RT instead of 3/2 RT).
 
     Returns:
     float: rotational energy of chemical system.
     """
-    if zpe == 0.0:
+    if monatomic:
         energy = 0.0
-    elif linear == 1:
+    elif linear:
         energy = GAS_CONSTANT * temperature
     else:
         energy = 1.5 * GAS_CONSTANT * temperature
     return energy
 
-def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
+
+def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fract_modelsys=False):
     """
     Vibrational energy evaluation.
 
@@ -93,32 +86,47 @@ def calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_
     Evib = R * Sum(0.5 hv/k + (hv/k)/(e^(hv/KT)-1))
 
     Parameters:
-    frequency_wn (list): list of frequencies parsed from file.
-    temperature (float): temperature for calculations to be performed at.
-    freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
-    fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.
+    temperature (float): temperature for calculations to be performed at K)
+    frequency_wn (list): list of frequencies parsed from file (cm^-1).
+    freq_scale_factor (float): frequency scaling factor based on level of theory
+        and basis set used. When fract_modelsys is provided, this should be a
+        2-element list [qm_scale, mm_scale].
+    fract_modelsys (list or False): per-frequency ONIOM model-system fractions.
+        False (default) disables ONIOM blending.
 
     Returns:
     float: vibrational energy of chemical system.
     """
+    if temperature <= 0:
+        raise ValueError(
+            "Temperature must be positive for vibrational energy calculation."
+        )
+
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
                              for i in range(len(fract_modelsys))]
-        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) / (BOLTZMANN_CONSTANT * temperature)
+        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT *
+                   freq_scale_factor[i]) / (BOLTZMANN_CONSTANT * temperature)
                   for i in range(len(frequency_wn))]
     else:
-        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature) for freq in frequency_wn]
+        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) /
+                  (BOLTZMANN_CONSTANT * temperature) for freq in frequency_wn]
+
     # Error occurs if T is too low when performing math.exp
     for entry in factor:
         if entry > math.log(sys.float_info.max):
-            sys.exit("\nx  Warning! Temperature may be too low to calculate vibrational energy. Please adjust using the `-t` option and try again.\n")
+            raise ValueError(
+                "Temperature may be too low to calculate vibrational energy. "
+                "Please adjust using the `-t` option and try again."
+            )
 
     energy = [entry * GAS_CONSTANT * temperature * (0.5 + (1.0 / (math.exp(entry) - 1.0)))
               for entry in factor]
 
     return sum(energy)
 
-def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
+
+def calc_zeropoint_energy(frequency_wn, freq_scale_factor = 1.0, fract_modelsys = False):
     """
     Vibrational Zero point energy evaluation.
 
@@ -126,7 +134,7 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     EZPE = Sum(0.5 hv/k)
 
     Parameters:
-    frequency_wn (list): list of frequencies parsed from file.
+    frequency_wn (list): list of frequencies parsed from file (cm^-1).
     freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
     fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.
 
@@ -144,9 +152,13 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys):
     energy = [0.5 * entry * GAS_CONSTANT for entry in factor]
     return sum(energy)
 
+
 def get_free_space(solv):
     """
     Computed the amount of accessible free space (ml per L) in solution.
+
+    .. deprecated::
+        This function is experimental and no longer recommended for use.
 
     Calculates the free space in a litre of bulk solvent, based on
     Shakhnovich and Whitesides (J. Org. Chem. 1998, 63, 3821-3830).
@@ -160,24 +172,34 @@ def get_free_space(solv):
     Returns:
     float: accessible free space in solution.
     """
-    solvent_list = ["none", "H2O", "toluene", "DMF", "AcOH", "chloroform"]
-    molarity = [1.0, 55.6, 9.4, 12.9, 17.4, 12.5]  # mol/l
-    molecular_vol = [1.0, 27.944, 149.070, 77.442, 86.10, 97.0]  # Angstrom^3
+    import warnings
+    warnings.warn(
+        "get_free_space is experimental and no longer recommended.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    solvent_list = ["H2O", "toluene", "DMF", "AcOH", "chloroform"]
+    molarity = [55.6, 9.4, 12.9, 17.4, 12.5]  # mol/l
+    molecular_vol = [27.944, 149.070, 77.442, 86.10, 97.0]  # Angstrom^3
 
-    nsolv = 0
-    for i in range(0, len(solvent_list)):
-        if solv == solvent_list[i]:
-            nsolv = i
-    solv_molarity = molarity[nsolv]
-    solv_volume = molecular_vol[nsolv]
-    if nsolv > 0:
-        v_free = 8 * ((1E27 / (solv_molarity * AVOGADRO_CONSTANT)) ** 0.333333 - solv_volume ** 0.333333) ** 3
-        freespace = v_free * solv_molarity * AVOGADRO_CONSTANT * 1E-24
-    else:
-        freespace = 1000.0
+    if solv not in solvent_list:
+        warnings.warn(
+            f"Solvent '{solv}' not recognized. Supported solvents: "
+            f"{', '.join(solvent_list)}. Returning gas-phase free space.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return 1000.0
+
+    idx = solvent_list.index(solv)
+    solv_molarity = molarity[idx]
+    solv_volume = molecular_vol[idx]
+    v_free = 8 * ((1E27 / (solv_molarity * AVOGADRO_CONSTANT)) ** 0.333333 - solv_volume ** 0.333333) ** 3
+    freespace = v_free * solv_molarity * AVOGADRO_CONSTANT * 1E-24
     return freespace
 
-def calc_translational_entropy(molecular_mass, conc, temperature, solv):
+
+def calc_translational_entropy(molecular_mass, conc, temperature, solvent = None):
     """
     Translational entropy evaluation.
 
@@ -186,19 +208,24 @@ def calc_translational_entropy(molecular_mass, conc, temperature, solv):
     Strans = R(Ln(2pimkT/h^2)^3/2(1/C)) + 1 + 3/2)
 
     Parameters:
-    molecular_mass (float): total molecular mass of chemical system.
-    conc (float): concentration to perform calculations at.
-    temperature (float): temperature for calculations to be performed at.
-    solv (str): solvent used in chemical calculation.
+    molecular_mass (float): total molecular mass of chemical system (amu).
+    conc (float): concentration (mol/L).
+    temperature (float): temperature for calculations to be performed at (K).
+    solvent (str): solvent used in chemical calculation.
 
     Returns:
     float: translational entropy of chemical system.
     """
     lmda = ((2.0 * math.pi * molecular_mass * AMU_to_KG * BOLTZMANN_CONSTANT * temperature) ** 0.5) / PLANCK_CONSTANT
-    freespace = get_free_space(solv)
-    ndens = conc * 1000 * AVOGADRO_CONSTANT / (freespace / 1000.0)
+    if solvent is not None:
+        freespace = get_free_space(solvent)
+        ndens = conc * 1000 * AVOGADRO_CONSTANT / (freespace / 1000.0)
+    else:
+        ndens = conc * 1000 * AVOGADRO_CONSTANT # number per m^3
+    
     entropy = GAS_CONSTANT * (2.5 + math.log(lmda ** 3 / ndens))
     return entropy
+
 
 def calc_electronic_entropy(multiplicity):
     """
@@ -216,43 +243,46 @@ def calc_electronic_entropy(multiplicity):
     entropy = GAS_CONSTANT * (math.log(multiplicity))
     return entropy
 
-def calc_rotational_entropy(zpe, linear, symmno, rotemp, temperature):
+
+def calc_rotational_entropy(temperature, rotemp, symmno=1, monatomic=False, linear=False):
     """
     Rotational entropy evaluation.
 
     Calculates the rotational entropy (J/(mol*K))
-    Strans = 0 (atomic) ; R(Ln(q)+1) (linear); R(Ln(q)+3/2) (non-linear)
+    Srot = 0 (atomic) ; R(Ln(q)+1) (linear); R(Ln(q)+3/2) (non-linear)
 
     Parameters:
-    zpe (float): zero point energy of chemical system.
-    linear (bool): flag for linear molecules.
-    symmno (float): symmetry number of chemical system.
-    rotemp (list): list of parsed rotational temperatures of chemical system.
-    temperature (float): temperature for calculations to be performed at.
+    temperature (float): temperature for calculations to be performed at (K).
+    symmno (float): symmetry number of chemical system (default 1 = no symmetry).
+    rotemp (list): list of parsed rotational temperatures of chemical system (K).
+    monatomic (bool): True for single atoms (zero rotational entropy).
+    linear (bool): True for linear molecules.
 
     Returns:
     float: rotational entropy of chemical system.
     """
-    if rotemp == [0.0, 0.0, 0.0] or zpe == 0.0:  # Monatomic
-        entropy = 0.0
-    else:
-        if len(rotemp) == 1:  # Diatomic or linear molecules
-            linear = 1
-            qrot = temperature / rotemp[0]
-        elif len(rotemp) == 2:  # Possible gaussian problem with linear triatomic
-            linear = 2
-        else:
-            qrot = math.pi * temperature ** 3 / (rotemp[0] * rotemp[1] * rotemp[2])
-            qrot = qrot ** 0.5
-        if linear == 1:
-            entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1)
-        elif linear == 2:
-            entropy = 0.0
-        else:
-            entropy = GAS_CONSTANT * (math.log(qrot / symmno) + 1.5)
-    return entropy
+    if monatomic:
+        return 0.0
 
-def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys):
+    if linear:
+        if rotemp is None or len(rotemp) < 1:
+            raise ValueError(
+                "calc_rotational_entropy: invalid `rotemp` for linear molecule "
+                "(monatomic=False, linear=True). Expected len(rotemp) >= 1."
+            )
+        qrot = temperature / rotemp[0]
+        return GAS_CONSTANT * (math.log(qrot / symmno) + 1)
+
+    if rotemp is None or len(rotemp) < 3:
+        raise ValueError(
+            "calc_rotational_entropy: invalid `rotemp` for non-linear molecule "
+            "(monatomic=False, linear=False). Expected len(rotemp) >= 3."
+        )
+    qrot = (math.pi * temperature ** 3 / (rotemp[0] * rotemp[1] * rotemp[2])) ** 0.5
+    return GAS_CONSTANT * (math.log(qrot / symmno) + 1.5)
+
+
+def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor = 1.0, fract_modelsys=False):
     """
     Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
 
@@ -262,7 +292,7 @@ def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_models
 
     Parameters:
     frequency_wn (list): list of frequencies parsed from file.
-    temperature (float): temperature for calculations to be performed at.
+    temperature (float): temperature for calculations to be performed at (K).
     freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
     fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.
 
@@ -281,7 +311,8 @@ def calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_models
                for entry in factor]
     return entropy
 
-def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
+
+def calc_qRRHO_energy(temperature, frequency_wn, freq_scale_factor = 1.0):
     """
     Quasi-rigid rotor harmonic oscillator energy evaluation.
 
@@ -303,35 +334,44 @@ def calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor):
               (1 - math.exp(-entry / BOLTZMANN_CONSTANT / temperature)) for entry in factor]
     return energy
 
-def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys, file, inertia, roconst):
-    """
-    Free rotor entropy evaluation.
 
+def calc_avg_moment_of_inertia(roconst):
+    """
+    Compute average moment of inertia from rotational constants.
+
+    Parameters:
+    roconst (list): rotational constants (GHz).
+
+    Returns:
+    float: average moment of inertia (kg m^2).
+    """
+    if not roconst:
+        raise ValueError("roconst list cannot be empty")
+    av_roconst_ghz = sum(roconst) / len(roconst)  # GHz
+    if av_roconst_ghz <= 0:
+        raise ValueError("Average rotational constant must be positive")
+    av_roconst_hz = av_roconst_ghz * 1e9  # Hz
+    return PLANCK_CONSTANT / av_roconst_hz  # kg m^2
+
+
+def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=False):
+    """
     Entropic contributions (J/(mol*K)) according to a free-rotor
     description for a list of vibrational modes
     Sr = R(1/2 + 1/2ln((8pi^3u'kT/h^2))
 
     Parameters:
-    frequency_wn (list): list of frequencies parsed from file.
-    temperature (float): temperature for calculations to be performed at.
+    temperature (float): temperature for calculations to be performed at (K).
+    frequency_wn (list): list of frequencies parsed from file (cm^-1).
+    bav (float): average moment of inertia (kg m^2). Defaults to Grimme's
+        global value of 1e-44.
     freq_scale_factor (float): frequency scaling factor based on level of theory and basis set used.
-    fract_modelsys (list): MM frequency scale factors obtained from ONIOM calculations.
-    inertia (str): flag for choosing global average moment of inertia for all molecules or computing individually from parsed rotational constants
-    roconst (list): list of parsed rotational constants for computing the average moment of inertia.
+    fract_modelsys (list or False): per-frequency ONIOM model-system fractions.
+        False (default) disables ONIOM blending.
 
     Returns:
     float: free rotor entropy of chemical system.
     """
-    # This is the average moment of inertia used by Grimme
-    if inertia == "global" or len(roconst) == 0:
-        bav = 1.00e-44
-    else:
-        av_roconst_ghz = sum(roconst)/len(roconst)  #GHz
-        av_roconst_hz = av_roconst_ghz * 1000000000 #Hz
-        av_roconst_s = 1 / av_roconst_hz            #s
-        av_roconst = av_roconst_s * PLANCK_CONSTANT #kg m^2
-        bav = av_roconst
-
     if fract_modelsys is not False:
         freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
                              for i in range(len(fract_modelsys))]
@@ -344,23 +384,92 @@ def calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_mod
     entropy = [(0.5 + math.log(entry ** 0.5)) * GAS_CONSTANT for entry in factor]
     return entropy
 
+
 def calc_damp(frequency_wn, freq_cutoff):
-    """A damping function to interpolate between RRHO and free rotor vibrational entropy values"""
+    """
+    Damping function for quasi-harmonic entropy interpolation.
+
+    Compute the Head-Gordon damping factor w(v) = 1 / (1 + (v0/v)^4) used to
+    interpolate between rigid-rotor harmonic oscillator (RRHO) and free-rotor
+    entropy for each vibrational mode. Returns ~1 for frequencies well above
+    the cutoff (RRHO regime) and ~0 for frequencies well below (free-rotor regime).
+
+    Parameters:
+    frequency_wn (list): vibrational frequencies (cm^-1).
+    freq_cutoff (float): cutoff frequency (cm^-1) where the damping factor is 0.5.
+
+    Returns:
+    list: damping factor for each frequency (values between 0 and 1).
+    """
     alpha = 4
     damp = [1 / (1 + (freq_cutoff / entry) ** alpha) for entry in frequency_wn]
     return damp
 
+
+def _apply_frequency_inversion(raw_freqs, raw_im_freqs, invert, job_type):
+    """Apply frequency inversion policy to raw parsed frequencies.
+
+    This is a user-controlled policy decision, not file parsing.
+    Raw positive frequencies stay in frequency_wn.
+    Raw negative frequencies are either kept as imaginary or inverted to positive
+    depending on the invert policy and job type.
+
+    Returns:
+        (frequency_wn, im_frequency_wn, inverted_freqs)
+    """
+    im_freq_cutoff = 0.0
+    frequency_wn = []
+    im_frequency_wn = []
+    inverted_freqs = []
+
+    # Copy positive frequencies directly
+    frequency_wn = list(raw_freqs)
+
+    # Apply inversion policy to imaginary frequencies
+    # Determine the most negative frequency for TS auto-inversion
+    all_raw = list(raw_freqs) + list(raw_im_freqs)
+    most_low_freq = min(all_raw) if all_raw else 0.0
+
+    for x in raw_im_freqs:
+        if x < -1 * im_freq_cutoff:
+            if invert is not False:
+                if invert == 'auto':
+                    if "TSFreq" in job_type:
+                        if x == most_low_freq:
+                            im_frequency_wn.append(x)
+                        else:
+                            frequency_wn.append(x * -1.)
+                            inverted_freqs.append(x)
+                    else:
+                        frequency_wn.append(x * -1.)
+                        inverted_freqs.append(x)
+                elif x > float(invert):
+                    frequency_wn.append(x * -1.)
+                    inverted_freqs.append(x)
+                else:
+                    im_frequency_wn.append(x)
+            else:
+                im_frequency_wn.append(x)
+
+    return frequency_wn, im_frequency_wn, inverted_freqs
+
+
 class calc_bbe:
     """
-    The function to compute the "black box" entropy and enthalpy values along with all other thermochemical quantities.
+    Compute "black box" entropy and enthalpy values along with all
+    other thermochemical quantities.
 
-    Parses energy, program version, frequencies, charge, multiplicity, solvation model, computation time.
-    Computes H, S from partition functions, applying qhasi-harmonic corrections, COSMO-RS solvation corrections,
-    considering frequency scaling factors from detected level of theory/basis set, and optionally ONIOM frequency scaling.
+    Parses energy, program version, frequencies, charge, multiplicity,
+    solvation model, computation time.
+    Computes H, S from partition functions, applying quasi-harmonic
+    corrections, considering frequency
+    scaling factors from detected level of theory/basis set, and
+    optionally ONIOM frequency scaling.
 
     Attributes:
-        xyz (getoutData object): contains Cartesian coordinates, atom connectivity.
-        job_type (str): contains information on the type of Gaussian job such as ground or transition state optimization, frequency.
+        xyz (QCData): contains Cartesian coordinates and atom data.
+        job_type (str): contains information on the type of Gaussian
+            job such as ground or transition state optimization, frequency.
         roconst (list): list of parsed rotational constants from Gaussian calculations.
         program (str): program used in chemical computation.
         version_program (str): program version used in chemical computation.
@@ -389,266 +498,81 @@ class calc_bbe:
         enthalpy (float): enthalpy computed from partition functions.
         qh_enthalpy (float): enthalpy computed from partition functions, quasi-harmonic corrections applied.
         entropy (float): entropy of chemical system computed from partition functions.
-        qh_entropy (float): entropy of chemical system computed from partition functions, quasi-harmonic corrections applied.
-        gibbs_free_energy (float): Gibbs free energy of chemical system computed from enthalpy and entropy.
-        qh_gibbs_free_energy (float): Gibbs free energy of chemical system computed from quasi-harmonic enthalpy and/or entropy.
-        cosmo_qhg (float): quasi-harmonic Gibbs free energy with COSMO-RS correction for Gibbs free energy of solvation
+        qh_entropy (float): entropy of chemical system computed from
+            partition functions, quasi-harmonic corrections applied.
+        gibbs_free_energy (float): Gibbs free energy of chemical system
+            computed from enthalpy and entropy.
+        qh_gibbs_free_energy (float): Gibbs free energy of chemical system
+            computed from quasi-harmonic enthalpy and/or entropy.
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, d3_term, ssymm=False, cosmo=None, mm_freq_scale_factor=False,inertia='global',g4=False, glowfreq=''):
-        # List of frequencies and default values
-        im_freq_cutoff, frequency_wn, im_frequency_wn, rotemp, roconst, linear_mol, link, freqloc, linkmax, symmno, self.cpu, inverted_freqs = 0.0, [], [], [
-            0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0, 0, 0, 0, 1, [0, 0, 0, 0, 0], []
-        linear_warning = False
+                 invert, ssymm=False,
+                 mm_freq_scale_factor=False, inertia='global', g4=False,
+                 glowfreq=''):
+        # 1. Parse all data from file (program-agnostic)
+        qcdata = parse_qcdata(file, ssymm=ssymm, g4=g4)
+
+        # 2. Geometry data (from native parser via qcdata)
+        self.xyz = qcdata
+        self.atom_types = qcdata.atom_types
+        self.atom_nums = qcdata.atom_nums
+        self.cartesians = qcdata.cartesians
+
+        # 3. Populate self attributes from qcdata
+        self.program = qcdata.program
+        self.version_program = qcdata.version_program
+        self.solvation_model = qcdata.solvation_model
+        self.file = qcdata.file
+        self.charge = qcdata.charge
+        self.empirical_dispersion = qcdata.empirical_dispersion
+        self.multiplicity = qcdata.multiplicity
+        self.scf_energy = qcdata.scf_energy
+        self.sp_energy = qcdata.scf_energy
+        self.zero_point_corr = qcdata.zero_point_corr
+        self.job_type = qcdata.job_type
+        self.roconst = qcdata.roconst
+        self.mult = qcdata.multiplicity
+        self.cpu = qcdata.cpu
+
+        molecular_mass = qcdata.molecular_mass
+        symmno = qcdata.symmno
+        linear_mol = 1 if qcdata.linear_mol else 0
+        rotemp = qcdata.rotemp
+        linear_warning = qcdata.linear_warning
+
+        # ONIOM fract_modelsys setup
         if mm_freq_scale_factor is False:
             fract_modelsys = False
         else:
-            fract_modelsys = []
+            fract_modelsys = qcdata.fract_modelsys if qcdata.fract_modelsys else []
             freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
-        self.xyz = getoutData(file)
-        self.job_type = gaussian_jobtype(file)
-        self.roconst = []
-        # Parse some useful information from the file
-        self.sp_energy, self.program, self.version_program, self.solvation_model, self.file, self.charge, self.empirical_dispersion, self.multiplicity = parse_data(
-            file)
-        with open(file) as f:
-            g_output = f.readlines()
-        self.cosmo_qhg = 0.0
-        # Read any single point energies if requested
+
+        # 4. Read any single point energies if requested
         if spc != False and spc != 'link':
             name, ext = os.path.splitext(file)
             try:
-                self.sp_energy, self.sp_program, self.sp_version_program, self.sp_solvation_model, self.sp_file, self.sp_charge, self.sp_empirical_dispersion, self.sp_multiplicity = parse_data(
+                (self.sp_energy, self.sp_program,
+                 self.sp_version_program, self.sp_solvation_model,
+                 self.sp_file, self.sp_charge,
+                 self.sp_empirical_dispersion,
+                 self.sp_multiplicity) = parse_data(
                     name + '_' + spc + ext)
                 self.cpu = sp_cpu(name + '_' + spc + ext)
             except ValueError:
                 self.sp_energy = '!'
                 pass
         else:
-            self.sp_energy, self.sp_program, self.sp_version_program, self.sp_solvation_model, self.sp_file, self.sp_charge, self.sp_empirical_dispersion, self.sp_multiplicity = parse_data(
-                file)
-        if self.sp_program == 'Gaussian' or self.program == 'Gaussian':
-            # Count number of links
-            for line in g_output:
-                # Only read first link + freq not other link jobs
-                if "Normal termination" in line:
-                    linkmax += 1
-                else:
-                    frequency_wn = []
-                if 'Frequencies --' in line:
-                    freqloc = linkmax
+            (self.sp_energy, self.sp_program,
+             self.sp_version_program, self.sp_solvation_model,
+             self.sp_file, self.sp_charge,
+             self.sp_empirical_dispersion,
+             self.sp_multiplicity) = parse_data(file)
 
-            # Iterate over output
-            if freqloc == 0:
-                freqloc = len(g_output)
-            for i, line in enumerate(g_output):
-                # Link counter
-                if "Normal termination" in line:
-                    link += 1
-                    # Reset frequencies if in final freq link
-                    if link == freqloc:
-                        frequency_wn = []
-                        im_frequency_wn = []
-                        if mm_freq_scale_factor is not False:
-                            fract_modelsys = []
-                # If spc specified will take last Energy from file, otherwise will break after freq calc
-                if not g4:
-                    if link > freqloc:
-                        break
-                # Iterate over output: look out for low frequencies
-                if line.strip().startswith('Frequencies -- '):
-                    if mm_freq_scale_factor is not False:
-                        newline = g_output[i + 3]
-                    all_freqs = []
-                    for j in range(2,5):
-                        try:
-                            fr = float(line.strip().split()[j])
-                            all_freqs.append(fr)
-                        except IndexError:
-                            pass
-                    most_low_freq = min(all_freqs)
-                    for j in range(2, 5):
-                        try:
-                            x = float(line.strip().split()[j])
-                            # If given MM freq scale factor fill the fract_modelsys array:
-                            if mm_freq_scale_factor is not False:
-                                y = float(newline.strip().split()[j]) / 100.0
-                                y = float('{:.6f}'.format(y))
-                            else:
-                                y = 1.0
-                            # Only deal with real frequencies
-                            if x > 0.00:
-                                frequency_wn.append(x)
-                                if mm_freq_scale_factor is not False: fract_modelsys.append(y)
-                            # Check if we want to make any low lying imaginary frequencies positive
-                            elif x < -1 * im_freq_cutoff:
-                                if invert is not False:
-                                    if invert == 'auto':
-                                        if "TSFreq" in self.job_type:
-                                            if x == most_low_freq:
-                                                im_frequency_wn.append(x)
-                                            else:
-                                                frequency_wn.append(x * -1.)
-                                                inverted_freqs.append(x)
-                                        else:
-                                            frequency_wn.append(x * -1.)
-                                            inverted_freqs.append(x)
-                                    elif x > float(invert):
-                                        frequency_wn.append(x * -1.)
-                                        inverted_freqs.append(x)
-                                    else:
-                                        im_frequency_wn.append(x)
-                                else:
-                                    im_frequency_wn.append(x)
-                        except IndexError:
-                            pass
-                # For QM calculations look for SCF energies, last one will be the optimized energy
-                elif line.strip().startswith('SCF Done:'):
-                    self.scf_energy = float(line.strip().split()[4])
-                elif line.strip().startswith('E2('):
-                    spe_value = line.strip().split()[-1]
-                    self.scf_energy = float(spe_value.replace('D','E'))
-                # For Counterpoise calculations the corrected energy value will be taken
-                elif line.strip().startswith('Counterpoise corrected energy'):
-                    self.scf_energy = float(line.strip().split()[4])
-                # For MP2 calculations replace with EUMP2
-                elif 'EUMP2 =' in line.strip():
-                    self.scf_energy = float((line.strip().split()[5]).replace('D', 'E'))
-                # For ONIOM calculations use the extrapolated value rather than SCF value
-                elif "ONIOM: extrapolated energy" in line.strip():
-                    self.scf_energy = (float(line.strip().split()[4]))
-                # For G4 calculations look for G4 energies (Gaussian16a bug prints G4(0 K) as DE(HF)) --Brian modified to work for G16c-where bug is fixed.
-                elif line.strip().startswith('G4(0 K)'):
-                    self.scf_energy = float(line.strip().split()[2])
-                    self.scf_energy -= self.zero_point_corr #Remove G4 ZPE
-                elif line.strip().startswith('E(ZPE)='): #Overwrite DFT ZPE with G4 ZPE
-                    self.zero_point_corr = float(line.strip().split()[1])
-                # For TD calculations look for SCF energies of the first excited state
-                elif 'E(TD-HF/TD-DFT)' in line.strip():
-                    self.scf_energy = float(line.strip().split()[4])
-                # For Semi-empirical or Molecular Mechanics calculations
-                elif "Energy= " in line.strip() and "Predicted" not in line.strip() and "Thermal" not in line.strip() and "G4" not in line.strip():
-                    self.scf_energy = (float(line.strip().split()[1]))
-                # Look for thermal corrections, paying attention to point group symmetry
-                elif line.strip().startswith('Zero-point correction='):
-                    self.zero_point_corr = float(line.strip().split()[2])
-                # Grab Multiplicity
-                elif 'Multiplicity' in line.strip():
-                    try:
-                        self.mult = int(line.split('=')[-1].strip().split()[0])
-                    except:
-                        self.mult = int(line.split()[-1])
-                # Grab molecular mass
-                elif line.strip().startswith('Molecular mass:'):
-                    molecular_mass = float(line.strip().split()[2])
-                # Grab rational symmetry number
-                elif line.strip().startswith('Rotational symmetry number'):
-                    if not ssymm:
-                        symmno = int((line.strip().split()[3]).split(".")[0])
-                # Grab point group
-                elif line.strip().startswith('Full point group'):
-                    if line.strip().split()[3] == 'D*H' or line.strip().split()[3] == 'C*V':
-                        linear_mol = 1
-                # Grab rotational constants
-                elif line.strip().startswith('Rotational constants (GHZ):'):
-                    try:
-                        self.roconst = [float(line.strip().replace(':', ' ').split()[3]),
-                                        float(line.strip().replace(':', ' ').split()[4]),
-                                        float(line.strip().replace(':', ' ').split()[5])]
-                    except ValueError:
-                        if line.strip().find('********'):
-                            linear_warning = True
-                            self.roconst = [float(line.strip().replace(':', ' ').split()[4]),
-                                            float(line.strip().replace(':', ' ').split()[5])]
-                # Grab rotational temperatures
-                elif line.strip().startswith('Rotational temperature '):
-                    rotemp = [float(line.strip().split()[3])]
-                elif line.strip().startswith('Rotational temperatures'):
-                    try:
-                        rotemp = [float(line.strip().split()[3]), float(line.strip().split()[4]),
-                                  float(line.strip().split()[5])]
-                    except ValueError:
-                        rotemp = None
-                        if line.strip().find('********'):
-                            linear_warning = True
-                            rotemp = [float(line.strip().split()[4]), float(line.strip().split()[5])]
-                if "Job cpu time" in line.strip():
-                    days = int(line.split()[3]) + self.cpu[0]
-                    hours = int(line.split()[5]) + self.cpu[1]
-                    mins = int(line.split()[7]) + self.cpu[2]
-                    secs = 0 + self.cpu[3]
-                    msecs = int(float(line.split()[9]) * 1000.0) + self.cpu[4]
-                    self.cpu = [days, hours, mins, secs, msecs]
-
-        if self.sp_program == 'NWChem' or self.program == 'NWChem':
-            # Iterate
-            for i,line in enumerate(g_output):
-                #scanning for low frequencies...
-                if line.strip().startswith('P.Frequency'):
-                    newline=g_output[i+3]
-                    for j in range(1,7):
-                        try:
-                            x = float(line.strip().split()[j])
-                            y = 1.0
-                            # Only deal with real frequencies
-                            if x > 0.00:
-                                frequency_wn.append(x)
-                                if mm_freq_scale_factor is not False: fract_modelsys.append(y)
-                            # Check if we want to make any low lying imaginary frequencies positive
-                            elif x < -1 * im_freq_cutoff:
-                                if invert is not False:
-                                    if x > float(invert):
-                                        frequency_wn.append(x * -1.)
-                                        inverted_freqs.append(x)
-                                    else:
-                                        im_frequency_wn.append(x)
-                                else:
-                                    im_frequency_wn.append(x)
-                        except IndexError:
-                            pass
-                # For QM calculations look for SCF energies, last one will be the optimized energy
-                elif line.strip().startswith('Total DFT energy ='):
-                    self.scf_energy = float(line.strip().split()[4])
-                # Look for thermal corrections, paying attention to point group symmetry
-                elif line.strip().startswith('Zero-Point'):
-                    self.zero_point_corr = float(line.strip().split()[8])
-                # Grab Multiplicity
-                elif 'mult ' in line.strip():
-                    try:
-                        self.mult = int(line.split()[1])
-                    except:
-                        self.mult = 1
-                # Grab molecular mass
-                elif line.strip().find('mol. weight') != -1:
-                    molecular_mass = float(line.strip().split()[-1][0:-1])
-                # Grab rational symmetry number
-                elif line.strip().find('symmetry #') != -1:
-                    if not ssymm:
-                        symmno = int(line.strip().split()[-1][0:-1])
-                # Grab point group
-                elif line.strip().find('symmetry detected') != -1:
-                    if line.strip().split()[0] == 'D*H' or line.strip().split()[0] == 'C*V':
-                        linear_mol = 1
-                # Grab rotational constants (convert cm-1 to GHz)
-                elif line.strip().startswith('A=') or line.strip().startswith('B=') or line.strip().startswith('C=') :
-                    letter=line.strip()[0]
-                    h = 0
-                    if letter == 'A':
-                        h = 0
-                    elif letter == 'B':
-                        h = 1
-                    elif letter == 'C':
-                        h = 2
-                    self.roconst[h]=float(line.strip().split()[1])*29.9792458
-                    rotemp[h]=float(line.strip().split()[4])
-                if "Total times" in line.strip():
-                    days = 0
-                    hours = 0
-                    mins = 0
-                    secs = line.strip().split()[3][0:-1]
-                    msecs = 0
-                    self.cpu = [days,hours,mins,secs,msecs]
+        # 5. Apply frequency inversion policy (user option, not file parsing)
+        frequency_wn, im_frequency_wn, inverted_freqs = _apply_frequency_inversion(
+            qcdata.frequency_wn, qcdata.im_frequency_wn,
+            invert, self.job_type)
 
         self.inverted_freqs = inverted_freqs
 
@@ -669,37 +593,47 @@ class calc_bbe:
             with open(f'{glowfreq}.ROVIBprop') as f:
                 vib_output = f.readlines()
             # currently, this only works for non-linear molecules
-            n_freqs = (n_atoms*3)-6
-            for i in range(2,2+n_freqs):
+            n_freqs = (n_atoms * 3) - 6
+            for i in range(2, 2 + n_freqs):
                 frequency_wn.append(float(vib_output[i].split()[-1]))
-        
+
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
-        if hasattr(self, "zero_point_corr") and rotemp:
+        if self.zero_point_corr is not None and rotemp:
             cutoffs = [s_freq_cutoff for freq in frequency_wn]
 
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
             u_trans = calc_translational_energy(temperature)
-            s_trans = calc_translational_entropy(molecular_mass, conc, temperature, solv)
+            solvent = solv if solv not in (None, 'none') else None
+            s_trans = calc_translational_entropy(molecular_mass, conc, temperature, solvent)
             s_elec = calc_electronic_entropy(self.mult)
 
             # Rotational and Vibrational contributions to the energy entropy
             if len(frequency_wn) > 0:
                 zpe = calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys)
-                u_rot = calc_rotational_energy(self.zero_point_corr, symmno, temperature, linear_mol)
-                u_vib = calc_vibrational_energy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
-                s_rot = calc_rotational_entropy(self.zero_point_corr, linear_mol, symmno, rotemp, temperature)
+                u_rot = calc_rotational_energy(temperature, monatomic=(self.zero_point_corr == 0.0), linear=(linear_mol == 1))
+                u_vib = calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor, fract_modelsys)
+                s_rot = calc_rotational_entropy(temperature, rotemp,
+                                                symmno=symmno,
+                                                monatomic=(self.zero_point_corr == 0.0),
+                                                linear=(linear_mol == 1))
 
                 # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
-                Svib_rrho = calc_rrho_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys)
+                Svib_rrho = calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor, fract_modelsys)
 
                 if s_freq_cutoff > 0.0:
-                    Svib_rrqho = calc_rrho_entropy(cutoffs, temperature, freq_scale_factor, fract_modelsys)
-                Svib_free_rot = calc_freerot_entropy(frequency_wn, temperature, freq_scale_factor, fract_modelsys,file, inertia, self.roconst)
+                    Svib_rrqho = calc_rrho_entropy(temperature, cutoffs, freq_scale_factor, fract_modelsys)
+                if inertia != "global" and len(self.roconst) > 0:
+                    bav = calc_avg_moment_of_inertia(self.roconst)
+                else:
+                    bav = GRIMME_BAV
+                Svib_free_rot = calc_freerot_entropy(
+                    temperature, frequency_wn, bav,
+                    freq_scale_factor, fract_modelsys)
                 S_damp = calc_damp(frequency_wn, s_freq_cutoff)
 
                 # check for qh
                 if QH:
-                    Uvib_qrrho = calc_qRRHO_energy(frequency_wn, temperature, freq_scale_factor)
+                    Uvib_qrrho = calc_qRRHO_energy(temperature, frequency_wn, freq_scale_factor)
                     H_damp = calc_damp(frequency_wn, H_FREQ_CUTOFF)
 
                 # Compute entropy (cal/mol/K) using the two values and damping function
@@ -719,20 +653,15 @@ class calc_bbe:
                             vib_entropy.append(Svib_rrho[j])
                     # Enthalpy correction
                     if QH:
-                        vib_energy.append(H_damp[j] * Uvib_qrrho[j] + (1 - H_damp[j]) * 0.5 * GAS_CONSTANT * temperature)
+                        vib_energy.append(
+                            H_damp[j] * Uvib_qrrho[j] +
+                            (1 - H_damp[j]) * 0.5 * GAS_CONSTANT * temperature)
 
                 qh_s_vib, h_s_vib = sum(vib_entropy), sum(Svib_rrho)
                 if QH:
                     qh_u_vib = sum(vib_energy)
             else:
                 zpe, u_rot, u_vib, qh_u_vib, s_rot, h_s_vib, qh_s_vib = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-
-            # The D3 term is added to the energy term here. If not requested then this term is zero
-            # It is added to the SPC energy if defined (instead of the SCF energy)
-            if spc is False:
-                self.scf_energy += d3_term
-            else:
-                self.sp_energy += d3_term
 
             # Add terms (converted to au) to get Free energy - perform separately
             # for harmonic and quasi-harmonic values out of interest
@@ -771,11 +700,9 @@ class calc_bbe:
                 self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
                 self.qh_gibbs_free_energy = self.enthalpy - temperature * self.qh_entropy
 
-            if cosmo:
-                self.cosmo_qhg = self.qh_gibbs_free_energy + cosmo
             self.im_freq = []
             for freq in im_frequency_wn:
-                if freq < -1 * im_freq_cutoff:
+                if freq < 0.0:
                     self.im_freq.append(freq)
         self.frequency_wn = frequency_wn
         self.im_frequency_wn = im_frequency_wn
@@ -783,61 +710,20 @@ class calc_bbe:
 
     # Get external symmetry number
     def ex_sym(self, file):
-        coords_string = self.xyz.coords_string()
-        coords = coords_string.encode('utf-8')
-        c_coords = ctypes.c_char_p(coords)
-
-        # Determine OS with sys.platform to see what compiled symmetry file to use
-        platform = sys.platform
-        if platform.startswith('linux'):  # linux - .so file
-            path1 = sharepath('symmetry_linux.so')
-            newlib = 'lib_' + file + '.so'
-            path2 = sharepath(newlib)
-            copy = 'cp ' + path1 + ' ' + path2
-            os.popen(copy).close()
-            symmetry = ctypes.CDLL(path2)
-        elif platform.startswith('darwin'):  # macOS - .dylib file
-            path1 = sharepath('symmetry_mac.dylib')
-            newlib = 'lib_' + file + '.dylib'
-            path2 = sharepath(newlib)
-            copy = 'cp ' + path1 + ' ' + path2
-            os.popen(copy).close()
-            symmetry = ctypes.CDLL(path2)
-        elif platform.startswith('win'):  # windows - .dll file
-            path1 = sharepath('symmetry_windows.dll')
-            newlib = 'lib_' + file + '.dll'
-            path2 = sharepath(newlib)
-            copy = 'copy ' + path1 + ' ' + path2
-            os.popen(copy).close()
-            symmetry = ctypes.cdll.LoadLibrary(path2)
-
-        symmetry.symmetry.restype = ctypes.c_char_p
-        pgroup = symmetry.symmetry(c_coords).decode('utf-8')
-        ex_sym = pg_sm.get(pgroup)
-
-        # Remove file
-        if platform.startswith('linux'):  # linux - .so file
-            remove = 'rm ' + path2
-            os.popen(remove).close()
-        elif platform.startswith('darwin'):  # macOS - .dylib file
-            remove = 'rm ' + path2
-            os.popen(remove).close()
-        elif platform.startswith('win'):  # windows - .dll file
-            handle = symmetry._handle
-            del symmetry
-            ctypes.windll.kernel32.FreeLibrary(ctypes.c_void_p(handle))
-            remove = 'Del /F "' + path2 + '"'
-            os.popen(remove).close()
-
-        return ex_sym, pgroup
+        import pymsym
+        atom_nums = np.array(self.xyz.atom_nums)
+        positions = np.array(self.xyz.cartesians)
+        pgroup = pymsym.get_point_group(atom_nums, positions)
+        sym_num = pymsym.get_symmetry_number(atom_nums, positions)
+        return sym_num, pgroup
 
     def int_sym(self):
-        self.xyz.get_connectivity()
+        connectivity = compute_connectivity(self.xyz.atom_types, self.xyz.cartesians)
         cap = [1, 9, 17]
         neighbor = [5, 6, 7, 8, 14, 15, 16]
         int_sym = 1
 
-        for i, row in enumerate(self.xyz.connectivity):
+        for i, row in enumerate(connectivity):
             if self.xyz.atom_nums[i] != 6: continue
             As = np.array(self.xyz.atom_nums)[row]
             if len(As == 4):
@@ -850,7 +736,7 @@ class calc_bbe:
     def sym_correction(self, file):
         ex_sym, pgroup = self.ex_sym(file)
         int_sym = self.int_sym()
-        #override int_sym
+        # override int_sym
         int_sym = 1
         sym_num = ex_sym * int_sym
         sym_correction = (-GAS_CONSTANT * math.log(sym_num)) / J_TO_AU

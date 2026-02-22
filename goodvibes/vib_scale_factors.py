@@ -1,20 +1,9 @@
 #!/usr/bin/python
 
-# Comments and/or additions are welcome (send e-mail to:
-# robert.paton@chem.ox.ac.uk
-
-#####################################
-#        vib_scale_factors.py       #
-#####################################
-###  Written by:  Rob Paton #########
-###          and Guilian Luchini  ###
-###  Last modified:  2025         ###
-#####################################
-
 """Vibrational frequency scaling factors from the Truhlar group database.
 
-Frequency scaling factors taken from version 4 of the Truhlar group database
-(https://t1.chem.umn.edu/freqscale/index.html).
+Frequency scaling factors taken from version 5 of the Truhlar group database
+(https://comp.chem.umn.edu/freqscale/).
 
 Alecu, I. M.; Zheng, J.; Zhao, Y.; Truhlar, D. G. J. Chem. Theory Comput.
 2010, 6, 2872-2887.
@@ -71,6 +60,7 @@ FUNCTIONAL_ALIASES = {
     "B97-3": "B973",
     # CAM-B3LYP without hyphen
     "CAMB3LYP": "CAM-B3LYP",
+    "TPSS": "TPSSTPSS",  # Database uses TPSS/TPSS for the meta-GGA, so canonicalize to match
 }
 
 

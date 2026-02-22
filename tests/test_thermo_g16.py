@@ -6,12 +6,9 @@ import math
 import pytest
 from goodvibes.thermo import (
     calc_bbe, calc_translational_energy, calc_rotational_energy,
-    calc_electronic_entropy, calc_damp,
+    calc_vibrational_energy, calc_electronic_entropy, calc_damp,
 )
-from conftest import (
-    g16path, G16_FREQ_FILES, G16_TS_FILES, G16_SP_ONLY_FILES,
-    G16_LINEAR_FILES, G16_LINKED_FILES, G16_SOLVATION_FILES, G16_ERROR_FILES,
-)
+from conftest import g16path, G16_SOLVATION_FILES, G16_ERROR_FILES
 
 GAS_CONSTANT = 8.3144621
 ATMOS = 101.325
@@ -24,7 +21,7 @@ def _calc(filename, QS='grimme', QH=False, temp=T_DEFAULT, conc=None, scale=1.0)
     if conc is None:
         conc = ATMOS / (GAS_CONSTANT * temp)
     return calc_bbe(g16path(filename), QS, QH, 100.0, 100.0,
-                    temp, conc, scale, 'none', False, False, 0)
+                    temp, conc, scale, None, False, False, 0)
 
 
 # ===========================================================================
@@ -41,7 +38,7 @@ def _calc(filename, QS='grimme', QH=False, temp=T_DEFAULT, conc=None, scale=1.0)
     ('05_methylene_triplet_carbene.log', -39.019781),
     ('08_alanine_C1_pcm_water.log', -323.372759),
     ('10_formaldehyde_verbose_pop.log', -114.462989),
-    ('12_water_anharmonic_vpt2.log', -76.408618),
+    ('12_water_anharmonic_vpt2.log', -76.408726),
     ('13_formaldehyde_tddft_s1.log', -114.214128),
     ('15_methanol_oniom_qmmm.log', -40.576094),
     ('16_o2_superoxide_anion.log', -150.404291),
@@ -64,8 +61,6 @@ def test_calc_bbe_scf_energy(filename, expected_energy):
 # ===========================================================================
 # Expected ZPE values are from the "Zero-point correction=" line in each log
 # file. Files 01b/01c use scale=0.95 (matching Gaussian's Freq=(Scale=0.95)).
-# Files 12/23 are anharmonic (VPT2) where calc_bbe doubles the ZPE because
-# cclib picks up both harmonic and anharmonic frequency blocks.
 
 @pytest.mark.parametrize("filename, expected_zpe, scale", [
     ('01a_water_hf_freq.log', 0.022391, 1.0),
@@ -106,10 +101,8 @@ def test_calc_bbe_scf_energy(filename, expected_energy):
     ('46_ts_h3_hydrogen_abstraction.log', 0.008961, 1.0),
     ('47_ts_e2_elimination_ethylchloride.log', 0.072351, 1.0),
     ('48_ts_nh3_umbrella_inversion.log', 0.033320, 1.0),
-    pytest.param('12_water_anharmonic_vpt2.log', 0.021762, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads both harmonic and anharmonic freq blocks")),
-    pytest.param('23_cs2_linear_anharmonic_noraman.log', 0.006942, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads both harmonic and anharmonic freq blocks")),
+    ('12_water_anharmonic_vpt2.log', 0.021762, 1.0),
+    ('23_cs2_linear_anharmonic_noraman.log', 0.006942, 1.0),
 ])
 def test_calc_bbe_zpe_vs_gaussian(filename, expected_zpe, scale):
     """Validate calc_bbe ZPE against Gaussian's 'Zero-point correction=' value."""
@@ -123,14 +116,16 @@ def test_calc_bbe_zpe_vs_gaussian(filename, expected_zpe, scale):
 # Expected values are from the "Sum of electronic and thermal Enthalpies=" line
 # in each log file.  Files 01b/01c use scale=0.95 (matching Gaussian's
 # Freq=(Scale=0.95)).  File 02 uses T=398.15 K (non-default temperature).
-# Files 12/23 are anharmonic (VPT2) where cclib doubles frequencies.
-# File 40 is a CCSD job where cclib reads the MP2 energy instead of CCSD.
+# Files 12/23 are anharmonic (VPT2) — the parser skips duplicate frequency
+# blocks from the VPT2 recap section.
+# File 40 is a CCSD job — the parser reads the CCSD energy from the archive.
 
 # Temperature / pressure overrides for files run at non-default conditions.
 _TEMP_PRESSURE = {
     '02_ethane_opt_freq_T398_P2.log': (398.15, 2.0),
     '40_n2o_linear_highT_highP.log': (1000.0, 100.0),
 }
+
 
 @pytest.mark.parametrize("filename, expected_enthalpy, scale", [
     ('01a_water_hf_freq.log', -75.984342, 1.0),
@@ -170,12 +165,9 @@ _TEMP_PRESSURE = {
     ('46_ts_h3_hydrogen_abstraction.log', -1.631659, 1.0),
     ('47_ts_e2_elimination_ethylchloride.log', -615.256024, 1.0),
     ('48_ts_nh3_umbrella_inversion.log', -56.370273, 1.0),
-    pytest.param('12_water_anharmonic_vpt2.log', -76.383185, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads both harmonic and anharmonic freq blocks")),
-    pytest.param('23_cs2_linear_anharmonic_noraman.log', -834.555189, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads both harmonic and anharmonic freq blocks")),
-    pytest.param('40_n2o_linear_highT_highP.log', -184.344167, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads MP2 energy instead of CCSD for Opt+Freq jobs")),
+    ('12_water_anharmonic_vpt2.log', -76.383185, 1.0),
+    ('23_cs2_linear_anharmonic_noraman.log', -834.555189, 1.0),
+    ('40_n2o_linear_highT_highP.log', -184.344167, 1.0),
 ])
 def test_calc_bbe_enthalpy_vs_gaussian(filename, expected_enthalpy, scale):
     """Validate calc_bbe enthalpy against Gaussian's
@@ -183,7 +175,7 @@ def test_calc_bbe_enthalpy_vs_gaussian(filename, expected_enthalpy, scale):
     temp, pressure = _TEMP_PRESSURE.get(filename, (T_DEFAULT, 1.0))
     conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
     bbe = calc_bbe(g16path(filename), 'grimme', False, 100.0, 100.0,
-                   temp, conc, scale, 'none', False, False, 0)
+                   temp, conc, scale, None, False, False, 0)
     assert abs(bbe.enthalpy - expected_enthalpy) < 1e-5
 
 
@@ -236,12 +228,9 @@ def test_calc_bbe_enthalpy_vs_gaussian(filename, expected_enthalpy, scale):
     ('46_ts_h3_hydrogen_abstraction.log', -1.649526, 1.0),
     ('47_ts_e2_elimination_ethylchloride.log', -615.295437, 1.0),
     ('48_ts_nh3_umbrella_inversion.log', -56.392409, 1.0),
-    pytest.param('12_water_anharmonic_vpt2.log', -76.404596, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads both harmonic and anharmonic freq blocks")),
-    pytest.param('23_cs2_linear_anharmonic_noraman.log', -834.582140, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads both harmonic and anharmonic freq blocks")),
-    pytest.param('40_n2o_linear_highT_highP.log', -184.434385, 1.0,
-                 marks=pytest.mark.xfail(reason="cclib reads MP2 energy instead of CCSD for Opt+Freq jobs")),
+    ('12_water_anharmonic_vpt2.log', -76.404596, 1.0),
+    ('23_cs2_linear_anharmonic_noraman.log', -834.582140, 1.0),
+    ('40_n2o_linear_highT_highP.log', -184.434385, 1.0),
 ])
 def test_calc_bbe_gibbs_vs_gaussian(filename, expected_gibbs, scale):
     """Validate calc_bbe Gibbs free energy against Gaussian's
@@ -249,7 +238,7 @@ def test_calc_bbe_gibbs_vs_gaussian(filename, expected_gibbs, scale):
     temp, pressure = _TEMP_PRESSURE.get(filename, (T_DEFAULT, 1.0))
     conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
     bbe = calc_bbe(g16path(filename), 'grimme', False, 100.0, 100.0,
-                   temp, conc, scale, 'none', False, False, 0)
+                   temp, conc, scale, None, False, False, 0)
     assert abs(bbe.gibbs_free_energy - expected_gibbs) < 1e-5
 
 
@@ -262,22 +251,27 @@ def test_calc_bbe_gibbs_vs_gaussian(filename, expected_gibbs, scale):
     ('01b_water_hf_freq_scaled.log', -76.010511, 0.022391, -75.984342, 0.021409, 0.021409, -76.005752, -76.005752),
     ('01c_water_hf_freq_isotopes.log', -76.010511, 0.016299, -75.990427, 0.022482, 0.022482, -76.012908, -76.012908),
     ('02_ethane_opt_freq_T398_P2.log', -79.856544, 0.074312, -79.777802, 0.025856, 0.025858, -79.803658, -79.80366),
-    ('03_acetone_linked_opt_freq.log', -193.213023, 0.083123, -193.123482, 0.035133, 0.033946, -193.158615, -193.157428),
+    ('03_acetone_linked_opt_freq.log', -193.213023, 0.083123, -193.123482,
+     0.035133, 0.033946, -193.158615, -193.157428),
     ('04_benzene_radical_cation.log', -232.018283, 0.096143, -231.915906, 0.033733, 0.033741, -231.949639, -231.949647),
     ('05_methylene_triplet_carbene.log', -39.019781, 0.017752, -38.998232, 0.022228, 0.022228, -39.02046, -39.02046),
     ('08_alanine_C1_pcm_water.log', -323.372759, 0.108829, -323.256198, 0.038283, 0.037853, -323.294481, -323.294051),
     ('10_formaldehyde_verbose_pop.log', -114.462989, 0.02699, -114.43219, 0.024813, 0.024813, -114.457002, -114.457002),
     ('16_o2_superoxide_anion.log', -150.404291, 0.00265, -150.398316, 0.023114, 0.023114, -150.42143, -150.42143),
     ('22_hcn_linear_freq_noraman.log', -93.414443, 0.01666, -93.394316, 0.022818, 0.022819, -93.417134, -93.417134),
-    ('28_pyridine_smd_acetonitrile_wb97xd.log', -248.267075, 0.089313, -248.172568, 0.031925, 0.031927, -248.204492, -248.204495),
-    ('29_aniline_cpcm_chloroform.log', -287.559548, 0.117799, -287.435067, 0.035782, 0.035789, -287.470848, -287.470856),
-    ('32_cyclohexane_tpss_meta_gga.log', -236.018587, 0.167579, -235.844194, 0.035049, 0.035058, -235.879243, -235.879251),
+    ('28_pyridine_smd_acetonitrile_wb97xd.log', -248.267075, 0.089313, -248.172568,
+     0.031925, 0.031927, -248.204492, -248.204495),
+    ('29_aniline_cpcm_chloroform.log', -287.559548, 0.117799, -287.435067,
+     0.035782, 0.035789, -287.470848, -287.470856),
+    ('32_cyclohexane_tpss_meta_gga.log', -236.018587, 0.167579, -235.844194,
+     0.035049, 0.035058, -235.879243, -235.879251),
     ('34_butadiene_camb3lyp_rsh.log', -155.940738, 0.085607, -155.849545, 0.031398, 0.031393, -155.880943, -155.880938),
     ('35_furan_mn15_functional.log', -229.846454, 0.070614, -229.771205, 0.030228, 0.030228, -229.801433, -229.801434),
     ('36_imidazole_apfd_noraman.log', -226.091932, 0.071548, -226.015703, 0.030931, 0.030932, -226.046633, -226.046634),
     ('39_oxazole_tpssh_cpcm_dcm.log', -246.156817, 0.058178, -246.094129, 0.030686, 0.030687, -246.124815, -246.124816),
-    ('40_n2o_linear_highT_highP.log', -184.391458, 0.011275, -184.376578, 0.024894, 0.024894, -184.401472, -184.401473),
-    ('41_thiophene_freq_noraman_nmr.log', -553.045047, 0.067045, -552.97302, 0.031525, 0.031526, -553.004545, -553.004547),
+    ('40_n2o_linear_highT_highP.log', -184.371844, 0.011275, -184.356964, 0.024894, 0.024894, -184.381857, -184.381858),
+    ('41_thiophene_freq_noraman_nmr.log', -553.045047, 0.067045, -552.97302,
+     0.031525, 0.031526, -553.004545, -553.004547),
 ])
 def test_calc_bbe_grimme_298(filename, E, ZPE, H, TS, TqhS, G, qhG):
     bbe = _calc(filename, QS='grimme')
@@ -322,11 +316,16 @@ def test_calc_bbe_truhlar_298(filename, E, ZPE, H, TS, TqhS, G, qhG):
 # ===========================================================================
 
 @pytest.mark.parametrize("filename, E, ZPE, H, qhH, TS, TqhS, G, qhG", [
-    ('01a_water_hf_freq.log', -76.010511, 0.022391, -75.984342, -75.984343, 0.021409, 0.021409, -76.005752, -76.005752),
-    ('02_ethane_opt_freq_T398_P2.log', -79.856544, 0.074312, -79.777802, -79.777811, 0.025856, 0.025858, -79.803658, -79.803669),
-    ('03_acetone_linked_opt_freq.log', -193.213023, 0.083123, -193.123482, -193.124073, 0.035133, 0.033946, -193.158615, -193.158019),
-    ('05_methylene_triplet_carbene.log', -39.019781, 0.017752, -38.998232, -38.998232, 0.022228, 0.022228, -39.02046, -39.02046),
-    ('22_hcn_linear_freq_noraman.log', -93.414443, 0.01666, -93.394316, -93.394316, 0.022818, 0.022819, -93.417134, -93.417135),
+    ('01a_water_hf_freq.log', -76.010511, 0.022391, -75.984342, -75.984343,
+     0.021409, 0.021409, -76.005752, -76.005752),
+    ('02_ethane_opt_freq_T398_P2.log', -79.856544, 0.074312, -79.777802, -79.777811,
+     0.025856, 0.025858, -79.803658, -79.803669),
+    ('03_acetone_linked_opt_freq.log', -193.213023, 0.083123, -193.123482, -193.124073,
+     0.035133, 0.033946, -193.158615, -193.158019),
+    ('05_methylene_triplet_carbene.log', -39.019781, 0.017752, -38.998232, -38.998232,
+     0.022228, 0.022228, -39.02046, -39.02046),
+    ('22_hcn_linear_freq_noraman.log', -93.414443, 0.01666, -93.394316, -93.394316,
+     0.022818, 0.022819, -93.417134, -93.417135),
 ])
 def test_calc_bbe_qh_enthalpy(filename, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     bbe = _calc(filename, QH=True)
@@ -365,17 +364,14 @@ def test_calc_bbe_temperature(temp, expected_H, expected_TS, expected_G):
 
 @pytest.mark.parametrize("filename, temp, pressure, expected_H, expected_G", [
     ('02_ethane_opt_freq_T398_P2.log', 398.15, 2.0, -79.775639, -79.811771),
-    pytest.param('40_n2o_linear_highT_highP.log', 1000.0, 100.0,
-                 -184.344167, -184.434385,
-                 marks=pytest.mark.xfail(
-                     reason="cclib reads MP2 energy instead of CCSD for Opt+Freq jobs")),
+    ('40_n2o_linear_highT_highP.log', 1000.0, 100.0, -184.344167, -184.434385),
 ])
 def test_calc_bbe_nonstandard_temp_pressure(filename, temp, pressure,
                                             expected_H, expected_G):
     """Validate calc_bbe at non-standard T/P against Gaussian ground truth."""
     conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
     bbe = calc_bbe(g16path(filename), 'grimme', False, 100.0, 100.0,
-                   temp, conc, 1.0, 'none', False, False, 0)
+                   temp, conc, 1.0, None, False, False, 0)
     assert abs(bbe.enthalpy - expected_H) < 1e-5
     assert abs(bbe.gibbs_free_energy - expected_G) < 1e-5
 
@@ -452,7 +448,7 @@ def test_calc_bbe_solvation(filename):
 
 @pytest.mark.parametrize("filename, expected_nfreqs", [
     ('22_hcn_linear_freq_noraman.log', 4),   # 3N-5 = 4
-    ('23_cs2_linear_anharmonic_noraman.log', 8),  # anharmonic: more modes
+    ('23_cs2_linear_anharmonic_noraman.log', 4),  # 3N-5 = 4 (linear)
     ('40_n2o_linear_highT_highP.log', 4),    # 3N-5 = 4
 ])
 def test_calc_bbe_linear(filename, expected_nfreqs):
@@ -483,7 +479,7 @@ def test_calc_bbe_linked_jobs(filename, expected_nfreqs):
 @pytest.mark.parametrize("filename, expected_energy", [
     ('06_carbon_atom_single_point.log', -37.688298),
     ('09_caffeine_nmr_giao.log', -680.38766),
-    ('11_hf_molecule_ccsdt_gold_standard.log', -100.329785),
+    ('11_hf_molecule_ccsdt_gold_standard.log', -100.338356),
     ('14_water_dimer_counterpoise_bsse.log', -152.908379),
     ('20_benzene_singlepoint.log', -232.330087),
 ])
@@ -501,8 +497,7 @@ def test_calc_bbe_sp_only(filename, expected_energy):
 def test_calc_bbe_error_files(filename):
     """Error files should not cause unhandled crashes."""
     try:
-        bbe = _calc(filename)
-        # If it succeeds, verify it has at least scf_energy or handles gracefully
+        _calc(filename)
     except (AttributeError, ValueError, IndexError):
         pass  # Expected for severely malformed files
     except SystemExit:
@@ -522,21 +517,21 @@ def test_calc_translational_energy():
 
 def test_calc_rotational_energy_nonlinear():
     """E_rot = 3/2 RT for nonlinear molecules."""
-    energy = calc_rotational_energy(1.0, 1, 298.15, 0)
+    energy = calc_rotational_energy(298.15)
     expected = 1.5 * GAS_CONSTANT * 298.15
     assert abs(energy - expected) < 0.01
 
 
 def test_calc_rotational_energy_linear():
     """E_rot = RT for linear molecules."""
-    energy = calc_rotational_energy(1.0, 1, 298.15, 1)
+    energy = calc_rotational_energy(298.15, linear=True)
     expected = GAS_CONSTANT * 298.15
     assert abs(energy - expected) < 0.01
 
 
 def test_calc_rotational_energy_atom():
     """Atoms have zero rotational energy."""
-    energy = calc_rotational_energy(0.0, 1, 298.15, 0)
+    energy = calc_rotational_energy(298.15, monatomic=True)
     assert energy == 0.0
 
 
@@ -576,3 +571,72 @@ def test_calc_damp_below_cutoff():
     """Frequencies well below cutoff should give damp close to 0.0."""
     damp = calc_damp([10.0], 100.0)
     assert damp[0] < 0.01
+
+
+# --- calc_vibrational_energy tests ---
+
+PLANCK = 6.62606957e-34
+BOLTZ = 1.3806488e-23
+SPEED_C = 2.99792458e10
+
+
+def _vib_factor(freq, scale, temperature):
+    """Compute hv/kT for a single frequency."""
+    return (PLANCK * freq * scale * SPEED_C) / (BOLTZ * temperature)
+
+
+def test_calc_vibrational_energy_single_freq():
+    """Single frequency gives correct ZPE + thermal contribution."""
+    freq = 1000.0
+    T = 298.15
+    f = _vib_factor(freq, 1.0, T)
+    expected = f * GAS_CONSTANT * T * (0.5 + 1.0 / (math.exp(f) - 1.0))
+    result = calc_vibrational_energy(T, [freq])
+    assert abs(result - expected) < 1e-6
+
+
+def test_calc_vibrational_energy_multiple_freqs():
+    """Sum over multiple frequencies."""
+    freqs = [500.0, 1500.0, 3000.0]
+    T = 298.15
+    expected = 0.0
+    for freq in freqs:
+        f = _vib_factor(freq, 1.0, T)
+        expected += f * GAS_CONSTANT * T * (0.5 + 1.0 / (math.exp(f) - 1.0))
+    result = calc_vibrational_energy(T, freqs)
+    assert abs(result - expected) < 1e-6
+
+
+def test_calc_vibrational_energy_scaling():
+    """Frequency scale factor is applied correctly."""
+    freq = 1000.0
+    T = 298.15
+    scale = 0.965
+    f = _vib_factor(freq, scale, T)
+    expected = f * GAS_CONSTANT * T * (0.5 + 1.0 / (math.exp(f) - 1.0))
+    result = calc_vibrational_energy(T, [freq], freq_scale_factor=scale)
+    assert abs(result - expected) < 1e-6
+
+
+def test_calc_vibrational_energy_empty_freqs():
+    """Empty frequency list returns zero energy."""
+    result = calc_vibrational_energy(298.15, [])
+    assert result == 0.0
+
+
+def test_calc_vibrational_energy_zero_temperature():
+    """Temperature of zero raises ValueError."""
+    with pytest.raises(ValueError, match="Temperature must be positive"):
+        calc_vibrational_energy(0.0, [1000.0])
+
+
+def test_calc_vibrational_energy_negative_temperature():
+    """Negative temperature raises ValueError."""
+    with pytest.raises(ValueError, match="Temperature must be positive"):
+        calc_vibrational_energy(-10.0, [1000.0])
+
+
+def test_calc_vibrational_energy_very_low_temperature():
+    """Very low temperature raises ValueError for overflow protection."""
+    with pytest.raises(ValueError, match="Temperature may be too low"):
+        calc_vibrational_energy(0.01, [3000.0])

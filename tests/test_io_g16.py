@@ -3,12 +3,14 @@
 """Tests for parsing Gaussian 16 output files using goodvibes.io."""
 
 import pytest
-from goodvibes.io import getoutData, parse_data, level_of_theory, read_initial, gaussian_jobtype
-from conftest import g16path, G16_FREQ_FILES, G16_SP_ONLY_FILES, G16_ERROR_FILES
+from goodvibes.io import (parse_data, level_of_theory, read_initial,
+                          gaussian_jobtype, parse_gaussian_thermo, parse_qcdata)
+from conftest import (g16path, G16_FREQ_FILES, G16_SP_ONLY_FILES,
+                      G16_TS_FILES, G16_LINEAR_FILES, G16_LINKED_FILES)
 
 
 # ---------------------------------------------------------------------------
-# getoutData: atom extraction
+# parse_gaussian_thermo: atom extraction
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("filename, expected_atoms, expected_natoms", [
@@ -37,51 +39,16 @@ from conftest import g16path, G16_FREQ_FILES, G16_SP_ONLY_FILES, G16_ERROR_FILES
     ('41_thiophene_freq_noraman_nmr.log', ['S', 'C', 'C', 'C', 'C', 'H', 'H', 'H', 'H'], 9),
     ('43_dmabn_bhandhlyp_chargetransfer.log', None, 21),
 ])
-def test_getoutData_atoms(filename, expected_atoms, expected_natoms):
-    data = getoutData(g16path(filename))
-    assert len(data.atom_nums) == expected_natoms
-    assert len(data.atom_types) == expected_natoms
+def test_parse_gaussian_thermo_atoms(filename, expected_atoms, expected_natoms):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert len(qcdata.atom_nums) == expected_natoms
+    assert len(qcdata.atom_types) == expected_natoms
     if expected_atoms is not None:
-        assert data.atom_types == expected_atoms
+        assert qcdata.atom_types == expected_atoms
 
 
 # ---------------------------------------------------------------------------
-# getoutData: frequency extraction
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("filename, expected_nfreqs", [
-    ('01a_water_hf_freq.log', 3),           # 3 atoms, nonlinear: 3*3-6=3
-    ('01b_water_hf_freq_scaled.log', 3),
-    ('01c_water_hf_freq_isotopes.log', 3),
-    ('02_ethane_opt_freq_T398_P2.log', 18), # 8 atoms: 3*8-6=18
-    ('03_acetone_linked_opt_freq.log', 24), # 10 atoms: 3*10-6=24
-    ('04_benzene_radical_cation.log', 30),  # 12 atoms: 3*12-6=30
-    ('05_methylene_triplet_carbene.log', 3),
-    ('10_formaldehyde_verbose_pop.log', 6), # 4 atoms: 3*4-6=6
-    ('12_water_anharmonic_vpt2.log', 3),    # 3 atoms: harmonic freqs only
-    ('13_formaldehyde_tddft_s1.log', 6),    # 4 atoms: 3*4-6=6
-    ('15_methanol_oniom_qmmm.log', 12),     # 6 atoms: 3*6-6=12
-    ('16_o2_superoxide_anion.log', 1),      # 2 atoms, linear: 3*2-5=1
-    ('21_naphthalene_pm7_semiempirical.log', 48), # 18 atoms: 3*18-6=48 (PM7)
-    ('22_hcn_linear_freq_noraman.log', 4),  # 3 atoms, linear: 3*3-5=4
-    ('24_iodobenzene_genecp_sdd.log', 30),  # 12 atoms: 3*12-6=30
-    ('32_cyclohexane_tpss_meta_gga.log', 48), # 18 atoms: 3*18-6=48
-    ('33_methanol_pbepbe_gga.log', 12),     # 6 atoms: 3*6-6=12
-    ('34_butadiene_camb3lyp_rsh.log', 24),  # 10 atoms: 3*10-6=24
-    ('35_furan_mn15_functional.log', 21),   # 9 atoms: 3*9-6=21
-    ('36_imidazole_apfd_noraman.log', 21),  # 9 atoms: 3*9-6=21
-    ('37_planar_cyclohexane_2nd_order_saddle.log', 48), # 18 atoms: 3*18-6=48
-    ('39_oxazole_tpssh_cpcm_dcm.log', 18),  # 8 atoms: 3*8-6=18
-    ('41_thiophene_freq_noraman_nmr.log', 21), # 9 atoms: 3*9-6=21
-    ('43_dmabn_bhandhlyp_chargetransfer.log', 57), # 21 atoms: 3*21-6=57
-])
-def test_getoutData_frequencies(filename, expected_nfreqs):
-    data = getoutData(g16path(filename))
-    assert len(data.FREQS) == expected_nfreqs
-
-
-# ---------------------------------------------------------------------------
-# getoutData: cartesian coordinates
+# parse_gaussian_thermo: cartesian coordinates
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("filename, expected_natoms", [
@@ -92,21 +59,11 @@ def test_getoutData_frequencies(filename, expected_nfreqs):
     ('34_butadiene_camb3lyp_rsh.log', 10),
     ('43_dmabn_bhandhlyp_chargetransfer.log', 21),
 ])
-def test_getoutData_cartesians(filename, expected_natoms):
-    data = getoutData(g16path(filename))
-    assert len(data.cartesians) == expected_natoms
-    for coord in data.cartesians:
+def test_parse_gaussian_thermo_cartesians(filename, expected_natoms):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert len(qcdata.cartesians) == expected_natoms
+    for coord in qcdata.cartesians:
         assert len(coord) == 3
-
-
-# ---------------------------------------------------------------------------
-# getoutData: files without frequencies
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("filename", G16_SP_ONLY_FILES)
-def test_getoutData_no_freq(filename):
-    data = getoutData(g16path(filename))
-    assert not hasattr(data, 'FREQS') or len(data.FREQS) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +79,7 @@ def test_getoutData_no_freq(filename):
     ('04_benzene_radical_cation.log', -232.018282639),
     ('06_carbon_atom_single_point.log', -37.6882982133),
     ('08_alanine_C1_pcm_water.log', -323.372758893),
-    ('12_water_anharmonic_vpt2.log', -76.4086180472),
+    ('12_water_anharmonic_vpt2.log', -76.4087262936),
     ('13_formaldehyde_tddft_s1.log', -114.214128137),
     ('14_water_dimer_counterpoise_bsse.log', -152.908379026304),
     ('15_methanol_oniom_qmmm.log', -40.576093511027),
@@ -292,3 +249,214 @@ def test_level_of_theory(filename, expected_level):
 def test_gaussian_jobtype(filename, expected_jobtype):
     jt = gaussian_jobtype(g16path(filename))
     assert jt == expected_jobtype
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: SCF energy extraction
+# ---------------------------------------------------------------------------
+# Expected values match calc_bbe.scf_energy (same line-by-line parse logic).
+
+@pytest.mark.parametrize("filename, expected_energy", [
+    ('01a_water_hf_freq.log', -76.010511),
+    ('01b_water_hf_freq_scaled.log', -76.010511),
+    ('01c_water_hf_freq_isotopes.log', -76.010511),
+    ('02_ethane_opt_freq_T398_P2.log', -79.856544),
+    ('03_acetone_linked_opt_freq.log', -193.213023),
+    ('04_benzene_radical_cation.log', -232.018283),
+    ('05_methylene_triplet_carbene.log', -39.019781),
+    ('08_alanine_C1_pcm_water.log', -323.372759),
+    ('10_formaldehyde_verbose_pop.log', -114.462989),
+    ('12_water_anharmonic_vpt2.log', -76.408726),
+    ('13_formaldehyde_tddft_s1.log', -114.214128),
+    ('15_methanol_oniom_qmmm.log', -40.576094),
+    ('16_o2_superoxide_anion.log', -150.404291),
+    ('21_naphthalene_pm7_semiempirical.log', 0.063334),
+    ('22_hcn_linear_freq_noraman.log', -93.414443),
+    ('24_iodobenzene_genecp_sdd.log', -243.143383),
+    ('33_methanol_pbepbe_gga.log', -115.611165),
+    ('34_butadiene_camb3lyp_rsh.log', -155.940738),
+    ('35_furan_mn15_functional.log', -229.846454),
+    ('36_imidazole_apfd_noraman.log', -226.091932),
+    ('43_dmabn_bhandhlyp_chargetransfer.log', -458.292489),
+    ('44_ts_sn2_identity_chloride.log', -960.457792),
+])
+def test_parse_gaussian_thermo_scf_energy(filename, expected_energy):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert expected_energy == round(qcdata.scf_energy, 6)
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: frequency count
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_nfreqs", [
+    ('01a_water_hf_freq.log', 3),
+    ('01b_water_hf_freq_scaled.log', 3),
+    ('01c_water_hf_freq_isotopes.log', 3),
+    ('02_ethane_opt_freq_T398_P2.log', 18),
+    ('03_acetone_linked_opt_freq.log', 24),
+    ('04_benzene_radical_cation.log', 30),
+    ('05_methylene_triplet_carbene.log', 3),
+    ('08_alanine_C1_pcm_water.log', 33),
+    ('10_formaldehyde_verbose_pop.log', 6),
+    ('13_formaldehyde_tddft_s1.log', 6),
+    ('15_methanol_oniom_qmmm.log', 12),
+    ('16_o2_superoxide_anion.log', 1),
+    ('22_hcn_linear_freq_noraman.log', 4),
+    ('24_iodobenzene_genecp_sdd.log', 30),
+    ('32_cyclohexane_tpss_meta_gga.log', 48),
+    ('33_methanol_pbepbe_gga.log', 12),
+    ('34_butadiene_camb3lyp_rsh.log', 24),
+    ('35_furan_mn15_functional.log', 21),
+    ('36_imidazole_apfd_noraman.log', 21),
+    ('39_oxazole_tpssh_cpcm_dcm.log', 18),
+    ('41_thiophene_freq_noraman_nmr.log', 21),
+    ('43_dmabn_bhandhlyp_chargetransfer.log', 56),
+])
+def test_parse_gaussian_thermo_frequencies(filename, expected_nfreqs):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert len(qcdata.frequency_wn) == expected_nfreqs
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: imaginary frequencies for TS files
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_nim", [
+    ('44_ts_sn2_identity_chloride.log', 1),
+    ('45_ts_diels_alder_butadiene_ethylene.log', 1),
+    ('46_ts_h3_hydrogen_abstraction.log', 1),
+    ('47_ts_e2_elimination_ethylchloride.log', 1),
+    ('48_ts_nh3_umbrella_inversion.log', 1),
+    ('37_planar_cyclohexane_2nd_order_saddle.log', 3),
+])
+def test_parse_gaussian_thermo_imaginary_freqs(filename, expected_nim):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert len(qcdata.im_frequency_wn) == expected_nim
+    for f in qcdata.im_frequency_wn:
+        assert f < 0.0
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: zero-point correction
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_zpe", [
+    ('01a_water_hf_freq.log', 0.022391),
+    ('02_ethane_opt_freq_T398_P2.log', 0.074312),
+    ('03_acetone_linked_opt_freq.log', 0.083123),
+    ('05_methylene_triplet_carbene.log', 0.017752),
+    ('10_formaldehyde_verbose_pop.log', 0.026990),
+    ('15_methanol_oniom_qmmm.log', 0.048069),
+    ('16_o2_superoxide_anion.log', 0.002650),
+    ('22_hcn_linear_freq_noraman.log', 0.016660),
+    ('33_methanol_pbepbe_gga.log', 0.049754),
+    ('44_ts_sn2_identity_chloride.log', 0.036855),
+])
+def test_parse_gaussian_thermo_zpe(filename, expected_zpe):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert abs(qcdata.zero_point_corr - expected_zpe) < 1e-5
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: linearity detection
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", G16_LINEAR_FILES)
+def test_parse_gaussian_thermo_linear(filename):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert qcdata.linear_mol is True
+
+
+@pytest.mark.parametrize("filename", [
+    '01a_water_hf_freq.log',
+    '02_ethane_opt_freq_T398_P2.log',
+    '05_methylene_triplet_carbene.log',
+    '33_methanol_pbepbe_gga.log',
+])
+def test_parse_gaussian_thermo_nonlinear(filename):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert qcdata.linear_mol is False
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: linked jobs
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", G16_LINKED_FILES)
+def test_parse_gaussian_thermo_linked_jobs(filename):
+    """Linked jobs should still produce valid parsed data."""
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert qcdata.scf_energy is not None
+    assert len(qcdata.frequency_wn) > 0
+    assert qcdata.zero_point_corr is not None
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: job type matches gaussian_jobtype
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_jobtype", [
+    ('01a_water_hf_freq.log', 'Freq'),
+    ('02_ethane_opt_freq_T398_P2.log', 'GSFreq'),
+    ('03_acetone_linked_opt_freq.log', 'GSFreq'),
+    ('06_carbon_atom_single_point.log', 'SP'),
+    ('20_benzene_singlepoint.log', 'SP'),
+    ('44_ts_sn2_identity_chloride.log', 'TSFreq'),
+])
+def test_parse_gaussian_thermo_job_type(filename, expected_jobtype):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert qcdata.job_type == expected_jobtype
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: program and provenance
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", G16_FREQ_FILES[:5])
+def test_parse_gaussian_thermo_program(filename):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert qcdata.program == 'Gaussian'
+    assert 'Gaussian' in qcdata.version_program
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: multiplicity
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_mult", [
+    ('01a_water_hf_freq.log', 1),
+    ('04_benzene_radical_cation.log', 2),
+    ('05_methylene_triplet_carbene.log', 3),
+    ('16_o2_superoxide_anion.log', 2),
+])
+def test_parse_gaussian_thermo_multiplicity(filename, expected_mult):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert qcdata.multiplicity == expected_mult
+
+
+# ---------------------------------------------------------------------------
+# parse_gaussian_thermo: SP-only files (no frequencies)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", G16_SP_ONLY_FILES)
+def test_parse_gaussian_thermo_sp_only(filename):
+    qcdata = parse_gaussian_thermo(g16path(filename))
+    assert len(qcdata.frequency_wn) == 0
+    assert qcdata.zero_point_corr is None
+
+
+# ---------------------------------------------------------------------------
+# parse_qcdata: dispatcher routes to Gaussian parser
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", [
+    '01a_water_hf_freq.log',
+    '02_ethane_opt_freq_T398_P2.log',
+    '06_carbon_atom_single_point.log',
+    '44_ts_sn2_identity_chloride.log',
+])
+def test_parse_qcdata_dispatches_gaussian(filename):
+    qcdata = parse_qcdata(g16path(filename))
+    assert qcdata.program == 'Gaussian'
+    assert qcdata.scf_energy is not None

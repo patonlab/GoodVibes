@@ -3,11 +3,10 @@
 """Tests for parsing ORCA 6 output files using goodvibes.io."""
 
 import pytest
-from goodvibes.io import getoutData, parse_data, level_of_theory, read_initial
-from conftest import (
-    orca_path, ORCA_FREQ_FILES, ORCA_TS_FILES, ORCA_SP_ONLY_FILES,
-    ORCA_SOLVATION_FILES, ORCA_ERROR_FILES,
-)
+from goodvibes.io import (parse_data, level_of_theory, read_initial,
+                          parse_orca_thermo, parse_qcdata)
+from conftest import (orca_path, ORCA_FREQ_FILES, ORCA_TS_FILES,
+                      ORCA_SP_ONLY_FILES, ORCA_LINEAR_FILES, ORCA_SOLVATION_FILES)
 
 
 # ---------------------------------------------------------------------------
@@ -150,21 +149,39 @@ def test_read_initial_orca_solvation(filename, expected_contains):
 
 
 # ---------------------------------------------------------------------------
-# getoutData: xfail due to cclib ORCA 6 incompatibility
+# parse_orca_thermo: atom extraction
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="cclib cannot parse ORCA 6 output files")
-@pytest.mark.parametrize("filename", [
-    '01a_water_hf_freq.out',
-    '02_ethane_opt_freq_thermo.out',
-    '04_benzene_radical_cation.out',
-    '05_methylene_triplet_carbene.out',
-    '22_hcn_linear_freq_noraman.out',
+@pytest.mark.parametrize("filename, expected_atoms, expected_natoms", [
+    ('01a_water_hf_freq.out', ['O', 'H', 'H'], 3),
+    ('02_ethane_opt_freq_thermo.out', ['C', 'C', 'H', 'H', 'H', 'H', 'H', 'H'], 8),
+    ('04_benzene_radical_cation.out', None, 12),
+    ('05_methylene_triplet_carbene.out', ['C', 'H', 'H'], 3),
+    ('22_hcn_linear_freq_noraman.out', ['H', 'C', 'N'], 3),
 ])
-def test_getoutData_orca(filename):
-    data = getoutData(orca_path(filename))
-    assert hasattr(data, 'atom_types')
-    assert len(data.atom_types) > 0
+def test_parse_orca_thermo_atoms(filename, expected_atoms, expected_natoms):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert len(qcdata.atom_nums) == expected_natoms
+    assert len(qcdata.atom_types) == expected_natoms
+    if expected_atoms is not None:
+        assert qcdata.atom_types == expected_atoms
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: cartesian coordinates
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_natoms", [
+    ('01a_water_hf_freq.out', 3),
+    ('02_ethane_opt_freq_thermo.out', 8),
+    ('05_methylene_triplet_carbene.out', 3),
+    ('22_hcn_linear_freq_noraman.out', 3),
+])
+def test_parse_orca_thermo_cartesians(filename, expected_natoms):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert len(qcdata.cartesians) == expected_natoms
+    for coord in qcdata.cartesians:
+        assert len(coord) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -176,3 +193,174 @@ def test_getoutData_orca(filename):
 def test_level_of_theory_orca(filename):
     lot = level_of_theory(orca_path(filename))
     assert lot != 'none/none'
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: SCF energy extraction
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_energy", [
+    ('01a_water_hf_freq.out', -76.009114306317),
+    ('03_acetone_linked_opt_freq.out', -193.028138231777),
+    ('04_benzene_radical_cation.out', -232.018283530455),
+    ('05_methylene_triplet_carbene.out', -39.019780938452),
+    ('06_carbon_atom_single_point.out', -37.659292822489),
+    ('07_neon_atom_with_freq.out', -128.533272824265),
+    ('08_alanine_C1_pcm_water.out', -323.378135366042),
+    ('16_o2_superoxide_anion.out', -150.341130103125),
+    ('22_hcn_linear_freq_noraman.out', -93.414515903409),
+    ('32_cyclohexane_tpss_meta_gga.out', -236.018821783392),
+    ('44_ts_sn2_identity_chloride.out', -960.291216714078),
+])
+def test_parse_orca_thermo_scf_energy(filename, expected_energy):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert abs(qcdata.scf_energy - expected_energy) < 1e-8
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: frequency count
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_nfreqs", [
+    ('01a_water_hf_freq.out', 3),            # 3 atoms, nonlinear: 3*3-6=3
+    ('03_acetone_linked_opt_freq.out', 24),   # 10 atoms: 3*10-6=24
+    ('05_methylene_triplet_carbene.out', 3),  # 3 atoms: 3*3-6=3
+    ('07_neon_atom_with_freq.out', 0),        # 1 atom: no vibrational modes
+    ('16_o2_superoxide_anion.out', 1),        # 2 atoms, linear: 3*2-5=1
+    ('22_hcn_linear_freq_noraman.out', 4),    # 3 atoms, linear: 3*3-5=4
+    ('32_cyclohexane_tpss_meta_gga.out', 48), # 18 atoms: 3*18-6=48
+])
+def test_parse_orca_thermo_frequencies(filename, expected_nfreqs):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert len(qcdata.frequency_wn) == expected_nfreqs
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: imaginary frequencies for TS files
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", ORCA_TS_FILES)
+def test_parse_orca_thermo_ts_imaginary(filename):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert len(qcdata.im_frequency_wn) >= 1
+    for f in qcdata.im_frequency_wn:
+        assert f < 0.0
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: zero-point correction
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_zpe", [
+    ('01a_water_hf_freq.out', 0.02234428),
+    ('03_acetone_linked_opt_freq.out', 0.07868568),
+    ('05_methylene_triplet_carbene.out', 0.01776186),
+    ('16_o2_superoxide_anion.out', 0.00264481),
+    ('22_hcn_linear_freq_noraman.out', 0.01662938),
+])
+def test_parse_orca_thermo_zpe(filename, expected_zpe):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert abs(qcdata.zero_point_corr - expected_zpe) < 1e-7
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: linearity detection
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", ORCA_LINEAR_FILES)
+def test_parse_orca_thermo_linear(filename):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert qcdata.linear_mol is True
+
+
+@pytest.mark.parametrize("filename", [
+    '01a_water_hf_freq.out',
+    '03_acetone_linked_opt_freq.out',
+    '05_methylene_triplet_carbene.out',
+])
+def test_parse_orca_thermo_nonlinear(filename):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert qcdata.linear_mol is False
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: job type detection
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_jobtype", [
+    ('01a_water_hf_freq.out', 'Freq'),
+    ('03_acetone_linked_opt_freq.out', 'GSFreq'),
+    ('06_carbon_atom_single_point.out', 'SP'),
+    ('22_hcn_linear_freq_noraman.out', 'GSFreq'),
+    ('44_ts_sn2_identity_chloride.out', 'TSFreq'),
+])
+def test_parse_orca_thermo_job_type(filename, expected_jobtype):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert qcdata.job_type == expected_jobtype
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: multiplicity
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_mult", [
+    ('01a_water_hf_freq.out', 1),
+    ('04_benzene_radical_cation.out', 2),
+    ('05_methylene_triplet_carbene.out', 3),
+    ('16_o2_superoxide_anion.out', 2),
+])
+def test_parse_orca_thermo_multiplicity(filename, expected_mult):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert qcdata.multiplicity == expected_mult
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: solvation detection
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename, expected_contains", [
+    ('08_alanine_C1_pcm_water.out', 'CPCM'),
+    ('19_acetic_acid_smd_dmso.out', 'SMD'),
+    ('29_aniline_cpcm_chloroform.out', 'CPCM'),
+])
+def test_parse_orca_thermo_solvation(filename, expected_contains):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert expected_contains in qcdata.solvation_model
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: SP-only files (no frequencies)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", ORCA_SP_ONLY_FILES)
+def test_parse_orca_thermo_sp_only(filename):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert len(qcdata.frequency_wn) == 0
+    assert qcdata.zero_point_corr is None
+
+
+# ---------------------------------------------------------------------------
+# parse_orca_thermo: program metadata
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", ORCA_FREQ_FILES[:5])
+def test_parse_orca_thermo_program(filename):
+    qcdata = parse_orca_thermo(orca_path(filename))
+    assert qcdata.program == 'Orca'
+    assert 'ORCA version' in qcdata.version_program
+
+
+# ---------------------------------------------------------------------------
+# parse_qcdata: dispatcher routes to ORCA parser
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("filename", [
+    '01a_water_hf_freq.out',
+    '03_acetone_linked_opt_freq.out',
+    '06_carbon_atom_single_point.out',
+    '44_ts_sn2_identity_chloride.out',
+])
+def test_parse_qcdata_dispatches_orca(filename):
+    qcdata = parse_qcdata(orca_path(filename))
+    assert qcdata.program == 'Orca'
+    assert qcdata.scf_energy is not None

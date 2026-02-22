@@ -12,7 +12,6 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 
 Features include variable temperature/concentration thermochemistry, automated frequency scaling factors, single-point energy corrections, Boltzmann averaging, PES construction, and error checking.
 
-Developed by [Robert Paton](https://orcid.org/0000-0002-0104-4166), [Ignacio Funes-Ardoiz](https://orcid.org/0000-0002-5843-9660), [Guilian Luchini](https://orcid.org/0000-0003-0135-9624), [Juan V. Alegre-Requena](https://orcid.org/0000-0002-0769-7168), and [Yanfei Guan](https://orcid.org/0000-0003-1817-0190).
 
 #### Installation
 ```
@@ -70,7 +69,7 @@ o  ethane              -79.858399    -79.830421   0.073508    -79.780448   0.027
 
 ##### Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
 ```python
-python -m goodvibes examples/methylaniline.out –t 1000 –c 1.0
+python -m goodvibes examples/methylaniline.out -t 1000 -c 1.0
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
@@ -97,7 +96,7 @@ o  methylaniline           1000.0              -326.452307   0.232169   0.231614
    ******************************************************************************************************
 ```
 
-Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below than 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
+Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
 
 ##### Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
 ```python

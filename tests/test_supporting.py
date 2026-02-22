@@ -4,8 +4,8 @@
 
 import pytest
 from goodvibes.vib_scale_factors import (
-    scaling_data_dict, scaling_refs, ScalingData,
-    canonicalize_level, FUNCTIONAL_ALIASES,
+    scaling_data_dict, scaling_refs,
+    canonicalize_level,
 )
 from goodvibes.media import solvents
 

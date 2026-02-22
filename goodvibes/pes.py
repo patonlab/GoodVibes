@@ -32,7 +32,6 @@ class get_pes:
         qs_abs (list): list of relative quasi-harmonic entropy values.
         g_abs (list): list of relative Gibbs free energy values.
         qhg_abs (list): list of relative quasi-harmonic Gibbs free energy values.
-        cosmo_qhg_abs (list): list of relative COSMO-RS solvation-corrected quasi-harmonic Gibbs free energy values.
         spc_zero (list): list of single point energy "zero" species values to compare all other steps in pathway to.
         e_zero (list): list of energy "zero" species values to compare all other steps in pathway to.
         zpe_zero (list): list of zero point energy "zero" species values to compare all other steps in pathway to.
@@ -42,12 +41,11 @@ class get_pes:
         qhts_zero (list): list of quasi-harmonic T*entropy "zero" species values to compare all other steps in pathway to.
         g_zero (list): list of Gibbs free energy "zero" species values to compare all other steps in pathway to.
         qhg_zero (list): list of quasi-harmonic Gibbs free energy "zero" species values to compare all other steps in pathway to.
-        cosmo_qhg_zero (list): list of COSMO-RS solvation-corrected quasi-harmonic Gibbs free energy "zero" species values to compare all other steps in pathway to.
         g_qhgvals (list): relative quasi-harmonic Gibbs free energy values used for graphing.
         g_species_qhgzero (list):quasi-harmonic Gibbs free energy "zero" values used for graphing.
         g_rel_val (list): relative Gibbs free energy values used for graphing.
     """
-    def __init__(self, file, thermo_data, log, temperature, gconf, QH, cosmo=None, cosmo_int=None):
+    def __init__(self, file, thermo_data, log, temperature, gconf, QH):
         # Default values
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
 
@@ -143,8 +141,8 @@ class get_pes:
                 files[i] = files[i][0]
         species = dict(zip(names, files))
         self.path, self.species = [], []
-        self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs, self.cosmo_qhg_abs = [], [], [], [], [], [], [], [], [], []
-        self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero, self.cosmo_qhg_zero = [], [], [], [], [], [], [], [], [], []
+        self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs = [], [], [], [], [], [], [], [], []
+        self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero = [], [], [], [], [], [], [], [], []
         self.g_qhgvals, self.g_species_qhgzero, self.g_rel_val = [], [], []
         # Loop over .yaml file, grab energies, populate arrays and compute Boltzmann factors
         with open(file) as f:
@@ -170,10 +168,9 @@ class get_pes:
                             self.qhts_zero.append([])
                             self.g_zero.append([])
                             self.qhg_zero.append([])
-                            self.cosmo_qhg_zero.append([])
                             min_conf = False
                             spc_zero, e_zero, zpe_zero, h_zero, qh_zero, s_zero, qs_zero, g_zero, qhg_zero = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                            h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot, cosmo_qhg_zero = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                            h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                             zero_structures = zeros[n].replace(' ', '').split('+')
                             # Routine for 'zero' values
                             for structure in zero_structures:
@@ -189,32 +186,20 @@ class get_pes:
                                         qs_zero += thermo_data[species[structure]].qh_entropy
                                         g_zero += thermo_data[species[structure]].gibbs_free_energy
                                         qhg_zero += thermo_data[species[structure]].qh_gibbs_free_energy
-                                        cosmo_qhg_zero += thermo_data[species[structure]].cosmo_qhg
                                     else:  # If we have a list of different kinds of structures: loop over conformers
                                         g_min, boltz_sum = sys.float_info.max, 0.0
                                         for conformer in species[
                                             structure]:  # Find minimum G, along with associated enthalpy and entropy
-                                            if cosmo:
-                                                if thermo_data[conformer].cosmo_qhg <= g_min:
-                                                    min_conf = thermo_data[conformer]
-                                                    g_min = thermo_data[conformer].cosmo_qhg
-                                            else:
-                                                if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
-                                                    min_conf = thermo_data[conformer]
-                                                    g_min = thermo_data[conformer].qh_gibbs_free_energy
+                                            if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
+                                                min_conf = thermo_data[conformer]
+                                                g_min = thermo_data[conformer].qh_gibbs_free_energy
                                         for conformer in species[structure]:  # Get a Boltzmann sum for conformers
-                                            if cosmo:
-                                                g_rel = thermo_data[conformer].cosmo_qhg - g_min
-                                            else:
-                                                g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+                                            g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                             boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
                                             boltz_sum += boltz_fac
                                         for conformer in species[
                                             structure]:  # Calculate relative data based on Gmin and the Boltzmann sum
-                                            if cosmo:
-                                                g_rel = thermo_data[conformer].cosmo_qhg - g_min
-                                            else:
-                                                g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+                                            g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                             boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
                                             boltz_prob = boltz_fac / boltz_sum
                                             #if no contribution, skip further calculations
@@ -252,7 +237,6 @@ class get_pes:
                                                 qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
                                                 qs_zero += thermo_data[conformer].qh_entropy * boltz_prob
                                                 qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
-                                                cosmo_qhg_zero += thermo_data[conformer].cosmo_qhg * boltz_prob
 
                                         if gconf:
                                             h_adj = h_conf - min_conf.enthalpy
@@ -291,14 +275,12 @@ class get_pes:
                                     qh_mix = qh_tot + qh_zero
                                     qs_mix = qs_tot + qs_zero
                                     qg_mix = qg_corr + qhg_zero
-                                    cosmo_qhg_mix = qg_corr + cosmo_qhg_zero
                                     self.h_zero[n].append(h_mix)
                                     self.ts_zero[n].append(s_mix)
                                     self.g_zero[n].append(g_mix)
                                     self.qh_zero[n].append(qh_mix)
                                     self.qhts_zero[n].append(qs_mix)
                                     self.qhg_zero[n].append(qg_mix)
-                                    self.cosmo_qhg_zero[n].append(cosmo_qhg_mix)
                                 elif conformers:
                                     self.h_zero[n].append(h_tot)
                                     self.ts_zero[n].append(s_tot)
@@ -306,7 +288,6 @@ class get_pes:
                                     self.qh_zero[n].append(qh_tot)
                                     self.qhts_zero[n].append(qs_tot)
                                     self.qhg_zero[n].append(qg_corr)
-                                    self.cosmo_qhg_zero[n].append(qg_corr)
                             else:
                                 self.h_zero[n].append(h_zero)
                                 self.ts_zero[n].append(s_zero)
@@ -315,7 +296,6 @@ class get_pes:
                                 self.qh_zero[n].append(qh_zero)
                                 self.qhts_zero[n].append(qs_zero)
                                 self.qhg_zero[n].append(qhg_zero)
-                                self.cosmo_qhg_zero[n].append(cosmo_qhg_zero)
 
                             self.spc_zero[n].append(spc_zero)
                             self.e_zero[n].append(e_zero)
@@ -331,7 +311,6 @@ class get_pes:
                             self.g_abs.append([])
                             self.qs_abs.append([])
                             self.qhg_abs.append([])
-                            self.cosmo_qhg_abs.append([])
                             self.g_qhgvals.append([])
                             self.g_species_qhgzero.append([])
                             self.g_rel_val.append([])  # graphing
@@ -345,7 +324,7 @@ class get_pes:
                                 if point != '':
                                     # Create values to populate
                                     point_structures = point.replace(' ', '').split('+')
-                                    e_abs, spc_abs, zpe_abs, h_abs, qh_abs, s_abs, g_abs, qs_abs, qhg_abs, cosmo_qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                                    e_abs, spc_abs, zpe_abs, h_abs, qh_abs, s_abs, g_abs, qs_abs, qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                     qh_conf, qh_tot, qs_conf, qs_tot, h_conf, h_tot, s_conf, s_tot, g_corr, qg_corr = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                     min_conf = False
                                     rel_val = 0.0
@@ -366,7 +345,6 @@ class get_pes:
                                                 g_abs += thermo_data[species[structure]].gibbs_free_energy
                                                 qs_abs += thermo_data[species[structure]].qh_entropy
                                                 qhg_abs += thermo_data[species[structure]].qh_gibbs_free_energy
-                                                cosmo_qhg_abs += thermo_data[species[structure]].cosmo_qhg
                                                 zero_conf += thermo_data[species[structure]].qh_gibbs_free_energy
                                                 self.g_qhgvals[n][i][j].append(
                                                     thermo_data[species[structure]].qh_gibbs_free_energy)
@@ -375,28 +353,17 @@ class get_pes:
                                                 g_min, boltz_sum = sys.float_info.max, 0.0
                                                 # Find minimum G, along with associated enthalpy and entropy
                                                 for conformer in species[structure]:
-                                                    if cosmo:
-                                                        if thermo_data[conformer].cosmo_qhg <= g_min:
-                                                            min_conf = thermo_data[conformer]
-                                                            g_min = thermo_data[conformer].cosmo_qhg
-                                                    else:
-                                                        if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
-                                                            min_conf = thermo_data[conformer]
-                                                            g_min = thermo_data[conformer].qh_gibbs_free_energy
+                                                    if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
+                                                        min_conf = thermo_data[conformer]
+                                                        g_min = thermo_data[conformer].qh_gibbs_free_energy
                                                 # Get a Boltzmann sum for conformers
                                                 for conformer in species[structure]:
-                                                    if cosmo:
-                                                        g_rel = thermo_data[conformer].cosmo_qhg - g_min
-                                                    else:
-                                                        g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+                                                    g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                                     boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
                                                     boltz_sum += boltz_fac
                                                 # Calculate relative data based on Gmin and the Boltzmann sum
                                                 for conformer in species[structure]:
-                                                    if cosmo:
-                                                        g_rel = thermo_data[conformer].cosmo_qhg - g_min
-                                                    else:
-                                                        g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
+                                                    g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
                                                     boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
                                                     boltz_prob = boltz_fac / boltz_sum
                                                     if boltz_prob == 0.0:
@@ -408,14 +375,10 @@ class get_pes:
                                                         sys.exit("\n   Not all files contain a SPC value, relative values will not be calculated.\n")
                                                     e_abs += thermo_data[conformer].scf_energy * boltz_prob
                                                     zpe_abs += thermo_data[conformer].zpe * boltz_prob
-                                                    if cosmo:
-                                                        zero_conf += thermo_data[conformer].cosmo_qhg * boltz_prob
-                                                        rel_val += thermo_data[conformer].cosmo_qhg * boltz_prob
-                                                    else:
-                                                        zero_conf += thermo_data[
-                                                                         conformer].qh_gibbs_free_energy * boltz_prob
-                                                        rel_val += thermo_data[
-                                                                       conformer].qh_gibbs_free_energy * boltz_prob
+                                                    zero_conf += thermo_data[
+                                                                     conformer].qh_gibbs_free_energy * boltz_prob
+                                                    rel_val += thermo_data[
+                                                                   conformer].qh_gibbs_free_energy * boltz_prob
                                                     # Default calculate gconf correction for conformers, skip if no contribution
                                                     if gconf and boltz_prob > 0.0 and boltz_prob != 1.0:
                                                         h_conf += thermo_data[conformer].enthalpy * boltz_prob
@@ -439,11 +402,7 @@ class get_pes:
                                                         qs_abs += thermo_data[conformer].qh_entropy * boltz_prob
                                                         qhg_abs += thermo_data[
                                                                        conformer].qh_gibbs_free_energy * boltz_prob
-                                                        cosmo_qhg_abs += thermo_data[conformer].cosmo_qhg * boltz_prob
-                                                    if cosmo:
-                                                        self.g_qhgvals[n][i][j].append(thermo_data[conformer].cosmo_qhg)
-                                                    else:
-                                                        self.g_qhgvals[n][i][j].append(thermo_data[conformer].qh_gibbs_free_energy)
+                                                    self.g_qhgvals[n][i][j].append(thermo_data[conformer].qh_gibbs_free_energy)
                                                 if gconf:
                                                     h_adj = h_conf - min_conf.enthalpy
                                                     h_tot = min_conf.enthalpy + h_adj
@@ -483,14 +442,12 @@ class get_pes:
                                             qh_mix = qh_tot + qh_abs
                                             qs_mix = qs_tot + qs_abs
                                             qg_mix = qg_corr + qhg_abs
-                                            cosmo_qhg_mix = qg_corr + cosmo_qhg_zero
                                             self.h_abs[n].append(h_mix)
                                             self.s_abs[n].append(s_mix)
                                             self.g_abs[n].append(g_mix)
                                             self.qh_abs[n].append(qh_mix)
                                             self.qs_abs[n].append(qs_mix)
                                             self.qhg_abs[n].append(qg_mix)
-                                            self.cosmo_qhg_abs[n].append(cosmo_qhg_mix)
                                         elif conformers:
                                             self.h_abs[n].append(h_tot)
                                             self.s_abs[n].append(s_tot)
@@ -498,7 +455,6 @@ class get_pes:
                                             self.qh_abs[n].append(qh_tot)
                                             self.qs_abs[n].append(qs_tot)
                                             self.qhg_abs[n].append(qg_corr)
-                                            self.cosmo_qhg_abs[n].append(qg_corr)
                                     else:
                                         self.h_abs[n].append(h_abs)
                                         self.s_abs[n].append(s_abs)
@@ -507,7 +463,6 @@ class get_pes:
                                         self.qh_abs[n].append(qh_abs)
                                         self.qs_abs[n].append(qs_abs)
                                         self.qhg_abs[n].append(qhg_abs)
-                                        self.cosmo_qhg_abs[n].append(cosmo_qhg_abs)
                                 else:
                                     self.species[n].append('none')
                                     self.e_abs[n].append(float('nan'))
