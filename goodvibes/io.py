@@ -297,7 +297,7 @@ def parse_data(file):
             if 'Program Version' in line.strip():
                 version_program = "ORCA version " + line.split()[2]
             if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
-                spe = float(line.strip().split()[4])
+                spe = float(line.strip().split()[-1])
             if "Total Charge" in line.strip() and "...." in line.strip():
                 charge = int(line.strip("=").split()[-1])
             if "Multiplicity" in line.strip() and "...." in line.strip():
@@ -512,7 +512,7 @@ def sp_cpu(file):
                 cpu = [days, hours, mins, secs, msecs]
         if program == "Orca":
             if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
-                spe = float(line.strip().split()[4])
+                spe = float(line.strip().split()[-1])
             if line.strip().find("TOTAL RUN TIME") > -1:
                 days = int(line.split()[3])
                 hours = int(line.split()[5])

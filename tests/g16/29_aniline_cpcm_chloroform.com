@@ -1,23 +1,25 @@
 %chk=aniline_cpcm_chcl3.chk
 %mem=8GB
 %nprocshared=8
-# M062X/6-311+G(d,p) Opt Freq SCRF=(CPCM,Solvent=Chloroform)
+# opt freq 6-311+g(d,p) scrf=(cpcm,solvent=chloroform) m062x
 
-Aniline optimization+freq with CPCM solvation model in chloroform
-CPCM (conductor-like PCM) is faster than IEFPCM, good for geometry optimizations
+Aniline optimization+freq with CPCM solvation model in chloroform CPCM
+(conductor-like PCM) is faster than IEFPCM, good for geometry
+optimizations
 
 0 1
-N   0.000000   0.000000   2.420000
-C   1.208000   0.000000   1.785000
-C   1.211000   0.000000   0.392000
-C   0.000000   0.000000  -0.307000
-C  -1.211000   0.000000   0.392000
-C  -1.208000   0.000000   1.785000
-H   2.147000   0.000000   2.325000
-H   2.155000   0.000000  -0.148000
-H   0.000000   0.000000  -1.393000
-H  -2.155000   0.000000  -0.148000
-H  -2.147000   0.000000   2.325000
-H   0.876000   0.000000   2.975000
-H  -0.876000   0.000000   2.975000
+ N                  0.00771624   -0.05134011    2.73964009
+ C                 -0.00961310    1.18728071    0.71639167
+ C                 -0.01814745    1.20395033   -0.63867893
+ C                 -0.01807058   -0.00097825   -1.35426895
+ C                 -0.00916874   -1.22314473   -0.66859277
+ C                 -0.00063335   -1.23981434    0.68647782
+ H                 -0.00967393    2.10727042    1.26276054
+ H                 -0.02494441    2.13710156   -1.16220791
+ H                 -0.02480809    0.01218327   -2.42416678
+ H                 -0.00910936   -2.14313444   -1.21496163
+ H                  0.00616443   -2.17296557    1.21000679
+ H                  0.00766285    0.80846336    3.25026518
+ H                  0.01406795   -0.92344406    3.22891951
+ C                 -0.00070930   -0.03488576    1.40206783
 

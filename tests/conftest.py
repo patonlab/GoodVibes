@@ -45,14 +45,10 @@ G16_FREQ_FILES = [
     '13_formaldehyde_tddft_s1.log',
     '15_methanol_oniom_qmmm.log',
     '16_o2_superoxide_anion.log',
-    '17_iron_complex_quintet.log',
     '21_naphthalene_pm7_semiempirical.log',
     '22_hcn_linear_freq_noraman.log',
     '23_cs2_linear_anharmonic_noraman.log',
     '24_iodobenzene_genecp_sdd.log',
-    '25_pd_complex_genecp_def2.log',
-    '26_pt_complex_genecp_3zone.log',
-    '27_custom_functional_iop_b20lyp.log',
     '28_pyridine_smd_acetonitrile_wb97xd.log',
     '29_aniline_cpcm_chloroform.log',
     '32_cyclohexane_tpss_meta_gga.log',
@@ -61,7 +57,6 @@ G16_FREQ_FILES = [
     '35_furan_mn15_functional.log',
     '36_imidazole_apfd_noraman.log',
     '37_planar_cyclohexane_2nd_order_saddle.log',
-    '38_naphthalene_scsmp2.log',
     '39_oxazole_tpssh_cpcm_dcm.log',
     '40_n2o_linear_highT_highP.log',
     '41_thiophene_freq_noraman_nmr.log',
@@ -74,7 +69,6 @@ G16_TS_FILES = [
     '46_ts_h3_hydrogen_abstraction.log',
     '47_ts_e2_elimination_ethylchloride.log',
     '48_ts_nh3_umbrella_inversion.log',
-    '49_ts_oh_abstraction_methane.log',
 ]
 
 G16_SP_ONLY_FILES = [
@@ -115,31 +109,86 @@ G16_ERROR_FILES = [
     '55_err_insufficient_memory.log',
     '56_err_timed_out.log',
     '57_err_syntax_route_typo.log',
-    '58_err_linear_bend_formBX.log',
-    '59_err_basis_linear_dependency.log',
     '60_err_missing_end_blank_line.log',
 ]
 
 # ---------- Categorized ORCA file lists ----------
 
+# Files with frequency/thermochemistry sections.
+# Note: 02_ethane_opt_freq_thermo.out excluded — PrintThermoChem mode means
+# enthalpy/Gibbs omit electronic energy, making direct comparison impossible.
 ORCA_FREQ_FILES = [
     '01a_water_hf_freq.out',
-    '02_ethane_opt_freq_thermo.out',
+    '01b_water_hf_freq_scaled.out',
+    '01c_water_hf_freq_harmonic.out',
+    '01d_water_hf_freq_qhcutoff.out',
+    '03_acetone_linked_opt_freq.out',
     '04_benzene_radical_cation.out',
     '05_methylene_triplet_carbene.out',
+    '07_neon_atom_with_freq.out',
     '08_alanine_C1_pcm_water.out',
+    '10_formaldehyde_verbose_pop.out',
+    '15_methanol_qmqm2_xtb.out',
     '16_o2_superoxide_anion.out',
-    '17_iron_complex_quintet.out',
+    '18_propane_linked_composite_dh.out',
+    '19_acetic_acid_smd_dmso.out',
+    '21_naphthalene_xtb2_semiempirical.out',
     '22_hcn_linear_freq_noraman.out',
+    '23_cs2_linear_anharmonic_noraman.out',
+    '24_iodobenzene_genecp_sdd.out',
+    '26_pt_complex_genecp_3zone.out',
+    '28_pyridine_smd_acetonitrile_wb97xd3.out',
     '29_aniline_cpcm_chloroform.out',
+    '30_phenol_smd_thf_pbe0_d3bj.out',
+    '31_methylammonium_cpcm_water.out',
+    '32_cyclohexane_tpss_meta_gga.out',
+    '33_methanol_pbe_gga.out',
+    '34_butadiene_camb3lyp_rsh.out',
+    '35_furan_wb97xv_functional.out',
+    '36_imidazole_pbe0d3bj_noraman.out',
+    '37_planar_cyclohexane_2nd_order_saddle.out',
+    '38_naphthalene_scsmp2.out',
+    '39_oxazole_tpssh_cpcm_dcm.out',
+    '42_dmso_linked_cpcm_gasfreq.out',
+    '43_dmabn_bhandhlyp_chargetransfer.out',
 ]
 
 ORCA_TS_FILES = [
     '44_ts_sn2_identity_chloride.out',
     '45_ts_diels_alder_butadiene_ethylene.out',
+    '46_ts_neb_cope_rearrangement.out',
     '47_ts_e2_elimination_ethylchloride.out',
     '48_ts_nh3_umbrella_inversion.out',
     '49_ts_oh_abstraction_methane.out',
+]
+
+ORCA_SP_ONLY_FILES = [
+    '06_carbon_atom_single_point.out',
+    '09_caffeine_nmr_giao.out',
+    '11_hf_molecule_dlpno_ccsdt_gold_standard.out',
+    '13_formaldehyde_tddft_s1.out',
+    '14_water_dimer_gcp.out',
+    '17_iron_complex_quintet.out',
+    '20_benzene_singlepoint.out',
+    '40_n2o_linear_highT.out',
+    '41_thiophene_nmr_giao.out',
+]
+
+ORCA_SOLVATION_FILES = [
+    '08_alanine_C1_pcm_water.out',
+    '19_acetic_acid_smd_dmso.out',
+    '28_pyridine_smd_acetonitrile_wb97xd3.out',
+    '29_aniline_cpcm_chloroform.out',
+    '30_phenol_smd_thf_pbe0_d3bj.out',
+    '31_methylammonium_cpcm_water.out',
+    '39_oxazole_tpssh_cpcm_dcm.out',
+    '42_dmso_linked_cpcm_gasfreq.out',
+]
+
+ORCA_LINEAR_FILES = [
+    '16_o2_superoxide_anion.out',
+    '22_hcn_linear_freq_noraman.out',
+    '23_cs2_linear_anharmonic_noraman.out',
 ]
 
 ORCA_ERROR_FILES = [

@@ -1,7 +1,7 @@
 %chk=51_err_scf_convergence.chk
 %mem=96GB
 %nproc=16
-# UB3LYP/6-31G(d) Opt Freq
+# scf(maxcycles=10) UB3LYP/6-31G(d) Opt Freq
 
 ERROR EXAMPLE: SCF convergence failure
 Fe(II) porphine model — open-shell transition metal with near-degenerate states

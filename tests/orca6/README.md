@@ -39,9 +39,7 @@ files 51–60 are deliberate error examples illustrating common ORCA failures.
 | 22 | `22_hcn_linear_freq_noraman.inp` | M062X/6-311+G(d,p) | Opt+Freq | Linear molecule |
 | 23 | `23_cs2_linear_anharmonic_noraman.inp` | B3LYP/6-311+G(2df,p) | Opt+AnFreq | Linear, anharmonic |
 | 24 | `24_iodobenzene_genecp_sdd.inp` | B3LYP/D3BJ | Opt+Freq | %basis NewGTO/NewECP for I (SDD) |
-| 25 | `25_pd_complex_genecp_def2.inp` | PBE0/D3BJ | Opt+Freq | %basis with def2-TZVP/def2-ECP for Pd |
 | 26 | `26_pt_complex_genecp_3zone.inp` | B3LYP | Opt+Freq | %basis 3-zone: def2-TZVP/def2-ECP |
-| 27 | `27_custom_functional_camb3lyp.inp` | CAM-B3LYP/def2-SVP | Opt+Freq | Custom range-separated params via %method RangeSep |
 | 28 | `28_pyridine_smd_acetonitrile_wb97xd3.inp` | wB97X-D3/6-311+G(d,p) | Opt+Freq | SMD Acetonitrile |
 | 29 | `29_aniline_cpcm_chloroform.inp` | M062X/6-311+G(d,p) | Opt+Freq | CPCM Chloroform |
 | 30 | `30_phenol_smd_thf_pbe0_d3bj.inp` | PBE0/6-311+G(d,p) | Opt+Freq | SMD THF, D3BJ |

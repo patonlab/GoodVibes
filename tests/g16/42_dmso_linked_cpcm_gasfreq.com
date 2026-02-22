@@ -3,8 +3,7 @@
 %nprocshared=8
 # B3LYP/6-311+G(d,p) Opt SCRF=(CPCM,Solvent=Water)
 
-DMSO solvent molecule: CPCM geometry optimization in water (step 1)
-Used in thermodynamic cycle for solvation free energy
+DMSO solvent molecule: CPCM geometry optimization in water 
 
 0 1
 S   0.000000   0.000000   0.000000
@@ -22,8 +21,8 @@ H  -2.580000   0.000000   0.230000
 %chk=dmso_solvation.chk
 %mem=8GB
 %nprocshared=8
-# B3LYP/6-311+G(d,p) Freq=NoRaman Geom=AllCheck Guess=Read
+# B3LYP/6-311+G(d,p) Freq=NoRaman Geom=AllCheck Guess=Read SCRF=(CPCM,Solvent=Water)
 
-DMSO gas-phase frequency on CPCM geometry (step 2 - thermodynamic cycle)
+DMSO frequency on CPCM geometry 
 
 
