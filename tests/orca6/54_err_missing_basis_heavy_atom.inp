@@ -1,0 +1,14 @@
+# ERROR EXAMPLE: Basis set not available for heavy element
+# PbCl2 with Pople basis set — 6-311+G(d,p) does not include parameters for Pb (Z=82)
+# Pople basis sets only cover lighter elements; Pb is not parameterized
+# ORCA error: "There are no basis functions on atom" or element not found in basis set library
+# Fix: Use def2-TZVP (covers the whole periodic table) or assign ECP for Pb
+! B3LYP 6-311+G(d,p) Opt Freq pal16
+
+%maxcore 6000
+
+* xyz 0 1
+Pb     0.000000    0.000000    0.000000
+Cl     2.320000    0.700000    0.000000
+Cl    -2.320000    0.700000    0.000000
+*

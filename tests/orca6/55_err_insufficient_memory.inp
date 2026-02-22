@@ -1,0 +1,29 @@
+# ERROR EXAMPLE: Insufficient memory allocation
+# CCSD(T)/cc-pVTZ single point on naphthalene requires many GB of RAM
+# %maxcore 6 gives only 6 MB per core — far too small for coupled-cluster
+# ORCA error: "ORCA finished by error termination" / memory allocation failure
+# Fix: Increase %maxcore to at least 4000 (4 GB per core); check available RAM
+! CCSD(T) cc-pVTZ pal16
+
+%maxcore 6
+
+* xyz 0 1
+C      1.245500    0.717100    0.000000
+C      1.245500   -0.717100    0.000000
+C      0.000000   -1.403500    0.000000
+C     -1.245500   -0.717100    0.000000
+C     -1.245500    0.717100    0.000000
+C      0.000000    1.403500    0.000000
+C      2.437400    1.398300    0.000000
+C      2.437400   -1.398300    0.000000
+C     -2.437400   -1.398300    0.000000
+C     -2.437400    1.398300    0.000000
+H      0.000000   -2.490700    0.000000
+H      0.000000    2.490700    0.000000
+H      2.437700    2.485400    0.000000
+H      2.437700   -2.485400    0.000000
+H     -2.437700   -2.485400    0.000000
+H     -2.437700    2.485400    0.000000
+H      3.381100    0.858700    0.000000
+H      3.381100   -0.858700    0.000000
+*

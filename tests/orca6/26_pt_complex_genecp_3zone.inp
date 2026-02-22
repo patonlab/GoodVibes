@@ -1,0 +1,29 @@
+! B3LYP Opt Freq SlowConv pal16
+%maxcore 6000
+%scf
+  maxiter 500
+end
+%basis
+  NewGTO C  "6-31G(d)" end
+  NewGTO H  "6-31G(d)" end
+  NewGTO P  "cc-pVDZ" end
+  NewGTO Pt "def2-TZVP" end
+  NewECP Pt "def2-ECP" end
+end
+
+# Platinum complex: 3-zone basis (def2-TZVP+ECP for Pt, cc-pVDZ for P, 6-31G(d) for C/H)
+# def2-TZVP+def2-ECP for Pt (Stuttgart-type relativistic ECP)
+
+* xyz 0 1
+Pt  0.000000   0.000000   0.000000
+P   2.350000   0.000000   0.000000
+P  -2.350000   0.000000   0.000000
+P   0.000000   2.350000   0.000000
+P   0.000000  -2.350000   0.000000
+C   3.200000   1.200000   0.000000
+C   3.200000  -1.200000   0.000000
+H   3.800000   1.200000   0.890000
+H   3.800000   1.200000  -0.890000
+H   3.800000  -1.200000   0.890000
+H   3.800000  -1.200000  -0.890000
+*
