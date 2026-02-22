@@ -508,10 +508,9 @@ class calc_bbe:
     """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
                  invert, ssymm=False,
-                 mm_freq_scale_factor=False, inertia='global', g4=False,
-                 glowfreq=''):
+                 mm_freq_scale_factor=False, inertia='global'):
         # 1. Parse all data from file (program-agnostic)
-        qcdata = parse_qcdata(file, ssymm=ssymm, g4=g4)
+        qcdata = parse_qcdata(file, ssymm=ssymm)
 
         # 2. Geometry data (from native parser via qcdata)
         self.xyz = qcdata
@@ -549,7 +548,7 @@ class calc_bbe:
             freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
 
         # 4. Read any single point energies if requested
-        if spc != False and spc != 'link':
+        if spc and spc != 'link':
             name, ext = os.path.splitext(file)
             try:
                 (self.sp_energy, self.sp_program,
@@ -576,29 +575,8 @@ class calc_bbe:
 
         self.inverted_freqs = inverted_freqs
 
-        if glowfreq != '':
-            frequency_wn = []
-            if not os.path.exists(f'{glowfreq}.MECPprop'):
-                print(f'x  The {glowfreq}.MECPprop file provided in the glowfreq option doesn\'t exist!')
-                sys.exit()
-            elif not os.path.exists(f'{glowfreq}.ROVIBprop'):
-                print(f'x  The {glowfreq}.ROVIBprop file provided in the glowfreq option doesn\'t exist!')
-                sys.exit()
-            with open(f'{glowfreq}.MECPprop') as f:
-                prop_output = f.readlines()
-            for i, line in enumerate(prop_output):
-                if 'The molecules both have' in line:
-                    n_atoms = int(line.strip().split()[-2])
-                    break
-            with open(f'{glowfreq}.ROVIBprop') as f:
-                vib_output = f.readlines()
-            # currently, this only works for non-linear molecules
-            n_freqs = (n_atoms * 3) - 6
-            for i in range(2, 2 + n_freqs):
-                frequency_wn.append(float(vib_output[i].split()[-1]))
-
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
-        if self.zero_point_corr is not None and rotemp:
+        if self.zero_point_corr is not None and rotemp and self.scf_energy is not None:
             cutoffs = [s_freq_cutoff for freq in frequency_wn]
 
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
@@ -724,7 +702,8 @@ class calc_bbe:
         int_sym = 1
 
         for i, row in enumerate(connectivity):
-            if self.xyz.atom_nums[i] != 6: continue
+            if self.xyz.atom_nums[i] != 6:
+                continue
             As = np.array(self.xyz.atom_nums)[row]
             if len(As == 4):
                 neighbors = [x for x in As if x in neighbor]

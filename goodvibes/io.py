@@ -195,6 +195,7 @@ def parse_data(file):
             break
     repeated_link1 = 0
     freq_started = False  # Guard against VPT2 displaced geometry energies
+    zero_point_corr_G4 = 0.0
 
     for line in data:
         if program == "Gaussian":
@@ -430,7 +431,7 @@ def parse_data(file):
 
 def sp_cpu(file):
     """Read single-point output for cpu time."""
-    spe, program, data, cpu = None, None, [], None
+    program, data, cpu = None, [], None
 
     if os.path.exists(os.path.splitext(file)[0] + '.log'):
         with open(os.path.splitext(file)[0] + '.log') as f:
@@ -454,8 +455,6 @@ def sp_cpu(file):
 
     for line in data:
         if program == "Gaussian":
-            if line.strip().startswith('SCF Done:'):
-                spe = float(line.strip().split()[4])
             if line.strip().find("Job cpu time") > -1:
                 days = int(line.split()[3])
                 hours = int(line.split()[5])
@@ -464,8 +463,6 @@ def sp_cpu(file):
                 msecs = int(float(line.split()[9]) * 1000.0)
                 cpu = [days, hours, mins, secs, msecs]
         if program == "Orca":
-            if line.strip().startswith('FINAL SINGLE POINT ENERGY'):
-                spe = float(line.strip().split()[-1])
             if line.strip().find("TOTAL RUN TIME") > -1:
                 days = int(line.split()[3])
                 hours = int(line.split()[5])
@@ -474,8 +471,6 @@ def sp_cpu(file):
                 msecs = float(line.split()[11])
                 cpu = [days, hours, mins, secs, msecs]
         if program == "NWChem":
-            if line.strip().startswith('Total DFT energy ='):
-                spe = float(line.strip().split()[4])
             if line.strip().find("Total times") > -1:
                 days = 0
                 hours = 0
@@ -543,7 +538,7 @@ def read_initial(file):
     progress, orientation = 'Incomplete', 'Input'
     a, repeated_theory = 0, 0
     no_grid = True
-    DFT, dft_used, level, bs, scf_iradan, cphf_iradan = False, 'F', 'none', 'none', False, False
+    dft_used = 'F'
     grid_lookup = {1: 'sg1', 2: 'coarse', 4: 'fine', 5: 'ultrafine', 7: 'superfine'}
 
     for line in data:
@@ -566,9 +561,9 @@ def read_initial(file):
         if line.strip().find('IExCor=') > -1 and no_grid:
             try:
                 dft_used = line.split('=')[2].split()[0]
-                grid = grid_lookup[int(dft_used)]
+                _ = grid_lookup[int(dft_used)]
                 no_grid = False
-            except:
+            except (KeyError, ValueError, IndexError):
                 pass
         if '\\Freq\\' in line.strip() and repeated_theory == 0:
             try:
@@ -709,7 +704,7 @@ def gaussian_jobtype(filename):
     return job
 
 
-def parse_gaussian_thermo(file, ssymm=False, g4=False):
+def parse_gaussian_thermo(file, ssymm=False):
     """Parse Gaussian output for all thermochemistry-relevant data.
 
     Returns QCData with raw frequencies (negative = imaginary, no inversion
@@ -722,9 +717,6 @@ def parse_gaussian_thermo(file, ssymm=False, g4=False):
         Path to Gaussian output file.
     ssymm : bool
         If True, skip rotational symmetry number from file (use default 1).
-    g4 : bool
-        If True, continue reading past the frequency link for G4 energies.
-        Also auto-detected from file contents when False.
     """
     qcdata = QCData(file=file, program='Gaussian')
 
@@ -747,8 +739,7 @@ def parse_gaussian_thermo(file, ssymm=False, g4=False):
         g_output = f.readlines()
 
     # Auto-detect G4 composite method
-    if not g4:
-        g4 = any('G4(0 K)' in line for line in g_output)
+    g4 = any('G4(0 K)' in line for line in g_output)
 
     # Detect ONIOM
     is_oniom = any('ONIOM: extrapolated energy' in line for line in g_output)
@@ -1277,7 +1268,7 @@ def parse_orca_thermo(file, ssymm=False):
     return qcdata
 
 
-def parse_qcdata(file, ssymm=False, g4=False):
+def parse_qcdata(file, ssymm=False):
     """Parse any supported output file into a QCData object.
 
     Detects program from file content and delegates to the correct parser.
@@ -1288,9 +1279,6 @@ def parse_qcdata(file, ssymm=False, g4=False):
         Path to quantum chemistry output file.
     ssymm : bool
         If True, skip rotational symmetry number from file (use default 1).
-    g4 : bool
-        If True, continue reading past the frequency link for G4 energies
-        (Gaussian only).
     """
     stub = os.path.splitext(file)[0]
     possible_filenames = (stub + '.log', stub + '.out')
@@ -1320,7 +1308,7 @@ def parse_qcdata(file, ssymm=False, g4=False):
             break
 
     if program == 'Gaussian':
-        return parse_gaussian_thermo(actual_file, ssymm=ssymm, g4=g4)
+        return parse_gaussian_thermo(actual_file, ssymm=ssymm)
     elif program == 'Orca':
         return parse_orca_thermo(actual_file, ssymm=ssymm)
     elif program == 'NWChem':

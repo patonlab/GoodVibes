@@ -23,7 +23,6 @@ XFAIL_SYMMETRY = "Small Gibbs discrepancy likely due to symmetry number or physi
 XFAIL_LINKED = "Linked composite job — enthalpy/Gibbs mismatch under investigation"
 XFAIL_TS_LINKED = "TS linked opt+freq — small numerical discrepancy under investigation"
 XFAIL_SCALING = "ORCA SCALFREQ pre-scales frequencies; calc_bbe double-scales"
-XFAIL_TEMP_PRESSURE = "Non-standard T/P test — numerical discrepancy under investigation"
 XFAIL_SADDLE = "2nd-order saddle point — numerical discrepancy under investigation"
 
 
@@ -42,7 +41,11 @@ def _calc(filename, QS='grimme', QH=False, s_freq_cutoff=100.0,
 
 @pytest.mark.parametrize("filename, expected_zpe, scale", [
     ('01a_water_hf_freq.out', 0.02234428, 1.0),
+    pytest.param('01b_water_hf_freq_scaled.out', 0.02312633, 1.035,
+                 marks=pytest.mark.xfail(reason=XFAIL_SCALING)),
     ('01c_water_hf_freq_harmonic.out', 0.02234428, 1.0),
+    ('01d_water_hf_freq_qhcutoff.out', 0.02234428, 1.0),
+    ('02_ethane_opt_freq_thermo.out', 0.07424074, 1.0),
     ('03_acetone_linked_opt_freq.out', 0.07868568, 1.0),
     ('04_benzene_radical_cation.out', 0.09505855, 1.0),
     ('05_methylene_triplet_carbene.out', 0.01776186, 1.0),
@@ -84,7 +87,9 @@ def test_calc_bbe_orca_zpe_vs_orca(filename, expected_zpe, scale):
 
 @pytest.mark.parametrize("filename, expected_enthalpy", [
     ('01a_water_hf_freq.out', -75.98299220),
+    ('01b_water_hf_freq_scaled.out', -75.98221042),
     ('01c_water_hf_freq_harmonic.out', -75.98299220),
+    ('01d_water_hf_freq_qhcutoff.out', -75.98299220),
     ('03_acetone_linked_opt_freq.out', -192.94041854),
     ('04_benzene_radical_cation.out', -231.91741024),
     ('05_methylene_triplet_carbene.out', -38.99822252),
@@ -127,7 +132,9 @@ def test_calc_bbe_orca_enthalpy_vs_orca(filename, expected_enthalpy):
 
 @pytest.mark.parametrize("filename, expected_gibbs", [
     ('01a_water_hf_freq.out', -76.00440191),
+    ('01b_water_hf_freq_scaled.out', -76.00361983),
     ('01c_water_hf_freq_harmonic.out', -76.00440191),
+    ('01d_water_hf_freq_qhcutoff.out', -76.00440190),
     pytest.param('03_acetone_linked_opt_freq.out', -192.98045622,
                  marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
     ('04_benzene_radical_cation.out', -231.95046217),
@@ -176,6 +183,9 @@ def test_calc_bbe_orca_gibbs_vs_orca(filename, expected_gibbs):
 
 @pytest.mark.parametrize("filename, expected_TS", [
     ('01a_water_hf_freq.out', 0.02140971),
+    ('01b_water_hf_freq_scaled.out', 0.02140941),
+    ('01c_water_hf_freq_harmonic.out', 0.02140971),
+    ('01d_water_hf_freq_qhcutoff.out', 0.02140970),
     ('04_benzene_radical_cation.out', 0.03305194),
     ('05_methylene_triplet_carbene.out', 0.02222761),
     ('07_neon_atom_with_freq.out', 0.01660446),
@@ -255,34 +265,29 @@ def test_calc_bbe_orca_nonstandard_cutoff():
 # calc_bbe: non-standard temperature and pressure
 # ===========================================================================
 
-@pytest.mark.xfail(reason=XFAIL_TEMP_PRESSURE)
 @pytest.mark.parametrize(
-    "temp, pressure, expected_zpe, expected_H_thermal, expected_TS, expected_G_thermal",
+    "temp, expected_enthalpy, expected_gibbs",
     [
-        (290.00, 1.0, 0.07423948, 0.07851915, 0.02500860, 0.05351056),
-        (290.00, 2.0, 0.07423948, 0.07851915, 0.02437203, 0.05414712),
-        (290.00, 3.0, 0.07423948, 0.07851915, 0.02399966, 0.05451949),
-        (295.00, 1.0, 0.07423948, 0.07861430, 0.02553568, 0.05307862),
-        (295.00, 2.0, 0.07423948, 0.07861430, 0.02488814, 0.05372616),
-        (295.00, 3.0, 0.07423948, 0.07861430, 0.02450935, 0.05410495),
-        (300.00, 1.0, 0.07423948, 0.07871054, 0.02606549, 0.05264506),
-        (300.00, 2.0, 0.07423948, 0.07871054, 0.02540697, 0.05330358),
-        (300.00, 3.0, 0.07423948, 0.07871054, 0.02502176, 0.05368878),
+        (77.0,  -79.71630302, -79.72142169),
+        (298.0, -79.71285067, -79.73870486),
+        (330.0, -79.71221055, -79.74151351),
+        (450.0, -79.70936467, -79.75260969),
     ],
 )
 def test_calc_bbe_orca_nonstandard_temp_pressure(
-    temp, pressure, expected_zpe, expected_H_thermal,
-    expected_TS, expected_G_thermal,
+    temp, expected_enthalpy, expected_gibbs,
 ):
-    """Validate calc_bbe thermal corrections at non-standard T/P against ORCA."""
-    conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
+    """Validate calc_bbe at non-standard temperatures against ORCA ground truth.
+
+    Ground-truth values from 02_ethane_opt_freq_thermo.out which reports
+    thermochemistry at 77, 298, 330, and 450 K (all at 1 atm).
+    """
+    conc = ATMOS / (GAS_CONSTANT * temp)
     bbe = calc_bbe(orca_path('02_ethane_opt_freq_thermo.out'), 'grimme', False,
                    100.0, 100.0, temp, conc, 1.0, None, False, False, 0)
-    assert abs(bbe.zpe - expected_zpe) < 1e-5
-    H_thermal = bbe.enthalpy - bbe.scf_energy
-    assert abs(H_thermal - expected_H_thermal) < 1e-5
-    G_thermal = bbe.gibbs_free_energy - bbe.scf_energy
-    assert abs(G_thermal - expected_G_thermal) < 1e-5
+    assert abs(bbe.zpe - 0.07424074) < 1e-5
+    assert abs(bbe.enthalpy - expected_enthalpy) < 1e-5
+    assert abs(bbe.gibbs_free_energy - expected_gibbs) < 1e-5
 
 
 # ===========================================================================

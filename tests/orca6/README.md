@@ -16,7 +16,7 @@ files 51–60 are deliberate error examples illustrating common ORCA failures.
 | 01b | `01b_water_hf_freq_scaled.inp` | HF/6-31G(d) | Freq | Scaled frequencies (SCALFREQ 1.035) |
 | 01c | `01c_water_hf_freq_harmonic.inp` | HF/6-31G(d) | Freq | Pure harmonic RRHO (QuasiRRHO false) |
 | 01d | `01d_water_hf_freq_qhcutoff.inp` | HF/6-31G(d) | Freq | Quasi-RRHO with CutOffFreq 200 cm-1 |
-| 02 | `02_ethane_opt_freq_thermo.inp` | B3LYP/6-311+G(d,p) | Opt+Freq | Multi-temperature/pressure thermochemistry |
+| 02 | `02_ethane_opt_freq_thermo.inp` | B3LYP/6-311+G(d,p) | Opt+Freq | Multi-temperature thermochemistry (77, 298, 330, 450 K) |
 | 03 | `03_acetone_linked_opt_freq.inp` | B3LYP/6-311G(d,p) | Compound: Opt→Freq | $new_job, xyzfile |
 | 04 | `04_benzene_radical_cation.inp` | TPSS/6-311+G(d,p) | Opt+Freq | Charge=+1, Multiplicity=2, UKS |
 | 05 | `05_methylene_triplet_carbene.inp` | UMP2/cc-pVDZ | Opt+Freq | Charge=0, Multiplicity=3 |

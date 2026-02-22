@@ -6,7 +6,7 @@ import pytest
 from goodvibes.io import (parse_data, level_of_theory, read_initial,
                           gaussian_jobtype, parse_gaussian_thermo, parse_qcdata)
 from conftest import (g16path, G16_FREQ_FILES, G16_SP_ONLY_FILES,
-                      G16_TS_FILES, G16_LINEAR_FILES, G16_LINKED_FILES)
+                      G16_LINEAR_FILES, G16_LINKED_FILES)
 
 
 # ---------------------------------------------------------------------------

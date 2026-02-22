@@ -165,7 +165,7 @@ The frequencies are scaled by a factor of 0.95 before they are used in the compu
 python -m goodvibes examples/HCN*.out --xyz
 ```
 
-Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to Goodvibes_output.xyz
+Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to GoodVibes_output.xyz
 
 ###### 7: Analyzing multiple files at once
 ```python

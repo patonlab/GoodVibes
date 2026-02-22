@@ -1,4 +1,4 @@
-![GoodVibes](https://github.com/patonlab/GoodVibes/blob/master/GoodVibes.png)
+![GoodVibes](https://github.com/patonlab/GoodVibes/blob/master/goodvibes.png)
 ===
 
 [![Tests](https://github.com/patonlab/GoodVibes/actions/workflows/tests.yml/badge.svg)](https://github.com/patonlab/GoodVibes/actions/workflows/tests.yml)
@@ -115,7 +115,7 @@ The frequencies are scaled by a factor of 0.95 before they are used in the compu
 python -m goodvibes examples/HCN*.out --xyz
 ```
 
-Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to Goodvibes_output.xyz
+Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to GoodVibes_output.xyz
 
 ##### Example 7: Analyzing multiple files at once
 ```python

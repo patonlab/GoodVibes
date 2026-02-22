@@ -6,7 +6,7 @@ import pytest
 from goodvibes.io import (parse_data, level_of_theory, read_initial,
                           parse_orca_thermo, parse_qcdata)
 from conftest import (orca_path, ORCA_FREQ_FILES, ORCA_TS_FILES,
-                      ORCA_SP_ONLY_FILES, ORCA_LINEAR_FILES, ORCA_SOLVATION_FILES)
+                      ORCA_SP_ONLY_FILES, ORCA_LINEAR_FILES)
 
 
 # ---------------------------------------------------------------------------

@@ -261,7 +261,7 @@ def test_scaling_factor_search(filename, freq_scale_factor, zpe):
 def test_concentration_correction(path, conc, QS, E, ZPE, H, TS, TqhS, G, qhG):
         path = datapath(path)
         QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert = False, 100.0, 100.0,1.0, 298.15, None, False, False
-        if conc == False:
+        if not conc:
             conc = GV.ATMOS/(GV.GAS_CONSTANT*temp)
         bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
         precision = 6 

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
-import math, os.path, sys
-import numpy as np
+import math
+import os.path
+import sys
 
 # PHYSICAL CONSTANTS                                      UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -51,7 +52,7 @@ class get_pes:
 
         with open(file) as f:
             data = f.readlines()
-        folder, program, names, files, zeros, pes_list = None, None, [], [], [], []
+        names, files, zeros, pes_list = [], [], [], []
         for i, dline in enumerate(data):
             if dline.strip().find('PES') > -1:
                 for j, line in enumerate(data[i + 1:]):
@@ -74,7 +75,7 @@ class get_pes:
                     else:
                         if line.lower().strip().find('folder') > -1:
                             try:
-                                folder = line.strip().replace('#', '=').split("=")[1].strip()
+                                _ = line.strip().replace('#', '=').split("=")[1].strip()
                             except IndexError:
                                 pass
                         else:
@@ -151,11 +152,11 @@ class get_pes:
             if dline.strip().find('PES') > -1:
                 n = 0
                 for j, line in enumerate(data[i + 1:]):
-                    if line.strip().startswith('#') == True:
+                    if line.strip().startswith('#'):
                         pass
                     elif len(line) <= 2:
                         pass
-                    elif line.strip().startswith('---') == True:
+                    elif line.strip().startswith('---'):
                         break
                     elif line.strip() != '':
                         try:

@@ -114,11 +114,9 @@ G16_ERROR_FILES = [
 
 # ---------- Categorized ORCA file lists ----------
 
-# Files with frequency/thermochemistry sections.
-# Note: 02_ethane_opt_freq_thermo.out excluded — PrintThermoChem mode means
-# enthalpy/Gibbs omit electronic energy, making direct comparison impossible.
 ORCA_FREQ_FILES = [
     '01a_water_hf_freq.out',
+    '02_ethane_opt_freq_thermo.out',
     '01b_water_hf_freq_scaled.out',
     '01c_water_hf_freq_harmonic.out',
     '01d_water_hf_freq_qhcutoff.out',

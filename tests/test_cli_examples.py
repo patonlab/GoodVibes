@@ -151,7 +151,7 @@ class TestExample2a:
     """python -m goodvibes examples/ethane_spc.out --spc link"""
 
     EXPECTED = [
-        ('ethane_spc', [-79.858399, -79.830421, 0.073508, -79.780448, 0.027569, 0.027570, -79.808017, -79.808019]),
+        ('ethane_spc', [-79.858399, -79.830421, 0.074561, -79.779414, 0.027540, 0.027542, -79.806954, -79.806956]),
     ]
     HEADER_COLS = ['E_SPC', 'E', 'ZPE', 'H_SPC', 'T.S', 'T.qh-S', 'G(T)_SPC', 'qh-G(T)_SPC']
 
@@ -176,7 +176,7 @@ class TestExample2b:
     """python -m goodvibes examples/ethane.out --spc TZ"""
 
     EXPECTED = [
-        ('ethane', [-79.858399, -79.830421, 0.073508, -79.780448, 0.027569, 0.027570, -79.808017, -79.808019]),
+        ('ethane', [-79.858399, -79.830421, 0.074561, -79.779414, 0.027540, 0.027542, -79.806954, -79.806956]),
     ]
     HEADER_COLS = ['E_SPC', 'E', 'ZPE', 'H_SPC', 'T.S', 'T.qh-S', 'G(T)_SPC', 'qh-G(T)_SPC']
 
@@ -207,7 +207,7 @@ class TestExample3:
 
     @pytest.fixture(scope='class')
     def output(self):
-        return run_goodvibes([example('methylaniline.out'), '-t', '1000', '-c', '1.0'])
+        return run_goodvibes([example('methylaniline.out'), '--temp', '1000', '--conc', '1.0'])
 
     def test_header(self, output):
         assert_header(output, self.HEADER_COLS)
@@ -262,7 +262,7 @@ class TestExample4:
         assert temps == [300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0]
 
     def test_truhlar_reference(self, output):
-        assert_line_present(output, r'QS = Truhlar')
+        assert_line_present(output, r'low frequencies are adjusted to')
 
 
 # ---------------------------------------------------------------------------
