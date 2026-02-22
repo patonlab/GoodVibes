@@ -23,6 +23,7 @@ setup(
   install_requires=['numpy','cclib'],
   python_requires='>=3.7',
   include_package_data=True,
+  package_data={'goodvibes': ['scaling_factors.json', 'examples/*', 'share/*']},
   entry_points={
     'console_scripts': [
         'goodvibes = goodvibes.GoodVibes:main',

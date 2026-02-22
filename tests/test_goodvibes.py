@@ -6,7 +6,7 @@ import math
 from goodvibes import GoodVibes as GV
 from conftest import datapath
 from goodvibes.media import solvents
-from goodvibes.vib_scale_factors import scaling_data, scaling_refs
+from goodvibes.vib_scale_factors import scaling_data_dict, scaling_refs
 
 @pytest.mark.parametrize("path, QS, temp, E, ZPE, H, TS, TqhS, G, qhG", [
     # Grimme, 298.15K
@@ -62,8 +62,8 @@ def test_QS(path, QS, temp, E, ZPE, H, TS, TqhS, G, qhG):
     # Defaults, no temp interval, no conc interval
     path = datapath(path)
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert, d3 = False, 100.0, 100.0, 1.0, 'none', False, False, 0
-    bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert = False, 100.0, 100.0, 1.0, None, False, False
+    bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     precision = 6 # if temp == 298.15 else 4e-4
     assert E == round(bbe.scf_energy, precision)
     if hasattr(bbe, "gibbs_free_energy"):
@@ -128,8 +128,8 @@ def test_QH(path, QS, temp, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     # Defaults, no temp interval, no conc interval
     path = datapath(path)
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert, d3 = True, 100.0, 100.0, 1.0, 'none', False, False, 0
-    bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert = True, 100.0, 100.0, 1.0, None, False, False
+    bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     precision = 6 # if temp == 298.15 else 4e-4
     assert E == round(bbe.scf_energy, precision)
     if hasattr(bbe, "gibbs_free_energy"):
@@ -150,9 +150,9 @@ def test_QH(path, QS, temp, E, ZPE, H, qhH, TS, TqhS, G, qhG):
 def test_temperature_corrections_QS(QS, E, ZPE, H, TS, TqhS, G, qhG):
     temp = 200
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert, d3 = False, 100.0, 100.0, 1.0, 'none', False, False, 0
-    bbe298 = GV.calc_bbe(datapath('Al_298K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
-    bbe400 = GV.calc_bbe(datapath('Al_400K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert = False, 100.0, 100.0, 1.0, None, False, False
+    bbe298 = GV.calc_bbe(datapath('Al_298K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+    bbe400 = GV.calc_bbe(datapath('Al_400K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     precision = 6
     assert E == round(bbe298.scf_energy, precision) == round(bbe400.scf_energy, precision)
     assert ZPE == round(bbe298.zpe, precision) == round(bbe400.zpe, precision)
@@ -169,9 +169,9 @@ def test_temperature_corrections_QS(QS, E, ZPE, H, TS, TqhS, G, qhG):
 def test_temperature_corrections_QH(QS, E, ZPE, H, qhH, TS, TqhS, G, qhG):
     temp = 200
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert, d3 = True, 100.0, 100.0, 1.0, 'none', False, False, 0
-    bbe298 = GV.calc_bbe(datapath('Al_298K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
-    bbe400 = GV.calc_bbe(datapath('Al_400K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+    QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert = True, 100.0, 100.0, 1.0, None, False, False
+    bbe298 = GV.calc_bbe(datapath('Al_298K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
+    bbe400 = GV.calc_bbe(datapath('Al_400K.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     precision = 6
     assert E == round(bbe298.scf_energy, precision) == round(bbe400.scf_energy, precision)
     assert ZPE == round(bbe298.zpe, precision) == round(bbe400.zpe, precision)
@@ -191,10 +191,10 @@ def test_temperature_corrections_QH(QS, E, ZPE, H, qhH, TS, TqhS, G, qhG):
 def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert, d3 = 'grimme', False, 100.0, 100.0, 1.0, 'none', False, 0
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
     precision = 6
 
-    bbe = GV.calc_bbe(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+    bbe = GV.calc_bbe(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     if E_spc:
         assert E_spc == round(bbe.sp_energy, precision)
     assert E == round(bbe.scf_energy, precision)
@@ -213,14 +213,14 @@ def test_single_point_correction(spc, E_spc, E, ZPE, H, TS, TqhS, GT, qhGT):
 ])
 def test_temperature_interval(path, ti, H, TS, TqhS, GT, qhGT):
     
-    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert, d3 = 'grimme', False, 100.0, 100.0, 1.0, 'none', False, False, 0
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, spc, invert = 'grimme', False, 100.0, 100.0, 1.0, None, False, False
     precision = 6
     temperature_interval = [float(temp) for temp in ti.split(',')]
     interval = range(int(temperature_interval[0]), int(temperature_interval[1]+1), int(temperature_interval[2]))
     for i in range(len(interval)):
         temp = float(interval[i])
         conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-        bbe = GV.calc_bbe(datapath(path), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+        bbe = GV.calc_bbe(datapath(path), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
 
         assert H[i] == round(bbe.enthalpy, precision)
         assert TS[i] == round(temp * bbe.entropy, precision)
@@ -235,9 +235,9 @@ def test_temperature_interval(path, ti, H, TS, TqhS, GT, qhGT):
 def test_scaling_factor_search(filename, freq_scale_factor, zpe):
     temp = 298.15
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QS, QH, s_freq_cutoff, h_freq_cutoff, solv, spc, invert, d3 = 'grimme',True, 100.0, 100.0, 'none', False, False, 0
+    QS, QH, s_freq_cutoff, h_freq_cutoff, solv, spc, invert = 'grimme',True, 100.0, 100.0, None, False, False
     precision = 6
-    bbe = GV.calc_bbe(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+    bbe = GV.calc_bbe(datapath('ethane.out'), QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
     assert zpe == round(bbe.zpe, precision)
 
 
@@ -260,10 +260,10 @@ def test_scaling_factor_search(filename, freq_scale_factor, zpe):
 ])
 def test_concentration_correction(path, conc, QS, E, ZPE, H, TS, TqhS, G, qhG):
         path = datapath(path)
-        QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert, d3 = False, 100.0, 100.0,1.0, 298.15, 'none', False, False, 0
+        QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert = False, 100.0, 100.0,1.0, 298.15, None, False, False
         if conc == False:
             conc = GV.ATMOS/(GV.GAS_CONSTANT*temp)
-        bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+        bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
         precision = 6 
         assert E == round(bbe.scf_energy, precision)
         if hasattr(bbe, "gibbs_free_energy"):
@@ -288,8 +288,8 @@ def test_concentration_correction(path, conc, QS, E, ZPE, H, TS, TqhS, G, qhG):
 ])
 def test_media_correction(path,conc, media, E, ZPE, H, TS, TqhS, G, qhG):
         path = datapath(path)
-        QH, QS, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert, d3 = False, "grimme", 100.0, 100.0, 1.0, 298.15, 'none', False, False, 0
-        bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert, d3)
+        QH, QS, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, temp, solv, spc, invert = False, "grimme", 100.0, 100.0, 1.0, 298.15, None, False, False
+        bbe = GV.calc_bbe(path, QS, QH, s_freq_cutoff, h_freq_cutoff, temp, conc, freq_scale_factor, solv, spc, invert)
         precision = 6 
         
         media_correction = 0.0
@@ -315,7 +315,7 @@ def test_media_correction(path,conc, media, E, ZPE, H, TS, TqhS, G, qhG):
 def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
     temp = 298.15
     conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert, d3 = 'grimme', False, 100.0, 100.0, 1.0, 'none', False, 0
+    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
     invert, spc, gconf = False, False, True
     precision = 2
     files = ['pes/Int-III_Oax_cis_a.log', 'pes/Int-II_Oax_cis_a.log', 'pes/Int-I_Oax.log', 'pes/TolS.log', 'pes/TolSH.log']
@@ -325,7 +325,7 @@ def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
     bbe_vals = []
     for file in files: # loop over all specified output files and compute thermochemistry
         bbe = GV.calc_bbe(file, QS, QH, s_freq_cutoff, h_freq_cutoff, temp,
-                        conc, freq_scale_factor, solv, spc, invert, d3)
+                        conc, freq_scale_factor, solv, spc, invert)
         bbe_vals.append(bbe)
     fileList = [file for file in files]
     thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
@@ -350,5 +350,7 @@ def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
 
 
 def test_scaling_refs_indices_valid():
-    refs = list(scaling_data['zpe_ref']) + list(scaling_data['harm_ref']) + list(scaling_data['fund_ref'])
-    assert max(refs, default=-1) < len(scaling_refs)
+    for key, entry in scaling_data_dict.items():
+        assert entry.zpe_ref < len(scaling_refs), f"{key}: zpe_ref out of range"
+        assert entry.harm_ref < len(scaling_refs), f"{key}: harm_ref out of range"
+        assert entry.fund_ref < len(scaling_refs), f"{key}: fund_ref out of range"

@@ -60,12 +60,12 @@ import numpy as np
 
 # Importing regardless of relative import
 try:
-    from .vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
+    from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
     from .pes import *
     from .io import *
     from .thermo import *
 except:
-    from vib_scale_factors import scaling_data_dict, scaling_data_dict_mod, scaling_refs
+    from vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
     from pes import *
     from io import *
     from thermo import *
@@ -864,14 +864,12 @@ def main():
     else:
         # Look for vibrational scaling factor automatically
         if all_same(l_o_t):
-            level = l_o_t[0].upper()
-            for data in (scaling_data_dict, scaling_data_dict_mod):
-                if level in data:
-                    options.freq_scale_factor = data[level].zpe_fac
-                    ref = scaling_refs[data[level].zpe_ref]
-                    log.write("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
-                              "   {}".format(options.freq_scale_factor, l_o_t[0], ref))
-                    break
+            level = canonicalize_level(l_o_t[0])
+            if level in scaling_data_dict:
+                options.freq_scale_factor = scaling_data_dict[level].zpe_fac
+                ref = scaling_refs[scaling_data_dict[level].zpe_ref]
+                log.write("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
+                          "   {}".format(options.freq_scale_factor, l_o_t[0], ref))
         else:  # Print files and different levels of theory found
             files_l_o_t, levels_l_o_t, filtered_calcs_l_o_t = [], [], []
             for file in files:

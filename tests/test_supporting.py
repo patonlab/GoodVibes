@@ -3,7 +3,10 @@
 """Tests for supporting modules: vib_scale_factors and media."""
 
 import pytest
-from goodvibes.vib_scale_factors import scaling_data, scaling_refs, scaling_data_dict, scaling_data_dict_mod
+from goodvibes.vib_scale_factors import (
+    scaling_data_dict, scaling_refs, ScalingData,
+    canonicalize_level, FUNCTIONAL_ALIASES,
+)
 from goodvibes.media import solvents
 
 
@@ -12,9 +15,11 @@ from goodvibes.media import solvents
 # ---------------------------------------------------------------------------
 
 def test_scaling_refs_indices_valid():
-    """All reference indices in scaling_data must be valid indices into scaling_refs."""
-    refs = list(scaling_data['zpe_ref']) + list(scaling_data['harm_ref']) + list(scaling_data['fund_ref'])
-    assert max(refs, default=-1) < len(scaling_refs)
+    """All reference indices in scaling_data_dict must be valid indices into scaling_refs."""
+    for key, entry in scaling_data_dict.items():
+        assert entry.zpe_ref < len(scaling_refs), f"{key}: zpe_ref {entry.zpe_ref} out of range"
+        assert entry.harm_ref < len(scaling_refs), f"{key}: harm_ref {entry.harm_ref} out of range"
+        assert entry.fund_ref < len(scaling_refs), f"{key}: fund_ref {entry.fund_ref} out of range"
 
 
 # ---------------------------------------------------------------------------
@@ -26,18 +31,60 @@ def test_scaling_refs_indices_valid():
     ('HF/6-31G(D)', 0.909),
 ])
 def test_scaling_data_dict_lookup(level_basis, expected_zpe_fac):
-    entry = scaling_data_dict[level_basis.upper()]
+    key = canonicalize_level(level_basis)
+    entry = scaling_data_dict[key]
     assert abs(float(entry.zpe_fac) - expected_zpe_fac) < 0.001
 
 
-def test_scaling_data_dict_mod_strips_hyphens():
-    """scaling_data_dict_mod removes hyphens for fuzzy matching."""
-    # Verify that a key exists that would have hyphens removed
-    assert len(scaling_data_dict_mod) > 0
-    # Check that a known entry without hyphens is accessible
-    for key in scaling_data_dict_mod:
-        assert '-' not in key
-        break  # Just check the first key
+# ---------------------------------------------------------------------------
+# vib_scale_factors: canonicalization and aliasing
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("alias, canonical", [
+    ("PBE1PBE", "PBE0"),
+    ("M06-2X", "M062X"),
+    ("M06-L", "M06L"),
+    ("M06-HF", "M06HF"),
+    ("M05-2X", "M052X"),
+    ("wB97X-D", "WB97XD"),
+    ("B97-3", "B973"),
+    ("CAMB3LYP", "CAM-B3LYP"),
+    ("HSE06", "HSEH1PBE"),
+    ("PBEPBE", "PBE"),
+])
+def test_functional_aliases(alias, canonical):
+    """Aliases resolve to the canonical functional name."""
+    assert canonicalize_level(alias + "/MG3S") == canonical + "/MG3S"
+
+
+def test_canonicalize_idempotent():
+    """Canonicalizing an already-canonical key returns the same key."""
+    for key in scaling_data_dict:
+        assert canonicalize_level(key) == key
+
+
+def test_alias_lookup_finds_entry():
+    """Looking up via an alias finds the same data as the canonical name."""
+    # PBE1PBE/MG3S should resolve to PBE0/MG3S (zpe_fac=0.975)
+    key = canonicalize_level("PBE1PBE/MG3S")
+    assert key in scaling_data_dict
+    assert abs(scaling_data_dict[key].zpe_fac - 0.975) < 0.001
+
+
+def test_canonicalize_case_insensitive():
+    """Canonicalization is case-insensitive."""
+    assert canonicalize_level("b3lyp/6-31g(d)") == canonicalize_level("B3LYP/6-31G(D)")
+
+
+def test_canonicalize_no_basis():
+    """Semi-empirical methods without basis set are handled."""
+    assert canonicalize_level("AM1") == "AM1"
+    assert canonicalize_level("pm3") == "PM3"
+
+
+def test_entry_count():
+    """Verify we loaded a reasonable number of entries."""
+    assert len(scaling_data_dict) >= 200
 
 
 # ---------------------------------------------------------------------------
