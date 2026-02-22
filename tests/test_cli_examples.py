@@ -50,6 +50,8 @@ def parse_data_lines(text):
         if not stripped.startswith('o  '):
             continue
         parts = stripped.split()
+        if len(parts) < 2:
+            continue  # Skip malformed lines
         name = parts[1]
         values = []
         for tok in parts[2:]:

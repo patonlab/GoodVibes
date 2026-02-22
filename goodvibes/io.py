@@ -476,10 +476,147 @@ def sp_cpu(file):
                 hours = 0
                 mins = 0
                 secs = float(line.split()[3][0:-1])
-                msecs = 0
-                cpu = [days,hours,mins,secs,msecs]
+                msecs = 0.0
+                cpu = [days, hours, mins, secs, msecs]
 
     return cpu
+
+
+import re
+
+# Tokens on the ORCA ``!`` keyword line that are NOT method or basis set.
+_ORCA_SKIP_TOKENS = {
+    # Job types
+    'OPT', 'OPTTS', 'FREQ', 'NUMFREQ', 'NUMHESS', 'ANFREQ', 'SP', 'NMR',
+    'VPT2', 'SCANTS', 'NEB-TS', 'FAST-NEB-TS', 'NEB-CI',
+    # Solvation
+    'CPCM', 'SMD',
+    # Dispersion (standalone keywords, not embedded in functional name)
+    'D3BJ', 'D3', 'D4', 'D3ZERO',
+    # SCF convergence
+    'TIGHTSCF', 'NORMALSCF', 'LOOSESCF', 'VERYTIGHTSCF', 'EXTREMESCF',
+    'SLOWCONV', 'NOCONV',
+    # RI approximations
+    'RIJCOSX', 'RI', 'RIJK', 'RIJONX', 'AUTOAUX', 'RIJDX',
+    # Grid
+    'GRID4', 'GRID5', 'GRID6', 'GRID7',
+    'FINALGRID4', 'FINALGRID5', 'FINALGRID6', 'FINALGRID7',
+    # Output verbosity
+    'PRINT', 'MINIPRINT', 'LARGEPRINT', 'PRINTBASIS', 'PRINTMOS', 'NOPRINT',
+    # Reference (DFT)
+    'UKS', 'RKS',
+    # Other
+    'NOFROZENCORE', 'FROZENCORE', 'MOREAD', 'XYZFILE',
+    'SCALFREQ', 'QUASIRRHO',
+}
+
+# Reference keywords that map to HF when no other method is present
+_ORCA_HF_REFS = {'UHF', 'RHF', 'ROHF'}
+
+# Regex for recognizing basis set tokens (case-insensitive matching)
+_BASIS_PATTERNS = [
+    re.compile(r'^\d+-\d+\+*G', re.IGNORECASE),          # Pople: 6-31G, 6-311+G, etc.
+    re.compile(r'^(AUG-)?CC-PV[DTQR56]Z$', re.IGNORECASE),  # Dunning
+    re.compile(r'^DEF2-', re.IGNORECASE),                  # Karlsruhe def2-
+    re.compile(r'^(SV|TZV|QZV)P?P?$', re.IGNORECASE),     # Ahlrichs without def2
+    re.compile(r'^SV\(P\)$', re.IGNORECASE),               # SV(P)
+]
+
+
+def _is_basis_set(token):
+    """Return True if *token* looks like a basis set name."""
+    return any(pat.match(token) for pat in _BASIS_PATTERNS)
+
+
+def _is_auxiliary_basis(token):
+    """Return True if *token* is an auxiliary basis set (e.g. cc-pVTZ/C, def2/J)."""
+    upper = token.upper()
+    if '/' in upper:
+        suffix = upper.rsplit('/', 1)[1]
+        if suffix in ('C', 'J', 'JK', 'JKFIT', 'CFIT'):
+            return True
+        # def2/J, def2/JK style
+        if upper.startswith('DEF2/'):
+            return True
+    return False
+
+
+def _parse_orca_lot(data):
+    """Extract (method, basis_set) from ORCA output file lines.
+
+    Parses the ``!`` keyword line(s) in the ORCA input section and classifies
+    tokens into method, basis set, or known keywords to skip.  Falls back to
+    the ``Your calculation utilizes the basis:`` line when no basis set is
+    found on the ``!`` line.
+    """
+    kw_tokens = []
+    fallback_basis = None
+
+    for line in data:
+        stripped = line.strip()
+
+        # Collect tokens from ORCA input keyword lines: |  N> ! ...
+        # The ``!`` must be the first non-whitespace after ``>`` to avoid
+        # matching ``!`` inside comments on other input lines.
+        if '|' in line and '>' in stripped:
+            after_angle = stripped.split('>', 1)[1].lstrip()
+            if after_angle.startswith('!'):
+                after_bang = after_angle.split('!', 1)[1]
+                kw_tokens.extend(after_bang.split())
+
+        # Fallback basis from ORCA output section
+        if 'Your calculation utilizes the basis:' in stripped and fallback_basis is None:
+            fallback_basis = stripped.split(':')[-1].strip()
+
+    # Classify tokens
+    method = None
+    basis = None
+    hf_ref = None  # Track UHF/RHF/ROHF in case it's the only method
+
+    for token in kw_tokens:
+        upper = token.upper()
+
+        # Skip parallelization (pal4, pal8, pal16, ...)
+        if re.match(r'^PAL\d+$', upper):
+            continue
+
+        # Skip known ORCA keywords
+        if upper in _ORCA_SKIP_TOKENS:
+            continue
+
+        # Skip auxiliary basis sets
+        if _is_auxiliary_basis(token):
+            continue
+
+        # Skip GCP(...) tokens
+        if upper.startswith('GCP(') or upper == 'GCP':
+            continue
+
+        # Skip QM/QM2 compound job keyword
+        if upper == 'QM/QM2':
+            continue
+
+        # Track HF reference keywords
+        if upper in _ORCA_HF_REFS:
+            hf_ref = 'HF'
+            continue
+
+        # Classify as basis set or method
+        if _is_basis_set(token) and basis is None:
+            basis = token
+        elif method is None:
+            method = token
+
+    # Fall back: if only HF reference found and no other method
+    if method is None and hf_ref is not None:
+        method = hf_ref
+
+    # Fall back to "utilizes the basis" line
+    if basis is None and fallback_basis is not None:
+        basis = fallback_basis
+
+    return method or 'none', basis or 'none'
+
 
 def level_of_theory(file):
     """Read output for the level of theory and basis set used."""
@@ -487,6 +624,16 @@ def level_of_theory(file):
     with open(file) as f:
         data = f.readlines()
     level, bs = 'none', 'none'
+
+    # Detect ORCA and use dedicated parser
+    for line in data:
+        if '* O   R   C   A *' in line:
+            level, bs = _parse_orca_lot(data)
+            return '/'.join([level, bs])
+        if 'Gaussian' in line:
+            break
+        if 'NWChem' in line:
+            break
 
     for line in data:
         if line.strip().find('External calculation') > -1:
@@ -667,8 +814,9 @@ def read_initial(file):
                     else:
                         end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
-    # ORCA parsing for solvation model
+    # ORCA parsing for solvation model and level of theory
     elif program == 'Orca':
+        level, bs = _parse_orca_lot(data)
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''
         keyword_line_3 = ''
@@ -887,7 +1035,7 @@ def parse_gaussian_thermo(file, ssymm=False):
                 parts = line.strip().replace(':', ' ').split()
                 qcdata.roconst = [float(parts[3]), float(parts[4]), float(parts[5])]
             except ValueError:
-                if line.strip().find('********'):
+                if '********' in line.strip():
                     qcdata.linear_warning = True
                     parts = line.strip().replace(':', ' ').split()
                     qcdata.roconst = [float(parts[4]), float(parts[5])]
@@ -901,7 +1049,7 @@ def parse_gaussian_thermo(file, ssymm=False):
                                  float(line.strip().split()[4]),
                                  float(line.strip().split()[5])]
             except ValueError:
-                if line.strip().find('********'):
+                if '********' in line.strip():
                     qcdata.linear_warning = True
                     qcdata.rotemp = [float(line.strip().split()[4]),
                                      float(line.strip().split()[5])]
@@ -1032,8 +1180,8 @@ def parse_nwchem_thermo(file, ssymm=False):
 
         # CPU time
         if 'Total times' in line.strip():
-            secs = line.strip().split()[3][0:-1]
-            qcdata.cpu = [0, 0, 0, secs, 0]
+            secs = float(line.strip().split()[3][0:-1])
+            qcdata.cpu = [0, 0, 0, secs, 0.0]
 
     # Determine job type from content
     if len(frequency_wn) > 0 or len(im_frequency_wn) > 0:

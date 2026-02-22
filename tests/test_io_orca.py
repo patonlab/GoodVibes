@@ -185,14 +185,42 @@ def test_parse_orca_thermo_cartesians(filename, expected_natoms):
 
 
 # ---------------------------------------------------------------------------
-# level_of_theory: xfail (relies on Gaussian archive string format)
+# level_of_theory
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="level_of_theory relies on Gaussian archive strings, returns none/none for ORCA")
-@pytest.mark.parametrize("filename", ORCA_FREQ_FILES[:3])
-def test_level_of_theory_orca(filename):
+@pytest.mark.parametrize("filename, expected_level", [
+    ('01a_water_hf_freq.out', 'HF/6-31G(d)'),
+    ('02_ethane_opt_freq_thermo.out', 'B3LYP/6-311+G(d,p)'),
+    ('03_acetone_linked_opt_freq.out', 'B3LYP/6-311G(d,p)'),
+    ('04_benzene_radical_cation.out', 'TPSS/6-311+G(d,p)'),
+    ('05_methylene_triplet_carbene.out', 'MP2/cc-pVDZ'),
+    ('06_carbon_atom_single_point.out', 'HF/cc-pVQZ'),
+    ('08_alanine_C1_pcm_water.out', 'M062X/def2-SVP'),
+    ('10_formaldehyde_verbose_pop.out', 'wB97X-D3/6-31G(d,p)'),
+    ('11_hf_molecule_dlpno_ccsdt_gold_standard.out', 'DLPNO-CCSD(T)/cc-pVTZ'),
+    ('12_water_anharmonic_vpt2.out', 'HF/def2-SVP'),
+    ('13_formaldehyde_tddft_s1.out', 'BP86/def2-SVP'),
+    ('17_iron_complex_quintet.out', 'PBE0/def2-SVP'),
+    ('19_acetic_acid_smd_dmso.out', 'B3LYP/6-311+G(d,p)'),
+    ('20_benzene_singlepoint.out', 'B3LYP/6-311+G(d,p)'),
+    ('22_hcn_linear_freq_noraman.out', 'M062X/6-311+G(d,p)'),
+    ('28_pyridine_smd_acetonitrile_wb97xd3.out', 'wB97X-D3/6-311+G(d,p)'),
+    ('29_aniline_cpcm_chloroform.out', 'M062X/6-311+G(d,p)'),
+    ('31_methylammonium_cpcm_water.out', 'M06/6-311+G(d,p)'),
+    ('32_cyclohexane_tpss_meta_gga.out', 'TPSS/def2-TZVP'),
+    ('33_methanol_pbe_gga.out', 'PBE/6-311G(d,p)'),
+    ('34_butadiene_camb3lyp_rsh.out', 'CAM-B3LYP/6-311+G(d,p)'),
+    ('35_furan_wb97xv_functional.out', 'wB97X-V/def2-TZVP'),
+    ('36_imidazole_pbe0d3bj_noraman.out', 'PBE0/6-311+G(d,p)'),
+    ('39_oxazole_tpssh_cpcm_dcm.out', 'TPSSh/6-311+G(d,p)'),
+    ('43_dmabn_bhandhlyp_chargetransfer.out', 'BHandHLYP/6-311+G(d,p)'),
+    ('44_ts_sn2_identity_chloride.out', 'B3LYP/6-311+G(d,p)'),
+    ('48_ts_nh3_umbrella_inversion.out', 'wB97M-V/6-311+G(d,p)'),
+    ('49_ts_oh_abstraction_methane.out', 'wB97X-D3/6-311+G(d,p)'),
+])
+def test_level_of_theory_orca(filename, expected_level):
     lot = level_of_theory(orca_path(filename))
-    assert lot != 'none/none'
+    assert lot == expected_level
 
 
 # ---------------------------------------------------------------------------

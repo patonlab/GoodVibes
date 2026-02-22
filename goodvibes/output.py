@@ -283,8 +283,7 @@ def print_temperature_interval(files, options, log, stars, gas_phase, media_conc
 def print_pes_results(files, thermo_data, options, log, stars, clustering, clusters, dup_list,
                       interval_bbe_data=None, interval=None, file_list=None):
     """Tabulate relative PES values, Boltzmann weighting, and selectivity."""
-    if options.gconf:
-        log.write('\n   Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors\n')
+    # Validate thermodynamic data once
     for key in thermo_data:
         if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
             pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
@@ -292,19 +291,12 @@ def print_pes_results(files, thermo_data, options, log, stars, clustering, clust
         if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
             pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
             sys.exit(pes_error)
+    
+    if options.gconf:
+        log.write('\n   Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors\n')
+    
     # Interval applied to PES
     if options.temperature_interval:
-        if options.gconf:
-            log.write('\n   Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors\n')
-        for key in thermo_data:
-            if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
-                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
-                sys.exit(pes_error)
-            if not hasattr(thermo_data[key], "sp_energy") and options.spc is not False:
-                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
-                sys.exit(pes_error)
-        # Interval applied to PES
-        if options.temperature_interval:
             stars = stars + '*' * 22
             interval_thermo_data = []
             for i in range(len(interval)):
