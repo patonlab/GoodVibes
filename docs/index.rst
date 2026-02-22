@@ -5,7 +5,7 @@
 
 GoodVibes User Documentation
 ========================================
-.. image:: ../goodvibes.png
+.. image:: ../GoodVibes.png
   :width: 800
   :alt: GoodVibes Logo
 

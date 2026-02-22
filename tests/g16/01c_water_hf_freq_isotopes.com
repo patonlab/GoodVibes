@@ -1,6 +1,6 @@
 %chk=water_hf_freq_isotopes.chk
-%mem=96GB
-%nproc=16
+%mem=8GB
+%nprocshared=16
 # HF/6-31G(d) Freq=(Scale=0.95)
 
 Water HF/6-31G(d) frequency calculation (C2v symmetric molecule)

@@ -10,7 +10,7 @@ import numpy as np
 try:
     from .io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
 except ImportError:
-    from io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
+    from goodvibes.io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
 
 # PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -600,8 +600,11 @@ class calc_bbe:
 
                 if s_freq_cutoff > 0.0:
                     Svib_rrqho = calc_rrho_entropy(temperature, cutoffs, freq_scale_factor, fract_modelsys)
-                if inertia != "global" and len(self.roconst) > 0:
-                    bav = calc_avg_moment_of_inertia(self.roconst)
+                if inertia != "global" and len(self.roconst) > 0 and any(x != 0.0 for x in self.roconst):
+                    try:
+                        bav = calc_avg_moment_of_inertia(self.roconst)
+                    except (ValueError, ZeroDivisionError):
+                        bav = GRIMME_BAV
                 else:
                     bav = GRIMME_BAV
                 Svib_free_rot = calc_freerot_entropy(
@@ -688,7 +691,13 @@ class calc_bbe:
 
     # Get external symmetry number
     def ex_sym(self, file):
-        import pymsym
+        try:
+            import pymsym
+        except ImportError as e:
+            raise RuntimeError(
+                "pymsym is required for symmetry detection but is not installed. "
+                "Install it with: pip install pymsym"
+            ) from e
         atom_nums = np.array(self.xyz.atom_nums)
         positions = np.array(self.xyz.cartesians)
         pgroup = pymsym.get_point_group(atom_nums, positions)
@@ -705,7 +714,7 @@ class calc_bbe:
             if self.xyz.atom_nums[i] != 6:
                 continue
             As = np.array(self.xyz.atom_nums)[row]
-            if len(As == 4):
+            if len(As) == 4:
                 neighbors = [x for x in As if x in neighbor]
                 caps = [x for x in As if x in cap]
                 if (len(neighbors) == 1) and (len(set(caps)) == 1):

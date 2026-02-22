@@ -4,7 +4,7 @@
 # B3LYP/GenECP emp=gd3bj Opt Freq
 
 Iodobenzene: Gen/ECP mixed basis set
-C, H, N use 6-311+G(d,p); I uses Stuttgart SDD ECP
+C, H use 6-311+G(d,p); I uses Stuttgart SDD ECP
 
 0 1
 C   0.000000   1.396792   0.000000

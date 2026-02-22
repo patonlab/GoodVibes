@@ -32,8 +32,18 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
     dirs = list(set(dirs))
     a_files, b_files, a_sum, b_sum, failed, pref = [], [], 0.0, 0.0, False, ''
 
-    [a_regex,b_regex] = pattern.split(':')
-    [a_regex,b_regex] = [a_regex.strip(), b_regex.strip()]
+    parts = pattern.split(':')
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid selectivity pattern '{pattern}'. "
+            "Expected format: 'pattern_a:pattern_b' with exactly one colon."
+        )
+    [a_regex, b_regex] = [parts[0].strip(), parts[1].strip()]
+    if not a_regex or not b_regex:
+        raise ValueError(
+            f"Invalid selectivity pattern '{pattern}'. "
+            "Both patterns before and after ':' must be non-empty."
+        )
 
     A = ''.join(a for a in a_regex if a.isalnum())
     B = ''.join(b for b in b_regex if b.isalnum())

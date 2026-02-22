@@ -2,7 +2,7 @@
 
 ## Directory Structure
 
-```
+```text
 tests/
 ├── conftest.py              # Shared fixtures, path helpers, categorized file lists
 ├── test_goodvibes.py        # Legacy test suite (see note below)

@@ -1,7 +1,7 @@
 %chk=cyclohexane_tpss.chk
 %mem=96GB
 %nproc=16
-# TPSSTPSS/def2TZVP Opt Freq emp=GD3BJ
+# TPSSTPSS/def2TZVP Opt Freq EmpiricalDispersion=GD3BJ
 
 Cyclohexane (chair conformation) with TPSS meta-GGA functional and def2-TZVP basis
 TPSS: non-empirical meta-GGA, good for organic thermochemistry

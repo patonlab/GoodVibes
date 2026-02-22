@@ -11,7 +11,7 @@ def check_dup(files, thermo_data):
     """
     Check for duplicate species from among all files based on energy, rotational constants and frequencies
 
-    Energy cutoff = 1 microHartree
+    Energy cutoff = 100 microHartree (1e-4 Hartree)
     RMS Rotational Constant cutoff = 1kHz
     RMS Freq cutoff = 10 wavenumbers
     """
@@ -322,7 +322,7 @@ def check_files(log, files, thermo_data, options, STARS, l_o_t, solvation_model,
             if dispersion_check_spc[0] == 'No empirical dispersion detected':
                 log.write("\n-  No empirical dispersion detected in any of the calculations.")
             else:
-                log.write("\no  Using " + dispersion_check_spc[0] + " in all the singe-point calculations.")
+                log.write("\no  Using " + dispersion_check_spc[0] + " in all the single-point calculations.")
         else:
             print_check_fails(log, dispersion_check_spc, file_check, "dispersion models")
         log.write("\n" + STARS + "\n")
