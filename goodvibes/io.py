@@ -586,6 +586,7 @@ def read_initial(file):
     with open(file) as f:
         data = f.readlines()
     level, bs, program, keyword_line = 'none', 'none', 'none', 'none'
+    solvation_model = "gas phase"
     progress, orientation = 'Incomplete', 'Input'
     a, repeated_theory = 0, 0
     no_grid = True

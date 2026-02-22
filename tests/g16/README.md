@@ -2,9 +2,10 @@
 
 ## Overview
 
-60 example `.com` input files covering a wide range of Gaussian 16 job types and features.
+Example `.com` input files covering a wide range of Gaussian 16 job types and features.
 Files 01–43 are general calculations; files 44–50 are transition state examples;
-files 51–60 are deliberate error examples illustrating common Gaussian failures.
+files 51–60 are deliberate error examples illustrating common Gaussian failures;
+file 61 is a blank log file for edge-case testing.
 
 ---
 
@@ -12,7 +13,9 @@ files 51–60 are deliberate error examples illustrating common Gaussian failure
 
 | # | File | Method | Job Type | Key Feature |
 |---|------|--------|----------|-------------|
-| 01 | `01_water_hf_freq.com` | HF/6-31G(d) | Freq | Symmetric molecule (C2v) |
+| 01a | `01a_water_hf_freq.com` | HF/6-31G(d) | Freq | Symmetric molecule (C2v) |
+| 01b | `01b_water_hf_freq_scaled.com` | HF/6-31G(d) | Freq=(Scale=0.95) | Frequency scaling |
+| 01c | `01c_water_hf_freq_isotopes.com` | HF/6-31G(d) | Freq=(Scale=0.95) | Deuterium isotope substitution |
 | 02 | `02_ethane_opt_freq_T398_P2.com` | B3LYP/6-311+G(d,p) | Opt+Freq | Temperature=398.15, Pressure=2.0 |
 | 03 | `03_acetone_linked_opt_freq.com` | B3LYP/6-311G(d,p) | Linked: Opt→Freq | --Link1--, Geom=AllCheck |
 | 04 | `04_benzene_radical_cation.com` | TPSSTPSS/6-311+G(d,p) | Opt+Freq | Charge=+1, Multiplicity=2 |
@@ -72,3 +75,4 @@ files 51–60 are deliberate error examples illustrating common Gaussian failure
 | 58 | `58_err_linear_bend_formBX.com` | HF/6-31G(d) | Opt+Freq | **Error:** FormBX linear bend failure |
 | 59 | `59_err_basis_linear_dependency.com` | HF/Aug-cc-pV5Z | Opt+Freq | **Error:** Basis set linear dependency |
 | 60 | `60_err_missing_end_blank_line.com` | B3LYP/6-31G(d) | Opt+Freq | **Error:** Missing trailing blank line |
+| 61 | `61_empty.log` | — | — | Blank log file (edge case) |
