@@ -391,3 +391,105 @@ class TestExample8:
                 if not last_token.replace('-', '').replace('.', '').lstrip('-').isdigit():
                     found.add(last_token)
         assert found == expected_groups, f"Expected {expected_groups}, found {found}"
+
+
+# ---------------------------------------------------------------------------
+# --check: consistency validation
+# ---------------------------------------------------------------------------
+class TestCheckFlag:
+    """python -m goodvibes examples/ethane.out --check"""
+
+    @pytest.fixture(scope='class')
+    def output(self):
+        return run_goodvibes([example('ethane.out'), '--check'])
+
+    def test_check_output_present(self, output):
+        """--check should produce validation output."""
+        assert_line_present(output, r'Checks for thermochemistry')
+
+    def test_data_still_present(self, output):
+        """Normal thermochemistry output should still appear."""
+        rows = parse_data_lines(output)
+        assert len(rows) >= 1
+
+
+# ---------------------------------------------------------------------------
+# --xyz: coordinate export
+# ---------------------------------------------------------------------------
+class TestXYZFlag:
+    """python -m goodvibes examples/ethane.out --xyz"""
+
+    @pytest.fixture(scope='class')
+    def output(self):
+        out = run_goodvibes([example('ethane.out'), '--xyz'])
+        yield out
+        # Clean up generated xyz file
+        xyz_file = os.path.join(ROOT_DIR, 'GoodVibes_output.xyz')
+        if os.path.exists(xyz_file):
+            os.remove(xyz_file)
+
+    def test_xyz_file_created(self, output):
+        """--xyz should create a GoodVibes_output.xyz file."""
+        xyz_file = os.path.join(ROOT_DIR, 'GoodVibes_output.xyz')
+        assert os.path.exists(xyz_file), "Expected GoodVibes_output.xyz to be created"
+
+    def test_xyz_file_has_content(self, output):
+        """The xyz file should contain atom coordinates."""
+        xyz_file = os.path.join(ROOT_DIR, 'GoodVibes_output.xyz')
+        with open(xyz_file) as f:
+            content = f.read()
+        # XYZ format: first line is atom count
+        lines = content.strip().splitlines()
+        assert len(lines) > 2
+        atom_count = int(lines[0].strip())
+        assert atom_count > 0
+
+
+# ---------------------------------------------------------------------------
+# --csv: CSV output format
+# ---------------------------------------------------------------------------
+class TestCSVFlag:
+    """python -m goodvibes examples/ethane.out --csv"""
+
+    @pytest.fixture(scope='class')
+    def output(self):
+        out = run_goodvibes([example('ethane.out'), '--csv'])
+        yield out
+        # Clean up generated csv file
+        csv_file = os.path.join(ROOT_DIR, 'GoodVibes_output.csv')
+        if os.path.exists(csv_file):
+            os.remove(csv_file)
+
+    def test_csv_file_created(self, output):
+        """--csv should create a GoodVibes_output.csv file."""
+        csv_file = os.path.join(ROOT_DIR, 'GoodVibes_output.csv')
+        assert os.path.exists(csv_file), "Expected GoodVibes_output.csv to be created"
+
+    def test_csv_contains_commas(self, output):
+        """The CSV file should contain comma-separated values."""
+        csv_file = os.path.join(ROOT_DIR, 'GoodVibes_output.csv')
+        with open(csv_file) as f:
+            content = f.read()
+        assert ',' in content
+
+
+# ---------------------------------------------------------------------------
+# --boltz: Boltzmann weighting with multiple conformers
+# ---------------------------------------------------------------------------
+class TestBoltzFlag:
+    """python -m goodvibes examples/isobutane.out examples/neopentane.out --boltz"""
+
+    @pytest.fixture(scope='class')
+    def output(self):
+        return run_goodvibes([
+            example('isobutane.out'), example('neopentane.out'), '--boltz',
+        ])
+
+    def test_boltz_output_present(self, output):
+        """--boltz should produce Boltzmann weighting output."""
+        assert_line_present(output, r'Boltz')
+
+    def test_data_still_present(self, output):
+        """Normal thermochemistry output should still appear."""
+        rows = parse_data_lines(output)
+        assert len(rows) >= 2

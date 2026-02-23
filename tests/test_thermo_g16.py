@@ -7,6 +7,11 @@ import pytest
 from goodvibes.thermo import (
     calc_bbe, calc_translational_energy, calc_rotational_energy,
     calc_vibrational_energy, calc_electronic_entropy, calc_damp,
+    calc_translational_entropy, calc_rotational_entropy,
+    calc_rrho_entropy, calc_freerot_entropy, calc_qRRHO_energy,
+    calc_avg_moment_of_inertia, _apply_frequency_inversion,
+    PLANCK_CONSTANT, BOLTZMANN_CONSTANT, SPEED_OF_LIGHT, AMU_to_KG,
+    AVOGADRO_CONSTANT, GRIMME_BAV,
 )
 from conftest import g16path, G16_SOLVATION_FILES, G16_ERROR_FILES
 
@@ -640,3 +645,281 @@ def test_calc_vibrational_energy_very_low_temperature():
     """Very low temperature raises ValueError for overflow protection."""
     with pytest.raises(ValueError, match="Temperature may be too low"):
         calc_vibrational_energy(0.01, [3000.0])
+
+
+# ===========================================================================
+# calc_translational_entropy unit tests
+# ===========================================================================
+
+def test_calc_translational_entropy_water():
+    """S_trans for water at 298.15 K, 1 atm — validate Sackur-Tetrode equation."""
+    mass = 18.015  # amu
+    T = 298.15
+    conc = ATMOS / (GAS_CONSTANT * T)
+    entropy = calc_translational_entropy(mass, conc, T)
+    # Compute expected via Sackur-Tetrode
+    lmda = ((2.0 * math.pi * mass * AMU_to_KG * BOLTZMANN_CONSTANT * T) ** 0.5) / PLANCK_CONSTANT
+    ndens = conc * 1000 * AVOGADRO_CONSTANT
+    expected = GAS_CONSTANT * (2.5 + math.log(lmda ** 3 / ndens))
+    assert abs(entropy - expected) < 1e-6
+
+
+def test_calc_translational_entropy_heavy_molecule():
+    """Heavier molecules should have higher translational entropy."""
+    T = 298.15
+    conc = ATMOS / (GAS_CONSTANT * T)
+    s_light = calc_translational_entropy(2.016, conc, T)   # H2
+    s_heavy = calc_translational_entropy(44.01, conc, T)    # CO2
+    assert s_heavy > s_light
+
+
+def test_calc_translational_entropy_higher_temp():
+    """Higher temperature increases translational entropy."""
+    mass = 28.014  # N2
+    conc_low = ATMOS / (GAS_CONSTANT * 200.0)
+    conc_high = ATMOS / (GAS_CONSTANT * 400.0)
+    s_low = calc_translational_entropy(mass, conc_low, 200.0)
+    s_high = calc_translational_entropy(mass, conc_high, 400.0)
+    assert s_high > s_low
+
+
+# ===========================================================================
+# calc_rotational_entropy unit tests
+# ===========================================================================
+
+def test_calc_rotational_entropy_nonlinear():
+    """Nonlinear molecule: S_rot = R(ln(qrot/sigma) + 3/2).
+    Uses water rotational temperatures from Gaussian."""
+    T = 298.15
+    rotemp = [40.1, 20.9, 13.4]  # K (water-like)
+    entropy = calc_rotational_entropy(T, rotemp, symmno=2)
+    qrot = (math.pi * T ** 3 / (rotemp[0] * rotemp[1] * rotemp[2])) ** 0.5
+    expected = GAS_CONSTANT * (math.log(qrot / 2) + 1.5)
+    assert abs(entropy - expected) < 1e-6
+
+
+def test_calc_rotational_entropy_linear():
+    """Linear molecule: S_rot = R(ln(qrot/sigma) + 1).
+    Uses HCN-like rotational temperature."""
+    T = 298.15
+    rotemp = [2.14]  # K (HCN-like)
+    entropy = calc_rotational_entropy(T, rotemp, symmno=1, linear=True)
+    qrot = T / rotemp[0]
+    expected = GAS_CONSTANT * (math.log(qrot / 1) + 1)
+    assert abs(entropy - expected) < 1e-6
+
+
+def test_calc_rotational_entropy_monatomic():
+    """Atoms have zero rotational entropy."""
+    entropy = calc_rotational_entropy(298.15, [], monatomic=True)
+    assert entropy == 0.0
+
+
+def test_calc_rotational_entropy_symmetry_number():
+    """Higher symmetry number reduces rotational entropy."""
+    T = 298.15
+    rotemp = [40.1, 20.9, 13.4]
+    s_sigma1 = calc_rotational_entropy(T, rotemp, symmno=1)
+    s_sigma12 = calc_rotational_entropy(T, rotemp, symmno=12)
+    # sigma=12 has R*ln(12) less entropy
+    diff = s_sigma1 - s_sigma12
+    assert abs(diff - GAS_CONSTANT * math.log(12)) < 1e-6
+
+
+def test_calc_rotational_entropy_invalid_linear():
+    """Linear molecule with empty rotemp raises ValueError."""
+    with pytest.raises(ValueError, match="invalid.*rotemp.*linear"):
+        calc_rotational_entropy(298.15, [], linear=True)
+
+
+def test_calc_rotational_entropy_invalid_nonlinear():
+    """Nonlinear molecule with fewer than 3 rotemp raises ValueError."""
+    with pytest.raises(ValueError, match="invalid.*rotemp.*non-linear"):
+        calc_rotational_entropy(298.15, [10.0, 20.0])
+
+
+# ===========================================================================
+# calc_rrho_entropy unit tests
+# ===========================================================================
+
+def test_calc_rrho_entropy_single_freq():
+    """RRHO vibrational entropy for a single frequency matches formula."""
+    T = 298.15
+    freq = 1600.0  # cm-1
+    result = calc_rrho_entropy(T, [freq])
+    f = (PLANCK_CONSTANT * freq * SPEED_OF_LIGHT) / (BOLTZMANN_CONSTANT * T)
+    expected = f * GAS_CONSTANT / (math.exp(f) - 1) - GAS_CONSTANT * math.log(1 - math.exp(-f))
+    assert abs(result[0] - expected) < 1e-10
+
+
+def test_calc_rrho_entropy_returns_per_mode_list():
+    """calc_rrho_entropy returns a list with one entry per frequency."""
+    freqs = [500.0, 1000.0, 3000.0]
+    result = calc_rrho_entropy(298.15, freqs)
+    assert len(result) == 3
+
+
+def test_calc_rrho_entropy_low_freq_higher():
+    """Lower frequencies contribute more RRHO entropy per mode."""
+    T = 298.15
+    s_low = calc_rrho_entropy(T, [50.0])[0]
+    s_high = calc_rrho_entropy(T, [3000.0])[0]
+    assert s_low > s_high
+
+
+def test_calc_rrho_entropy_scaling():
+    """Frequency scale factor shifts the effective frequency."""
+    T = 298.15
+    # Scaling 1000 cm-1 by 0.5 should give same result as 500 cm-1 unscaled
+    s_scaled = calc_rrho_entropy(T, [1000.0], freq_scale_factor=0.5)
+    s_unscaled = calc_rrho_entropy(T, [500.0], freq_scale_factor=1.0)
+    assert abs(s_scaled[0] - s_unscaled[0]) < 1e-10
+
+
+# ===========================================================================
+# calc_freerot_entropy unit tests
+# ===========================================================================
+
+def test_calc_freerot_entropy_single_freq():
+    """Free rotor entropy for a single frequency matches Grimme formula."""
+    T = 298.15
+    freq = 100.0
+    bav = GRIMME_BAV
+    result = calc_freerot_entropy(T, [freq], bav=bav)
+    mu = PLANCK_CONSTANT / (8 * math.pi ** 2 * freq * SPEED_OF_LIGHT)
+    mu_prime = mu * bav / (mu + bav)
+    factor = 8 * math.pi ** 3 * mu_prime * BOLTZMANN_CONSTANT * T / PLANCK_CONSTANT ** 2
+    expected = (0.5 + math.log(factor ** 0.5)) * GAS_CONSTANT
+    assert abs(result[0] - expected) < 1e-10
+
+
+def test_calc_freerot_entropy_returns_per_mode_list():
+    """calc_freerot_entropy returns a list with one entry per frequency."""
+    freqs = [50.0, 100.0, 200.0]
+    result = calc_freerot_entropy(298.15, freqs)
+    assert len(result) == 3
+
+
+def test_calc_freerot_entropy_low_freq_dominates():
+    """For very low frequencies, free rotor entropy should be significant."""
+    T = 298.15
+    s = calc_freerot_entropy(T, [20.0])
+    assert s[0] > 0  # positive entropy contribution
+
+
+# ===========================================================================
+# calc_qRRHO_energy unit tests
+# ===========================================================================
+
+def test_calc_qRRHO_energy_single_freq():
+    """Head-Gordon quasi-RRHO energy for a single frequency matches formula."""
+    T = 298.15
+    freq = 1000.0
+    result = calc_qRRHO_energy(T, [freq])
+    hv = PLANCK_CONSTANT * freq * SPEED_OF_LIGHT
+    expected = (0.5 * AVOGADRO_CONSTANT * hv +
+                GAS_CONSTANT * T * hv / BOLTZMANN_CONSTANT / T *
+                math.exp(-hv / BOLTZMANN_CONSTANT / T) /
+                (1 - math.exp(-hv / BOLTZMANN_CONSTANT / T)))
+    assert abs(result[0] - expected) < 1e-6
+
+
+def test_calc_qRRHO_energy_returns_per_mode_list():
+    """calc_qRRHO_energy returns a list with one entry per frequency."""
+    freqs = [500.0, 1500.0, 3000.0]
+    result = calc_qRRHO_energy(298.15, freqs)
+    assert len(result) == 3
+
+
+def test_calc_qRRHO_energy_scaling():
+    """Frequency scaling shifts the effective frequency."""
+    T = 298.15
+    e_scaled = calc_qRRHO_energy(T, [1000.0], freq_scale_factor=0.5)
+    e_unscaled = calc_qRRHO_energy(T, [500.0], freq_scale_factor=1.0)
+    assert abs(e_scaled[0] - e_unscaled[0]) < 1e-6
+
+
+# ===========================================================================
+# calc_avg_moment_of_inertia unit tests
+# ===========================================================================
+
+def test_calc_avg_moment_of_inertia_known_values():
+    """Average moment of inertia from rotational constants."""
+    roconst = [10.0, 20.0, 30.0]  # GHz
+    result = calc_avg_moment_of_inertia(roconst)
+    avg_ghz = 20.0  # mean of 10, 20, 30
+    expected = PLANCK_CONSTANT / (avg_ghz * 1e9)
+    assert abs(result - expected) < 1e-50
+
+
+def test_calc_avg_moment_of_inertia_single():
+    """Single rotational constant."""
+    result = calc_avg_moment_of_inertia([5.0])
+    expected = PLANCK_CONSTANT / (5.0e9)
+    assert abs(result - expected) < 1e-50
+
+
+def test_calc_avg_moment_of_inertia_empty():
+    """Empty list raises ValueError."""
+    with pytest.raises(ValueError, match="empty"):
+        calc_avg_moment_of_inertia([])
+
+
+def test_calc_avg_moment_of_inertia_zero():
+    """Zero average rotational constant raises ValueError."""
+    with pytest.raises(ValueError, match="positive"):
+        calc_avg_moment_of_inertia([-5.0, 5.0])
+
+
+def test_calc_avg_moment_of_inertia_all_negative():
+    """All negative rotational constants raise ValueError."""
+    with pytest.raises(ValueError, match="positive"):
+        calc_avg_moment_of_inertia([-1.0, -2.0, -3.0])
+
+
+# ===========================================================================
+# _apply_frequency_inversion unit tests
+# ===========================================================================
+
+def test_frequency_inversion_default_no_invert():
+    """With invert=False, imaginary freqs stay imaginary."""
+    freqs, im_freqs, inverted = _apply_frequency_inversion(
+        [100.0, 200.0], [-50.0], invert=False, job_type='Opt Freq'
+    )
+    assert freqs == [100.0, 200.0]
+    assert im_freqs == [-50.0]
+    assert inverted == []
+
+
+def test_frequency_inversion_auto_ts():
+    """With invert='auto' and TSFreq, only the most negative is kept imaginary."""
+    freqs, im_freqs, inverted = _apply_frequency_inversion(
+        [100.0], [-500.0, -20.0], invert='auto', job_type='TSFreq'
+    )
+    # -500 is most negative (via min of all freqs), kept imaginary
+    assert -500.0 in im_freqs
+    # -20 should be inverted to positive
+    assert 20.0 in freqs
+    assert -20.0 in inverted
+
+
+def test_frequency_inversion_auto_non_ts():
+    """With invert='auto' and non-TS job, all imaginary freqs are inverted."""
+    freqs, im_freqs, inverted = _apply_frequency_inversion(
+        [100.0], [-50.0, -20.0], invert='auto', job_type='Opt Freq'
+    )
+    assert 50.0 in freqs
+    assert 20.0 in freqs
+    assert im_freqs == []
+    assert len(inverted) == 2
+
+
+def test_frequency_inversion_threshold():
+    """With invert=<threshold>, only freqs above threshold are inverted."""
+    # invert='-30' means freqs > -30 (i.e. -20) get inverted, -50 stays
+    freqs, im_freqs, inverted = _apply_frequency_inversion(
+        [100.0], [-50.0, -20.0], invert='-30', job_type='Opt Freq'
+    )
+    assert -50.0 in im_freqs
+    assert 20.0 in freqs
+    assert -20.0 in inverted

@@ -1,5 +1,6 @@
 """Output formatting and printing functions for GoodVibes."""
 import math
+import os.path
 import sys
 from datetime import datetime
 from string import ascii_lowercase as alphabet
@@ -21,6 +22,14 @@ except ImportError:
 
 def print_results(files, thermo_data, options, log, stars, clustering, clusters, xyz=None, media_conc=None):
     """Print single-temperature thermochemistry output table."""
+    # Decimal places for energy output (default 6)
+    dp = getattr(options, 'dp', 6)
+    # Extra width needed when dp > 6
+    dw = dp - 6
+    # Format helpers: w=wide (13+dw), n=narrow (10+dw)
+    ef = '{{:{w}.{d}f}}'.format(w=13 + dw, d=dp)  # energy format e.g. {:13.6f} or {:15.8f}
+    nf = '{{:{w}.{d}f}}'.format(w=10 + dw, d=dp)  # narrow format e.g. {:10.6f} or {:12.8f}
+
     # Check if user has chosen to make any low lying imaginary frequencies positive
     inverted_freqs, inverted_files = [], []
     for file in files:
@@ -38,7 +47,7 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
 
     # Adjust printing according to options requested
     if options.spc is not False:
-        stars += '*' * 14
+        stars += '*' * (14 + dw)
     if options.imag_freq is True:
         stars += '*' * 9
     if options.boltz is True:
@@ -48,26 +57,32 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
 
     total_cpu_time, add_days = datetime(100, 1, 1, 00, 00, 00, 00), 0
 
+    ew = 13 + dw  # energy column width for headers
+    nw = 10 + dw  # narrow column width for headers
+
     if options.spc is False:
         log.write("\n\n   ")
         if options.QH:
-            log.write('{:<39} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
-                      '{:>13}'.format("Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),
+            log.write(('{{:<39}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
+                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
+                "Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),
                       thermodata=True)
         else:
-            log.write('{:<39} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} {:>13}'.format("Structure", "E", "ZPE", "H",
-                                                                                       "T.S", "T.qh-S", "G(T)",
-                                                                                       "qh-G(T)"), thermodata=True)
+            log.write(('{{:<39}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
+                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
+                "Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"), thermodata=True)
     else:
         log.write("\n\n   ")
         if options.QH:
-            log.write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>13} {:>10} {:>10} {:>13} '
-                      '{:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
-                                      "G(T)_SPC", "qh-G(T)_SPC"), thermodata=True)
+            log.write(('{{:<39}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
+                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
+                "Structure", "E_SPC", "E", "ZPE", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
+                "G(T)_SPC", "qh-G(T)_SPC"), thermodata=True)
         else:
-            log.write('{:<39} {:>13} {:>13} {:>10} {:>13} {:>10} {:>10} {:>13} '
-                      '{:>13}'.format("Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
-                                      "qh-G(T)_SPC"), thermodata=True)
+            log.write(('{{:<39}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
+                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
+                "Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
+                "qh-G(T)_SPC"), thermodata=True)
     if options.boltz is True:
         log.write('{:>7}'.format("Boltz"), thermodata=True)
     if options.imag_freq is True:
@@ -113,7 +128,7 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
                 xyz.write_text(str(len(bbe.atom_types)))
                 if bbe.scf_energy is not None:
                     xyz.write_text(
-                        '{:<39} {:>13} {:13.6f}'.format(display_name(file), 'Eopt', bbe.scf_energy))
+                        ('{:<39} {:>13} ' + ef).format(display_name(file), 'Eopt', bbe.scf_energy))
                 else:
                     xyz.write_text('{:<39}'.format(display_name(file)))
                 if bbe.atom_types and bbe.cartesians:
@@ -129,7 +144,7 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
                         if bbe.sp_energy != '!':
                             log.write("\no  ")
                             log.write('{:<39}'.format(display_name(file)), thermodata=True)
-                            log.write(' {:13.6f}'.format(bbe.sp_energy), thermodata=True)
+                            log.write((' ' + ef).format(bbe.sp_energy), thermodata=True)
                         if bbe.sp_energy == '!':
                             log.write("\nx  ")
                             log.write('{:<39}'.format(display_name(file)), thermodata=True)
@@ -144,7 +159,7 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
                 elif bbe.scf_energy is None and not hasattr(bbe, "gibbs_free_energy"):
                     log.write("\nx  " + '{:<39}'.format(display_name(file)))
                 if bbe.scf_energy is not None:
-                    log.write(' {:13.6f}'.format(bbe.scf_energy), thermodata=True)
+                    log.write((' ' + ef).format(bbe.scf_energy), thermodata=True)
                 # No freqs found
                 if not hasattr(bbe, "gibbs_free_energy"):
                     log.write("   Warning! Couldn't find frequency information ...")
@@ -152,16 +167,16 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
                     if all(getattr(bbe, attrib) for attrib in
                            ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                         if options.QH:
-                            log.write(' {:10.6f} {:13.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                            log.write((' ' + nf + ' ' + ef + ' ' + ef + ' ' + nf + ' ' + nf + ' ' + ef + ' ' + ef).format(
                                 bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
                                 (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
                                 bbe.qh_gibbs_free_energy), thermodata=True)
                         else:
-                            log.write(' {:10.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} '
-                                      '{:13.6f}'.format(bbe.zpe, bbe.enthalpy,
-                                                        (options.temperature * bbe.entropy),
-                                                        (options.temperature * bbe.qh_entropy),
-                                                        bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
+                            log.write((' ' + nf + ' ' + ef + ' ' + nf + ' ' + nf + ' ' + ef + ' '
+                                       + ef).format(bbe.zpe, bbe.enthalpy,
+                                                     (options.temperature * bbe.entropy),
+                                                     (options.temperature * bbe.qh_entropy),
+                                                     bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                       thermodata=True)
 
                     if options.media is not False and options.media.lower() in solvents and options.media.lower() == \
@@ -187,7 +202,8 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
                     if structure == file:
                         if id == len(cluster) - 1:
                             log.write("\n   " + dashes)
-                            log.write("\n   " + '{name:<{var_width}} {gval:13.6f} {weight:6.2f}'.format(
+                            log.write("\n   " + ('{{name:<{{var_width}}}} {{gval:{ew}.{d}f}} {{weight:6.2f}}'.format(
+                                ew=13 + dw, d=dp)).format(
                                 name='Boltzmann-weighted Cluster ' + alphabet[n].upper(), var_width=len(stars) - 24,
                                 gval=weighted_free_energy['cluster-' + alphabet[n].upper()] / boltz_facs[
                                     'cluster-' + alphabet[n].upper()],
@@ -198,8 +214,17 @@ def print_results(files, thermo_data, options, log, stars, clustering, clusters,
     return stars, dup_list, total_cpu_time, add_days
 
 
-def print_temperature_interval(files, options, log, stars, gas_phase, media_conc=None):
+def print_temperature_interval(files, options, log, stars, gas_phase, media_conc=None, qcdata_cache=None):
     """Run variable-temperature analysis and print results. Returns (interval_bbe_data, interval, file_list)."""
+    dp = getattr(options, 'dp', 6)
+    dw = dp - 6
+    ef = '{{:{w}.{d}f}}'.format(w=13 + dw, d=dp)
+    nf = '{{:{w}.{d}f}}'.format(w=10 + dw, d=dp)
+    hf = '{{:{w}.{d}f}}'.format(w=24 + dw, d=dp)  # wide H column in temp interval
+    ew = 13 + dw
+    nw = 10 + dw
+    hw = 24 + dw
+
     log.write("\n\n   Variable-Temperature analysis of the enthalpy, entropy and the entropy at a constant pressure between")
     temperature_interval = [float(temp) for temp in options.temperature_interval.split(',')]
     # If no temperature step was defined, divide the region into 10
@@ -210,7 +235,8 @@ def print_temperature_interval(files, options, log, stars, gas_phase, media_conc
     log.write("\n   T init:  %.1f,  T final:  %.1f,  T interval: %.1f" % (
         temperature_interval[0], temperature_interval[1], temperature_interval[2]))
     if options.QH:
-        qh_print_format = "\n\n   {:<39} {:>13} {:>24} {:>13} {:>10} {:>10} {:>13} {:>13}"
+        qh_print_format = ('\n\n   {{:<39}} {{:>13}} {{:>{hw}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} '
+                           '{{:>{ew}}} {{:>{ew}}}').format(hw=hw, ew=ew, nw=nw)
         if options.spc:
             log.write(qh_print_format.format("Structure", "Temp/K", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
                                              "G(T)_SPC", "qh-G(T)_SPC"), thermodata=True)
@@ -218,7 +244,8 @@ def print_temperature_interval(files, options, log, stars, gas_phase, media_conc
             log.write(qh_print_format.format("Structure", "Temp/K", "H", "qh-H", "T.S", "T.qh-S", "G(T)",
                                              "qh-G(T)"), thermodata=True)
     else:
-        print_format_3 = '\n\n   {:<39} {:>13} {:>24} {:>10} {:>10} {:>13} {:>13}'
+        print_format_3 = ('\n\n   {{:<39}} {{:>13}} {{:>{hw}}} {{:>{nw}}} {{:>{nw}}} '
+                          '{{:>{ew}}} {{:>{ew}}}').format(hw=hw, nw=nw, ew=ew)
         if options.spc:
             log.write(print_format_3.format("Structure", "Temp/K", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
                                             "qh-G(T)_SPC"), thermodata=True)
@@ -237,9 +264,14 @@ def print_temperature_interval(files, options, log, stars, gas_phase, media_conc
             else:
                 conc = options.conc
             linear_warning = []
+            # Look up cached QCData if available
+            cached_qcdata = None
+            if qcdata_cache is not None:
+                key = os.path.splitext(os.path.basename(file))[0]
+                cached_qcdata = qcdata_cache.get(key)
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
                            conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                           inertia=options.inertia)
+                           inertia=options.inertia, qcdata=cached_qcdata)
             interval_bbe_data[h].append(bbe)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -263,12 +295,12 @@ def print_temperature_interval(files, options, log, stars, gas_phase, media_conc
                     if all(getattr(bbe, attrib) for attrib in
                            ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
                         if options.QH:
-                            log.write(' {:24.6f} {:13.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(
+                            log.write((' ' + hf + ' ' + ef + ' ' + nf + ' ' + nf + ' ' + ef + ' ' + ef).format(
                                 bbe.enthalpy, bbe.qh_enthalpy, (temp * bbe.entropy),
                                 (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                 thermodata=True)
                         else:
-                            log.write(' {:24.6f} {:10.6f} {:10.6f} {:13.6f} {:13.6f}'.format(bbe.enthalpy, (
+                            log.write((' ' + hf + ' ' + nf + ' ' + nf + ' ' + ef + ' ' + ef).format(bbe.enthalpy, (
                                     temp * bbe.entropy), (temp * bbe.qh_entropy), bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
                                       thermodata=True)
                     if options.media is not False and options.media.lower() in solvents and options.media.lower() == \

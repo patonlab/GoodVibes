@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
+import json
 import os.path
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import List, Optional
 
 import numpy as np
@@ -59,6 +61,66 @@ class QCData:
     atom_nums: List[int] = field(default_factory=list)
     atom_types: List[str] = field(default_factory=list)
     cartesians: List[List[float]] = field(default_factory=list)
+
+    # Frequency scaling factor applied by QC program (ORCA only; 1.0 means unscaled)
+    applied_freq_scale_factor: float = 1.0
+
+
+# Cache version for JSON serialization format
+CACHE_VERSION = 1
+
+
+def qcdata_to_dict(qcdata):
+    """Convert a QCData instance to a JSON-serializable dictionary."""
+    d = asdict(qcdata)
+    d['_cache_version'] = CACHE_VERSION
+    return d
+
+
+def dict_to_qcdata(d):
+    """Reconstruct a QCData instance from a dictionary."""
+    clean = {k: v for k, v in d.items() if not k.startswith('_')}
+    return QCData(**clean)
+
+
+def save_cache(cache_dict, path):
+    """Write QCData cache to a JSON file.
+
+    Parameters
+    ----------
+    cache_dict : dict
+        Mapping of {basename_key: qcdata_dict} where each value is from qcdata_to_dict().
+    path : str
+        Output JSON file path.
+    """
+    envelope = {
+        '_cache_version': CACHE_VERSION,
+        '_created': datetime.now().isoformat(),
+        'entries': cache_dict,
+    }
+    with open(path, 'w') as f:
+        json.dump(envelope, f, indent=2)
+
+
+def load_cache(path):
+    """Load a QCData cache from a JSON file.
+
+    Parameters
+    ----------
+    path : str
+        Path to JSON cache file.
+
+    Returns
+    -------
+    dict
+        Mapping of {basename_key: QCData}.
+    """
+    with open(path, 'r') as f:
+        envelope = json.load(f)
+    version = envelope.get('_cache_version', 0)
+    if version != CACHE_VERSION:
+        raise ValueError("Cache version mismatch: expected {}, got {}".format(CACHE_VERSION, version))
+    return {key: dict_to_qcdata(val) for key, val in envelope['entries'].items()}
 
 
 # PHYSICAL CONSTANTS                                      UNITS
@@ -1219,6 +1281,7 @@ def parse_orca_thermo(file, ssymm=False):
     in_freq_section = False
     solvation_type = ''
     solvent_name = ''
+    applied_freq_scale_factor = 1.0
     _has_opt = False
     _has_ts = False
     _has_freq_kw = False
@@ -1341,6 +1404,13 @@ def parse_orca_thermo(file, ssymm=False):
         elif stripped.startswith('Solvent:') and '...' in stripped:
             solvent_name = stripped.split()[-1]
 
+        # Frequency scaling factor (ORCA pre-applies this to reported frequencies)
+        elif stripped.startswith('Scaling factor for frequencies'):
+            try:
+                applied_freq_scale_factor = float(stripped.split('=')[1].split('(')[0].strip())
+            except (IndexError, ValueError):
+                pass
+
         # CPU time
         elif stripped.startswith('TOTAL RUN TIME:'):
             parts = stripped.split()
@@ -1362,6 +1432,12 @@ def parse_orca_thermo(file, ssymm=False):
         else:
             qcdata.solvation_model = solvation_type
 
+    # Un-scale frequencies if ORCA applied a scaling factor, so that
+    # frequency_wn always contains unscaled values (matching Gaussian convention)
+    qcdata.applied_freq_scale_factor = applied_freq_scale_factor
+    if applied_freq_scale_factor != 1.0 and applied_freq_scale_factor > 0.0:
+        frequency_wn = [f / applied_freq_scale_factor for f in frequency_wn]
+        im_frequency_wn = [f / applied_freq_scale_factor for f in im_frequency_wn]
     qcdata.frequency_wn = frequency_wn
     qcdata.im_frequency_wn = im_frequency_wn
 

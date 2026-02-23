@@ -21,7 +21,7 @@ conda install -c conda-forge goodvibes
 
 #### Quick Start
 ```
-python -m goodvibes <output_file(s)> -q
+goodvibes <output_file(s)> -q
 ```
 The `-q` flag applies quasi-harmonic corrections (Grimme entropy + Head-Gordon enthalpy). Use `-h` for the full list of options.
 

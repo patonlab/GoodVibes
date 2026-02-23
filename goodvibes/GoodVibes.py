@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 # Importing regardless of relative import
 try:
     from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
-    from .io import read_initial, xyz_out
+    from .io import read_initial, xyz_out, load_cache, save_cache, qcdata_to_dict
     from .thermo import calc_bbe, get_free_space
     from .media import solvents
     from .constants import (
@@ -26,7 +26,7 @@ try:
     from .output import print_results, print_temperature_interval, print_pes_results
 except ImportError:
     from vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
-    from io import read_initial, xyz_out
+    from io import read_initial, xyz_out, load_cache, save_cache, qcdata_to_dict
     from thermo import calc_bbe, get_free_space
     from media import solvents
     from constants import (  # noqa: F401
@@ -122,6 +122,12 @@ def parse_arguments():
                         help="Frequency scaling factor for the MM region in ONIOM calculations")
     parser.add_argument("--xyz", dest="xyz", action="store_true", default=False,
                         help="Write optimized Cartesian coordinates to a .xyz file")
+    parser.add_argument("--cache-save", dest="cache_save", default=None, type=str, metavar="FILE",
+                        help="Save parsed data for all input files to a JSON cache file")
+    parser.add_argument("--cache-read", dest="cache_read", default=None, type=str, metavar="FILE",
+                        help="Read pre-parsed data from a JSON cache file instead of re-parsing output files")
+    parser.add_argument("--dp", dest="dp", default=6, type=int, metavar="DP",
+                        help="Number of decimal places for energy values in output (default: 6)")
     # Parse Arguments
     (options, args) = parser.parse_known_args()
     # If requested, turn on head-gordon enthalpy correction
@@ -270,7 +276,7 @@ def resolve_scaling_factor(files, options, l_o_t, log):
         if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
             log.write("\n\n   User-defined vibrational scale factor " +
                       str(options.mm_freq_scale_factor) + " for MM region of " + l_o_t[0])
-            log.write("\n   REF: {}".format(oniom_scale_ref))
+            log.write("\n   {}".format(oniom_scale_ref))
         else:
             sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
                      " help use option '-h'\n")
@@ -315,7 +321,7 @@ def validate_and_configure(options, s_m, log):
         qs_ref = truhlar_ref
     else:
         log.fatal("\n   FATAL ERROR: Unknown quasi-harmonic model " + options.QS + " specified (QS must = grimme or truhlar).")
-    log.write("\n   REF: " + qs_ref)
+    log.write("\n   " + qs_ref)
 
     # Check if qh-H correction should be applied
     if options.QH:
@@ -346,7 +352,7 @@ def validate_and_configure(options, s_m, log):
     return ssymm_option, vmm_option
 
 
-def compute_thermochemistry(files, options, ssymm_option, vmm_option, log):
+def compute_thermochemistry(files, options, ssymm_option, vmm_option, log, qcdata_cache=None):
     """Run calc_bbe for each file. Returns (thermo_data, bbe_vals, media_conc)."""
     bbe_vals = []
     media_conc = None
@@ -359,10 +365,17 @@ def compute_thermochemistry(files, options, ssymm_option, vmm_option, log):
                 density = solvents[options.media.lower()][1]
                 conc = (density * 1000) / mweight
                 media_conc = conc
+
+        # Look up cached QCData if available
+        cached_qcdata = None
+        if qcdata_cache is not None:
+            key = os.path.splitext(os.path.basename(file))[0]
+            cached_qcdata = qcdata_cache.get(key)
+
         bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, options.temperature,
                        conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
                        ssymm=ssymm_option, mm_freq_scale_factor=vmm_option,
-                       inertia=options.inertia)
+                       inertia=options.inertia, qcdata=cached_qcdata)
 
         # Populate bbe_vals with indivual bbe entries for each file
         bbe_vals.append(bbe)
@@ -377,11 +390,12 @@ def main():
     """CLI entry point: parse arguments, compute thermochemistry, and print results."""
     options, files, command, clustering, clusters = parse_arguments()
 
-    # Set up stars separator based on QH option
+    # Set up stars separator based on QH option and decimal places
+    dw = options.dp - 6  # extra width per column
     if options.QH:
-        stars = "   " + "*" * 142
+        stars = "   " + "*" * (142 + 8 * dw)  # 8 energy columns with QH
     else:
-        stars = "   " + "*" * 128
+        stars = "   " + "*" * (128 + 7 * dw)  # 7 energy columns without QH
 
     # If necessary, create an xyz file for Cartesians
     xyz = None
@@ -399,6 +413,16 @@ def main():
               "   \u2571       \u2571 \u2571\u2571         \u2571\u2571         \u2571\u2571         \u2571 \u2572        \u2571\u2571         \u2571\u2571         \u2571\u2571        _\u2571\u2571-  v" + __version__ + "  \u2571 \n"
               "   \u2572________\u2571 \u2572________\u2571 \u2572________\u2571 \u2572________\u2571   \u2572______\u2571 \u2572________\u2571 \u2572________\u2571 \u2572________\u2571 \u2572________\u2571\n"
               "\n   Citation: " + goodvibes_ref + "\n")
+
+    # Load QCData cache early if requested (needed to determine file list in cache-only mode)
+    qcdata_cache = None
+    cache_only = False
+    if options.cache_read:
+        qcdata_cache = load_cache(options.cache_read)
+        if len(files) == 0:
+            # Cache-only mode: derive file list from cache entries
+            cache_only = True
+            files = [key + '.cache' for key in qcdata_cache]
 
     # Check if user has specified any files
     if len(files) == 0:
@@ -419,17 +443,62 @@ def main():
         options.conc = ATMOS / (GAS_CONSTANT * options.temperature)
         log.write("   Pressure = 1 atm")
 
-    # Collect file data and validate
-    files, l_o_t, s_m, orientation, grid = collect_and_validate_files(files, options, log)
+    if cache_only:
+        # Cache-only mode: skip file validation (no output files on disk)
+        l_o_t, s_m, orientation, grid = [], [], {}, {}
+        for key, qcdata in qcdata_cache.items():
+            l_o_t.append('')
+            # solvation_model may be a string or a list [sorted, display] depending on parser
+            sm = qcdata.solvation_model
+            if isinstance(sm, list):
+                sm = sm[0]
+            s_m.append(sm)
+        if options.freq_scale_factor is False:
+            options.freq_scale_factor = 1.0
+        log.write("\n   Reading from QCData cache: " + options.cache_read)
+    else:
+        # Collect file data and validate
+        files, l_o_t, s_m, orientation, grid = collect_and_validate_files(files, options, log)
+        # Resolve frequency scaling factor
+        resolve_scaling_factor(files, options, l_o_t, log)
+        if options.cache_read:
+            log.write("\n   Loaded QCData cache from " + options.cache_read)
 
-    # Resolve frequency scaling factor
-    resolve_scaling_factor(files, options, l_o_t, log)
+    # Warn about ORCA files where pre-scaled frequencies were un-scaled
+    for file in files:
+        if file.endswith('.out'):
+            try:
+                with open(file) as f:
+                    for line in f:
+                        if 'Scaling factor for frequencies' in line and 'already applied' in line:
+                            try:
+                                factor = float(line.split('=')[1].split('(')[0].strip())
+                            except (IndexError, ValueError):
+                                factor = None
+                            if factor is not None and factor != 1.0:
+                                log.write("\nx  Caution! ORCA applied a frequency scaling factor of {:.6f} in {}. "
+                                          "Frequencies have been un-scaled to avoid double-scaling.".format(
+                                              factor, os.path.basename(file)))
+                            break
+            except (IOError, OSError):
+                pass
 
     # Validate options and configure
     ssymm_option, vmm_option = validate_and_configure(options, s_m, log)
 
     # Compute thermochemistry for all files
-    thermo_data, bbe_vals, media_conc = compute_thermochemistry(files, options, ssymm_option, vmm_option, log)
+    thermo_data, bbe_vals, media_conc = compute_thermochemistry(
+        files, options, ssymm_option, vmm_option, log, qcdata_cache=qcdata_cache)
+
+    # Save QCData cache if requested
+    if options.cache_save:
+        cache_dict = {}
+        for file, bbe in zip(files, bbe_vals):
+            key = os.path.splitext(os.path.basename(file))[0]
+            if hasattr(bbe, 'xyz') and bbe.xyz is not None:
+                cache_dict[key] = qcdata_to_dict(bbe.xyz)
+        save_cache(cache_dict, options.cache_save)
+        log.write("\n   Saved QCData cache to " + options.cache_save)
 
     interval_bbe_data, interval, file_list = None, None, None
     dup_list = []
@@ -446,7 +515,7 @@ def main():
     # Variable temperature analysis
     elif options.temperature_interval:
         interval_bbe_data, interval, file_list = print_temperature_interval(
-            files, options, log, stars, gas_phase, media_conc=media_conc)
+            files, options, log, stars, gas_phase, media_conc=media_conc, qcdata_cache=qcdata_cache)
         total_cpu_time, add_days = datetime(100, 1, 1, 0, 0, 0, 0), 0
 
     # Print CPU usage if requested

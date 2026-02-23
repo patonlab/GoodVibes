@@ -508,9 +508,10 @@ class calc_bbe:
     """
     def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
                  invert, ssymm=False,
-                 mm_freq_scale_factor=False, inertia='global'):
-        # 1. Parse all data from file (program-agnostic)
-        qcdata = parse_qcdata(file, ssymm=ssymm)
+                 mm_freq_scale_factor=False, inertia='global', qcdata=None):
+        # 1. Parse all data from file (program-agnostic), or use provided cache
+        if qcdata is None:
+            qcdata = parse_qcdata(file, ssymm=ssymm)
 
         # 2. Geometry data (from native parser via qcdata)
         self.xyz = qcdata
@@ -561,6 +562,16 @@ class calc_bbe:
             except ValueError:
                 self.sp_energy = '!'
                 pass
+        elif qcdata is not None and not os.path.exists(file):
+            # Cache-only mode: derive sp_* fields from cached QCData
+            self.sp_energy = qcdata.scf_energy
+            self.sp_program = qcdata.program
+            self.sp_version_program = qcdata.version_program
+            self.sp_solvation_model = qcdata.solvation_model
+            self.sp_file = qcdata.file
+            self.sp_charge = qcdata.charge
+            self.sp_empirical_dispersion = qcdata.empirical_dispersion
+            self.sp_multiplicity = qcdata.multiplicity
         else:
             (self.sp_energy, self.sp_program,
              self.sp_version_program, self.sp_solvation_model,
