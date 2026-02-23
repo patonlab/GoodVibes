@@ -22,17 +22,24 @@ CONC_DEFAULT = ATMOS / (GAS_CONSTANT * T_DEFAULT)
 XFAIL_SYMMETRY = "Small Gibbs discrepancy likely due to symmetry number or physical constant differences between ORCA and GoodVibes"
 XFAIL_LINKED = "Linked composite job — enthalpy/Gibbs mismatch under investigation"
 XFAIL_TS_LINKED = "TS linked opt+freq — small numerical discrepancy under investigation"
-XFAIL_SCALING = "ORCA SCALFREQ pre-scales frequencies; calc_bbe double-scales"
 XFAIL_SADDLE = "2nd-order saddle point — numerical discrepancy under investigation"
+XFAIL_ORCA_ENERGY = ("ORCA 'FINAL SINGLE POINT ENERGY' differs from 'Electronic energy' "
+                     "by >1e-6 Eh; GoodVibes parses the former, ORCA thermo uses the latter")
 
 
 def _calc(filename, QS='grimme', QH=False, s_freq_cutoff=100.0,
           temp=T_DEFAULT, conc=None, scale=1.0):
-    """Helper to run calc_bbe with common defaults."""
+    """Helper to run calc_bbe with common defaults.
+
+    Uses inertia='conf' (Bav from rotational constants) to match ORCA's
+    default quasi-RRHO treatment, which computes Bav per conformer rather
+    than using Grimme's global value of 1e-44 kg m^2.
+    """
     if conc is None:
         conc = ATMOS / (GAS_CONSTANT * temp)
     return calc_bbe(orca_path(filename), QS, QH, s_freq_cutoff, 100.0,
-                    temp, conc, scale, None, False, False, 0)
+                    temp, conc, scale, None, False, False, 0,
+                    inertia='conf')
 
 
 # ===========================================================================
@@ -41,8 +48,7 @@ def _calc(filename, QS='grimme', QH=False, s_freq_cutoff=100.0,
 
 @pytest.mark.parametrize("filename, expected_zpe, scale", [
     ('01a_water_hf_freq.out', 0.02234428, 1.0),
-    pytest.param('01b_water_hf_freq_scaled.out', 0.02312633, 1.035,
-                 marks=pytest.mark.xfail(reason=XFAIL_SCALING)),
+    ('01b_water_hf_freq_scaled.out', 0.02312633, 1.035),
     ('01c_water_hf_freq_harmonic.out', 0.02234428, 1.0),
     ('01d_water_hf_freq_qhcutoff.out', 0.02234428, 1.0),
     ('02_ethane_opt_freq_thermo.out', 0.07424074, 1.0),
@@ -78,131 +84,130 @@ def _calc(filename, QS='grimme', QH=False, s_freq_cutoff=100.0,
 def test_calc_bbe_orca_zpe_vs_orca(filename, expected_zpe, scale):
     """Validate calc_bbe ZPE against ORCA's 'Zero point energy' value."""
     bbe = _calc(filename, scale=scale)
-    assert abs(bbe.zpe - expected_zpe) < 1e-5
+    assert abs(bbe.zpe - expected_zpe) < 1e-6
 
 
 # ===========================================================================
 # calc_bbe: enthalpy validation against ORCA ground truth
 # ===========================================================================
 
-@pytest.mark.parametrize("filename, expected_enthalpy", [
-    ('01a_water_hf_freq.out', -75.98299220),
-    ('01b_water_hf_freq_scaled.out', -75.98221042),
-    ('01c_water_hf_freq_harmonic.out', -75.98299220),
-    ('01d_water_hf_freq_qhcutoff.out', -75.98299220),
-    ('03_acetone_linked_opt_freq.out', -192.94041854),
-    ('04_benzene_radical_cation.out', -231.91741024),
-    ('05_methylene_triplet_carbene.out', -38.99822252),
-    ('07_neon_atom_with_freq.out', -128.53091234),
-    ('08_alanine_C1_pcm_water.out', -323.26179581),
-    ('10_formaldehyde_verbose_pop.out', -114.43460122),
-    ('15_methanol_qmqm2_xtb.out', -44.51671796),
-    ('16_o2_superoxide_anion.out', -150.33516104),
-    pytest.param('18_propane_linked_composite_dh.out', -118.92947046,
+@pytest.mark.parametrize("filename, expected_enthalpy, scale", [
+    ('01a_water_hf_freq.out', -75.98299220, 1.0),
+    ('01b_water_hf_freq_scaled.out', -75.98221042, 1.035),
+    ('01c_water_hf_freq_harmonic.out', -75.98299220, 1.0),
+    ('01d_water_hf_freq_qhcutoff.out', -75.98299220, 1.0),
+    ('03_acetone_linked_opt_freq.out', -192.94041854, 1.0),
+    ('04_benzene_radical_cation.out', -231.91741024, 1.0),
+    ('05_methylene_triplet_carbene.out', -38.99822252, 1.0),
+    ('07_neon_atom_with_freq.out', -128.53091234, 1.0),
+    ('08_alanine_C1_pcm_water.out', -323.26179581, 1.0),
+    ('10_formaldehyde_verbose_pop.out', -114.43460122, 1.0),
+    pytest.param('15_methanol_qmqm2_xtb.out', -44.51671796, 1.0,
+                 marks=pytest.mark.xfail(reason=XFAIL_ORCA_ENERGY)),
+    ('16_o2_superoxide_anion.out', -150.33516104, 1.0),
+    pytest.param('18_propane_linked_composite_dh.out', -118.92947046, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_LINKED)),
-    ('19_acetic_acid_smd_dmso.out', -228.99355445),
-    ('21_naphthalene_xtb2_semiempirical.out', -23.95298356),
-    ('22_hcn_linear_freq_noraman.out', -93.39441825),
-    ('23_cs2_linear_anharmonic_noraman.out', -834.41011160),
-    ('24_iodobenzene_genecp_sdd.out', -529.19051650),
-    ('26_pt_complex_genecp_3zone.out', -1563.07795808),
-    ('28_pyridine_smd_acetonitrile_wb97xd3.out', -248.18685164),
-    ('29_aniline_cpcm_chloroform.out', -249.23544956),
-    ('30_phenol_smd_thf_pbe0_d3bj.out', -307.09970845),
-    ('31_methylammonium_cpcm_water.out', -96.19877931),
-    ('32_cyclohexane_tpss_meta_gga.out', -235.84449310),
-    ('33_methanol_pbe_gga.out', -115.55630149),
-    ('34_butadiene_camb3lyp_rsh.out', -155.84973310),
-    ('35_furan_wb97xv_functional.out', -229.96566203),
-    ('36_imidazole_pbe0d3bj_noraman.out', -225.94755282),
-    ('38_naphthalene_scsmp2.out', -382.56382353),
-    ('39_oxazole_tpssh_cpcm_dcm.out', -246.09659411),
-    ('42_dmso_linked_cpcm_gasfreq.out', -553.04404630),
-    ('43_dmabn_bhandhlyp_chargetransfer.out', -456.82749801),
+    ('19_acetic_acid_smd_dmso.out', -228.99355445, 1.0),
+    ('21_naphthalene_xtb2_semiempirical.out', -23.95298356, 1.0),
+    ('22_hcn_linear_freq_noraman.out', -93.39441825, 1.0),
+    ('23_cs2_linear_anharmonic_noraman.out', -834.41011160, 1.0),
+    ('24_iodobenzene_genecp_sdd.out', -529.19051650, 1.0),
+    ('26_pt_complex_genecp_3zone.out', -1563.07795808, 1.0),
+    ('28_pyridine_smd_acetonitrile_wb97xd3.out', -248.18685164, 1.0),
+    ('29_aniline_cpcm_chloroform.out', -249.23544956, 1.0),
+    ('30_phenol_smd_thf_pbe0_d3bj.out', -307.09970845, 1.0),
+    ('31_methylammonium_cpcm_water.out', -96.19877931, 1.0),
+    ('32_cyclohexane_tpss_meta_gga.out', -235.84449310, 1.0),
+    ('33_methanol_pbe_gga.out', -115.55630149, 1.0),
+    ('34_butadiene_camb3lyp_rsh.out', -155.84973310, 1.0),
+    ('35_furan_wb97xv_functional.out', -229.96566203, 1.0),
+    ('36_imidazole_pbe0d3bj_noraman.out', -225.94755282, 1.0),
+    ('38_naphthalene_scsmp2.out', -382.56382353, 1.0),
+    ('39_oxazole_tpssh_cpcm_dcm.out', -246.09659411, 1.0),
+    ('42_dmso_linked_cpcm_gasfreq.out', -553.04404630, 1.0),
+    ('43_dmabn_bhandhlyp_chargetransfer.out', -456.82749801, 1.0),
 ])
-def test_calc_bbe_orca_enthalpy_vs_orca(filename, expected_enthalpy):
+def test_calc_bbe_orca_enthalpy_vs_orca(filename, expected_enthalpy, scale):
     """Validate calc_bbe enthalpy against ORCA's 'Total Enthalpy' value."""
-    bbe = _calc(filename)
-    assert abs(bbe.enthalpy - expected_enthalpy) < 1e-5
+    bbe = _calc(filename, scale=scale)
+    assert abs(bbe.enthalpy - expected_enthalpy) < 1e-6
 
 
 # ===========================================================================
 # calc_bbe: Gibbs free energy validation against ORCA ground truth
 # ===========================================================================
 
-@pytest.mark.parametrize("filename, expected_gibbs", [
-    ('01a_water_hf_freq.out', -76.00440191),
-    ('01b_water_hf_freq_scaled.out', -76.00361983),
-    ('01c_water_hf_freq_harmonic.out', -76.00440191),
-    ('01d_water_hf_freq_qhcutoff.out', -76.00440190),
-    pytest.param('03_acetone_linked_opt_freq.out', -192.98045622,
+@pytest.mark.parametrize("filename, expected_gibbs, scale", [
+    ('01a_water_hf_freq.out', -76.00440191, 1.0),
+    ('01b_water_hf_freq_scaled.out', -76.00361983, 1.035),
+    ('01c_water_hf_freq_harmonic.out', -76.00440191, 1.0),
+    ('01d_water_hf_freq_qhcutoff.out', -76.00440190, 1.0),
+    pytest.param('03_acetone_linked_opt_freq.out', -192.98045622, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
-    ('04_benzene_radical_cation.out', -231.95046217),
-    ('05_methylene_triplet_carbene.out', -39.02045013),
-    ('07_neon_atom_with_freq.out', -128.54751680),
-    pytest.param('08_alanine_C1_pcm_water.out', -323.29970533,
-                 marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
-    ('10_formaldehyde_verbose_pop.out', -114.45941587),
-    ('15_methanol_qmqm2_xtb.out', -44.54363334),
-    ('16_o2_superoxide_anion.out', -150.35827549),
-    pytest.param('18_propane_linked_composite_dh.out', -118.95880295,
+    ('04_benzene_radical_cation.out', -231.95046217, 1.0),
+    ('05_methylene_triplet_carbene.out', -39.02045013, 1.0),
+    ('07_neon_atom_with_freq.out', -128.54751680, 1.0),
+    ('08_alanine_C1_pcm_water.out', -323.29970533, 1.0),
+    ('10_formaldehyde_verbose_pop.out', -114.45941587, 1.0),
+    pytest.param('15_methanol_qmqm2_xtb.out', -44.54363334, 1.0,
+                 marks=pytest.mark.xfail(reason=XFAIL_ORCA_ENERGY)),
+    ('16_o2_superoxide_anion.out', -150.35827549, 1.0),
+    pytest.param('18_propane_linked_composite_dh.out', -118.95880295, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_LINKED)),
-    ('19_acetic_acid_smd_dmso.out', -229.02434361),
-    pytest.param('21_naphthalene_xtb2_semiempirical.out', -23.99995730,
+    ('19_acetic_acid_smd_dmso.out', -229.02434361, 1.0),
+    pytest.param('21_naphthalene_xtb2_semiempirical.out', -23.99995730, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
-    ('22_hcn_linear_freq_noraman.out', -93.41723879),
-    ('23_cs2_linear_anharmonic_noraman.out', -834.43707404),
-    ('24_iodobenzene_genecp_sdd.out', -529.22842010),
-    pytest.param('26_pt_complex_genecp_3zone.out', -1563.12668319,
-                 marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
-    ('28_pyridine_smd_acetonitrile_wb97xd3.out', -248.21877747),
-    ('29_aniline_cpcm_chloroform.out', -249.26811728),
-    ('30_phenol_smd_thf_pbe0_d3bj.out', -307.13460541),
-    ('31_methylammonium_cpcm_water.out', -96.22650621),
-    ('32_cyclohexane_tpss_meta_gga.out', -235.88024096),
-    ('33_methanol_pbe_gga.out', -115.58273881),
-    ('34_butadiene_camb3lyp_rsh.out', -155.88113341),
-    ('35_furan_wb97xv_functional.out', -229.99586819),
-    ('36_imidazole_pbe0d3bj_noraman.out', -225.97847566),
-    ('38_naphthalene_scsmp2.out', -382.59849449),
-    ('39_oxazole_tpssh_cpcm_dcm.out', -246.12728485),
-    ('42_dmso_linked_cpcm_gasfreq.out', -553.07898285),
-    pytest.param('43_dmabn_bhandhlyp_chargetransfer.out', -456.87092406,
-                 marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
+    ('22_hcn_linear_freq_noraman.out', -93.41723879, 1.0),
+    ('23_cs2_linear_anharmonic_noraman.out', -834.43707404, 1.0),
+    ('24_iodobenzene_genecp_sdd.out', -529.22842010, 1.0),
+    ('26_pt_complex_genecp_3zone.out', -1563.12668319, 1.0),
+    ('28_pyridine_smd_acetonitrile_wb97xd3.out', -248.21877747, 1.0),
+    ('29_aniline_cpcm_chloroform.out', -249.26811728, 1.0),
+    ('30_phenol_smd_thf_pbe0_d3bj.out', -307.13460541, 1.0),
+    ('31_methylammonium_cpcm_water.out', -96.22650621, 1.0),
+    ('32_cyclohexane_tpss_meta_gga.out', -235.88024096, 1.0),
+    ('33_methanol_pbe_gga.out', -115.58273881, 1.0),
+    ('34_butadiene_camb3lyp_rsh.out', -155.88113341, 1.0),
+    ('35_furan_wb97xv_functional.out', -229.99586819, 1.0),
+    ('36_imidazole_pbe0d3bj_noraman.out', -225.97847566, 1.0),
+    ('38_naphthalene_scsmp2.out', -382.59849449, 1.0),
+    ('39_oxazole_tpssh_cpcm_dcm.out', -246.12728485, 1.0),
+    ('42_dmso_linked_cpcm_gasfreq.out', -553.07898285, 1.0),
+    ('43_dmabn_bhandhlyp_chargetransfer.out', -456.87092406, 1.0),
 ])
-def test_calc_bbe_orca_gibbs_vs_orca(filename, expected_gibbs):
-    """Validate calc_bbe Gibbs free energy against ORCA's
-    'Final Gibbs free energy' value."""
-    bbe = _calc(filename)
-    assert abs(bbe.gibbs_free_energy - expected_gibbs) < 1e-5
+def test_calc_bbe_orca_gibbs_vs_orca(filename, expected_gibbs, scale):
+    """Validate calc_bbe quasi-harmonic Gibbs free energy against ORCA's
+    'Final Gibbs free energy' value (ORCA uses quasi-RRHO by default)."""
+    bbe = _calc(filename, scale=scale)
+    assert abs(bbe.qh_gibbs_free_energy - expected_gibbs) < 1e-6
 
 
 # ===========================================================================
 # calc_bbe: entropy validation against ORCA ground truth
 # ===========================================================================
 
-@pytest.mark.parametrize("filename, expected_TS", [
-    ('01a_water_hf_freq.out', 0.02140971),
-    ('01b_water_hf_freq_scaled.out', 0.02140941),
-    ('01c_water_hf_freq_harmonic.out', 0.02140971),
-    ('01d_water_hf_freq_qhcutoff.out', 0.02140970),
-    ('04_benzene_radical_cation.out', 0.03305194),
-    ('05_methylene_triplet_carbene.out', 0.02222761),
-    ('07_neon_atom_with_freq.out', 0.01660446),
-    ('10_formaldehyde_verbose_pop.out', 0.02481465),
-    ('16_o2_superoxide_anion.out', 0.02311445),
-    ('22_hcn_linear_freq_noraman.out', 0.02282053),
-    ('32_cyclohexane_tpss_meta_gga.out', 0.03574786),
-    ('33_methanol_pbe_gga.out', 0.02643733),
-    ('34_butadiene_camb3lyp_rsh.out', 0.03140031),
-    ('35_furan_wb97xv_functional.out', 0.03020616),
-    ('36_imidazole_pbe0d3bj_noraman.out', 0.03092284),
-    ('43_dmabn_bhandhlyp_chargetransfer.out', 0.04342605),
+@pytest.mark.parametrize("filename, expected_TS, scale", [
+    ('01a_water_hf_freq.out', 0.02140971, 1.0),
+    ('01b_water_hf_freq_scaled.out', 0.02140941, 1.035),
+    ('01c_water_hf_freq_harmonic.out', 0.02140971, 1.0),
+    ('01d_water_hf_freq_qhcutoff.out', 0.02140970, 1.0),
+    ('04_benzene_radical_cation.out', 0.03305194, 1.0),
+    ('05_methylene_triplet_carbene.out', 0.02222761, 1.0),
+    ('07_neon_atom_with_freq.out', 0.01660446, 1.0),
+    ('10_formaldehyde_verbose_pop.out', 0.02481465, 1.0),
+    ('16_o2_superoxide_anion.out', 0.02311445, 1.0),
+    ('22_hcn_linear_freq_noraman.out', 0.02282053, 1.0),
+    ('32_cyclohexane_tpss_meta_gga.out', 0.03574786, 1.0),
+    ('33_methanol_pbe_gga.out', 0.02643733, 1.0),
+    ('34_butadiene_camb3lyp_rsh.out', 0.03140031, 1.0),
+    ('35_furan_wb97xv_functional.out', 0.03020616, 1.0),
+    ('36_imidazole_pbe0d3bj_noraman.out', 0.03092284, 1.0),
+    ('43_dmabn_bhandhlyp_chargetransfer.out', 0.04342605, 1.0),
 ])
-def test_calc_bbe_orca_entropy_vs_orca(filename, expected_TS):
+def test_calc_bbe_orca_entropy_vs_orca(filename, expected_TS, scale):
     """Validate calc_bbe entropy against ORCA's 'Final entropy term' (T*S)."""
-    bbe = _calc(filename)
-    assert abs(T_DEFAULT * bbe.qh_entropy - expected_TS) < 1e-5
+    bbe = _calc(filename, scale=scale)
+    assert abs(T_DEFAULT * bbe.qh_entropy - expected_TS) < 1e-6
 
 
 # ===========================================================================
@@ -211,12 +216,10 @@ def test_calc_bbe_orca_entropy_vs_orca(filename, expected_TS):
 
 @pytest.mark.parametrize("filename, expected_zpe, expected_H, expected_G", [
     ('44_ts_sn2_identity_chloride.out', 0.03682585, -960.24874107, -960.28182960),
-    pytest.param('45_ts_diels_alder_butadiene_ethylene.out', 0.14245543,
-                 -234.26023290, -234.29687965,
-                 marks=pytest.mark.xfail(reason=XFAIL_TS_LINKED)),
-    pytest.param('46_ts_neb_cope_rearrangement.out', 0.14427177,
-                 -233.85997087, -233.89652812,
-                 marks=pytest.mark.xfail(reason=XFAIL_TS_LINKED)),
+    ('45_ts_diels_alder_butadiene_ethylene.out', 0.14245543,
+                 -234.26023290, -234.29687965),
+    ('46_ts_neb_cope_rearrangement.out', 0.14427177,
+                 -233.85997087, -233.89652812),
     pytest.param('47_ts_e2_elimination_ethylchloride.out', 0.07450085,
                  -615.03764523, -615.07236231,
                  marks=pytest.mark.xfail(reason=XFAIL_TS_LINKED)),
@@ -229,24 +232,11 @@ def test_calc_bbe_orca_transition_states(filename, expected_zpe, expected_H,
                                          expected_G):
     """Validate ORCA TS thermochemistry and imaginary frequency detection."""
     bbe = _calc(filename)
-    assert abs(bbe.zpe - expected_zpe) < 1e-5
-    assert abs(bbe.enthalpy - expected_H) < 1e-5
-    assert abs(bbe.gibbs_free_energy - expected_G) < 1e-5
+    assert abs(bbe.zpe - expected_zpe) < 1e-6
+    assert abs(bbe.enthalpy - expected_H) < 1e-6
+    assert abs(bbe.qh_gibbs_free_energy - expected_G) < 1e-6
     assert len(bbe.im_frequency_wn) == 1
     assert all(f < 0 for f in bbe.im_frequency_wn)
-
-
-# ===========================================================================
-# calc_bbe: frequency scaling factor (ORCA SCALFREQ 1.035)
-# ===========================================================================
-
-@pytest.mark.xfail(reason=XFAIL_SCALING)
-def test_calc_bbe_orca_scaling():
-    """Validate calc_bbe with scale=1.035 against ORCA SCALFREQ 1.035."""
-    bbe = _calc('01b_water_hf_freq_scaled.out', scale=1.035)
-    assert abs(bbe.zpe - 0.02312633) < 1e-5
-    assert abs(bbe.enthalpy - (-75.98221042)) < 1e-5
-    assert abs(bbe.gibbs_free_energy - (-76.00361983)) < 1e-5
 
 
 # ===========================================================================
@@ -256,9 +246,9 @@ def test_calc_bbe_orca_scaling():
 def test_calc_bbe_orca_nonstandard_cutoff():
     """Validate calc_bbe with s_freq_cutoff=200 against ORCA QRRHORefFreq 200."""
     bbe = _calc('01d_water_hf_freq_qhcutoff.out', s_freq_cutoff=200.0)
-    assert abs(bbe.zpe - 0.02234428) < 1e-5
-    assert abs(bbe.enthalpy - (-75.98299220)) < 1e-5
-    assert abs(bbe.gibbs_free_energy - (-76.00440190)) < 1e-5
+    assert abs(bbe.zpe - 0.02234428) < 1e-6
+    assert abs(bbe.enthalpy - (-75.98299220)) < 1e-6
+    assert abs(bbe.qh_gibbs_free_energy - (-76.00440190)) < 1e-6
 
 
 # ===========================================================================
@@ -284,10 +274,11 @@ def test_calc_bbe_orca_nonstandard_temp_pressure(
     """
     conc = ATMOS / (GAS_CONSTANT * temp)
     bbe = calc_bbe(orca_path('02_ethane_opt_freq_thermo.out'), 'grimme', False,
-                   100.0, 100.0, temp, conc, 1.0, None, False, False, 0)
-    assert abs(bbe.zpe - 0.07424074) < 1e-5
-    assert abs(bbe.enthalpy - expected_enthalpy) < 1e-5
-    assert abs(bbe.gibbs_free_energy - expected_gibbs) < 1e-5
+                   100.0, 100.0, temp, conc, 1.0, None, False, False, 0,
+                   inertia='conf')
+    assert abs(bbe.zpe - 0.07424074) < 1e-6
+    assert abs(bbe.enthalpy - expected_enthalpy) < 1e-6
+    assert abs(bbe.qh_gibbs_free_energy - expected_gibbs) < 1e-6
 
 
 # ===========================================================================
@@ -345,7 +336,7 @@ def test_calc_bbe_orca_second_order_saddle():
     """File 37 (planar cyclohexane) is a 2nd-order saddle with 2 imaginary
     frequencies.  Validate last thermo section values."""
     bbe = _calc('37_planar_cyclohexane_2nd_order_saddle.out')
-    assert abs(bbe.zpe - 0.17135959) < 1e-5
-    assert abs(bbe.enthalpy - (-235.48389423)) < 1e-5
-    assert abs(bbe.gibbs_free_energy - (-235.51694625)) < 1e-5
+    assert abs(bbe.zpe - 0.17135959) < 1e-6
+    assert abs(bbe.enthalpy - (-235.48389423)) < 1e-6
+    assert abs(bbe.qh_gibbs_free_energy - (-235.51694625)) < 1e-6
     assert len(bbe.im_frequency_wn) == 2
