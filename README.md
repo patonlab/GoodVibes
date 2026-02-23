@@ -8,31 +8,77 @@
 [![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/goodvibes/badges/license.svg)](https://anaconda.org/conda-forge/goodvibes)
 
-GoodVibes computes quasi-harmonic thermochemical corrections from electronic structure calculations (Gaussian, ORCA). It corrects the poor description of low-frequency vibrations by the rigid-rotor harmonic oscillator (RRHO) treatment using the approaches of [Grimme](http://dx.doi.org/10.1002/chem.201200497) and [Truhlar](http://dx.doi.org/10.1021/jp205508z).
+GoodVibes computes quasi-harmonic thermochemical corrections from electronic structure calculations (Gaussian, ORCA, NWChem). It corrects the poor description of low-frequency vibrations by the rigid-rotor harmonic oscillator (RRHO) treatment using the approaches of [Grimme](http://dx.doi.org/10.1002/chem.201200497) and [Truhlar](http://dx.doi.org/10.1021/jp205508z).
 
-Features include variable temperature/concentration thermochemistry, automated frequency scaling factors, single-point energy corrections, Boltzmann averaging, PES construction, and error checking.
+#### Features
+
+- Grimme quasi-RRHO (mRRHO) and Truhlar quasi-harmonic entropy corrections
+- Head-Gordon quasi-harmonic enthalpy correction
+- Variable temperature and concentration thermochemistry
+- Automated vibrational frequency scaling factor lookup (~200 levels of theory)
+- Single-point energy corrections (link jobs or separate files)
+- Boltzmann-weighted populations and stereoselectivity (ee, dr)
+- Potential energy surface analysis with YAML-defined pathways and Gconf corrections
+- Symmetry-corrected entropy via pymsym point-group detection
+- Solvent standard-state concentration and free-space corrections
+- JSON caching for fast re-analysis (`--cache-save` / `--cache-read`)
+- Duplicate structure detection (`--dedup`) and energy-sorted output (`--sort`)
+- Supports Gaussian, ORCA, and NWChem output files
 
 
 #### Installation
-```
+
+Requires Python >= 3.9.
+
+```bash
 pip install goodvibes
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv pip install goodvibes
+```
+
+Or from conda-forge:
+
+```bash
 conda install -c conda-forge goodvibes
 ```
 
-#### Quick Start
+For development (editable install):
+
+```bash
+pip install -e .
 ```
+
+#### Quick Start
+
+```bash
 goodvibes <output_file(s)> -q
 ```
+
 The `-q` flag applies quasi-harmonic corrections (Grimme entropy + Head-Gordon enthalpy). Use `-h` for the full list of options.
 
+#### Supported Programs
+
+GoodVibes reads output files (`.log`, `.out`) from:
+
+- **Gaussian** (09, 16) -- optimization, frequency, single-point, link jobs, ONIOM, VPT2 anharmonic
+- **ORCA** (4, 5, 6) -- optimization, frequency, single-point, DLPNO-CCSD(T)
+- **NWChem** -- optimization, frequency, single-point
+
+The program is auto-detected from the output file contents. Additional file extensions can be registered with `--custom_ext`.
+
 #### Documentation
+
 Full documentation is available on [Read the Docs](https://goodvibespy.readthedocs.io/en/latest/).
 
 #### Examples
 
 ##### Example 1: Grimme-type quasi-harmonic correction with a cut-off of 150 cm<sup>-1</sup>
-```python
-python -m goodvibes examples/methylaniline.out -f 150
+```bash
+goodvibes examples/methylaniline.out -f 150
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
@@ -44,8 +90,8 @@ o  methylaniline      -326.664901   0.142118   -326.514489   0.039668   0.039465
 The output shows both standard harmonic and quasi-harmonic corrected thermochemical data (in Hartree). The corrected enthalpy and entropy values are always less than or equal to the harmonic value.
 
 ##### Example 2: Quasi-harmonic thermochemistry with a larger basis set single point energy correction link job
-```python
-python -m goodvibes examples/ethane_spc.out --spc link
+```bash
+goodvibes examples/ethane_spc.out --spc link
 
    Structure                E_SPC             E        ZPE         H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
    ***********************************************************************************************************************
@@ -57,8 +103,8 @@ This calculation contains a multi-step job: an optimization and frequency calcul
 
 Alternatively, if a single point energy calculation has been performed separately, provided both file names share a common root e.g. `ethane.out` and `ethane_TZ.out` then use of the `--spc TZ` option is appropriate. This will give identical results as above.
 
-```python
-python -m goodvibes examples/ethane.out --spc TZ
+```bash
+goodvibes examples/ethane.out --spc TZ
 
    Structure                E_SPC             E        ZPE         H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
    ***********************************************************************************************************************
@@ -68,8 +114,8 @@ o  ethane              -79.858399    -79.830421   0.073508    -79.780448   0.027
 
 
 ##### Example 3: Changing the temperature (from standard 298.15 K to 1000 K) and concentration (from standard state in gas phase, 1 atm, to standard state in solution, 1 mol/l)
-```python
-python -m goodvibes examples/methylaniline.out -t 1000 -c 1.0
+```bash
+goodvibes examples/methylaniline.out --temp 1000 --conc 1.0
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
@@ -80,8 +126,8 @@ o  methylaniline      -326.664901   0.142118   -326.452307   0.218212   0.216559
 This correction from 1 atm to 1 mol/l is responsible for the addition 1.89 kcal/mol to the Gibbs energy of each species (at 298K). It affects the translational entropy, which is the only component of the molecular partition function to show concentration dependence. In the example above the correction is larger due to the increase in temperature.
 
 ##### Example 4: Analyzing the Gibbs energy across an interval of temperatures 300-1000 K with a stepsize of 100 K, applying a (Truhlar type) cut-off of 100 cm<sup>-1</sup>
-```python
-python -m goodvibes examples/methylaniline.out --ti '300,1000,100' --qs truhlar -f 120
+```bash
+goodvibes examples/methylaniline.out --ti '300,1000,100' --qs truhlar -f 120
 
    Structure               Temp/K                        H        T.S     T.qh-S          G(T)       qh-G(T)
    ******************************************************************************************************
@@ -99,8 +145,8 @@ o  methylaniline           1000.0              -326.452307   0.232169   0.231614
 Note that the energy and ZPE are not printed in this instance since they are temperature-independent. The Truhlar-type quasi-harmonic correction sets all frequencies below 120 cm<sup>-1</sup> to a value of 100. Constant pressure is assumed, so that the concentration is recomputed at each temperature.
 
 ##### Example 5: Analyzing the Gibbs Energy using scaled vibrational frequencies
-```python
-python -m goodvibes examples/methylaniline.out -v 0.95
+```bash
+goodvibes examples/methylaniline.out -v 0.95
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
@@ -111,15 +157,15 @@ o  methylaniline      -326.664901   0.135012   -326.521265   0.040238   0.040091
 The frequencies are scaled by a factor of 0.95 before they are used in the computation of the vibrational energies (including ZPE) and entropies.
 
 ##### Example 6: Writing Cartesian coordinates
-```python
-python -m goodvibes examples/HCN*.out --xyz
+```bash
+goodvibes examples/HCN*.out --xyz
 ```
 
 Optimized cartesian-coordinates found in files HCN_singlet.out and HCN_triplet.out are written to GoodVibes_output.xyz
 
 ##### Example 7: Analyzing multiple files at once
-```python
-python -m goodvibes examples/*.out --cpu
+```bash
+goodvibes examples/*.out --cpu
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    *********************************************************************************************************
@@ -141,8 +187,8 @@ TOTAL CPU      0 days  2 hrs 29 mins 28 secs
 Wildcard characters (`*`) can be used to specify all output files in a directory.
 
 ##### Example 8: Entropic Symmetry Correction
-```python
-python -m goodvibes examples/allene.out examples/benzene.out examples/ethane.out examples/isobutane.out examples/neopentane.out --ssymm
+```bash
+goodvibes examples/allene.out examples/benzene.out examples/ethane.out examples/isobutane.out examples/neopentane.out --symm
 
    Structure                    E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Point Group
    **********************************************************************************************************************
@@ -155,8 +201,8 @@ o  neopentane         -197.772980   0.160311   -197.604824   0.034606   0.034620
 ```
 
 ##### Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction
-```python
-python -m goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml
+```bash
+goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
    ************************************************************************************************************
@@ -179,8 +225,8 @@ o  TS                           4.72      -0.46          3.53     -15.85     -16
 
 ##### Example 10: Stereoselectivity and Boltzmann populations
 
-```python
-python -m goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee "*_R*:*_S*"
+```bash
+goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee "*_R*:*_S*"
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Boltz
    *******************************************************************************************************************
@@ -193,6 +239,75 @@ o  Aminoxylation_TS2_S   -879.404445   0.295301   -879.090562   0.064366   0.061
 o                              20.98         60:40         1.5:1             R          0.25
    *****************************************************************************************
 ```
+
+#### CLI Reference
+
+Run `goodvibes -h` for the full list of options. Key flags:
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-q` | Apply quasi-harmonic corrections (Grimme entropy + Head-Gordon enthalpy) | off |
+| `-f FREQ` | Frequency cut-off for entropy and enthalpy (cm-1) | 100 |
+| `--fs FREQ` | Frequency cut-off for entropy only (cm-1) | 100 |
+| `--fh FREQ` | Frequency cut-off for enthalpy only (cm-1) | 100 |
+| `--qs {grimme,truhlar}` | Quasi-harmonic entropy method | grimme |
+| `--qh` | Apply Head-Gordon enthalpy correction only | off |
+| `--temp TEMP` | Temperature in Kelvin | 298.15 |
+| `--ti START,END,STEP` | Temperature interval scan | -- |
+| `--conc CONC` | Concentration in mol/L (solution-phase entropy) | gas phase |
+| `-v SCALE` | Vibrational frequency scaling factor | auto |
+| `--spc SUFFIX` | Single-point energy correction (suffix or `link`) | -- |
+| `--symm` | Apply symmetry correction to entropy (pymsym) | off |
+| `--boltz` | Print Boltzmann-weighted populations | off |
+| `--ee PATTERNS` | Compute selectivity from two species (e.g. `"*_R*:*_S*"`) | -- |
+| `--pes FILE` | YAML-defined reaction pathway analysis | -- |
+| `--media SOLVENT` | Solvent standard-state concentration correction | -- |
+| `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
+| `--invert [THRESH]` | Invert small imaginary frequencies to positive values | off |
+| `--bav {global,conf}` | Moment of inertia for free-rotor entropy | global |
+| `--sort [energy\|gibbs]` | Sort output by energy | -- |
+| `--dedup` | Remove duplicate structures | off |
+| `--dp N` | Decimal places for energy output | 6 |
+| `--cache-save FILE` | Save parsed data to JSON cache | -- |
+| `--cache-read FILE` | Read parsed data from JSON cache | -- |
+| `--custom_ext EXTS` | Additional file extensions (comma-separated) | -- |
+| `--exclude PATTERN` | Glob pattern to exclude files | -- |
+| `--check` | Verify consistency across input files | off |
+| `--cpu` | Print total CPU time | off |
+| `--xyz` | Write Cartesian coordinates to .xyz file | off |
+| `--imag` | Print imaginary frequencies | off |
+| `--output NAME` | Output file base name | output |
+| `--vmm SCALE` | Frequency scaling factor for ONIOM MM region | -- |
+| `--nogconf` | Disable Gconf correction in PES analysis | off |
+| `--graph FILE` | Graph a reaction profile from free energies | -- |
+
+#### Dependencies
+
+- **Python** >= 3.9
+- **numpy** -- numerical computations
+- **pymsym** -- point group detection and symmetry numbers
+
+Build requires setuptools >= 64. See `pyproject.toml` for details.
+
+#### Contributing
+
+Install for development:
+
+```bash
+pip install -e .
+```
+
+Run the test suite:
+
+```bash
+pytest -v
+```
+
+Test data is organized by program:
+- `tests/g16/` -- Gaussian 16 output files
+- `tests/orca6/` -- ORCA 6 output files
+
+Test helpers in `tests/conftest.py` provide `g16path()` and `orca_path()` for resolving test file paths, plus categorized file lists (`G16_FREQ_FILES`, `ORCA_FREQ_FILES`, etc.) used by parametrized tests.
 
 #### Citing GoodVibes
 Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
