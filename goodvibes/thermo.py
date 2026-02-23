@@ -5,7 +5,7 @@ import os.path
 import sys
 import numpy as np
 
-from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, compute_connectivity
+from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu
 
 # PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -500,7 +500,7 @@ class calc_bbe:
         
         # 1. Parse all data from file (program-agnostic), or use provided cache
         if qcdata is None:
-            qcdata = parse_qcdata(file, ssymm=symm)
+            qcdata = parse_qcdata(file)
 
         # 2. Geometry data (from native parser via qcdata)
         self.xyz = qcdata
@@ -521,6 +521,7 @@ class calc_bbe:
         self.zero_point_corr = qcdata.zero_point_corr
         self.job_type = qcdata.job_type
         self.roconst = qcdata.roconst
+        self.point_group = qcdata.point_group
         self.cpu = qcdata.cpu
 
         molecular_mass = qcdata.molecular_mass
@@ -680,7 +681,7 @@ class calc_bbe:
         self.im_frequency_wn = im_frequency_wn
         self.linear_warning = linear_warning
 
-    # Get external symmetry number
+    # Get external symmetry number and point group using pymsym, if available, for symmetry corrections to entropy
     def ex_sym(self, file):
         try:
             import pymsym
@@ -695,28 +696,7 @@ class calc_bbe:
         sym_num = pymsym.get_symmetry_number(atom_nums, positions)
         return sym_num, pgroup
 
-    def int_sym(self):
-        connectivity = compute_connectivity(self.xyz.atom_types, self.xyz.cartesians)
-        cap = [1, 9, 17]
-        neighbor = [5, 6, 7, 8, 14, 15, 16]
-        int_sym = 1
-
-        for i, row in enumerate(connectivity):
-            if self.xyz.atom_nums[i] != 6:
-                continue
-            As = np.array(self.xyz.atom_nums)[row]
-            if len(As) == 4:
-                neighbors = [x for x in As if x in neighbor]
-                caps = [x for x in As if x in cap]
-                if (len(neighbors) == 1) and (len(set(caps)) == 1):
-                    int_sym *= 3
-        return int_sym
-
     def sym_correction(self, file):
         ex_sym, pgroup = self.ex_sym(file)
-        int_sym = self.int_sym()
-        # override int_sym
-        int_sym = 1
-        sym_num = ex_sym * int_sym
-        sym_correction = (-GAS_CONSTANT * math.log(sym_num)) / J_TO_AU
+        sym_correction = (-GAS_CONSTANT * math.log(ex_sym)) / J_TO_AU
         return sym_correction, pgroup

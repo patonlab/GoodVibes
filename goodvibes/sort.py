@@ -78,6 +78,10 @@ def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,
                     nonzero = avg > 0
                     if np.any(nonzero):
                         ro_diff = np.max(np.abs(ri[nonzero] - rj[nonzero]) / avg[nonzero])
+                    else:
+                        # Both structures have all-zero rotational constants
+                        # (e.g. single atoms) — treat as matching
+                        ro_diff = 0.0
             rmsd_pass = True
             if rmsd_cutoff is not None:
                 rmsd_pass = False

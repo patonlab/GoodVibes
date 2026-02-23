@@ -333,3 +333,19 @@ def test_deduplicate_no_cross_pair_leakage():
     # Only (b, a) should be flagged; c should not match anyone
     assert len(dups) == 1
     assert dups[0] == ['b.log', 'a.log']
+
+
+def test_deduplicate_single_atoms_zero_roconst():
+    """Single atoms with all-zero rotational constants should be flagged as duplicates."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst):
+            self.scf_energy = scf
+            self.roconst = roconst
+
+    # Two single atoms: same energy, all-zero rotational constants
+    bbe1 = MockBBE(-242.328708, [0.0, 0.0, 0.0])
+    bbe2 = MockBBE(-242.328708, [0.0, 0.0, 0.0])
+    thermo_data = {'Al_298K.log': bbe1, 'Al_400K.log': bbe2}
+    assert len(deduplicate(thermo_data)) == 1

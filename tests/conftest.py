@@ -56,7 +56,7 @@ G16_FREQ_FILES = [
     '34_butadiene_camb3lyp_rsh.log',
     '35_furan_mn15_functional.log',
     '36_imidazole_apfd_noraman.log',
-    '37_planar_cyclohexane_2nd_order_saddle.log',
+    '37_planar_cyclohexane_3rd_order_saddle.log',
     '39_oxazole_tpssh_cpcm_dcm.log',
     '40_n2o_linear_highT_highP.log',
     '41_thiophene_freq_noraman_nmr.log',
@@ -144,7 +144,7 @@ ORCA_FREQ_FILES = [
     '34_butadiene_camb3lyp_rsh.out',
     '35_furan_wb97xv_functional.out',
     '36_imidazole_pbe0d3bj_noraman.out',
-    '37_planar_cyclohexane_2nd_order_saddle.out',
+    '37_planar_cyclohexane_3rd_order_saddle.out',
     '38_naphthalene_scsmp2.out',
     '39_oxazole_tpssh_cpcm_dcm.out',
     '42_dmso_linked_cpcm_gasfreq.out',
@@ -155,7 +155,6 @@ ORCA_TS_FILES = [
     '44_ts_sn2_identity_chloride.out',
     '45_ts_diels_alder_butadiene_ethylene.out',
     '46_ts_neb_cope_rearrangement.out',
-    '47_ts_e2_elimination_ethylchloride.out',
     '48_ts_nh3_umbrella_inversion.out',
     '49_ts_oh_abstraction_methane.out',
 ]
@@ -165,8 +164,6 @@ ORCA_SP_ONLY_FILES = [
     '09_caffeine_nmr_giao.out',
     '11_hf_molecule_dlpno_ccsdt_gold_standard.out',
     '13_formaldehyde_tddft_s1.out',
-    '14_water_dimer_gcp.out',
-    '17_iron_complex_quintet.out',
     '20_benzene_singlepoint.out',
     '40_n2o_linear_highT.out',
     '41_thiophene_nmr_giao.out',
@@ -190,6 +187,9 @@ ORCA_LINEAR_FILES = [
 ]
 
 ORCA_ERROR_FILES = [
+    '14_water_dimer_gcp.out',
+    '17_iron_complex_quintet.out',
+    '47_ts_e2_elimination_ethylchloride.out',
     '51_err_scf_convergence_fe_complex.out',
     '52_err_opt_not_converged_maxcycles.out',
     '53_err_wrong_charge_multiplicity.out',

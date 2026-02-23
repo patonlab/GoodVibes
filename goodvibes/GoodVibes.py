@@ -102,6 +102,8 @@ def parse_arguments():
                              "(e.g. --spc TZ reads from FILE_TZ.log)")
     parser.add_argument("--symm", dest='symm', action="store_true", default=False,
                         help="Apply external symmetry correction to entropy using point-group detection (pymsym)")
+    parser.add_argument("--pg", dest='pg', action="store_true", default=False,
+                        help="Display point group from output file (no entropy correction applied)")
     parser.add_argument("--temp", dest="temperature", default=298.15, type=float, metavar="TEMP",
                         help="Temperature in Kelvin (default: 298.15)")
     parser.add_argument("--ti", dest="temperature_interval", default=None, metavar="TI",
@@ -282,6 +284,9 @@ def validate_and_configure(options, s_m):
     # Check if entropy symmetry correction should be applied
     if options.symm:
         log.info('\n   ✔ Point groups and symmetry numbers auto-detected using pymsym: https://github.com/corinwagen/pymsym')
+    else:
+        log.info('\n   ✔ Point group symmetry parsed directly from outputs - caution if not provided or incorrect! Use --symm to auto-detect with pymsym')
+
     # Whether single-point energies are to be used
     if options.spc:
         log.info("\n   Combining final single point energy with thermal corrections.")

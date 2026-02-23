@@ -879,6 +879,8 @@ def read_initial(file):
         keyword_line_1 = "gas phase"
         keyword_line_2 = ''
         keyword_line_3 = ''
+        orca_abort_line = -1
+        last_freq_line = -1
         for i, line in enumerate(data):
             if 'CPCM SOLVATION MODEL' in line.strip():
                 keyword_line_1 = "CPCM,"
@@ -890,6 +892,13 @@ def read_initial(file):
                 progress = 'Normal'
             elif 'error termination' in line:
                 progress = 'Error'
+            if 'ORCA will abort' in line:
+                orca_abort_line = i
+            if 'VIBRATIONAL FREQUENCIES' in line and '---' not in line:
+                last_freq_line = i
+        # Abort after the last freq section means no valid thermo was produced
+        if orca_abort_line > last_freq_line:
+            progress = 'Error'
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
     level_of_theory = '/'.join([level, bs])
 
@@ -911,7 +920,7 @@ def gaussian_jobtype(filename):
     return job
 
 
-def parse_gaussian_thermo(file, ssymm=False):
+def parse_gaussian_thermo(file):
     """Parse Gaussian output for all thermochemistry-relevant data.
 
     Returns QCData with raw frequencies (negative = imaginary, no inversion
@@ -922,8 +931,6 @@ def parse_gaussian_thermo(file, ssymm=False):
     ----------
     file : str
         Path to Gaussian output file.
-    ssymm : bool
-        If True, skip rotational symmetry number from file (use default 1).
     """
     qcdata = QCData(file=file, program='Gaussian')
 
@@ -1133,7 +1140,7 @@ def parse_gaussian_thermo(file, ssymm=False):
     return qcdata
 
 
-def parse_nwchem_thermo(file, ssymm=False):
+def parse_nwchem_thermo(file):
     """Parse NWChem output for all thermochemistry-relevant data.
 
     Returns QCData with raw frequencies (negative = imaginary, no inversion
@@ -1143,8 +1150,6 @@ def parse_nwchem_thermo(file, ssymm=False):
     ----------
     file : str
         Path to NWChem output file.
-    ssymm : bool
-        If True, skip rotational symmetry number from file (use default 1).
     """
     qcdata = QCData(file=file, program='NWChem')
 
@@ -1256,7 +1261,7 @@ def parse_nwchem_thermo(file, ssymm=False):
     return qcdata
 
 
-def parse_orca_thermo(file, ssymm=False):
+def parse_orca_thermo(file):
     """Parse ORCA output for all thermochemistry-relevant data.
 
     Uses native line-by-line parsing.
@@ -1265,8 +1270,6 @@ def parse_orca_thermo(file, ssymm=False):
     ----------
     file : str
         Path to ORCA output file.
-    ssymm : bool
-        If True, skip symmetry number from file (use default 1).
     """
     qcdata = QCData(file=file, program='Orca')
 
@@ -1282,6 +1285,8 @@ def parse_orca_thermo(file, ssymm=False):
     _has_opt = False
     _has_ts = False
     _has_freq_kw = False
+    _orca_abort_line = -1
+    _last_freq_line = -1
 
     for i, line in enumerate(output):
         stripped = line.strip()
@@ -1291,6 +1296,7 @@ def parse_orca_thermo(file, ssymm=False):
             in_freq_section = True
             frequency_wn = []
             im_frequency_wn = []
+            _last_freq_line = i
         elif in_freq_section and 'cm**-1' in stripped:
             parts = stripped.split()
             try:
@@ -1422,6 +1428,17 @@ def parse_orca_thermo(file, ssymm=False):
             except (IndexError, ValueError):
                 pass
 
+        # ORCA abort: optimization failed before freq calculation could run.
+        if 'ORCA will abort' in stripped:
+            _orca_abort_line = i
+
+    # If the last abort comes after the last freq section (or there are no freqs),
+    # any frequencies/ZPE present are from calc_hess, not the actual freq job — discard.
+    if _orca_abort_line > _last_freq_line:
+        frequency_wn = []
+        im_frequency_wn = []
+        qcdata.zero_point_corr = None
+
     # Assemble solvation model
     if solvation_type:
         if solvent_name:
@@ -1489,7 +1506,7 @@ def parse_orca_thermo(file, ssymm=False):
     return qcdata
 
 
-def parse_qcdata(file, ssymm=False):
+def parse_qcdata(file):
     """Parse any supported output file into a QCData object.
 
     Detects program from file content and delegates to the correct parser.
@@ -1498,8 +1515,6 @@ def parse_qcdata(file, ssymm=False):
     ----------
     file : str
         Path to quantum chemistry output file.
-    ssymm : bool
-        If True, skip rotational symmetry number from file (use default 1).
     """
     stub = os.path.splitext(file)[0]
     possible_filenames = (stub + '.log', stub + '.out')
@@ -1529,10 +1544,10 @@ def parse_qcdata(file, ssymm=False):
             break
 
     if program == 'Gaussian':
-        return parse_gaussian_thermo(actual_file, ssymm=ssymm)
+        return parse_gaussian_thermo(actual_file)
     elif program == 'Orca':
-        return parse_orca_thermo(actual_file, ssymm=ssymm)
+        return parse_orca_thermo(actual_file)
     elif program == 'NWChem':
-        return parse_nwchem_thermo(actual_file, ssymm=ssymm)
+        return parse_nwchem_thermo(actual_file)
     else:
         return QCData(file=file, program='unknown')

@@ -20,9 +20,7 @@ T_DEFAULT = 298.15
 CONC_DEFAULT = ATMOS / (GAS_CONSTANT * T_DEFAULT)
 
 XFAIL_SYMMETRY = "Small Gibbs discrepancy likely due to symmetry number or physical constant differences between ORCA and GoodVibes"
-XFAIL_LINKED = "Linked composite job — enthalpy/Gibbs mismatch under investigation"
 XFAIL_TS_LINKED = "TS linked opt+freq — small numerical discrepancy under investigation"
-XFAIL_SADDLE = "2nd-order saddle point — numerical discrepancy under investigation"
 XFAIL_ORCA_ENERGY = ("ORCA 'FINAL SINGLE POINT ENERGY' differs from 'Electronic energy' "
                      "by >1e-6 Eh; GoodVibes parses the former, ORCA thermo uses the latter")
 
@@ -105,8 +103,7 @@ def test_calc_bbe_orca_zpe_vs_orca(filename, expected_zpe, scale):
     pytest.param('15_methanol_qmqm2_xtb.out', -44.51671796, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_ORCA_ENERGY)),
     ('16_o2_superoxide_anion.out', -150.33516104, 1.0),
-    pytest.param('18_propane_linked_composite_dh.out', -118.92947046, 1.0,
-                 marks=pytest.mark.xfail(reason=XFAIL_LINKED)),
+    ('18_propane_linked_composite_dh.out', -118.93882816, 1.0),
     ('19_acetic_acid_smd_dmso.out', -228.99355445, 1.0),
     ('21_naphthalene_xtb2_semiempirical.out', -23.95298356, 1.0),
     ('22_hcn_linear_freq_noraman.out', -93.39441825, 1.0),
@@ -152,8 +149,7 @@ def test_calc_bbe_orca_enthalpy_vs_orca(filename, expected_enthalpy, scale):
     pytest.param('15_methanol_qmqm2_xtb.out', -44.54363334, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_ORCA_ENERGY)),
     ('16_o2_superoxide_anion.out', -150.35827549, 1.0),
-    pytest.param('18_propane_linked_composite_dh.out', -118.95880295, 1.0,
-                 marks=pytest.mark.xfail(reason=XFAIL_LINKED)),
+    ('18_propane_linked_composite_dh.out', -118.96816065, 1.0),
     ('19_acetic_acid_smd_dmso.out', -229.02434361, 1.0),
     pytest.param('21_naphthalene_xtb2_semiempirical.out', -23.99995730, 1.0,
                  marks=pytest.mark.xfail(reason=XFAIL_SYMMETRY)),
@@ -220,9 +216,6 @@ def test_calc_bbe_orca_entropy_vs_orca(filename, expected_TS, scale):
                  -234.26023290, -234.29687965),
     ('46_ts_neb_cope_rearrangement.out', 0.14427177,
                  -233.85997087, -233.89652812),
-    pytest.param('47_ts_e2_elimination_ethylchloride.out', 0.07450085,
-                 -615.03764523, -615.07236231,
-                 marks=pytest.mark.xfail(reason=XFAIL_TS_LINKED)),
     ('48_ts_nh3_umbrella_inversion.out', 0.03291185, -56.50170779, -56.52450163),
     pytest.param('49_ts_oh_abstraction_methane.out', 0.05332669,
                  -116.21228132, -116.24675878,
@@ -328,15 +321,25 @@ def test_calc_bbe_orca_error_files(filename):
 
 
 # ===========================================================================
-# calc_bbe: 2nd-order saddle point (multiple thermo sections)
+# calc_bbe: 3rd-order saddle point (multiple thermo sections)
 # ===========================================================================
 
-@pytest.mark.xfail(reason=XFAIL_SADDLE)
-def test_calc_bbe_orca_second_order_saddle():
-    """File 37 (planar cyclohexane) is a 2nd-order saddle with 2 imaginary
+def test_calc_bbe_orca_third_order_saddle():
+    """File 37 (planar cyclohexane) is a 3rd-order saddle with 3 imaginary
     frequencies.  Validate last thermo section values."""
-    bbe = _calc('37_planar_cyclohexane_2nd_order_saddle.out')
+    bbe = _calc('37_planar_cyclohexane_3rd_order_saddle.out')
     assert abs(bbe.zpe - 0.17135959) < 1e-6
     assert abs(bbe.enthalpy - (-235.48389423)) < 1e-6
     assert abs(bbe.qh_gibbs_free_energy - (-235.51694625)) < 1e-6
-    assert len(bbe.im_frequency_wn) == 2
+    assert len(bbe.im_frequency_wn) == 3
+
+
+# ===========================================================================
+# calc_bbe: aborted optimization (ORCA will abort) should not produce thermo
+# ===========================================================================
+
+def test_calc_bbe_orca_aborted_opt_no_thermo():
+    """File 47 has calc_hess frequencies but the optimization failed and ORCA
+    aborted before the real freq job ran.  No thermochemistry should be produced."""
+    bbe = _calc('47_ts_e2_elimination_ethylchloride.out')
+    assert not hasattr(bbe, 'gibbs_free_energy')

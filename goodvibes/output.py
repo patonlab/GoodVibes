@@ -97,7 +97,7 @@ def print_results(thermo_data, options, media_conc=None,
         stars += '*' * 9
     if options.boltz is True:
         stars += '*' * 7
-    if options.symm is True:
+    if options.symm or options.pg:
         stars += '*' * 13
 
     total_cpu_time, add_days = datetime(100, 1, 1, 00, 00, 00, 00), 0
@@ -132,7 +132,7 @@ def print_results(thermo_data, options, media_conc=None,
         log.info('{:>7}'.format("Boltz"))
     if options.imag_freq is True:
         log.info('{:>9}'.format("im freq"))
-    if options.symm:
+    if options.symm or options.pg:
         log.info('{:>13}'.format("Point Group"))
     log.info("\n" + stars + "")
 
@@ -216,8 +216,8 @@ def print_results(thermo_data, options, media_conc=None,
             if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
                 for freq in bbe.im_frequency_wn:
                     log.info('{:9.2f}'.format(freq))
-            if options.symm:
-                if hasattr(bbe, "qh_gibbs_free_energy"):
+            if options.symm or options.pg:
+                if hasattr(bbe, "point_group") and bbe.point_group:
                     log.info('{:>13}'.format(bbe.point_group))
                 else:
                     log.info('{:>37}'.format('---'))

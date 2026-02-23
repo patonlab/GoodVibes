@@ -51,7 +51,7 @@ files 51–60 are deliberate error examples illustrating common ORCA failures.
 | 34 | `34_butadiene_camb3lyp_rsh.inp` | CAM-B3LYP/6-311+G(d,p) | Opt+Freq | Range-separated hybrid, D3BJ |
 | 35 | `35_furan_wb97xv_functional.inp` | wB97X-V/def2-TZVP | Opt+NumFreq | MN15 substitute (N/A in ORCA) |
 | 36 | `36_imidazole_pbe0d3bj_noraman.inp` | PBE0-D3BJ/6-311+G(d,p) | Opt+Freq | APFD substitute (N/A in ORCA) |
-| 37 | `37_planar_cyclohexane_2nd_order_saddle.inp` | B3LYP/6-31G(d) | Opt+Freq | **2nd order saddle point** |
+| 37 | `37_planar_cyclohexane_3rd_order_saddle.inp` | B3LYP/6-31G(d) | Opt+Freq | **3rd order saddle point** |
 | 38 | `38_naphthalene_scsmp2.inp` | RI-SCS-MP2/cc-pVDZ | NumFreq | Native SCS-MP2 (no IOP needed) |
 | 39 | `39_oxazole_tpssh_cpcm_dcm.inp` | TPSSh/6-311+G(d,p) | Opt+Freq | CPCM DCM |
 | 40 | `40_n2o_linear_highT.inp` | HF/cc-pVTZ (RIJCOSX) | SP | Linear, %freq temp=1000 K (no Freq keyword) |

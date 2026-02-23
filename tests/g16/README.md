@@ -47,7 +47,7 @@ file 61 is a blank log file for edge-case testing.
 | 34 | `34_butadiene_camb3lyp_rsh.com` | CAM-B3LYP/6-311+G(d,p) | Opt+Freq | Range-separated hybrid, GD3BJ |
 | 35 | `35_furan_mn15_functional.com` | MN15/def2TZVP | Opt+Freq | Minnesota functional |
 | 36 | `36_imidazole_apfd_noraman.com` | APFD/6-311+G(d,p) | Opt+Freq | APFD functional, NoRaman |
-| 37 | `37_planar_cyclohexane_2nd_order_saddle.com` | B3LYP/6-31G* | Opt+Freq | **2nd order saddle point** (see below) |
+| 37 | `37_planar_cyclohexane_3rd_order_saddle.com` | B3LYP/6-31G* | Opt+Freq | **3rd order saddle point** (see below) |
 | 39 | `39_oxazole_tpssh_cpcm_dcm.com` | TPSSh/6-311+G(d,p) | Opt+Freq | CPCM DCM |
 | 40 | `40_n2o_linear_highT_highP.com` | CCSD/cc-pVTZ | Opt+Freq | Linear, T=1000 K, P=100 atm |
 | 41 | `41_thiophene_freq_noraman_nmr.com` | mPW1PW91/6-311+G(2d,p) | Opt+Freq+NMR | Freq NoRaman + GIAO NMR |
