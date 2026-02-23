@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, absolute_import
-
 import json
 import os.path
 from dataclasses import asdict, dataclass, field
@@ -187,30 +185,29 @@ def compute_connectivity(atom_types, cartesians, tolerance=0.2):
         connectivity.append(row)
     return connectivity
 
-class xyz_out:
+def write_xyz(filepath, files, thermo_data):
+    """Write optimized Cartesian coordinates to a multi-structure .xyz file.
+
+    Each structure block contains the atom count, a comment line with the
+    filename and SCF energy, and the Cartesian coordinates.
+
+    Parameters:
+        filepath (str): output .xyz file path.
+        files (list): output file paths whose coordinates to write.
+        thermo_data (dict): file path → calc_bbe mapping.
     """
-    Enables output of optimized coordinates to a single xyz-formatted file.
-
-    Writes Cartesian coordinates of parsed chemical input.
-
-    Attributes:
-        xyz (file object): path in current working directory to write Cartesian coordinates.
-    """
-    def __init__(self, filein, suffix, append):
-        self.xyz = open('{}_{}.{}'.format(filein, append, suffix), 'w')
-
-    def write_text(self, message):
-        self.xyz.write(message + "\n")
-
-    def write_coords(self, atoms, coords):
-        for n, carts in enumerate(coords):
-            self.xyz.write('{:>1}'.format(atoms[n]))
-            for cart in carts:
-                self.xyz.write('{:13.6f}'.format(cart))
-            self.xyz.write('\n')
-
-    def finalize(self):
-        self.xyz.close()
+    from .utils import display_name
+    with open(filepath, 'w') as f:
+        for file in files:
+            bbe = thermo_data[file]
+            f.write(f'{len(bbe.atom_types)}\n')
+            if bbe.scf_energy is not None:
+                f.write(f'{display_name(file):<39} {"Eopt":>13} {bbe.scf_energy:.6f}\n')
+            else:
+                f.write(f'{display_name(file):<39}\n')
+            if bbe.atom_types and bbe.cartesians:
+                for atom, carts in zip(bbe.atom_types, bbe.cartesians):
+                    f.write(f'{atom:>1}{carts[0]:13.6f}{carts[1]:13.6f}{carts[2]:13.6f}\n')
 
 def parse_data(file):
     """

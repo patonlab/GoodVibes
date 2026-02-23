@@ -1,4 +1,5 @@
 """Utility classes and functions for GoodVibes."""
+import logging
 import os.path
 import sys
 from datetime import datetime, timedelta
@@ -9,42 +10,40 @@ def all_same(items):
     return all(x == items[0] for x in items)
 
 
-class Logger:
+def setup_logging(filein, append):
+    """Configure the 'goodvibes' logger with dual output: stdout + .dat file.
+
+    Both handlers use a bare formatter (message only, no level/timestamp)
+    and empty terminators (no auto-newlines) to preserve the partial-line
+    write pattern used throughout the codebase.
+
+    Parameters:
+        filein (str): prefix for the output file (e.g. "GoodVibes").
+        append (str): suffix for the output file (e.g. "output").
     """
-    Enables output to terminal and to text file.
+    logger = logging.getLogger('goodvibes')
+    logger.setLevel(logging.DEBUG)
 
-    Writes GV output to .dat or .csv files.
+    formatter = logging.Formatter('%(message)s')
 
-    Attributes:
-        csv (bool): decides if comma separated value file is written.
-        log (file object): file to write GV output to.
-        thermodata (bool): decides if string passed to logger is thermochemical data, needing to be separated by commas
-    """
-    def __init__(self, filein, append, csv):
-        self.csv = csv
-        if not self.csv:
-            suffix = 'dat'
-        else:
-            suffix = 'csv'
-        self.log = open('{0}_{1}.{2}'.format(filein, append, suffix), 'w')
+    console = logging.StreamHandler(sys.stdout)
+    console.setFormatter(formatter)
+    console.terminator = ''
 
-    def write(self, message, thermodata=False):
-        self.thermodata = thermodata
-        print(message, end='')
-        if self.csv and self.thermodata:
-            items = message.split()
-            message = ",".join(items)
-            message = message + ","
-        self.log.write(message)
+    datfile = logging.FileHandler(f'{filein}_{append}.dat', mode='w')
+    datfile.setFormatter(formatter)
+    datfile.terminator = ''
 
-    def fatal(self, message):
-        print(message + "\n")
-        self.log.write(message + "\n")
-        self.finalize()
-        sys.exit(1)
+    logger.addHandler(console)
+    logger.addHandler(datfile)
 
-    def finalize(self):
-        self.log.close()
+
+def fatal(message):
+    """Log a critical message and exit."""
+    log = logging.getLogger('goodvibes')
+    log.critical(message + "\n")
+    logging.shutdown()
+    sys.exit(1)
 
 
 def add_time(tm, cpu):

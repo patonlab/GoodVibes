@@ -27,3 +27,24 @@ def _load_solvents():
 
 
 solvents = _load_solvents()
+
+
+def compute_media_conc(media, file):
+    """Return the neat solvent concentration if the filename matches the solvent name.
+
+    Used to replace the default concentration with the pure-solvent concentration
+    when the calculation is for the solvent molecule itself.
+
+    Parameters:
+        media (str): solvent name from --media.
+        file (str): output file path.
+
+    Returns:
+        float or None: concentration in mol/L, or None if the file doesn't match.
+    """
+    from .utils import display_name
+    key = media.lower()
+    if key in solvents and key == display_name(file).lower():
+        mweight, density = solvents[key]
+        return (density * 1000) / mweight
+    return None

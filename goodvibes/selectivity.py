@@ -1,4 +1,5 @@
 """Boltzmann weighting and selectivity calculations for GoodVibes."""
+import logging
 import math
 import os.path
 import sys
@@ -7,8 +8,10 @@ from string import ascii_lowercase as alphabet
 
 from .constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU
 
+log = logging.getLogger('goodvibes')
 
-def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup_list):
+
+def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, dup_list):
     """
     Calculate selectivity as enantioselectivity/diastereomeric ratio.
 
@@ -57,14 +60,14 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
         b_files.extend(glob(b_regex))
 
 
-    if len(a_files) == 0 or len(b_files) == 0:
-        log.write("\n   Warning! Filenames have not been formatted correctly for determining selectivity\n")
-        log.write("   Make sure the filename contains either " + A + " or " + B + "\n")
+    if not a_files or not b_files:
+        log.info("\n   Warning! Filenames have not been formatted correctly for determining selectivity\n")
+        log.info("   Make sure the filename contains either " + A + " or " + B + "\n")
         sys.exit("   Please edit either your filenames or selectivity pattern argument and try again\n")
     # Grab Boltzmann sums
     for file in files:
         duplicate = False
-        if len(dup_list) != 0:
+        if dup_list:
             for dup in dup_list:
                 if dup[0] == file:
                     duplicate = True
@@ -99,7 +102,7 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
             ratio = '0:1'
     ee = (a_sum - b_sum) * 100.
     if ee == 0:
-        log.write("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
+        log.info("\n   Warning! No files found for an enantioselectivity analysis, adjust the stereodetermining step name and try again.\n")
         failed = True
     ee = abs(ee)
     try:
@@ -109,25 +112,24 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, log, dup
     return ee, r, ratio, dd_free_energy, failed, pref
 
 
-def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
-    """
-    Obtain Boltzmann factors, Boltzmann sums, and weighted free energy values.
+def get_boltz(thermo_data, clustering, clusters, temperature, dup_list):
+    """Compute Boltzmann factors, weighted free energies, and the partition sum.
 
-    Used for selectivity and boltzmann requested options.
+    Uses quasi-harmonic Gibbs free energies from thermo_data. Duplicates in
+    dup_list are excluded from the population.
 
     Parameters:
-    files (list): list of files to find Boltzmann factors for.
-    thermo_data (dict): dict of calc_bbe objects with thermodynamic data to use for Boltzmann averaging.
-    clustering (bool): flag for file clustering
-    clusters (list): definitions for the requested clusters
-    temperature (float): temperature to compute Boltzmann populations at
-    dup_list (list): list of potential duplicates
+        thermo_data (dict): file path → calc_bbe mapping.
+        clustering (bool): whether to aggregate by cluster.
+        clusters (list): cluster definitions (groups of file paths), or None.
+        temperature (float): temperature in Kelvin for Boltzmann weighting.
+        dup_list (list): pairs [file_i, file_j] to exclude as duplicates.
 
-    Returns:boltz_facs, weighted_free_energy, boltz_sum
-    dict: dictionary of files with corresponding Boltzmann factors.
-    dict: dictionary of files with corresponding weighted Gibbs free energy.
-    float: Boltzmann sum computed from Boltzmann factors and Gibbs free energy.
+    Returns:
+        tuple: (boltz_facs, weighted_free_energy, boltz_sum) — dicts keyed by
+        file path and the total Boltzmann sum.
     """
+    files = list(thermo_data)
     boltz_facs, weighted_free_energy, e_rel, e_min, boltz_sum = {}, {}, {}, sys.float_info.max, 0.0
 
     for file in files:  # Need the most stable structure
@@ -144,7 +146,7 @@ def get_boltz(files, thermo_data, clustering, clusters, temperature, dup_list):
     # Calculate E_rel and Boltzmann factors
     for file in files:
         duplicate = False
-        if len(dup_list) != 0:
+        if dup_list:
             for dup in dup_list:
                 if dup[0] == file:
                     duplicate = True

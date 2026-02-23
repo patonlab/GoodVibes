@@ -1,16 +1,11 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, absolute_import
 
 import math
 import os.path
 import sys
 import numpy as np
 
-# Importing regardless of relative import
-try:
-    from .io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
-except ImportError:
-    from goodvibes.io import parse_qcdata, parse_data, sp_cpu, compute_connectivity
+from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, compute_connectivity
 
 # PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -77,7 +72,7 @@ def calc_rotational_energy(temperature, monatomic=False, linear=False):
     return energy
 
 
-def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fract_modelsys=False):
+def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fract_modelsys=None):
     """
     Vibrational energy evaluation.
 
@@ -102,12 +97,11 @@ def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fr
             "Temperature must be positive for vibrational energy calculation."
         )
 
-    if fract_modelsys is not False:
-        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
-                             for i in range(len(fract_modelsys))]
-        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT *
-                   freq_scale_factor[i]) / (BOLTZMANN_CONSTANT * temperature)
-                  for i in range(len(frequency_wn))]
+    if fract_modelsys is not None:
+        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
+        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
+        factor = [(PLANCK_CONSTANT * f * SPEED_OF_LIGHT * s) / (BOLTZMANN_CONSTANT * temperature)
+                  for f, s in zip(frequency_wn, freq_scale_factor)]
     else:
         factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) /
                   (BOLTZMANN_CONSTANT * temperature) for freq in frequency_wn]
@@ -126,7 +120,7 @@ def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fr
     return sum(energy)
 
 
-def calc_zeropoint_energy(frequency_wn, freq_scale_factor = 1.0, fract_modelsys = False):
+def calc_zeropoint_energy(frequency_wn, freq_scale_factor = 1.0, fract_modelsys = None):
     """
     Vibrational Zero point energy evaluation.
 
@@ -141,11 +135,11 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor = 1.0, fract_modelsys 
     Returns:
     float: zero point energy of chemical system.
     """
-    if fract_modelsys is not False:
-        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
-                             for i in range(len(fract_modelsys))]
-        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) / (BOLTZMANN_CONSTANT)
-                  for i in range(len(frequency_wn))]
+    if fract_modelsys is not None:
+        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
+        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
+        factor = [(PLANCK_CONSTANT * f * SPEED_OF_LIGHT * s) / (BOLTZMANN_CONSTANT)
+                  for f, s in zip(frequency_wn, freq_scale_factor)]
     else:
         factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT)
                   for freq in frequency_wn]
@@ -282,7 +276,7 @@ def calc_rotational_entropy(temperature, rotemp, symmno=1, monatomic=False, line
     return GAS_CONSTANT * (math.log(qrot / symmno) + 1.5)
 
 
-def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor = 1.0, fract_modelsys=False):
+def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor = 1.0, fract_modelsys=None):
     """
     Rigid rotor harmonic oscillator (RRHO) entropy evaluation - this is the default treatment
 
@@ -299,11 +293,11 @@ def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor = 1.0, fract_
     Returns:
     float: RRHO entropy of chemical system.
     """
-    if fract_modelsys is not False:
-        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
-                             for i in range(len(fract_modelsys))]
-        factor = [(PLANCK_CONSTANT * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) /
-                  (BOLTZMANN_CONSTANT * temperature) for i in range(len(frequency_wn))]
+    if fract_modelsys is not None:
+        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
+        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
+        factor = [(PLANCK_CONSTANT * f * SPEED_OF_LIGHT * s) / (BOLTZMANN_CONSTANT * temperature)
+                  for f, s in zip(frequency_wn, freq_scale_factor)]
     else:
         factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
                   for freq in frequency_wn]
@@ -354,7 +348,7 @@ def calc_avg_moment_of_inertia(roconst):
     return PLANCK_CONSTANT / av_roconst_hz  # kg m^2
 
 
-def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=False):
+def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=None):
     """
     Entropic contributions (J/(mol*K)) according to a free-rotor
     description for a list of vibrational modes
@@ -372,11 +366,11 @@ def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_f
     Returns:
     float: free rotor entropy of chemical system.
     """
-    if fract_modelsys is not False:
-        freq_scale_factor = [freq_scale_factor[0] * fract_modelsys[i] + freq_scale_factor[1] * (1.0 - fract_modelsys[i])
-                             for i in range(len(fract_modelsys))]
-        mu = [PLANCK_CONSTANT / (8 * math.pi ** 2 * frequency_wn[i] * SPEED_OF_LIGHT * freq_scale_factor[i]) for i in
-              range(len(frequency_wn))]
+    if fract_modelsys is not None:
+        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
+        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
+        mu = [PLANCK_CONSTANT / (8 * math.pi ** 2 * f * SPEED_OF_LIGHT * s)
+              for f, s in zip(frequency_wn, freq_scale_factor)]
     else:
         mu = [PLANCK_CONSTANT / (8 * math.pi ** 2 * freq * SPEED_OF_LIGHT * freq_scale_factor) for freq in frequency_wn]
     mu_primed = [entry * bav / (entry + bav) for entry in mu]
@@ -432,7 +426,7 @@ def _apply_frequency_inversion(raw_freqs, raw_im_freqs, invert, job_type):
 
     for x in raw_im_freqs:
         if x < -1 * im_freq_cutoff:
-            if invert is not False:
+            if invert is not None:
                 if invert == 'auto':
                     if "TSFreq" in job_type:
                         if x == most_low_freq:
@@ -459,12 +453,7 @@ class calc_bbe:
     Compute "black box" entropy and enthalpy values along with all
     other thermochemical quantities.
 
-    Parses energy, program version, frequencies, charge, multiplicity,
-    solvation model, computation time.
-    Computes H, S from partition functions, applying quasi-harmonic
-    corrections, considering frequency
-    scaling factors from detected level of theory/basis set, and
-    optionally ONIOM frequency scaling.
+    Computes H, S from partition functions, applying quasi-harmonic corrections
 
     Attributes:
         xyz (QCData): contains Cartesian coordinates and atom data.
@@ -506,12 +495,12 @@ class calc_bbe:
             computed from quasi-harmonic enthalpy and/or entropy.
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
-    def __init__(self, file, QS, QH, s_freq_cutoff, H_FREQ_CUTOFF, temperature, conc, freq_scale_factor, solv, spc,
-                 invert, ssymm=False,
-                 mm_freq_scale_factor=False, inertia='global', qcdata=None):
+    def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
+                 invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None):
+        
         # 1. Parse all data from file (program-agnostic), or use provided cache
         if qcdata is None:
-            qcdata = parse_qcdata(file, ssymm=ssymm)
+            qcdata = parse_qcdata(file, ssymm=symm)
 
         # 2. Geometry data (from native parser via qcdata)
         self.xyz = qcdata
@@ -532,7 +521,6 @@ class calc_bbe:
         self.zero_point_corr = qcdata.zero_point_corr
         self.job_type = qcdata.job_type
         self.roconst = qcdata.roconst
-        self.mult = qcdata.multiplicity
         self.cpu = qcdata.cpu
 
         molecular_mass = qcdata.molecular_mass
@@ -542,40 +530,38 @@ class calc_bbe:
         linear_warning = qcdata.linear_warning
 
         # ONIOM fract_modelsys setup
-        if mm_freq_scale_factor is False:
-            fract_modelsys = False
+        if mm_freq_scale_factor is None:
+            fract_modelsys = None
         else:
             fract_modelsys = qcdata.fract_modelsys if qcdata.fract_modelsys else []
-            freq_scale_factor = [freq_scale_factor, mm_freq_scale_factor]
+            scale_fac = [scale_fac, mm_freq_scale_factor]
 
         # 4. Read any single point energies if requested
         if spc and spc != 'link':
             name, ext = os.path.splitext(file)
             try:
-                (self.sp_energy, self.sp_program,
+                (self.sp_energy, _,
                  self.sp_version_program, self.sp_solvation_model,
-                 self.sp_file, self.sp_charge,
+                 _, self.sp_charge,
                  self.sp_empirical_dispersion,
                  self.sp_multiplicity) = parse_data(
                     name + '_' + spc + ext)
-                self.cpu = sp_cpu(name + '_' + spc + ext)
+                self.cpu = _sp_cpu(name + '_' + spc + ext)
             except ValueError:
                 self.sp_energy = '!'
                 pass
         elif qcdata is not None and not os.path.exists(file):
             # Cache-only mode: derive sp_* fields from cached QCData
             self.sp_energy = qcdata.scf_energy
-            self.sp_program = qcdata.program
             self.sp_version_program = qcdata.version_program
             self.sp_solvation_model = qcdata.solvation_model
-            self.sp_file = qcdata.file
             self.sp_charge = qcdata.charge
             self.sp_empirical_dispersion = qcdata.empirical_dispersion
             self.sp_multiplicity = qcdata.multiplicity
         else:
-            (self.sp_energy, self.sp_program,
+            (self.sp_energy, _,
              self.sp_version_program, self.sp_solvation_model,
-             self.sp_file, self.sp_charge,
+             _, self.sp_charge,
              self.sp_empirical_dispersion,
              self.sp_multiplicity) = parse_data(file)
 
@@ -588,29 +574,29 @@ class calc_bbe:
 
         # Skip the calculation if unable to parse the frequencies or zpe from the output file
         if self.zero_point_corr is not None and rotemp and self.scf_energy is not None:
-            cutoffs = [s_freq_cutoff for freq in frequency_wn]
+            cutoffs = [cutoff for freq in frequency_wn]
 
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
-            u_trans = calc_translational_energy(temperature)
+            u_trans = calc_translational_energy(temp)
             solvent = solv if solv not in (None, 'none') else None
-            s_trans = calc_translational_entropy(molecular_mass, conc, temperature, solvent)
-            s_elec = calc_electronic_entropy(self.mult)
+            s_trans = calc_translational_entropy(molecular_mass, conc, temp, solvent)
+            s_elec = calc_electronic_entropy(self.multiplicity)
 
             # Rotational and Vibrational contributions to the energy entropy
             if len(frequency_wn) > 0:
-                zpe = calc_zeropoint_energy(frequency_wn, freq_scale_factor, fract_modelsys)
-                u_rot = calc_rotational_energy(temperature, monatomic=(self.zero_point_corr == 0.0), linear=(linear_mol == 1))
-                u_vib = calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor, fract_modelsys)
-                s_rot = calc_rotational_entropy(temperature, rotemp,
+                zpe = calc_zeropoint_energy(frequency_wn, scale_fac, fract_modelsys)
+                u_rot = calc_rotational_energy(temp, monatomic=(self.zero_point_corr == 0.0), linear=(linear_mol == 1))
+                u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac, fract_modelsys)
+                s_rot = calc_rotational_entropy(temp, rotemp,
                                                 symmno=symmno,
                                                 monatomic=(self.zero_point_corr == 0.0),
                                                 linear=(linear_mol == 1))
 
                 # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
-                Svib_rrho = calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor, fract_modelsys)
+                Svib_rrho = calc_rrho_entropy(temp, frequency_wn, scale_fac, fract_modelsys)
 
-                if s_freq_cutoff > 0.0:
-                    Svib_rrqho = calc_rrho_entropy(temperature, cutoffs, freq_scale_factor, fract_modelsys)
+                if cutoff > 0.0:
+                    Svib_rrqho = calc_rrho_entropy(temp, cutoffs, scale_fac, fract_modelsys)
                 if inertia != "global" and len(self.roconst) > 0 and any(x != 0.0 for x in self.roconst):
                     try:
                         bav = calc_avg_moment_of_inertia(self.roconst)
@@ -619,13 +605,13 @@ class calc_bbe:
                 else:
                     bav = GRIMME_BAV
                 Svib_free_rot = calc_freerot_entropy(
-                    temperature, frequency_wn, bav,
-                    freq_scale_factor, fract_modelsys)
-                S_damp = calc_damp(frequency_wn, s_freq_cutoff)
+                    temp, frequency_wn, bav,
+                    scale_fac, fract_modelsys)
+                S_damp = calc_damp(frequency_wn, cutoff)
 
                 # check for qh
                 if QH:
-                    Uvib_qrrho = calc_qRRHO_energy(temperature, frequency_wn, freq_scale_factor)
+                    Uvib_qrrho = calc_qRRHO_energy(temp, frequency_wn, scale_fac)
                     H_damp = calc_damp(frequency_wn, H_FREQ_CUTOFF)
 
                 # Compute entropy (cal/mol/K) using the two values and damping function
@@ -636,8 +622,8 @@ class calc_bbe:
                     if QS == "grimme":
                         vib_entropy.append(Svib_rrho[j] * S_damp[j] + (1 - S_damp[j]) * Svib_free_rot[j])
                     elif QS == "truhlar":
-                        if s_freq_cutoff > 0.0:
-                            if frequency_wn[j] > s_freq_cutoff:
+                        if cutoff > 0.0:
+                            if frequency_wn[j] > cutoff:
                                 vib_entropy.append(Svib_rrho[j])
                             else:
                                 vib_entropy.append(Svib_rrqho[j])
@@ -647,7 +633,7 @@ class calc_bbe:
                     if QH:
                         vib_energy.append(
                             H_damp[j] * Uvib_qrrho[j] +
-                            (1 - H_damp[j]) * 0.5 * GAS_CONSTANT * temperature)
+                            (1 - H_damp[j]) * 0.5 * GAS_CONSTANT * temp)
 
                 qh_s_vib, h_s_vib = sum(vib_entropy), sum(Svib_rrho)
                 if QH:
@@ -657,28 +643,26 @@ class calc_bbe:
 
             # Add terms (converted to au) to get Free energy - perform separately
             # for harmonic and quasi-harmonic values out of interest
-            self.enthalpy = self.scf_energy + (u_trans + u_rot + u_vib + GAS_CONSTANT * temperature) / J_TO_AU
+            self.enthalpy = self.scf_energy + (u_trans + u_rot + u_vib + GAS_CONSTANT * temp) / J_TO_AU
             self.qh_enthalpy = 0.0
             if QH:
-                self.qh_enthalpy = self.scf_energy + (u_trans + u_rot + qh_u_vib + GAS_CONSTANT * temperature) / J_TO_AU
+                self.qh_enthalpy = self.scf_energy + (u_trans + u_rot + qh_u_vib + GAS_CONSTANT * temp) / J_TO_AU
             # Single point correction replaces energy from optimization with single point value
-            if spc is not False:
+            if spc is not None:
                 try:
-                    self.enthalpy = self.enthalpy - self.scf_energy + self.sp_energy
+                    spc_correction = self.sp_energy - self.scf_energy
+                    self.enthalpy += spc_correction
+                    if QH:
+                        self.qh_enthalpy += spc_correction
                 except TypeError:
                     pass
-                if QH:
-                    try:
-                        self.qh_enthalpy = self.qh_enthalpy - self.scf_energy + self.sp_energy
-                    except TypeError:
-                        pass
 
             self.zpe = zpe / J_TO_AU
             self.entropy = (s_trans + s_rot + h_s_vib + s_elec) / J_TO_AU
             self.qh_entropy = (s_trans + s_rot + qh_s_vib + s_elec) / J_TO_AU
 
             # Symmetry - entropy correction for molecular symmetry
-            if ssymm:
+            if symm:
                 sym_entropy_correction, pgroup = self.sym_correction(file.split('.')[0].replace('/', '_'))
                 self.point_group = pgroup
                 self.entropy += sym_entropy_correction
@@ -686,16 +670,12 @@ class calc_bbe:
 
             # Calculate Free Energy
             if QH:
-                self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
-                self.qh_gibbs_free_energy = self.qh_enthalpy - temperature * self.qh_entropy
+                self.gibbs_free_energy = self.enthalpy - temp * self.entropy
+                self.qh_gibbs_free_energy = self.qh_enthalpy - temp * self.qh_entropy
             else:
-                self.gibbs_free_energy = self.enthalpy - temperature * self.entropy
-                self.qh_gibbs_free_energy = self.enthalpy - temperature * self.qh_entropy
+                self.gibbs_free_energy = self.enthalpy - temp * self.entropy
+                self.qh_gibbs_free_energy = self.enthalpy - temp * self.qh_entropy
 
-            self.im_freq = []
-            for freq in im_frequency_wn:
-                if freq < 0.0:
-                    self.im_freq.append(freq)
         self.frequency_wn = frequency_wn
         self.im_frequency_wn = im_frequency_wn
         self.linear_warning = linear_warning

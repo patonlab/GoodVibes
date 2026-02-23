@@ -99,7 +99,7 @@ def test_calc_bbe_cached_matches_direct_g16():
 
     # Direct (parses from file)
     bbe_direct = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 298.15,
-                          0.0408740470708, 1.0, None, False, False)
+                          0.0408740470708, 1.0, None, None, None)
 
     # Via cache round-trip
     qcdata = parse_qcdata(filepath)
@@ -108,7 +108,7 @@ def test_calc_bbe_cached_matches_direct_g16():
     d2 = json.loads(json_str)
     restored = dict_to_qcdata(d2)
     bbe_cached = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 298.15,
-                          0.0408740470708, 1.0, None, False, False, qcdata=restored)
+                          0.0408740470708, 1.0, None, None, None, qcdata=restored)
 
     assert bbe_direct.scf_energy == bbe_cached.scf_energy
     assert bbe_direct.enthalpy == bbe_cached.enthalpy
@@ -122,7 +122,7 @@ def test_calc_bbe_cached_matches_direct_orca():
 
     # Direct (parses from file)
     bbe_direct = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 298.15,
-                          0.0408740470708, 1.0, None, False, False)
+                          0.0408740470708, 1.0, None, None, None)
 
     # Via cache round-trip
     qcdata = parse_qcdata(filepath)
@@ -131,7 +131,7 @@ def test_calc_bbe_cached_matches_direct_orca():
     d2 = json.loads(json_str)
     restored = dict_to_qcdata(d2)
     bbe_cached = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 298.15,
-                          0.0408740470708, 1.0, None, False, False, qcdata=restored)
+                          0.0408740470708, 1.0, None, None, None, qcdata=restored)
 
     assert bbe_direct.scf_energy == bbe_cached.scf_energy
     assert bbe_direct.enthalpy == bbe_cached.enthalpy
@@ -151,11 +151,11 @@ def test_calc_bbe_cached_different_temperature():
 
     # Run at 400K from cache
     bbe_cached_400 = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 400.0,
-                              0.0408740470708, 1.0, None, False, False, qcdata=restored)
+                              0.0408740470708, 1.0, None, None, None, qcdata=restored)
 
     # Run at 400K directly
     bbe_direct_400 = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 400.0,
-                              0.0408740470708, 1.0, None, False, False)
+                              0.0408740470708, 1.0, None, None, None)
 
     assert bbe_cached_400.enthalpy == bbe_direct_400.enthalpy
     assert bbe_cached_400.gibbs_free_energy == bbe_direct_400.gibbs_free_energy
@@ -173,7 +173,7 @@ def test_calc_bbe_cache_only_no_file_on_disk(tmp_path):
     fake_path = str(tmp_path / 'nonexistent.log')
 
     bbe = calc_bbe(fake_path, 'grimme', False, 100.0, 100.0, 298.15,
-                   0.0408740470708, 1.0, None, False, False, qcdata=restored)
+                   0.0408740470708, 1.0, None, None, None, qcdata=restored)
 
     # Should produce valid thermochemistry
     assert bbe.scf_energy == qcdata.scf_energy
@@ -182,6 +182,6 @@ def test_calc_bbe_cache_only_no_file_on_disk(tmp_path):
 
     # Compare against direct parsing
     bbe_direct = calc_bbe(filepath, 'grimme', False, 100.0, 100.0, 298.15,
-                          0.0408740470708, 1.0, None, False, False)
+                          0.0408740470708, 1.0, None, None, None)
     assert bbe.enthalpy == bbe_direct.enthalpy
     assert bbe.gibbs_free_energy == bbe_direct.gibbs_free_energy

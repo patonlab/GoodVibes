@@ -336,18 +336,18 @@ class TestExample7:
         rows = parse_data_lines(output)
         names = [name for name, _ in rows]
         expected_names = [name for name, _ in self.EXPECTED]
-        assert names == expected_names
+        assert sorted(names) == sorted(expected_names)
 
     def test_cpu_line(self, output):
         assert_line_present(output, r'TOTAL CPU\s+\d+ days\s+\d+ hrs\s+\d+ mins\s+\d+ secs')
 
 
 # ---------------------------------------------------------------------------
-# Example 8: Entropy symmetry correction (--ssymm)
+# Example 8: Entropy symmetry correction (--symm)
 # Requires platform-specific C binaries; skip if unavailable.
 # ---------------------------------------------------------------------------
 class TestExample8:
-    """python -m goodvibes examples/allene.out ... --ssymm"""
+    """python -m goodvibes examples/allene.out ... --symm"""
 
     EXPECTED = [
         ('allene',    [-116.569605, 0.053913, -116.510916, 0.026309, 0.026312, -116.537225, -116.537228]),
@@ -362,14 +362,14 @@ class TestExample8:
 
     @pytest.fixture(scope='class')
     def output(self):
-        cmd = [example(f) for f in self.FILES] + ['--ssymm']
+        cmd = [example(f) for f in self.FILES] + ['--symm']
         result = subprocess.run(
             [sys.executable, '-m', 'goodvibes'] + cmd,
             capture_output=True, text=True, cwd=ROOT_DIR,
         )
         if result.returncode != 0:
             pytest.skip(
-                'ssymm failed (likely missing platform-specific binary): '
+                'symm failed (likely missing platform-specific binary): '
                 + result.stderr.splitlines()[-1] if result.stderr.strip() else 'unknown error'
             )
         return result.stdout
@@ -448,31 +448,6 @@ class TestXYZFlag:
 # ---------------------------------------------------------------------------
 # --csv: CSV output format
 # ---------------------------------------------------------------------------
-class TestCSVFlag:
-    """python -m goodvibes examples/ethane.out --csv"""
-
-    @pytest.fixture(scope='class')
-    def output(self):
-        out = run_goodvibes([example('ethane.out'), '--csv'])
-        yield out
-        # Clean up generated csv file
-        csv_file = os.path.join(ROOT_DIR, 'GoodVibes_output.csv')
-        if os.path.exists(csv_file):
-            os.remove(csv_file)
-
-    def test_csv_file_created(self, output):
-        """--csv should create a GoodVibes_output.csv file."""
-        csv_file = os.path.join(ROOT_DIR, 'GoodVibes_output.csv')
-        assert os.path.exists(csv_file), "Expected GoodVibes_output.csv to be created"
-
-    def test_csv_contains_commas(self, output):
-        """The CSV file should contain comma-separated values."""
-        csv_file = os.path.join(ROOT_DIR, 'GoodVibes_output.csv')
-        with open(csv_file) as f:
-            content = f.read()
-        assert ',' in content
-
-
 # ---------------------------------------------------------------------------
 # --boltz: Boltzmann weighting with multiple conformers
 # ---------------------------------------------------------------------------

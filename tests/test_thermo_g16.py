@@ -26,7 +26,7 @@ def _calc(filename, QS='grimme', QH=False, temp=T_DEFAULT, conc=None, scale=1.0)
     if conc is None:
         conc = ATMOS / (GAS_CONSTANT * temp)
     return calc_bbe(g16path(filename), QS, QH, 100.0, 100.0,
-                    temp, conc, scale, None, False, False, 0)
+                    temp, conc, scale, None, None, None, 0)
 
 
 # ===========================================================================
@@ -180,7 +180,7 @@ def test_calc_bbe_enthalpy_vs_gaussian(filename, expected_enthalpy, scale):
     temp, pressure = _TEMP_PRESSURE.get(filename, (T_DEFAULT, 1.0))
     conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
     bbe = calc_bbe(g16path(filename), 'grimme', False, 100.0, 100.0,
-                   temp, conc, scale, None, False, False, 0)
+                   temp, conc, scale, None, None, None, 0)
     assert abs(bbe.enthalpy - expected_enthalpy) < 1e-5
 
 
@@ -243,7 +243,7 @@ def test_calc_bbe_gibbs_vs_gaussian(filename, expected_gibbs, scale):
     temp, pressure = _TEMP_PRESSURE.get(filename, (T_DEFAULT, 1.0))
     conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
     bbe = calc_bbe(g16path(filename), 'grimme', False, 100.0, 100.0,
-                   temp, conc, scale, None, False, False, 0)
+                   temp, conc, scale, None, None, None, 0)
     assert abs(bbe.gibbs_free_energy - expected_gibbs) < 1e-5
 
 
@@ -376,7 +376,7 @@ def test_calc_bbe_nonstandard_temp_pressure(filename, temp, pressure,
     """Validate calc_bbe at non-standard T/P against Gaussian ground truth."""
     conc = (pressure * ATMOS) / (GAS_CONSTANT * temp)
     bbe = calc_bbe(g16path(filename), 'grimme', False, 100.0, 100.0,
-                   temp, conc, 1.0, None, False, False, 0)
+                   temp, conc, 1.0, None, None, None, 0)
     assert abs(bbe.enthalpy - expected_H) < 1e-5
     assert abs(bbe.gibbs_free_energy - expected_G) < 1e-5
 

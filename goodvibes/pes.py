@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, absolute_import
-
+import logging
 import math
 import os.path
 import sys
+
+log = logging.getLogger('goodvibes')
 
 # PHYSICAL CONSTANTS                                      UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -46,7 +47,7 @@ class get_pes:
         g_species_qhgzero (list):quasi-harmonic Gibbs free energy "zero" values used for graphing.
         g_rel_val (list): relative Gibbs free energy values used for graphing.
     """
-    def __init__(self, file, thermo_data, log, temperature, gconf, QH):
+    def __init__(self, file, thermo_data, temperature, gconf, QH):
         # Default values
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
 
@@ -91,18 +92,18 @@ class get_pes:
                                         names.append(n.strip())
                                         files.append(match)
                                     else:
-                                        log.write("   Warning! " + f.strip() + ' is specified in ' + file +
+                                        log.info("   Warning! " + f.strip() + ' is specified in ' + file +
                                                   ' but no thermochemistry data found\n')
                                 elif f not in pes_list:
                                     match = []
                                     for key in thermo_data:
                                         if os.path.splitext(os.path.basename(key))[0].find(f.strip().strip('*')) == 0:
                                             match.append(key)
-                                    if len(match) > 0:
+                                    if match:
                                         names.append(n.strip())
                                         files.append(match)
                                     else:
-                                        log.write("   Warning! " + f.strip() + ' is specified in ' + file +
+                                        log.info("   Warning! " + f.strip() + ' is specified in ' + file +
                                                   ' but no thermochemistry data found\n')
                             except ValueError:
                                 if line.isspace():
@@ -111,7 +112,7 @@ class get_pes:
                                     pass
                                 elif len(line) > 2:
                                     warn = "   Warning! " + file + ' input is incorrectly formatted for line:\n\t' + line
-                                    log.write(warn)
+                                    log.info(warn)
             # Look at FORMAT block to see if user has specified any formatting rules
             if dline.strip().find('FORMAT') > -1:
                 for j, line in enumerate(data[i + 1:]):
@@ -169,7 +170,7 @@ class get_pes:
                             self.qhts_zero.append([])
                             self.g_zero.append([])
                             self.qhg_zero.append([])
-                            min_conf = False
+                            min_conf = None
                             spc_zero, e_zero, zpe_zero, h_zero, qh_zero, s_zero, qs_zero, g_zero, qhg_zero = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                             h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                             zero_structures = zeros[n].replace(' ', '').split('+')
@@ -254,9 +255,9 @@ class get_pes:
                                             else:
                                                 qg_corr = h_tot - temperature * qs_tot
                                 except KeyError:
-                                    log.write(
+                                    log.info(
                                         "   Warning! Structure " + structure + ' has not been defined correctly as energy-zero in ' + file + '\n')
-                                    log.write(
+                                    log.info(
                                         "   Make sure this structure matches one of the SPECIES defined in the same file\n")
                                     sys.exit("   Please edit " + file + " and try again\n")
                             # Set zero vals here
@@ -268,7 +269,7 @@ class get_pes:
                                     conformers = True
                             if conformers and single_structure:
                                 mix = True
-                            if gconf and min_conf is not False:
+                            if gconf and min_conf is not None:
                                 if mix:
                                     h_mix = h_tot + h_zero
                                     s_mix = s_tot + s_zero
@@ -327,7 +328,7 @@ class get_pes:
                                     point_structures = point.replace(' ', '').split('+')
                                     e_abs, spc_abs, zpe_abs, h_abs, qh_abs, s_abs, g_abs, qs_abs, qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                     qh_conf, qh_tot, qs_conf, qs_tot, h_conf, h_tot, s_conf, s_tot, g_corr, qg_corr = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                                    min_conf = False
+                                    min_conf = None
                                     rel_val = 0.0
                                     self.g_qhgvals[n].append([])
                                     self.g_species_qhgzero[n].append([])
@@ -420,7 +421,7 @@ class get_pes:
                                                         qg_corr = h_tot - temperature * qs_tot
                                             self.g_species_qhgzero[n][i].append(zero_conf)  # Raw data for graphing
                                     except KeyError:
-                                        log.write("   Warning! Structure " + structure + ' has not been defined correctly in ' + file + '\n')
+                                        log.info("   Warning! Structure " + structure + ' has not been defined correctly in ' + file + '\n')
                                         sys.exit("   Please edit " + file + " and try again\n")
                                     self.species[n].append(point)
                                     self.e_abs[n].append(e_abs)
@@ -435,7 +436,7 @@ class get_pes:
                                             conformers = True
                                     if conformers and single_structure:
                                         mix = True
-                                    if gconf and min_conf is not False:
+                                    if gconf and min_conf is not None:
                                         if mix:
                                             h_mix = h_tot + h_abs
                                             s_mix = s_tot + s_abs
@@ -481,7 +482,7 @@ def jitter(datasets, color, ax, nx, marker, edgecol='black'):
         ax.plot(x, y, alpha=0.5, markersize=7, color=color, marker=marker, markeredgecolor=edgecol,
                 markeredgewidth=1, linestyle='None')
 
-def graph_reaction_profile(graph_data, log, options, plt):
+def graph_reaction_profile(graph_data, options, plt):
     """
     Graph a reaction profile using quasi-harmonic Gibbs free energy values.
 
@@ -496,7 +497,7 @@ def graph_reaction_profile(graph_data, log, options, plt):
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
 
-    log.write("\n   Graphing Reaction Profile\n")
+    log.info("\n   Graphing Reaction Profile\n")
     data = {}
     # Get PES data
     for i, path in enumerate(graph_data.path):
@@ -517,7 +518,7 @@ def graph_reaction_profile(graph_data, log, options, plt):
         yaml = f.readlines()
     #defaults
     ylim, color, show_conf, show_gconf, show_title = None, None, True, False, True
-    label_point, label_xaxis, dpi, dec, legend = False, True, False, 2, False,
+    label_point, label_xaxis, dpi, dec, legend = False, True, None, 2, False,
     colors, gridlines, title =  None, False, 'Potential Energy Surface'
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
@@ -706,6 +707,6 @@ def graph_reaction_profile(graph_data, log, options, plt):
         ax.xaxis.set_ticklabels([])
     if legend:
         plt.legend()
-    if dpi is not False:
+    if dpi is not None:
         plt.savefig('Rxn_profile_' + options.graph.split('.')[0] + '.png', dpi=dpi)
     plt.show()

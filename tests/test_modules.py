@@ -6,7 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from goodvibes.utils import all_same, add_time, display_name, Logger
+import logging
+from goodvibes.utils import all_same, add_time, display_name, setup_logging, fatal
 
 
 # ===========================================================================
@@ -94,118 +95,241 @@ def test_add_time_with_days():
 
 
 # ===========================================================================
-# Logger
+# setup_logging / fatal
 # ===========================================================================
 
-def test_logger_dat_file(tmp_path):
-    """Logger creates a .dat file and writes to it."""
-    log = Logger(str(tmp_path / 'test'), 'output', csv=False)
-    log.write("hello world")
-    log.finalize()
+def test_setup_logging_creates_dat(tmp_path):
+    """setup_logging creates a .dat file and messages appear in it."""
+    logger = logging.getLogger('goodvibes')
+    logger.handlers.clear()
+    setup_logging(str(tmp_path / 'test'), 'output')
+    logger.info("hello world")
+    logging.shutdown()
+    logger.handlers.clear()
     dat_file = tmp_path / 'test_output.dat'
     assert dat_file.exists()
     assert dat_file.read_text() == "hello world"
 
 
-def test_logger_csv_file(tmp_path):
-    """Logger creates a .csv file when csv=True."""
-    log = Logger(str(tmp_path / 'test'), 'output', csv=True)
-    log.write("hello world")
-    log.finalize()
-    csv_file = tmp_path / 'test_output.csv'
-    assert csv_file.exists()
-
-
-def test_logger_csv_thermodata(tmp_path):
-    """Logger comma-separates thermodata in CSV mode."""
-    log = Logger(str(tmp_path / 'test'), 'output', csv=True)
-    log.write("col1 col2 col3", thermodata=True)
-    log.finalize()
-    content = (tmp_path / 'test_output.csv').read_text()
-    assert 'col1,col2,col3,' in content
-
-
-def test_logger_non_csv_thermodata(tmp_path):
-    """Logger does not comma-separate in non-CSV mode even with thermodata=True."""
-    log = Logger(str(tmp_path / 'test'), 'output', csv=False)
-    log.write("col1 col2 col3", thermodata=True)
-    log.finalize()
-    content = (tmp_path / 'test_output.dat').read_text()
-    assert content == "col1 col2 col3"
-
-
-def test_logger_fatal_exits(tmp_path):
-    """Logger.fatal() calls sys.exit."""
-    log = Logger(str(tmp_path / 'test'), 'output', csv=False)
+def test_fatal_exits(tmp_path):
+    """fatal() logs message and calls sys.exit."""
+    logger = logging.getLogger('goodvibes')
+    logger.handlers.clear()
+    setup_logging(str(tmp_path / 'test'), 'output')
     with pytest.raises(SystemExit):
-        log.fatal("fatal error")
+        fatal("fatal error")
+    logger.handlers.clear()
 
 
 # ===========================================================================
-# validation.check_dup
+# sort.deduplicate
 # ===========================================================================
 
-def test_check_dup_identical_structures():
+def test_deduplicate_identical_structures():
     """Two structures with identical properties should be flagged as duplicates."""
-    from goodvibes.validation import check_dup
+    from goodvibes.sort import deduplicate
 
     class MockBBE:
-        def __init__(self, scf, roconst, freqs):
+        def __init__(self, scf, roconst):
             self.scf_energy = scf
             self.roconst = roconst
-            self.frequency_wn = freqs
 
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0])
-    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0])
-    files = ['file1.log', 'file2.log']
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
-    dups = check_dup(files, thermo_data)
+    dups = deduplicate(thermo_data)
     assert len(dups) == 1
     assert dups[0] == ['file2.log', 'file1.log']
 
 
-def test_check_dup_different_structures():
-    """Two structures with very different energies are not duplicates.
-    Note: check_dup uses `e_diff < cutoff` (not abs), so bbe_i must have
-    higher energy than bbe_j for the energy check to reject the pair."""
-    from goodvibes.validation import check_dup
+def test_deduplicate_different_structures():
+    """Two structures with very different energies are not duplicates."""
+    from goodvibes.sort import deduplicate
 
     class MockBBE:
-        def __init__(self, scf, roconst, freqs):
+        def __init__(self, scf, roconst):
             self.scf_energy = scf
             self.roconst = roconst
-            self.frequency_wn = freqs
 
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0])
-    bbe2 = MockBBE(-99.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0])
-    files = ['file1.log', 'file2.log']
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe2 = MockBBE(-99.0, [10.0, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
-    dups = check_dup(files, thermo_data)
+    dups = deduplicate(thermo_data)
     assert len(dups) == 0
 
 
-def test_check_dup_different_frequencies():
-    """Same energy but very different frequencies are not duplicates."""
-    from goodvibes.validation import check_dup
-
-    class MockBBE:
-        def __init__(self, scf, roconst, freqs):
-            self.scf_energy = scf
-            self.roconst = roconst
-            self.frequency_wn = freqs
-
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0])
-    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0], [600.0, 1100.0, 1600.0])
-    files = ['file1.log', 'file2.log']
-    thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
-
-    dups = check_dup(files, thermo_data)
-    assert len(dups) == 0
-
-
-def test_check_dup_no_files():
+def test_deduplicate_no_files():
     """Empty file list returns no duplicates."""
-    from goodvibes.validation import check_dup
-    assert check_dup([], {}) == []
+    from goodvibes.sort import deduplicate
+    assert deduplicate({}) == []
+
+
+def test_deduplicate_abs_energy_diff():
+    """Energy comparison uses absolute value — order should not matter."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst):
+            self.scf_energy = scf
+            self.roconst = roconst
+
+    # file1 has LOWER energy than file2 (1.0 Hartree difference)
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe2 = MockBBE(-99.0, [10.0, 20.0, 30.0])
+
+    # Both orderings should reject (1.0 Ha = 627.5 kcal/mol >> 0.05 kcal/mol cutoff)
+    assert deduplicate({'file1.log': bbe1, 'file2.log': bbe2}) == []
+    assert deduplicate({'file2.log': bbe2, 'file1.log': bbe1}) == []
+
+
+def test_deduplicate_custom_energy_cutoff():
+    """Custom energy cutoff allows larger differences to pass."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst):
+            self.scf_energy = scf
+            self.roconst = roconst
+
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe2 = MockBBE(-100.001, [10.0, 20.0, 30.0])
+    thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
+
+    # Default cutoff (0.05 kcal/mol) should NOT flag (0.001 Ha ~ 0.63 kcal/mol > 0.05)
+    assert deduplicate(thermo_data) == []
+    # Relaxed cutoff (1.0 kcal/mol) should flag them
+    assert len(deduplicate(thermo_data, e_cutoff=1.0)) == 1
+
+
+def test_deduplicate_custom_roconst_cutoff():
+    """Custom rotational constant cutoff."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst):
+            self.scf_energy = scf
+            self.roconst = roconst
+
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe2 = MockBBE(-100.0, [10.2, 20.0, 30.0])
+    thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
+
+    # Relative diff on first constant = 0.2/10.1 ~ 2% > 1% default, so rejected
+    assert deduplicate(thermo_data) == []
+    # Relaxed cutoff (5%) should flag them
+    assert len(deduplicate(thermo_data, ro_cutoff=0.05)) == 1
+
+
+def test_deduplicate_custom_rmsd_cutoff():
+    """RMSD comparison with custom threshold."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst, cartesians):
+            self.scf_energy = scf
+            self.roconst = roconst
+            self.cartesians = cartesians
+
+    coords1 = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    coords2 = [[0.0, 0.0, 0.0], [1.5, 0.0, 0.0], [0.0, 1.0, 0.0]]  # RMSD ~ 0.167
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], coords1)
+    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0], coords2)
+    thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
+
+    # Tight cutoff (0.125 Å) should reject (aligned RMSD ~ 0.129 > 0.125)
+    assert deduplicate(thermo_data, rmsd_cutoff=0.125) == []
+    # Relaxed cutoff should flag them
+    assert len(deduplicate(thermo_data, rmsd_cutoff=0.5)) == 1
+
+
+def test_deduplicate_rmsd_alignment():
+    """Kabsch alignment handles translated and rotated identical structures."""
+    from goodvibes.sort import deduplicate
+    import numpy as np
+
+    class MockBBE:
+        def __init__(self, scf, roconst, cartesians):
+            self.scf_energy = scf
+            self.roconst = roconst
+            self.cartesians = cartesians
+
+    coords = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    # Same structure translated by [5, 5, 5]
+    coords_translated = [[5.0, 5.0, 5.0], [6.0, 5.0, 5.0], [5.0, 6.0, 5.0]]
+    # Same structure rotated 90° around z-axis
+    R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
+    coords_rotated = (np.array(coords) @ R.T).tolist()
+
+    bbe_orig = MockBBE(-100.0, [10.0, 20.0, 30.0], coords)
+    bbe_trans = MockBBE(-100.0, [10.0, 20.0, 30.0], coords_translated)
+    bbe_rot = MockBBE(-100.0, [10.0, 20.0, 30.0], coords_rotated)
+
+    # Translated copy should be flagged as duplicate (RMSD ~ 0 after alignment)
+    assert len(deduplicate({'a.log': bbe_orig, 'b.log': bbe_trans}, rmsd_cutoff=0.125)) == 1
+    # Rotated copy should be flagged as duplicate (RMSD ~ 0 after alignment)
+    assert len(deduplicate({'a.log': bbe_orig, 'b.log': bbe_rot}, rmsd_cutoff=0.125)) == 1
+
+
+def test_deduplicate_tighter_cutoff_rejects():
+    """Tighter cutoffs can reject pairs that would pass defaults."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst):
+            self.scf_energy = scf
+            self.roconst = roconst
+
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe2 = MockBBE(-100.00005, [10.0, 20.0, 30.0])
+    thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
+
+    # Default cutoffs: should be flagged
+    assert len(deduplicate(thermo_data)) == 1
+    # Very tight energy cutoff rejects them
+    assert len(deduplicate(thermo_data, e_cutoff=1e-6)) == 0
+
+
+def test_deduplicate_missing_attributes_not_flagged():
+    """Structures missing attributes should not be flagged as duplicates."""
+    from goodvibes.sort import deduplicate
+
+    class MinimalBBE:
+        pass
+
+    thermo_data = {'file1.log': MinimalBBE(), 'file2.log': MinimalBBE()}
+    assert deduplicate(thermo_data) == []
+
+
+def test_deduplicate_no_cross_pair_leakage():
+    """Values from one pair comparison must not leak to the next pair."""
+    from goodvibes.sort import deduplicate
+
+    class MockBBE:
+        def __init__(self, scf, roconst, freqs, cartesians):
+            self.scf_energy = scf
+            self.roconst = roconst
+            self.frequency_wn = freqs
+            self.cartesians = cartesians
+
+    class PartialBBE:
+        """BBE missing scf_energy — should never match."""
+        def __init__(self):
+            self.roconst = [10.0, 20.0, 30.0]
+            self.frequency_wn = [500.0, 1000.0, 1500.0]
+            self.cartesians = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+
+    coords = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    # First two are near-duplicates (sets e_diff ~ 0)
+    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0], coords)
+    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0], coords)
+    # Third has no energy — old code would inherit e_diff from pair (1,0)
+    bbe3 = PartialBBE()
+
+    thermo_data = {'a.log': bbe1, 'b.log': bbe2, 'c.log': bbe3}
+    dups = deduplicate(thermo_data)
+
+    # Only (b, a) should be flagged; c should not match anyone
+    assert len(dups) == 1
+    assert dups[0] == ['b.log', 'a.log']
