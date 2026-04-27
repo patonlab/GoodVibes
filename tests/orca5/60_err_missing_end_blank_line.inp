@@ -1,0 +1,13 @@
+# ERROR EXAMPLE: Missing closing * for coordinate block
+# ORCA requires a closing * after the last atom coordinate in the xyz block
+# Without it, the input parser encounters an unexpected end-of-file
+# ORCA error: "Unexpected end of file" or input parsing error
+# Fix: Add closing * after the last atom line
+! B3LYP 6-31G(d) Opt Freq pal16
+
+%maxcore 6000
+
+* xyz 0 1
+O      0.000000    0.000000    0.117300
+H      0.000000    0.756950   -0.469200
+H      0.000000   -0.756950   -0.469200

@@ -252,6 +252,9 @@ def parse_data(file):
         if "NWChem" in line:
             program = "NWChem"
             break
+        if "x T B" in line or "xtb version" in line:
+            program = "xtb"
+            break
     repeated_link1 = 0
     freq_started = False  # Guard against VPT2 displaced geometry energies
     zero_point_corr_G4 = 0.0
@@ -325,6 +328,32 @@ def parse_data(file):
                 charge = int(line.strip().split()[-1])
             if "mult " in line.strip():
                 multiplicity = int(line.strip().split()[-1])
+        elif program == "xtb":
+            stripped = line.strip()
+            if 'xtb version' in stripped and not version_program:
+                parts = stripped.split()
+                try:
+                    version_program = "xtb version " + parts[parts.index('version') + 1]
+                except (ValueError, IndexError):
+                    pass
+            if stripped.startswith(':: total energy'):
+                parts = stripped.split()
+                try:
+                    spe = float(parts[3])
+                except (ValueError, IndexError):
+                    pass
+            if 'net charge' in stripped and stripped.startswith(':'):
+                parts = stripped.split()
+                try:
+                    charge = int(parts[parts.index('charge') + 1])
+                except (ValueError, IndexError):
+                    pass
+            if 'unpaired electrons' in stripped and stripped.startswith(':'):
+                parts = stripped.split()
+                try:
+                    multiplicity = int(parts[parts.index('electrons') + 1]) + 1
+                except (ValueError, IndexError):
+                    pass
 
     # Solvation model and empirical dispersion detection
     if 'Gaussian' in version_program.strip():
@@ -485,6 +514,14 @@ def parse_data(file):
             if keyword_line.strip().find('disp vdw 4') > -1:
                 empirical_dispersion2 = "D3BJ"
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
+    if 'xtb' in version_program.strip():
+        solvation_model = 'gas phase'
+        for line in data:
+            stripped = line.strip()
+            if 'program call' in stripped and ':' in stripped:
+                solvation_model = _xtb_solvation_from_call(stripped.split(':', 1)[1].strip())
+                break
+        empirical_dispersion = 'No empirical dispersion detected'
 
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
@@ -511,7 +548,11 @@ def sp_cpu(file):
         if line.find("NWChem") > -1:
             program = "NWChem"
             break
+        if "x T B" in line or "xtb version" in line:
+            program = "xtb"
+            break
 
+    seen_total_cpu = False
     for line in data:
         if program == "Gaussian":
             if line.strip().find("Job cpu time") > -1:
@@ -537,6 +578,26 @@ def sp_cpu(file):
                 secs = float(line.split()[3][0:-1])
                 msecs = 0.0
                 cpu = [days, hours, mins, secs, msecs]
+        if program == "xtb":
+            stripped = line.strip()
+            if (not seen_total_cpu and 'cpu-time:' in stripped
+                    and stripped.startswith('*')):
+                parts = stripped.replace(',', ' ').split()
+                try:
+                    d_idx = parts.index('d')
+                    h_idx = parts.index('h')
+                    m_idx = parts.index('min')
+                    s_idx = parts.index('sec')
+                    days = int(parts[d_idx - 1])
+                    hours = int(parts[h_idx - 1])
+                    mins = int(parts[m_idx - 1])
+                    secs_float = float(parts[s_idx - 1])
+                    secs = int(secs_float)
+                    msecs = int((secs_float - secs) * 1000)
+                    cpu = [days, hours, mins, secs, msecs]
+                    seen_total_cpu = True
+                except (ValueError, IndexError):
+                    pass
 
     return cpu
 
@@ -693,6 +754,14 @@ def level_of_theory(file):
             break
         if 'NWChem' in line:
             break
+        if 'x T B' in line or 'xtb version' in line:
+            for ln in data:
+                if 'Hamiltonian' in ln and 'xTB' in ln:
+                    parts = ln.split()
+                    for tok in parts:
+                        if 'xTB' in tok:
+                            return tok + '/none'
+            return 'GFN2-xTB/none'
 
     for line in data:
         if line.strip().find('External calculation') > -1:
@@ -757,6 +826,9 @@ def read_initial(file):
             break
         if "NWChem" in line:
             program = "NWChem"
+            break
+        if "x T B" in line or "xtb version" in line:
+            program = "xtb"
             break
     for line in data:
         # Grab pertinent information from file
@@ -873,6 +945,33 @@ def read_initial(file):
                     else:
                         end_scrf = len(keyword_line)
                     solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
+    # xtb parsing for level of theory and solvation model
+    elif program == 'xtb':
+        # Hamiltonian (GFN0/1/2-xTB) → "level"; xtb has no basis set in the QC sense
+        for ln in data:
+            if 'Hamiltonian' in ln and 'xTB' in ln:
+                for tok in ln.split():
+                    if 'xTB' in tok:
+                        level = tok
+                        break
+                if level != 'none':
+                    break
+        bs = 'none'
+        # Solvation from program-call line
+        solvation_model = 'gas phase'
+        for ln in data:
+            stripped = ln.strip()
+            if 'program call' in stripped and ':' in stripped:
+                solvation_model = _xtb_solvation_from_call(stripped.split(':', 1)[1].strip())
+                break
+        # Termination status
+        for ln in data:
+            if '[ERROR]' in ln or 'fatal error' in ln.lower():
+                progress = 'Error'
+                break
+            if 'finished run on' in ln:
+                progress = 'Normal'
+
     # ORCA parsing for solvation model and level of theory
     elif program == 'Orca':
         level, bs = _parse_orca_lot(data)
@@ -1391,7 +1490,9 @@ def parse_orca_thermo(file):
         elif 'Point Group:' in stripped and 'Symmetry Number:' in stripped:
             pg_part = stripped.split('Point Group:')[1].split(',')[0].strip()
             qcdata.point_group = pg_part
-            if '(inf)' in pg_part:
+            # Linear point groups: ORCA 6 prints "C(inf)v"/"D(inf)h",
+            # ORCA 5 prints "Cinfv"/"Dinfh" — match both via the "inf" stem.
+            if 'inf' in pg_part.lower():
                 qcdata.linear_mol = True
             try:
                 symm_part = stripped.split('Symmetry Number:')[1].strip()
@@ -1506,6 +1607,315 @@ def parse_orca_thermo(file):
     return qcdata
 
 
+def _xtb_solvation_from_call(call_line):
+    """Parse the xtb ``program call`` line for an implicit-solvation flag.
+
+    Returns a string like 'GBSA,water', 'CPCM-X,dimethylsulfoxide',
+    'ALPB,toluene', or 'gas phase'.
+    """
+    tokens = call_line.split()
+    for i, tok in enumerate(tokens):
+        if tok in ('-g', '--gbsa') and i + 1 < len(tokens):
+            return 'GBSA,' + tokens[i + 1]
+        if tok == '--cpcmx' and i + 1 < len(tokens):
+            return 'CPCM-X,' + tokens[i + 1]
+        if tok == '--alpb' and i + 1 < len(tokens):
+            return 'ALPB,' + tokens[i + 1]
+    return 'gas phase'
+
+
+def _xtb_read_xyz_fallback(file):
+    """Read the paired .xyz file when the .out has no final-geometry block.
+
+    Returns (atom_nums, atom_types, cartesians) — empty lists if not readable.
+    """
+    xyz = os.path.splitext(file)[0] + '.xyz'
+    if not os.path.exists(xyz):
+        return [], [], []
+    try:
+        with open(xyz, encoding='utf-8', errors='replace') as f:
+            lines = f.readlines()
+    except OSError:
+        return [], [], []
+    if len(lines) < 2:
+        return [], [], []
+    try:
+        natoms = int(lines[0].strip())
+    except (ValueError, IndexError):
+        return [], [], []
+    atom_nums, atom_types, cartesians = [], [], []
+    for line in lines[2:2 + natoms]:
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        elem = parts[0]
+        try:
+            atom_types.append(elem)
+            atom_nums.append(element_id(elem, num=True))
+            cartesians.append([float(parts[1]), float(parts[2]), float(parts[3])])
+        except ValueError:
+            continue
+    return atom_nums, atom_types, cartesians
+
+
+def parse_xtb_thermo(file):
+    """Parse xtb output for all thermochemistry-relevant data.
+
+    xtb takes a ``.xyz`` coordinate file plus CLI flags rather than an input
+    deck. The parser handles single-point (``xtb file.xyz``), Hessian-only
+    (``--hess``), and optimization+Hessian (``--ohess``) jobs, plus implicit
+    solvation (GBSA via ``-g``, ALPB via ``--alpb``, CPCM-X via ``--cpcmx``).
+
+    For runs without ``--opt``/``--ohess`` (no optimized-geometry block in the
+    output), Cartesians fall back to the paired ``.xyz`` input file.
+
+    Parameters
+    ----------
+    file : str
+        Path to xtb output file.
+    """
+    qcdata = QCData(file=file, program='xtb')
+
+    with open(file, encoding='utf-8', errors='replace') as f:
+        output = f.readlines()
+
+    # Empty / aborted runs: bail out early but record the program.
+    if not output or any('[ERROR]' in line for line in output):
+        if any('xtb version' in line for line in output):
+            for line in output:
+                if 'xtb version' in line:
+                    parts = line.split()
+                    try:
+                        qcdata.version_program = 'xtb version ' + parts[parts.index('version') + 1]
+                    except (ValueError, IndexError):
+                        pass
+                    break
+        return qcdata
+
+    HC_OVER_KB = 1.4387768775  # K per cm⁻¹
+
+    frequency_wn = []
+    im_frequency_wn = []
+    last_freq_idx = -1
+    program_call = ''
+
+    # First pass: locate the LAST vibrational-frequencies header.  Linear
+    # molecules and atoms use the ``vibrational frequencies (cm⁻¹)`` form;
+    # everything else uses ``projected vibrational frequencies (cm⁻¹)``.
+    for i, line in enumerate(output):
+        if 'vibrational frequencies' in line and '(cm' in line:
+            last_freq_idx = i
+
+    # Second pass: extract scalar fields and geometry; freq parsing happens once
+    for i, line in enumerate(output):
+        stripped = line.strip()
+
+        # --- Version
+        if 'xtb version' in stripped and not qcdata.version_program:
+            parts = stripped.split()
+            try:
+                qcdata.version_program = 'xtb version ' + parts[parts.index('version') + 1]
+            except (ValueError, IndexError):
+                pass
+
+        # --- Program call line (for solvation flag parsing)
+        elif 'program call' in stripped and ':' in stripped and not program_call:
+            program_call = stripped.split(':', 1)[1].strip()
+
+        # --- Charge: ":  net charge   <n>   :"
+        elif 'net charge' in stripped and stripped.startswith(':'):
+            parts = stripped.split()
+            try:
+                qcdata.charge = int(parts[parts.index('charge') + 1])
+            except (ValueError, IndexError):
+                pass
+
+        # --- Multiplicity from "unpaired electrons" (mult = unpaired + 1)
+        elif 'unpaired electrons' in stripped and stripped.startswith(':'):
+            parts = stripped.split()
+            try:
+                unpaired = int(parts[parts.index('electrons') + 1])
+                qcdata.multiplicity = unpaired + 1
+            except (ValueError, IndexError):
+                pass
+
+        # --- Electronic SCF energy ":: total energy   <E> Eh ::"
+        # Last occurrence wins (final SCC after opt, or sole SCC for SP)
+        elif stripped.startswith(':: total energy'):
+            parts = stripped.split()
+            try:
+                qcdata.scf_energy = float(parts[3])
+            except (ValueError, IndexError):
+                pass
+
+        # --- Zero-point energy
+        elif stripped.startswith(':: zero point energy'):
+            parts = stripped.split()
+            try:
+                qcdata.zero_point_corr = float(parts[4])
+            except (ValueError, IndexError):
+                pass
+
+        # --- Molecular mass: "molecular mass/u    :   <m>"
+        elif stripped.startswith('molecular mass/u'):
+            parts = stripped.split()
+            try:
+                qcdata.molecular_mass = float(parts[-1])
+            except (ValueError, IndexError):
+                pass
+
+        # --- Rotational constants in cm⁻¹: "rotational constants/cm⁻¹ : B1 B2 B3"
+        # xtb prints "Infinity" for atoms (no rotation); skip in that case.
+        elif stripped.startswith('rotational constants/cm'):
+            parts = stripped.split(':', 1)[1].split() if ':' in stripped else stripped.split()
+            if 'Infinity' in parts[:3]:
+                pass  # atom: leave roconst/rotemp at defaults
+            else:
+                try:
+                    roconst_cm = [float(parts[0]), float(parts[1]), float(parts[2])]
+                    qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+                    qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+                except (IndexError, ValueError):
+                    pass
+
+        # --- Linear marker (thermo SETUP block)
+        elif 'linear?' in stripped and stripped.startswith(':'):
+            if 'true' in stripped:
+                qcdata.linear_mol = True
+
+        # --- Point group from "symmetry  <pg>"
+        elif stripped.startswith(':') and 'symmetry' in stripped and 'rotational' not in stripped:
+            parts = stripped.split()
+            try:
+                idx = parts.index('symmetry')
+                if idx + 1 < len(parts) and parts[idx + 1] != ':':
+                    pg = parts[idx + 1]
+                    if pg not in ('GBSA', 'found', 'elements:'):
+                        qcdata.point_group = pg
+            except ValueError:
+                pass
+
+        # --- Symmetry number ":  rotational number  <n>  :"
+        elif 'rotational number' in stripped and stripped.startswith(':'):
+            parts = stripped.split()
+            try:
+                qcdata.symmno = int(parts[parts.index('number') + 1])
+            except (ValueError, IndexError):
+                pass
+
+        # --- Final optimized geometry block (only present for --opt/--ohess)
+        elif stripped == 'final structure:':
+            # Skip the "===" line; line i+1 is "===", i+2 is atom count, i+3 is comment
+            try:
+                natoms = int(output[i + 2].strip())
+            except (ValueError, IndexError):
+                continue
+            atom_nums_tmp = []
+            atom_types_tmp = []
+            cartesians_tmp = []
+            for k in range(i + 4, i + 4 + natoms):
+                if k >= len(output):
+                    break
+                parts = output[k].split()
+                if len(parts) < 4:
+                    break
+                try:
+                    atom_types_tmp.append(parts[0])
+                    atom_nums_tmp.append(element_id(parts[0], num=True))
+                    cartesians_tmp.append([float(parts[1]), float(parts[2]), float(parts[3])])
+                except ValueError:
+                    break
+            qcdata.atom_nums = atom_nums_tmp
+            qcdata.atom_types = atom_types_tmp
+            qcdata.cartesians = cartesians_tmp
+
+        # --- CPU time from "total:" block: "* cpu-time: <D> d, <H> h, <M> min, <S> sec"
+        # xtb prints two spaces ("*  cpu-time:") so match the substring.
+        elif 'cpu-time:' in stripped and stripped.startswith('*') and qcdata.cpu == [0, 0, 0, 0, 0]:
+            # First (= "total:") cpu-time line; subsequent are SCF/ANC/hess subtimers
+            parts = stripped.replace(',', ' ').split()
+            try:
+                d_idx = parts.index('d')
+                h_idx = parts.index('h')
+                m_idx = parts.index('min')
+                s_idx = parts.index('sec')
+                days = int(parts[d_idx - 1])
+                hours = int(parts[h_idx - 1])
+                mins = int(parts[m_idx - 1])
+                secs_float = float(parts[s_idx - 1])
+                secs = int(secs_float)
+                msecs = int((secs_float - secs) * 1000)
+                qcdata.cpu = [days, hours, mins, secs, msecs]
+            except (ValueError, IndexError):
+                pass
+
+    # Frequencies from the LAST projected-vibrational-frequencies block.
+    # xtb prints all 3N modes; the first 5 (linear) or 6 (non-linear) are the
+    # zero translational/rotational eigenvalues from projection — skip them by
+    # filtering |v| < 1.0 cm⁻¹. Negatives below that are imaginary modes.
+    if last_freq_idx >= 0:
+        for k in range(last_freq_idx + 1, len(output)):
+            parts = output[k].split()
+            if not parts or parts[0] != 'eigval':
+                break
+            for tok in parts[2:]:
+                try:
+                    v = float(tok)
+                except ValueError:
+                    continue
+                if abs(v) < 1.0:
+                    continue
+                if v > 0:
+                    frequency_wn.append(v)
+                else:
+                    im_frequency_wn.append(v)
+    qcdata.frequency_wn = frequency_wn
+    qcdata.im_frequency_wn = im_frequency_wn
+
+    # Multiplicity: if `unpaired electrons` was missing from output, leave at default 1.
+
+    # Solvation: parse from program call line
+    if program_call:
+        qcdata.solvation_model = _xtb_solvation_from_call(program_call)
+    else:
+        qcdata.solvation_model = 'gas phase'
+
+    # xtb has no DFT dispersion; GFN includes its own D3/D4 implicitly.
+    qcdata.empirical_dispersion = 'No empirical dispersion detected'
+
+    # Geometry fallback: SP-only and --hess runs lack a 'final structure:' block.
+    if not qcdata.atom_nums:
+        atom_nums, atom_types, cartesians = _xtb_read_xyz_fallback(file)
+        if atom_nums:
+            qcdata.atom_nums = atom_nums
+            qcdata.atom_types = atom_types
+            qcdata.cartesians = cartesians
+
+    # Linear molecules: keep only physical rotational temperatures.  xtb
+    # inverts a near-zero moment of inertia for the linear axis, producing
+    # either a huge positive number (e.g. 1e27 K) or a huge negative one;
+    # restrict to 0 < T_rot < 1e10 K to drop both pathological cases.
+    if qcdata.linear_mol and qcdata.rotemp:
+        physical = [t for t in qcdata.rotemp if 0.0 < t < 1.0e10]
+        if physical:
+            qcdata.rotemp = physical
+            qcdata.roconst = [t / HC_OVER_KB * 29.9792458 for t in physical]
+
+    # Job type from observed content
+    has_opt_geom = any('final structure:' in line for line in output)
+    has_freq = bool(frequency_wn) or bool(im_frequency_wn)
+    if has_opt_geom and has_freq:
+        qcdata.job_type = 'GSFreq'
+    elif has_opt_geom:
+        qcdata.job_type = 'GS'
+    elif has_freq:
+        qcdata.job_type = 'Freq'
+    else:
+        qcdata.job_type = 'SP'
+
+    return qcdata
+
+
 def parse_qcdata(file):
     """Parse any supported output file into a QCData object.
 
@@ -1523,7 +1933,7 @@ def parse_qcdata(file):
     for possible_filename in possible_filenames:
         if os.path.exists(possible_filename):
             actual_file = possible_filename
-            with open(possible_filename) as f:
+            with open(possible_filename, encoding='utf-8', errors='replace') as f:
                 data = f.readlines()
             break
 
@@ -1542,6 +1952,9 @@ def parse_qcdata(file):
         if 'NWChem' in line:
             program = 'NWChem'
             break
+        if 'x T B' in line or 'xtb version' in line:
+            program = 'xtb'
+            break
 
     if program == 'Gaussian':
         return parse_gaussian_thermo(actual_file)
@@ -1549,5 +1962,7 @@ def parse_qcdata(file):
         return parse_orca_thermo(actual_file)
     elif program == 'NWChem':
         return parse_nwchem_thermo(actual_file)
+    elif program == 'xtb':
+        return parse_xtb_thermo(actual_file)
     else:
         return QCData(file=file, program='unknown')

@@ -1,0 +1,28 @@
+! B3LYP 6-31G(d) Opt Freq pal16
+%maxcore 6000
+%base "18_propane_opt"
+
+# Propane: DFT geometry optimization (composite approach step 1)
+
+* xyz 0 1
+C   0.00000000   0.00000000   0.00000000
+C   1.54000000   0.00000000   0.00000000
+C  -0.77000000   1.33398700   0.00000000
+H   1.90300000   1.02671900   0.00000000
+H   1.90300000  -0.51336000   0.88916500
+H   1.90300000  -0.51336000  -0.88916500
+H  -1.38515334   1.39072946   0.87365134
+H  -1.38515334   1.39072946  -0.87365134
+H  -0.31621226  -0.54763251  -0.86313871
+H  -0.31621226  -0.54763251   0.86313871
+H  -0.07460071   2.14720273   0.00000000
+*
+
+$new_job
+! RI-B2PLYP D3BJ def2-TZVP def2-TZVP/C TIGHTSCF pal16
+%maxcore 6000
+%base "18_propane_dh_sp"
+
+# Propane: double hybrid energy on DFT geometry (composite step 2)
+
+* xyzfile 0 1 18_propane_opt.xyz

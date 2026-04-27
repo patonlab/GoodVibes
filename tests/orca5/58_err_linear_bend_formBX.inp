@@ -1,0 +1,19 @@
+# ERROR EXAMPLE: Internal coordinate failure (linear bend problem)
+# Allene (H2C=C=CH2) with near-linear CCC arrangement and slight asymmetric distortion
+# During optimization the CCC angle approaches 180 degrees, causing redundant internal
+# coordinates to become singular (linear bend undefined in standard internals)
+# ORCA error: "Problem with internal coordinates" or "Redundant internal coordinates failed"
+# Fix: Use Cartesian coordinates with %geom Constraints ... end or adjust coordinate system
+! HF 6-31G(d) Opt Freq pal16
+
+%maxcore 6000
+
+* xyz 0 1
+C      0.000000    0.000000    0.000000
+C      1.310000    0.000000    0.000000
+C      2.620000    0.000000    0.000000
+H     -0.540000    0.930000    0.000000
+H     -0.540000   -0.930000    0.000000
+H      3.160000    0.000000    0.930000
+H      3.160000    0.000000   -0.930000
+*

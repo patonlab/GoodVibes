@@ -1,0 +1,22 @@
+! B3LYP SV(P) TightSCF SlowConv
+! ScanTS pal16
+%maxcore 6000
+
+# OH + CH4 hydrogen abstraction: relaxed surface scan + TS optimization
+# ScanTS scans along the C-H bond, then optimizes the TS from the highest point
+
+%geom
+  scan
+    B 1 0 = 2.0, 1.0, 15
+  end
+end
+
+* int 0 2
+ C     0   0   0   0.000000     0.000     0.000
+ H     1   0   0   1.999962     0.000     0.000
+ H     1   2   0   1.095870   100.445     0.000
+ H     1   2   3   1.095971    90.180   119.467
+ H     1   2   3   1.095530    95.161   238.880
+ O     2   1   3   0.984205   164.404    27.073
+ H     6   2   1   0.972562   103.807    10.843
+*

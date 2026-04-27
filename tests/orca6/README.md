@@ -2,9 +2,10 @@
 
 ## Overview
 
-60 example `.inp` input files covering a wide range of ORCA 6 job types and features.
+62 example `.inp` input files covering a wide range of ORCA 6 job types and features.
 Files 01–43 are general calculations; files 44–50 are transition state examples;
 files 51–60 are deliberate error examples illustrating common ORCA failures.
+File 61 is an empty `.out` file used for edge-case testing (no input).
 
 ---
 
@@ -39,9 +40,9 @@ files 51–60 are deliberate error examples illustrating common ORCA failures.
 | 22 | `22_hcn_linear_freq_noraman.inp` | M062X/6-311+G(d,p) | Opt+Freq | Linear molecule |
 | 23 | `23_cs2_linear_anharmonic_noraman.inp` | B3LYP/6-311+G(2df,p) | Opt+AnFreq | Linear, anharmonic |
 | 24 | `24_iodobenzene_genecp_sdd.inp` | B3LYP/D3BJ | Opt+Freq | %basis NewGTO/NewECP for I (SDD) |
-| 25 | *(reserved)* | — | — | File not created yet |
+| 25 | `25_pd_complex_genecp_def2.inp` | PBE0-D3BJ | Opt+Freq | Pd phosphine complex, mixed basis (def2-TZVP+ECP for Pd, 6-31G(d) for P/C/H) |
 | 26 | `26_pt_complex_genecp_3zone.inp` | B3LYP | Opt+Freq | %basis 3-zone: def2-TZVP/def2-ECP |
-| 27 | *(reserved)* | — | — | File not created yet |
+| 27 | `27_custom_functional_camb3lyp.inp` | CAM-B3LYP/def2-SVP | Opt+Freq | Custom range-separated hybrid via %method (RangeSepEXX/Mu/Scal, ACM coefficients) |
 | 28 | `28_pyridine_smd_acetonitrile_wb97xd3.inp` | wB97X-D3/6-311+G(d,p) | Opt+Freq | SMD Acetonitrile |
 | 29 | `29_aniline_cpcm_chloroform.inp` | M062X/6-311+G(d,p) | Opt+Freq | CPCM Chloroform |
 | 30 | `30_phenol_smd_thf_pbe0_d3bj.inp` | PBE0/6-311+G(d,p) | Opt+Freq | SMD THF, D3BJ |
@@ -60,8 +61,8 @@ files 51–60 are deliberate error examples illustrating common ORCA failures.
 | 43 | `43_dmabn_bhandhlyp_chargetransfer.inp` | BHandHLYP/6-311+G(d,p) | Opt+Freq | Charge transfer |
 | 44 | `44_ts_sn2_identity_chloride.inp` | B3LYP/6-311+G(d,p) | OptTS+Freq | Classic SN2 TS, C3v, collinear |
 | 45 | `45_ts_diels_alder_butadiene_ethylene.inp` | M062X/6-31G(d) | OptTS+Freq | Concerted [4+2] TS, C2v |
-| 46 | `46_ts_neb_cope_rearrangement.inp` | PBEh-3c | NEB-TS+Freq | Fast-NEB-TS, Cope [3,3] rearrangement |
-| 47 | `47_ts_e2_elimination_ethylchloride.inp` | B3LYP/6-311+G(d,p) | OptTS+Freq | E2 anti-periplanar TS, anion |
+| 46 | `46_ts_neb_claisen_rearrangement.inp` | PBEh-3c | NEB-TS+Freq | Fast-NEB-TS, Claisen [3,3] rearrangement |
+| 47 | `47_ts_e2_elimination_ethylchloride.inp` | B3LYP/6-311+G(d,p) | OptTS+Freq | E2 anti-periplanar TS, anion (now converges; previously an error case) |
 | 48 | `48_ts_nh3_umbrella_inversion.inp` | wB97M-V/6-311+G(d,p) | OptTS+NumFreq | Low barrier, D3h planar TS, NumHess |
 | 49 | `49_ts_oh_abstraction_methane.inp` | wB97X-D3/6-311+G(d,p) | OptTS+Freq | Radical H-abstraction TS, doublet |
 | 50 | `50_ts_scants_oh_ch4_abstraction.inp` | B3LYP/SV(P) | ScanTS | Relaxed scan + auto TS optimization, doublet |
@@ -75,3 +76,4 @@ files 51–60 are deliberate error examples illustrating common ORCA failures.
 | 58 | `58_err_linear_bend_formBX.inp` | HF/6-31G(d) | Opt+Freq | **Error:** Internal coordinate failure |
 | 59 | `59_err_basis_linear_dependency.inp` | HF/aug-cc-pV5Z | Opt+Freq | **Error:** Basis set linear dependency |
 | 60 | `60_err_missing_end_blank_line.inp` | B3LYP/6-31G(d) | Opt+Freq | **Error:** Missing closing `*` |
+| 61 | *(no input)* | — | — | Empty `.out` file for edge-case parsing tests |

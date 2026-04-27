@@ -1,0 +1,44 @@
+# ERROR EXAMPLE: SCF convergence failure
+# Fe(II) porphine model — open-shell transition metal with near-degenerate states
+# Default SCF settings will fail to converge (oscillating energy, no convergence)
+# ORCA error: SCF NOT CONVERGED / ORCA terminates with error in SCF gradient
+# Fix: Add SlowConv, DIIS, or increase MaxIter; use %scf directresetfreq 1 end
+# or switch to TRAH SCF convergence strategy
+! UKS B3LYP 6-31G(d) Opt Freq pal16
+
+%maxcore 6000
+%scf
+  MaxIter 5
+end
+
+* xyz 0 5
+Fe     0.000000    0.000000    0.000000
+N      2.020000    0.000000    0.000000
+N      0.000000    2.020000    0.000000
+N     -2.020000    0.000000    0.000000
+N      0.000000   -2.020000    0.000000
+C      2.870000    1.100000    0.000000
+C      2.870000   -1.100000    0.000000
+C     -2.870000    1.100000    0.000000
+C     -2.870000   -1.100000    0.000000
+C      1.100000    2.870000    0.000000
+C     -1.100000    2.870000    0.000000
+C      1.100000   -2.870000    0.000000
+C     -1.100000   -2.870000    0.000000
+C      4.200000    0.680000    0.000000
+C      4.200000   -0.680000    0.000000
+C     -4.200000    0.680000    0.000000
+C     -4.200000   -0.680000    0.000000
+C      0.680000    4.200000    0.000000
+C     -0.680000    4.200000    0.000000
+C      0.680000   -4.200000    0.000000
+C     -0.680000   -4.200000    0.000000
+H      5.080000    1.310000    0.000000
+H      5.080000   -1.310000    0.000000
+H     -5.080000    1.310000    0.000000
+H     -5.080000   -1.310000    0.000000
+H      1.310000    5.080000    0.000000
+H     -1.310000    5.080000    0.000000
+H      1.310000   -5.080000    0.000000
+H     -1.310000   -5.080000    0.000000
+*

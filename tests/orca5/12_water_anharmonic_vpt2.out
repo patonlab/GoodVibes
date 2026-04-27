@@ -1,0 +1,336 @@
+Job Start Time: Sun Apr 26 22:32:22 MDT 2026
+SLURM Job ID: 807841
+SLURM Job Name: 12_water_anharmonic_vpt2
+SLURM Job Nodes: node11
+SLURM Memory / CPU: 
+
+                                 *****************
+                                 * O   R   C   A *
+                                 *****************
+
+                                            #,                                       
+                                            ###                                      
+                                            ####                                     
+                                            #####                                    
+                                            ######                                   
+                                           ########,                                 
+                                     ,,################,,,,,                         
+                               ,,#################################,,                 
+                          ,,##########################################,,             
+                       ,#########################################, ''#####,          
+                    ,#############################################,,   '####,        
+                  ,##################################################,,,,####,       
+                ,###########''''           ''''###############################       
+              ,#####''   ,,,,##########,,,,          '''####'''          '####       
+            ,##' ,,,,###########################,,,                        '##       
+           ' ,,###''''                  '''############,,,                           
+         ,,##''                                '''############,,,,        ,,,,,,###''
+      ,#''                                            '''#######################'''  
+     '                                                          ''''####''''         
+             ,#######,   #######,   ,#######,      ##                                
+            ,#'     '#,  ##    ##  ,#'     '#,    #''#        ######   ,####,        
+            ##       ##  ##   ,#'  ##            #'  '#       #        #'  '#        
+            ##       ##  #######   ##           ,######,      #####,   #    #        
+            '#,     ,#'  ##    ##  '#,     ,#' ,#      #,         ##   #,  ,#        
+             '#######'   ##     ##  '#######'  #'      '#     #####' # '####'        
+
+
+
+                  #######################################################
+                  #                        -***-                        #
+                  #          Department of theory and spectroscopy      #
+                  #    Directorship and core code : Frank Neese         #
+                  #        Max Planck Institute fuer Kohlenforschung    #
+                  #                Kaiser Wilhelm Platz 1               #
+                  #                 D-45470 Muelheim/Ruhr               #
+                  #                      Germany                        #
+                  #                                                     #
+                  #                  All rights reserved                #
+                  #                        -***-                        #
+                  #######################################################
+
+
+                         Program Version 5.0.4 -  RELEASE  -
+
+
+ With contributions from (in alphabetic order):
+   Daniel Aravena         : Magnetic Suceptibility
+   Michael Atanasov       : Ab Initio Ligand Field Theory (pilot matlab implementation)
+   Alexander A. Auer      : GIAO ZORA, VPT2 properties, NMR spectrum
+   Ute Becker             : Parallelization
+   Giovanni Bistoni       : ED, misc. LED, open-shell LED, HFLD
+   Martin Brehm           : Molecular dynamics
+   Dmytro Bykov           : SCF Hessian
+   Vijay G. Chilkuri      : MRCI spin determinant printing, contributions to CSF-ICE
+   Dipayan Datta          : RHF DLPNO-CCSD density
+   Achintya Kumar Dutta   : EOM-CC, STEOM-CC
+   Dmitry Ganyushin       : Spin-Orbit,Spin-Spin,Magnetic field MRCI
+   Miquel Garcia          : C-PCM and meta-GGA Hessian, CC/C-PCM, Gaussian charge scheme
+   Yang Guo               : DLPNO-NEVPT2, F12-NEVPT2, CIM, IAO-localization
+   Andreas Hansen         : Spin unrestricted coupled pair/coupled cluster methods
+   Benjamin Helmich-Paris : MC-RPA, TRAH-SCF, COSX integrals
+   Lee Huntington         : MR-EOM, pCC
+   Robert Izsak           : Overlap fitted RIJCOSX, COSX-SCS-MP3, EOM
+   Marcus Kettner         : VPT2
+   Christian Kollmar      : KDIIS, OOCD, Brueckner-CCSD(T), CCSD density, CASPT2, CASPT2-K
+   Simone Kossmann        : Meta GGA functionals, TD-DFT gradient, OOMP2, MP2 Hessian
+   Martin Krupicka        : Initial AUTO-CI
+   Lucas Lang             : DCDCAS
+   Marvin Lechner         : AUTO-CI (C++ implementation), FIC-MRCC
+   Dagmar Lenk            : GEPOL surface, SMD
+   Dimitrios Liakos       : Extrapolation schemes; Compound Job, initial MDCI parallelization
+   Dimitrios Manganas     : Further ROCIS development; embedding schemes
+   Dimitrios Pantazis     : SARC Basis sets
+   Anastasios Papadopoulos: AUTO-CI, single reference methods and gradients
+   Taras Petrenko         : DFT Hessian,TD-DFT gradient, ASA, ECA, R-Raman, ABS, FL, XAS/XES, NRVS
+   Peter Pinski           : DLPNO-MP2, DLPNO-MP2 Gradient
+   Christoph Reimann      : Effective Core Potentials
+   Marius Retegan         : Local ZFS, SOC
+   Christoph Riplinger    : Optimizer, TS searches, QM/MM, DLPNO-CCSD(T), (RO)-DLPNO pert. Triples
+   Tobias Risthaus        : Range-separated hybrids, TD-DFT gradient, RPA, STAB
+   Michael Roemelt        : Original ROCIS implementation
+   Masaaki Saitow         : Open-shell DLPNO-CCSD energy and density
+   Barbara Sandhoefer     : DKH picture change effects
+   Avijit Sen             : IP-ROCIS
+   Kantharuban Sivalingam : CASSCF convergence, NEVPT2, FIC-MRCI
+   Bernardo de Souza      : ESD, SOC TD-DFT
+   Georgi Stoychev        : AutoAux, RI-MP2 NMR, DLPNO-MP2 response
+   Willem Van den Heuvel  : Paramagnetic NMR
+   Boris Wezisla          : Elementary symmetry handling
+   Frank Wennmohs         : Technical directorship
+
+
+ We gratefully acknowledge several colleagues who have allowed us to
+ interface, adapt or use parts of their codes:
+   Stefan Grimme, W. Hujo, H. Kruse, P. Pracht,  : VdW corrections, initial TS optimization,
+                  C. Bannwarth, S. Ehlert          DFT functionals, gCP, sTDA/sTD-DF
+   Ed Valeev, F. Pavosevic, A. Kumar             : LibInt (2-el integral package), F12 methods
+   Garnet Chan, S. Sharma, J. Yang, R. Olivares  : DMRG
+   Ulf Ekstrom                                   : XCFun DFT Library
+   Mihaly Kallay                                 : mrcc  (arbitrary order and MRCC methods)
+   Jiri Pittner, Ondrej Demel                    : Mk-CCSD
+   Frank Weinhold                                : gennbo (NPA and NBO analysis)
+   Christopher J. Cramer and Donald G. Truhlar   : smd solvation model
+   Lars Goerigk                                  : TD-DFT with DH, B97 family of functionals
+   V. Asgeirsson, H. Jonsson                     : NEB implementation
+   FAccTs GmbH                                   : IRC, NEB, NEB-TS, DLPNO-Multilevel, CI-OPT
+                                                   MM, QMMM, 2- and 3-layer-ONIOM, Crystal-QMMM,
+                                                   LR-CPCM, SF, NACMEs, symmetry and pop. for TD-DFT,
+                                                   nearIR, NL-DFT gradient (VV10), updates on ESD,
+                                                   ML-optimized integration grids
+   S Lehtola, MJT Oliveira, MAL Marques          : LibXC Library
+   Liviu Ungur et al                             : ANISO software
+
+
+ Your calculation uses the libint2 library for the computation of 2-el integrals
+ For citations please refer to: http://libint.valeyev.net
+
+ Your ORCA version has been built with support for libXC version: 5.1.0
+ For citations please refer to: https://tddft.org/programs/libxc/
+
+ This ORCA versions uses:
+   CBLAS   interface :  Fast vector & matrix operations
+   LAPACKE interface :  Fast linear algebra routines
+   SCALAPACK package :  Parallel linear algebra routines
+   Shared memory     :  Shared parallel matrices
+   BLAS/LAPACK       :  OpenBLAS 0.3.15  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Zen SINGLE_THREADED
+        Core in use  :  Zen
+   Copyright (c) 2011-2014, The OpenBLAS Project
+
+
+================================================================================
+
+----- Orbital basis set information -----
+Your calculation utilizes the basis: def2-SVP
+   F. Weigend and R. Ahlrichs, Phys. Chem. Chem. Phys. 7, 3297 (2005).
+
+================================================================================
+                                        WARNINGS
+                       Please study these warnings very carefully!
+================================================================================
+
+
+WARNING: Instead of the default, updated atomic masses from 2016 are used.
+
+
+WARNING: TCut can not be >=Thresh
+  ===> : TCut is set to 0.01*Thresh
+
+INFO   : the flag for use of the SHARK integral package has been found!
+
+================================================================================
+                                       INPUT FILE
+================================================================================
+NAME = /tmp/807841/12_water_anharmonic_vpt2.inp
+|  1> # VPT2 Analysis of H2O
+|  2> !RHF def2-SVP ExtremeSCF VPT2
+|  3> %maxcore 6000
+|  4> 
+|  5> %vpt2
+|  6>   VPT2               On      # do a VPT2 analysis, same as !VPT2 (see above)
+|  7>   AnharmDisp         0.05    # anharmonic displacement factor, default is 0.05
+|  8>   HessianCutoff      1e-12   # cut-off for Hessian elements, default is 1e-10
+|  9>   PrintLevel         1       # VPT2 print level [1, 2, 3, 4]
+| 10>   MinimiseOrcaPrint  True    # Minimises the remaining orca output
+| 11> end
+| 12> 
+| 13> %method
+| 14>     Z_Tol               1e-14
+| 15> end
+| 16> 
+| 17> %pal nprocs 16
+| 18> end
+| 19> * xyz 0 1
+| 20>   O   0.00000000000000      0.06256176106279      0.06256176106280
+| 21>   H   0.00000000000000     -0.06185639479702      0.99929463373422
+| 22>   H   0.00000000000000      0.99929463373424     -0.06185639479703
+| 23> *
+| 24> 
+| 25>                          ****END OF INPUT****
+================================================================================
+
+                     *******************************
+                     *              VPT2           *
+                     *******************************
+
+    Basename = /tmp/807841/12_water_anharmonic_vpt2
+    MinimiseOrcaOutput = true
+    SymThresh = 1.00e-04
+    AnharmDisp = 0.050
+    PropDisp = 0.050
+    HessianCutoff = 1.00e-12
+    print_level = 1
+    AvgProp = 0
+    SkipModes = 0
+
+
+Rotating Geometry into its principle axis frame!
+                  0          1          2    
+      0       0.000000  -0.045455  -0.045455
+      1       0.000000  -0.169873   0.891278
+      2       0.000000   0.891278  -0.169873
+                  0          1          2    
+      0       3.871173   0.000000   0.000000
+      1       0.000000   1.935587   0.668238
+      2       0.000000   0.668238   1.935587
+	  0       0.000000
+	  1       0.000000
+	  2       0.000000
+
+                  0          1          2    
+      0       0.000000   0.000000   0.000000
+      1       0.000000   0.000000   0.000000
+      2       0.000000   0.000000   0.000000
+ > Obtaining the initial Hessian.
+ > Generate 6 displacements .
+Storing displaced geometries for hessian derivatives
+
+     Note:   There are more processes than displacements to do
+     ===>:   Reducing number of processes from 16 to 6
+
+		<<Calculating Hessian on displaced geometry   3     (of   6)   >>
+		<<Calculating Hessian on displaced geometry   2     (of   6)   >>
+		<<Calculating Hessian on displaced geometry   1     (of   6)   >>
+		<<Calculating Hessian on displaced geometry   5     (of   6)   >>
+		<<Calculating Hessian on displaced geometry   6     (of   6)   >>
+		<<Calculating Hessian on displaced geometry   4     (of   6)   >>
+Storing displaced geometries for property derivatives
+       This step took 0 s (2 s remaining).
+       This step took 0 s (2 s remaining).
+       This step took 0 s (1 s remaining).
+       This step took 0 s (1 s remaining).
+       This step took 0 s (1 s remaining).
+       This step took 0 s (0 s remaining).
+orca_vpt vpt2_filename: /tmp/807841/12_water_anharmonic_vpt2.vpt2
+
+
+
+
+                    *******************************
+                    *         VPT2 Analysis       *
+                    *******************************
+
+
+
+VPT2 Settings:
+    Basename:                                /tmp/807841/12_water_anharmonic_vpt2
+    Minimise the Orca amount of output:      true
+    Rotational symmetry detection threshold: 1.00e-04
+    Anharmonic displacement factor:          0.050
+    Property deriv. displ. factor:           0.050
+    Cutoff value when reading the Hessian:   1.00e-12
+    Print-level:                             1  
+    Averaged properties (0=none,1=NMR):      0  
+    Skip vibrational modes            :      0
+
+geometry reading: /tmp/807841/12_water_anharmonic_vpt2.vpt2
+geometry read: /tmp/807841/12_water_anharmonic_vpt2.vpt2
+
+
+============================ Geometry ==========================
+
+
+Coordinates in Angstroem
+--------------------------------------------------------------
+Atom         x               y               z        Mass [u]
+--------------------------------------------------------------
+O       0.000000000    -0.064283148     0.000000000  15.994915
+H       0.750347092     0.510110100     0.000000000   1.007825
+H      -0.750347092     0.510110100     0.000000000   1.007825
+--------------------------------------------------------------
+
+
+===================== Vibrational Analysis =====================
+
+
+Harmonic derivative of the perturbative corrections to the fundamental frequencies D
+
+--------------------------------------------
+D_vi^wi       v_000       v_001       v_002
+--------------------------------------------
+w_000       -0.00040    -0.00756     0.00254
+w_001        0.03909     0.03212     0.02569
+w_002       -0.00415     0.07314     0.00787
+--------------------------------------------
+
+Anharmonic constants [1/cm]
+---------------------------
+  r      s        chi[r][s]a chi[r][s]b
+---------------------------
+  0      0        -20.43512 
+  1      0        -19.12792 
+  1      1        -40.00151 
+  2      0        -16.15031 
+  2      1       -155.00075 
+  2      2        -44.20079 
+---------------------------
+
+Fundamental transitions [1/cm]
+-----------------------------------------
+Mode       w            v           Diff
+-----------------------------------------
+  0     1750.523     1692.013     -58.509
+  1     4148.947     3981.879    -167.067
+  2     4245.104     4071.127    -173.977
+-----------------------------------------
+
+Zero-point ro-vibrational energy [1/cm]
+---------------------------------------
+Harmonic contribution:         5072.287
+Anharmonic correction:          -73.729
+Ro-vibrational correction:        1.006
+---------------------------------------
+Total:                         4999.563
+
+
+============================== End =============================
+
+
+Timings for individual modules:
+
+Sum of individual times         ...        1.973 sec (=   0.033 min)
+GTO integral calculation        ...        0.372 sec (=   0.006 min)  18.8 %
+SCF iterations                  ...        0.613 sec (=   0.010 min)  31.0 %
+Analytical frequency calculation...        0.989 sec (=   0.016 min)  50.1 %
+                             ****ORCA TERMINATED NORMALLY****
+TOTAL RUN TIME: 0 days 0 hours 0 minutes 8 seconds 224 msec
