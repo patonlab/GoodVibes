@@ -65,7 +65,7 @@ The `-q` flag applies quasi-harmonic corrections (Grimme entropy + Head-Gordon e
 GoodVibes reads output files (`.log`, `.out`) from:
 
 - **Gaussian** (09, 16) -- optimization, frequency, single-point, link jobs, ONIOM, VPT2 anharmonic
-- **ORCA** (4, 5, 6) -- optimization, frequency, single-point, DLPNO-CCSD(T)
+- **ORCA** (5, 6) -- optimization, frequency, single-point, DLPNO-CCSD(T)
 - **NWChem** -- optimization, frequency, single-point
 
 The program is auto-detected from the output file contents. Additional file extensions can be registered with `--custom_ext`.
@@ -305,9 +305,10 @@ pytest -v
 
 Test data is organized by program:
 - `tests/g16/` -- Gaussian 16 output files
-- `tests/orca6/` -- ORCA 6 output files
+- `tests/orca6/` -- ORCA 6 output files (full coverage)
+- `tests/orca5/` -- ORCA 5 output files (lightweight regression layer)
 
-Test helpers in `tests/conftest.py` provide `g16path()` and `orca_path()` for resolving test file paths, plus categorized file lists (`G16_FREQ_FILES`, `ORCA_FREQ_FILES`, etc.) used by parametrized tests.
+Test helpers in `tests/conftest.py` provide `g16path()`, `orca_path()`, and `orca5_path()` for resolving test file paths, plus categorized file lists (`G16_FREQ_FILES`, `ORCA_FREQ_FILES`, `ORCA5_FILES`, etc.) used by parametrized tests.
 
 #### Citing GoodVibes
 Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
