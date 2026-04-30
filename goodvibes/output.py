@@ -30,6 +30,8 @@ def _print_rich_table(table: "Table") -> None:
         log.info("\n\n")
         get_console_stdout().print(table)
         get_console_dat().print(table)
+        # Add solid line below the table
+        log.info("   " + "─" * 80)
         # Add trailing newline for spacing
         log.info("\n")
 
