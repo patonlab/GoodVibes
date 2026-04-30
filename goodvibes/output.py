@@ -5,7 +5,7 @@ import os.path
 import sys
 from datetime import datetime
 
-from .utils import display_name, add_time
+from .utils import display_name, add_time, get_console_stdout, get_console_dat
 from .selectivity import get_selectivity
 from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU
 
@@ -13,7 +13,21 @@ from .pes import get_pes, graph_reaction_profile
 from .thermo import calc_bbe
 from .media import solvents
 
+try:
+    from rich.table import Table
+    from rich import box as rich_box
+except ImportError:
+    Table = None
+    rich_box = None
+
 log = logging.getLogger('goodvibes')
+
+
+def _print_rich_table(table: "Table") -> None:
+    """Print a Rich Table to both stdout and .dat file consoles."""
+    if Table is not None:
+        get_console_stdout().print(table)
+        get_console_dat().print(table)
 
 
 def print_cpu_time(thermo_data, exclude=None):
@@ -39,6 +53,63 @@ def print_cpu_time(thermo_data, exclude=None):
               f'{total_cpu_time.second:>2} {"secs":>4}\n')
 
 
+def _build_results_table(options) -> "Table":
+    """Build a Rich Table with columns for thermochemistry results.
+
+    Column layout is determined by the options (QH, spc, boltz, symm, imag_freq).
+    Returns a Table configured but with no rows yet.
+    """
+    if Table is None:
+        return None
+
+    dp = getattr(options, 'dp', 6)
+    dw = dp - 6
+    ew = 13 + dw  # wide numeric column
+    nw = 10 + dw  # narrow numeric column
+
+    table = Table(
+        box=rich_box.SIMPLE_HEAD,
+        show_header=True,
+        show_edge=False,
+        pad_edge=False,
+        highlight=False,
+    )
+
+    # Status column (o/x markers)
+    table.add_column("", width=3)
+    table.add_column("Structure", min_width=39, no_wrap=True)
+
+    if options.spc is not None:
+        table.add_column("E_SPC", min_width=ew, justify="right")
+    table.add_column("E", min_width=ew, justify="right")
+    table.add_column("ZPE", min_width=nw, justify="right")
+
+    if options.QH:
+        table.add_column("H", min_width=ew, justify="right")
+        table.add_column("qh-H", min_width=ew, justify="right")
+    else:
+        table.add_column("H", min_width=ew, justify="right")
+
+    table.add_column("T.S", min_width=nw, justify="right")
+    table.add_column("T.qh-S", min_width=nw, justify="right")
+
+    if options.spc is not None:
+        table.add_column("G(T)_SPC", min_width=ew, justify="right")
+        table.add_column("qh-G(T)_SPC", min_width=ew, justify="right")
+    else:
+        table.add_column("G(T)", min_width=ew, justify="right")
+        table.add_column("qh-G(T)", min_width=ew, justify="right")
+
+    if options.boltz:
+        table.add_column("Boltz", min_width=7, justify="right")
+    if options.symm or options.pg:
+        table.add_column("Point Group", min_width=13, justify="right")
+    if options.imag_freq is True:
+        table.add_column("im freq", min_width=9, justify="right")
+
+    return table
+
+
 def print_results(thermo_data, options, media_conc=None,
                   dup_list=None, boltz_facs=None):
     """Print the single-temperature thermochemistry results table.
@@ -58,18 +129,12 @@ def print_results(thermo_data, options, media_conc=None,
             Computed by get_boltz() in the orchestrator. None when --boltz is off.
     """
     files = list(thermo_data)
-    # Decimal places for energy output (default 6)
     dp = getattr(options, 'dp', 6)
-    # Extra width needed when dp > 6
     dw = dp - 6
-    # Set up stars separator based on QH option and decimal places
-    if options.QH:
-        stars = "   " + "*" * (142 + 8 * dw)  # 8 energy columns with QH
-    else:
-        stars = "   " + "*" * (128 + 7 * dw)  # 7 energy columns without QH
-    # Format helpers: w=wide (13+dw), n=narrow (10+dw)
-    ef = '{{:{w}.{d}f}}'.format(w=13 + dw, d=dp)  # energy format e.g. {:13.6f} or {:15.8f}
-    nf = '{{:{w}.{d}f}}'.format(w=10 + dw, d=dp)  # narrow format e.g. {:10.6f} or {:12.8f}
+
+    # Format helpers for legacy fallback
+    ef = '{{:{w}.{d}f}}'.format(w=13 + dw, d=dp)
+    nf = '{{:{w}.{d}f}}'.format(w=10 + dw, d=dp)
 
     # Check if user has chosen to make any low lying imaginary frequencies positive
     inverted_freqs, inverted_files = [], []
@@ -86,59 +151,20 @@ def print_results(thermo_data, options, media_conc=None,
                 log.info("\n\n   The following frequencies were made positive and used in calculations: " +
                           str(inverted_freqs[i]) + " from " + file)
 
-    # Adjust printing according to options requested
-    if options.spc is not None:
-        stars += '*' * (14 + dw)
-    # Width of the energy data columns (stars minus leading spaces and name)
-    data_width = len(stars) - 3 - 39
-    if options.boltz:
-        stars += '*' * 7
-    if options.symm or options.pg:
-        stars += '*' * 13
-    if options.imag_freq is True:
-        stars += '*' * 9
-
     total_cpu_time, add_days = datetime(100, 1, 1, 00, 00, 00, 00), 0
 
-    ew = 13 + dw  # energy column width for headers
-    nw = 10 + dw  # narrow column width for headers
-
-    if options.spc is None:
-        log.info("\n\n   ")
-        if options.QH:
-            log.info(('{{:<39}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
-                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
-                "Structure", "E", "ZPE", "H", "qh-H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"),
-)
-        else:
-            log.info(('{{:<39}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
-                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
-                "Structure", "E", "ZPE", "H", "T.S", "T.qh-S", "G(T)", "qh-G(T)"))
-    else:
-        log.info("\n\n   ")
-        if options.QH:
-            log.info(('{{:<39}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
-                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
-                "Structure", "E_SPC", "E", "ZPE", "H_SPC", "qh-H_SPC", "T.S", "T.qh-S",
-                "G(T)_SPC", "qh-G(T)_SPC"))
-        else:
-            log.info(('{{:<39}} {{:>{ew}}} {{:>{ew}}} {{:>{nw}}} {{:>{ew}}} {{:>{nw}}} {{:>{nw}}} {{:>{ew}}} '
-                       '{{:>{ew}}}').format(ew=ew, nw=nw).format(
-                "Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
-                "qh-G(T)_SPC"))
-    if options.boltz:
-        log.info('{:>7}'.format("Boltz"))
-    if options.symm or options.pg:
-        log.info('{:>13}'.format("Point Group"))
-    if options.imag_freq is True:
-        log.info('{:>9}'.format("im freq"))
-    log.info("\n" + stars + "")
+    # Build the Rich table
+    table = _build_results_table(options)
+    if table is None:
+        # Fallback if Rich is not available (shouldn't happen, but safe)
+        log.info("\n\nWarning: Rich not available, falling back to ASCII output")
+        return
 
     # Default dup_list if not passed by caller
     if dup_list is None:
         dup_list = []
 
-    for file in files:  # Loop over the output files and compute thermochemistry
+    for file in files:
         duplicate = False
         if dup_list:
             for dup in dup_list:
@@ -149,83 +175,88 @@ def print_results(thermo_data, options, media_conc=None,
                     break
         if not duplicate:
             bbe = thermo_data[file]
-            if options.cputime:  # Add up CPU times
-                if hasattr(bbe, "cpu"):
-                    if bbe.cpu is not None:
-                        total_cpu_time = add_time(total_cpu_time, bbe.cpu)
-                if hasattr(bbe, "sp_cpu"):
-                    if bbe.sp_cpu is not None:
-                        total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
+            if options.cputime:
+                if hasattr(bbe, "cpu") and bbe.cpu is not None:
+                    total_cpu_time = add_time(total_cpu_time, bbe.cpu)
+                if hasattr(bbe, "sp_cpu") and bbe.sp_cpu is not None:
+                    total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
             if total_cpu_time.month > 1:
                 add_days += 31
 
-            # Check for possible error in Gaussian calculation of linear molecules which can return 2 rotational constants instead of 3
+            # Handle linear molecule warning separately (not a table row)
             if bbe.linear_warning:
-                log.info("\nx  " + '{:<39}'.format(display_name(file)))
-                log.info('{:<{w}}'.format('          ----   Caution! Potential invalid calculation of linear molecule in Gaussian', w=data_width))
+                log.info('\nx  {} — Caution! Potential invalid linear molecule calculation in Gaussian'.format(
+                    display_name(file)))
+                continue
+
+            # Build row for this file
+            row = []
+            marker = "o" if hasattr(bbe, "gibbs_free_energy") else "x"
+            name = display_name(file)
+
+            # No gibbs free energy computed
+            if not hasattr(bbe, "gibbs_free_energy"):
+                row = [marker, name, "Warning! Couldn't find frequency information"]
+                # Pad with empty cells to match other rows
+                num_cols = len(table.columns) - 2  # -2 for marker and name
+                row.extend([""] * num_cols)
+                table.add_row(*row)
+                continue
+
+            row.append(marker)
+            row.append(name)
+
+            # E_SPC column (if applicable)
+            if options.spc is not None:
+                if bbe.sp_energy != '!':
+                    row.append(f"{bbe.sp_energy:.{dp}f}")
+                else:
+                    row.append("----")
+
+            # E column
+            if bbe.scf_energy is not None:
+                row.append(f"{bbe.scf_energy:.{dp}f}")
             else:
-                if hasattr(bbe, "gibbs_free_energy"):
-                    if options.spc is not None:
-                        if bbe.sp_energy != '!':
-                            log.info("\no  ")
-                            log.info('{:<39}'.format(display_name(file)))
-                            log.info((' ' + ef).format(bbe.sp_energy))
-                        if bbe.sp_energy == '!':
-                            log.info("\nx  ")
-                            log.info('{:<39}'.format(display_name(file)))
-                            log.info(' {:>13}'.format('----'))
-                    else:
-                        log.info("\no  ")
-                        log.info('{:<39}'.format(display_name(file)))
-                # Gaussian SPC file handling
-                if bbe.scf_energy is not None and not hasattr(bbe, "gibbs_free_energy"):
-                    log.info("\nx  " + '{:<39}'.format(display_name(file)))
-                # ORCA spc files
-                elif bbe.scf_energy is None and not hasattr(bbe, "gibbs_free_energy"):
-                    log.info("\nx  " + '{:<39}'.format(display_name(file)))
-                if bbe.scf_energy is not None:
-                    log.info((' ' + ef).format(bbe.scf_energy))
-                # No freqs found — pad to the same width as a full data row
-                # so trailing columns (Point Group, im freq) align with rows
-                # that do have thermo data.
-                if not hasattr(bbe, "gibbs_free_energy"):
-                    log.info("   Warning! Couldn't find frequency information ...".ljust(data_width - 14 - dw))
-                else:
-                    if all(getattr(bbe, attrib) for attrib in
-                           ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
-                        if options.QH:
-                            log.info((' ' + nf + ' ' + ef + ' ' + ef + ' ' + nf + ' ' + nf + ' ' + ef + ' ' + ef).format(
-                                bbe.zpe, bbe.enthalpy, bbe.qh_enthalpy, (options.temperature * bbe.entropy),
-                                (options.temperature * bbe.qh_entropy), bbe.gibbs_free_energy,
-                                bbe.qh_gibbs_free_energy))
-                        else:
-                            log.info((' ' + nf + ' ' + ef + ' ' + nf + ' ' + nf + ' ' + ef + ' '
-                                       + ef).format(bbe.zpe, bbe.enthalpy,
-                                                     (options.temperature * bbe.entropy),
-                                                     (options.temperature * bbe.qh_entropy),
-                                                     bbe.gibbs_free_energy, bbe.qh_gibbs_free_energy),
-                )
+                row.append("----")
 
-                    if options.media is not None and options.media.lower() in solvents and options.media.lower() == \
-                            display_name(file).lower():
-                        log.info("  Solvent: {:4.2f}M ".format(media_conc))
+            # ZPE column
+            row.append(f"{bbe.zpe:.{dp-3}f}")  # narrow format
 
-            # Append requested options to end of output.
-            # Point Group prints before im freq so a saddle point with
-            # multiple imaginary modes (variable column width) doesn't
-            # push Point Group out of its header column.
+            # H and optionally qh-H
+            row.append(f"{bbe.enthalpy:.{dp}f}")
+            if options.QH:
+                row.append(f"{bbe.qh_enthalpy:.{dp}f}")
+
+            # T.S and T.qh-S
+            row.append(f"{options.temperature * bbe.entropy:.{dp-3}f}")  # narrow format
+            row.append(f"{options.temperature * bbe.qh_entropy:.{dp-3}f}")  # narrow format
+
+            # G(T) and qh-G(T) (or with _SPC suffix)
+            row.append(f"{bbe.gibbs_free_energy:.{dp}f}")
+            row.append(f"{bbe.qh_gibbs_free_energy:.{dp}f}")
+
+            # Optional columns
             if options.boltz:
-                log.info('{:7.3f}'.format(boltz_facs[file]))
+                row.append(f"{boltz_facs[file]:.3f}")
             if options.symm or options.pg:
-                if hasattr(bbe, "point_group") and bbe.point_group:
-                    log.info('{:>13}'.format(bbe.point_group))
+                pg = getattr(bbe, "point_group", None) or "---"
+                row.append(pg)
+            if options.imag_freq is True:
+                if hasattr(bbe, "im_frequency_wn") and bbe.im_frequency_wn:
+                    freq_str = " ".join(f"{f:.2f}" for f in bbe.im_frequency_wn)
+                    row.append(freq_str)
                 else:
-                    log.info('{:>13}'.format('---'))
-            if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
-                for freq in bbe.im_frequency_wn:
-                    log.info('{:9.2f}'.format(freq))
+                    row.append("")
 
-    log.info("\n" + stars + "\n")
+            table.add_row(*row)
+
+            # Media annotation (print after table, not in it)
+            if options.media is not None and options.media.lower() in solvents and options.media.lower() == \
+                    display_name(file).lower():
+                log.info("  Solvent: {:4.2f}M ".format(media_conc))
+
+    # Print the table
+    _print_rich_table(table)
 
 
 def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cache=None):

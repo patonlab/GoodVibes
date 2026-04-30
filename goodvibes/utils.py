@@ -3,6 +3,16 @@ import logging
 import os.path
 import sys
 from datetime import datetime, timedelta
+from typing import Optional
+
+try:
+    from rich.console import Console
+except ImportError:
+    Console = None
+
+
+_console_stdout: Optional["Console"] = None
+_console_dat: Optional["Console"] = None
 
 
 def all_same(items):
@@ -13,29 +23,49 @@ def all_same(items):
 def setup_logging(filein, append):
     """Configure the 'goodvibes' logger with dual output: stdout + .dat file.
 
-    Both handlers use a bare formatter (message only, no level/timestamp)
-    and empty terminators (no auto-newlines) to preserve the partial-line
-    write pattern used throughout the codebase.
+    Creates a shared .dat file handle for both the logging FileHandler and a
+    no-color Rich Console, ensuring ANSI codes don't corrupt the .dat output.
+    The .dat Console uses box-drawing characters but no color.
+
+    Also initializes module-level Rich Consoles for use by output.py functions.
 
     Parameters:
         filein (str): prefix for the output file (e.g. "GoodVibes").
         append (str): suffix for the output file (e.g. "output").
     """
+    global _console_stdout, _console_dat
+
     logger = logging.getLogger('goodvibes')
     logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter('%(message)s')
 
-    console = logging.StreamHandler(sys.stdout)
-    console.setFormatter(formatter)
-    console.terminator = ''
+    # stdout handler + terminal console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.terminator = ''
+    logger.addHandler(console_handler)
 
-    datfile = logging.FileHandler(f'{filein}_{append}.dat', mode='w')
-    datfile.setFormatter(formatter)
-    datfile.terminator = ''
+    if Console is not None:
+        _console_stdout = Console(highlight=False, force_terminal=True)
 
-    logger.addHandler(console)
-    logger.addHandler(datfile)
+    # .dat file: shared handle for both logging and Rich output
+    dat_path = f'{filein}_{append}.dat'
+    dat_fp = open(dat_path, 'w')
+
+    # Use StreamHandler with the open file, not FileHandler (avoids double-open)
+    datfile_handler = logging.StreamHandler(dat_fp)
+    datfile_handler.setFormatter(formatter)
+    datfile_handler.terminator = ''
+    logger.addHandler(datfile_handler)
+
+    if Console is not None:
+        _console_dat = Console(
+            file=dat_fp,
+            force_terminal=True,  # emit box-drawing chars even though file is not a TTY
+            no_color=True,        # strip ANSI color codes
+            highlight=False,      # don't auto-highlight tokens
+        )
 
 
 def fatal(message):
@@ -71,3 +101,17 @@ def natural_key(path):
     base = os.path.basename(path)
     return [int(t) if t.isdigit() else t.lower()
             for t in re.split(r'(\d+)', base)]
+
+
+def get_console_stdout() -> "Console":
+    """Return the Rich Console for stdout (with colors/formatting)."""
+    if _console_stdout is None:
+        raise RuntimeError("setup_logging() must be called before get_console_stdout()")
+    return _console_stdout
+
+
+def get_console_dat() -> "Console":
+    """Return the Rich Console for the .dat file (no color, box-drawing chars)."""
+    if _console_dat is None:
+        raise RuntimeError("setup_logging() must be called before get_console_dat()")
+    return _console_dat
