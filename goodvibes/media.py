@@ -15,9 +15,9 @@ import os
 def _load_solvents():
     """
     Load the bundled solvents.json and build a flat mapping from each lowercase alias to its (molecular weight, density) tuple.
-    
+
     The JSON file is read from the same directory as this module. Each solvent entry's `aliases` list is expanded and normalized to lowercase.
-    
+
     Returns:
         dict: Mapping where keys are lowercase alias strings and values are `(mw, density)` tuples — `mw` in g/mol and `density` in g/mL.
     """
@@ -27,8 +27,7 @@ def _load_solvents():
 
     result = {}
     for entry in data['solvents']:
-        canonical = entry['name']
-        value = (entry['mw'], entry['density'], canonical)
+        value = (entry['mw'], entry['density'])
         for alias in entry['aliases']:
             result[alias.lower()] = value
     return result
@@ -49,20 +48,8 @@ def compute_media_conc(media, file):
         float or None: Neat-solvent concentration in mol/L if the file's solvent matches `media`, `None` otherwise.
     """
     from .utils import display_name
-    media_key = media.lower()
-    file_key = display_name(file).lower()
-
-    # Get canonical identities for both media and file
-    if media_key not in solvents:
-        return None
-
-    mweight, density, media_canonical = solvents[media_key]
-
-    # Check if file also references a known solvent
-    if file_key in solvents:
-        _, _, file_canonical = solvents[file_key]
-        # Only apply concentration correction if both refer to the same canonical solvent
-        if media_canonical == file_canonical:
-            return (density * 1000) / mweight
-
+    key = media.lower()
+    if key in solvents and key == display_name(file).lower():
+        mweight, density = solvents[key]
+        return (density * 1000) / mweight
     return None

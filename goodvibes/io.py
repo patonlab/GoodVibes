@@ -200,12 +200,7 @@ def _principal_moments_of_inertia(atom_types, cartesians):
     Used as a fallback when an extxyz fixture omits molecular_mass / roconst /
     rotemp; computes them from the geometry using ATOMIC_MASSES.
     """
-    masses = []
-    for a in atom_types:
-        if a not in ATOMIC_MASSES:
-            raise KeyError(f"Unknown element symbol '{a}' not found in ATOMIC_MASSES")
-        masses.append(ATOMIC_MASSES[a])
-    masses = np.array(masses)
+    masses = np.array([ATOMIC_MASSES.get(a, 0.0) for a in atom_types])
     coords = np.array(cartesians, dtype=float)
     total = float(masses.sum())
     if total <= 0.0 or len(coords) == 0:

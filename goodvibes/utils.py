@@ -18,13 +18,13 @@ _console_dat: Optional["Console"] = None
 def all_same(items):
     """
     Determine whether every element of `items` equals the first element.
-    
+
     Parameters:
         items (Sequence): A non-empty sequence of comparable elements.
-    
+
     Returns:
         True if every element equals the first element, False otherwise.
-    
+
     Raises:
         IndexError: If `items` is empty.
     """
@@ -48,14 +48,6 @@ def setup_logging(filein, append):
 
     formatter = logging.Formatter('%(message)s')
 
-    # Remove any existing handlers to prevent duplicates
-    for handler in logger.handlers[:]:
-        if isinstance(handler, logging.StreamHandler):
-            # Close file handle if it's a file-based stream
-            if hasattr(handler.stream, 'close') and handler.stream not in (sys.stdout, sys.stderr):
-                handler.stream.close()
-            logger.removeHandler(handler)
-
     # stdout handler + terminal console
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
@@ -67,7 +59,7 @@ def setup_logging(filein, append):
 
     # .dat file: shared handle for both logging and Rich output
     dat_path = f'{filein}_{append}.dat'
-    dat_fp = open(dat_path, 'w', encoding='utf-8')
+    dat_fp = open(dat_path, 'w')
 
     # Use StreamHandler with the open file, not FileHandler (avoids double-open)
     datfile_handler = logging.StreamHandler(dat_fp)

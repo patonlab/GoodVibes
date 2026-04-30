@@ -419,7 +419,7 @@ def main():
     # Media concentration for display in output (the per-file conc override is handled in compute_thermochem)
     media_conc = None
     if options.media and options.media.lower() in solvents:
-        mweight, density, _ = solvents[options.media.lower()]
+        mweight, density = solvents[options.media.lower()]
         media_conc = (density * 1000) / mweight
 
     # Save QCData cache if requested

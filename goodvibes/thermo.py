@@ -323,7 +323,7 @@ def calc_avg_moment_of_inertia(roconst):
     if av_roconst_ghz <= 0:
         raise ValueError("Average rotational constant must be positive")
     av_roconst_hz = av_roconst_ghz * 1e9  # Hz
-    return PLANCK_CONSTANT / (8 * math.pi**2 * av_roconst_hz)  # kg m^2
+    return PLANCK_CONSTANT / av_roconst_hz  # kg m^2
 
 
 def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=None):
@@ -474,36 +474,35 @@ class calc_bbe:
     """
     def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
                  invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None):
-        
-        # 1. Parse all data from file (program-agnostic), or use provided cache
         """
-                 Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
-                 
-                 Parameters:
-                     file (str): Path to the quantum-chemistry output file used for parsing when qcdata is not supplied.
-                     QS (str): Vibrational entropy scheme; either "grimme" or "truhlar".
-                     QH (bool): If True, compute quasi-harmonic (qRRHO/qRRHO enthalpy) corrections.
-                     cutoff (float): Frequency cutoff (cm⁻¹) used for quasi-RRHO damping / RRQHO selection.
-                     H_FREQ_CUTOFF (float): Frequency cutoff (cm⁻¹) used for quasi-harmonic enthalpy damping.
-                     temp (float): Temperature in kelvin for all thermal calculations.
-                     conc (float or None): Concentration in mol/L used for translational entropy; None leaves behavior to defaults.
-                     scale_fac (float or list or None): Frequency scaling factor (or list for ONIOM: [qm_scale, mm_scale]).
-                     solv (str or None): Solvent identifier; if None or 'none', translational entropy is computed as ideal gas.
-                     spc (None, bool, or str): Single-point correction control. If not None and not 'link', a single-point file is sought/applied.
-                     invert (None, str, or numeric): Policy for handling imaginary frequencies; passed to _apply_frequency_inversion.
-                     symm (bool): If True, attempt a symmetry entropy correction via pymsym and add it to computed entropies.
-                     mm_freq_scale_factor (float or None): MM frequency scale factor for ONIOM blending; when provided, enables ONIOM blending.
-                     inertia (str): 'global' to use the global GRIMME_BAV moment of inertia, otherwise attempt to derive from rotational constants.
-                     qcdata (QCData or None): Pre-parsed QC data object; when provided, parsing of file is skipped.
-                 
-                 Notes:
-                     - On successful initialization the instance will have computed attributes including (but not limited to)
-                       enthalpy, qh_enthalpy, entropy, qh_entropy, gibbs_free_energy, qh_gibbs_free_energy, zpe,
-                       frequency_wn, im_frequency_wn, inverted_freqs, and various intermediate thermal terms.
-                     - If required frequency/ZPE/rotational data are missing or unparsable, thermal quantities remain unset or zeroed
-                       according to the module's behavior.
-                 """
-                 if qcdata is None:
+        Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
+
+        Parameters:
+            file (str): Path to the quantum-chemistry output file used for parsing when qcdata is not supplied.
+            QS (str): Vibrational entropy scheme; either "grimme" or "truhlar".
+            QH (bool): If True, compute quasi-harmonic (qRRHO/qRRHO enthalpy) corrections.
+            cutoff (float): Frequency cutoff (cm⁻¹) used for quasi-RRHO damping / RRQHO selection.
+            H_FREQ_CUTOFF (float): Frequency cutoff (cm⁻¹) used for quasi-harmonic enthalpy damping.
+            temp (float): Temperature in kelvin for all thermal calculations.
+            conc (float or None): Concentration in mol/L used for translational entropy; None leaves behavior to defaults.
+            scale_fac (float or list or None): Frequency scaling factor (or list for ONIOM: [qm_scale, mm_scale]).
+            solv (str or None): Solvent identifier; if None or 'none', translational entropy is computed as ideal gas.
+            spc (None, bool, or str): Single-point correction control. If not None and not 'link', a single-point file is sought/applied.
+            invert (None, str, or numeric): Policy for handling imaginary frequencies; passed to _apply_frequency_inversion.
+            symm (bool): If True, attempt a symmetry entropy correction via pymsym and add it to computed entropies.
+            mm_freq_scale_factor (float or None): MM frequency scale factor for ONIOM blending; when provided, enables ONIOM blending.
+            inertia (str): 'global' to use the global GRIMME_BAV moment of inertia, otherwise attempt to derive from rotational constants.
+            qcdata (QCData or None): Pre-parsed QC data object; when provided, parsing of file is skipped.
+
+        Notes:
+            - On successful initialization the instance will have computed attributes including (but not limited to)
+              enthalpy, qh_enthalpy, entropy, qh_entropy, gibbs_free_energy, qh_gibbs_free_energy, zpe,
+              frequency_wn, im_frequency_wn, inverted_freqs, and various intermediate thermal terms.
+            - If required frequency/ZPE/rotational data are missing or unparsable, thermal quantities remain unset or zeroed
+              according to the module's behavior.
+        """
+        # 1. Parse all data from file (program-agnostic), or use provided cache
+        if qcdata is None:
             qcdata = parse_qcdata(file)
 
         # 2. Geometry data (from native parser via qcdata)
@@ -549,7 +548,7 @@ class calc_bbe:
                 self.sp_energy = '!'
             else:
                 try:
-                    (self.sp_energy, self.sp_program,
+                    (self.sp_energy, _,
                      self.sp_version_program, self.sp_solvation_model,
                      _, self.sp_charge,
                      self.sp_empirical_dispersion,
@@ -566,7 +565,7 @@ class calc_bbe:
             self.sp_empirical_dispersion = qcdata.empirical_dispersion
             self.sp_multiplicity = qcdata.multiplicity
         else:
-            (self.sp_energy, self.sp_program,
+            (self.sp_energy, _,
              self.sp_version_program, self.sp_solvation_model,
              _, self.sp_charge,
              self.sp_empirical_dispersion,
@@ -576,118 +575,6 @@ class calc_bbe:
         frequency_wn, im_frequency_wn, inverted_freqs = _apply_frequency_inversion(
             qcdata.frequency_wn, qcdata.im_frequency_wn,
             invert, self.job_type)
-
-        if self.sp_program == 'Orca' or self.program == 'Orca':
-            import cclib  # could parse the frequencies with cclib 
-            orcaparse = cclib.parser.ORCA(file)
-            orcadata = orcaparse.parse()
-            #all_freqs = orcadata.vibfreqs.tolist()
-
-            # scan and parse all frequencies without using cclib
-            all_freqs = []
-            for i,line in enumerate(g_output):
-                if line.strip().startswith('VIBRATIONAL FREQUENCIES'):
-                    start_line = i
-                elif line.strip().startswith('NORMAL MODES'):
-                    end_line = i
-            for line in g_output[start_line:end_line]:
-                if 'cm**-1' in line:
-                    vib = float(line.split()[1])
-                    # We intentionally keep all ORCA-reported vibrational frequencies,
-                    # including any zero or near-zero modes. In this section of the
-                    # output ORCA already excludes translational and rotational modes,
-                    # so an extra "vib != 0.00" filter here would drop legitimate
-                    # very-low-frequency vibrations and could distort the subsequent
-                    # analysis (e.g. identification of the lowest mode and TS checks).
-                    all_freqs.append(vib)
-
-            if len(all_freqs) != 0:
-                most_low_freq = min(all_freqs) # get lowest mode
-            im_frequency_wn = []
-            inverted_freqs = []
-            for x in all_freqs:
-                if x > 0.00:
-                    frequency_wn.append(x)
-                elif x < -1 * im_freq_cutoff:
-                    if invert is not False:
-                        if invert == 'auto':
-                            if 'optts' in orcadata.metadata['keywords'].lower():
-                                if x == most_low_freq:
-                                    im_frequency_wn.append(x)
-                                    im_freq = [ x ] 
-                                else:
-                                    frequency_wn.append(x * -1.)
-                                    inverted_freqs.append(x)
-                            else:
-                                frequency_wn.append(x * -1.)
-                                inverted_freqs.append(x)
-                        elif x > float(invert):
-                            frequency_wn.append(x * -1.)
-                            inverted_freqs.append(x)
-                        else:
-                            im_frequency_wn.append(x)
-                    else:
-                        im_frequency_wn.append(x)
-
-            self.inverted_freqs = inverted_freqs
-            self.frequency_wn = frequency_wn
-            self.im_freq = im_frequency_wn
-            self.im_frequency_wn = im_frequency_wn
-
-            for i,line in enumerate(g_output):
-                # For QM calculations look for SCF energies, last one will be the optimized energy
-                if line.strip().find('FINAL SINGLE POINT ENERGY') != -1:
-                    self.scf_energy = float(line.strip().split()[4])
-                # Look for thermal corrections, paying attention to point group symmetry
-                elif line.strip().startswith('Zero point energy'):
-                    self.zero_point_corr = float(line.strip().split()[4]) # in AU
-                # Grab Multiplicity
-                elif 'Multiplicity' in line.strip():
-                    try:
-                        self.mult = int(line.split()[-1])
-                    except:
-                        self.mult = 1 # defaulting multiplicity to 1
-                # Grab molecular mass
-                elif line.strip().find('Total Mass') != -1:
-                    molecular_mass = float(line.strip().split()[3])
-                # Grab rational symmetry number
-                elif line.strip().find('Symmetry Number') != -1:
-                    if not ssymm:
-                        symmno = int(line.strip().split()[-1])
-                # Grab point group
-                elif line.strip().find('Point Group:') != -1:
-                    if line.strip().split()[2] == 'D*H,' or line.strip().split()[2] == 'C*V,':
-                        linear_mol = 1
-                # Grab rotational constants (convert cm-1 to GHz)
-                elif line.strip().find('Rotational constants in cm-1') != -1:
-                    base_roconst = [float(line.strip().split()[4]),
-                                    float(line.strip().split()[5]),
-                                    float(line.strip().split()[6])]
-                    # retain ONE 0 mode if all are zero
-                    if base_roconst == [0.0, 0.0, 0.0]:
-                        self.roconst = [0.0]
-                    else:
-                        # remove zero modes since these imply linearity and need to not be zero for the calc_rotational_entropy
-                        self.roconst = [x for x in base_roconst if x != 0.0]
-
-                    # if the values are the same, then drop one, this is taken care of by the symmetry number
-                    if len(self.roconst) > 1 and self.roconst[0] == self.roconst[1]:
-                        self.roconst.pop(1)
-
-                    # ORCA we have to calculate the rotational temperatures ourselves
-                    # rotemp = hc [rocont] / kB 
-                    self.rotemp = [PLANCK_CONSTANT * SPEED_OF_LIGHT * x / BOLTZMANN_CONSTANT for x in self.roconst]
-                    rotemp = self.rotemp
-                    # convert roconst to GHz
-                    self.roconst = [x * 29.9792458 for x in self.roconst]  # convert to GHz
-
-                if "TOTAL RUN TIME" in line.strip():
-                    days = int(line.split()[3]) 
-                    hours = int(line.split()[5])
-                    mins = int(line.split()[7]) 
-                    secs = int(line.split()[9]) 
-                    msecs = int(line.split()[11])
-                    self.cpu = [days, hours, mins, secs, msecs]
 
         self.inverted_freqs = inverted_freqs
 
