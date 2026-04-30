@@ -73,6 +73,7 @@ def _build_results_table(options) -> "Table":
         show_edge=False,
         pad_edge=False,
         highlight=False,
+        header_style="",  # Disable bold header styling
     )
 
     # Status column (o/x markers)
