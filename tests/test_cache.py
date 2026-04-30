@@ -7,7 +7,10 @@ import os
 
 import pytest
 
-from conftest import g16path, orca_path, G16_FREQ_FILES, G16_TS_FILES, ORCA_FREQ_FILES, ORCA_TS_FILES
+from conftest import (g16path, orca_path, ase_path,
+                      G16_FREQ_FILES, G16_TS_FILES,
+                      ORCA_FREQ_FILES, ORCA_TS_FILES,
+                      ASE_FREQ_FILES, ASE_TS_FILES)
 from goodvibes.io import parse_qcdata, qcdata_to_dict, dict_to_qcdata, save_cache, load_cache, CACHE_VERSION
 from goodvibes.thermo import calc_bbe
 from dataclasses import asdict
@@ -28,6 +31,16 @@ def test_qcdata_roundtrip_g16(filename):
 def test_qcdata_roundtrip_orca(filename):
     """Parse an ORCA file, serialize to dict, deserialize back, verify all fields match."""
     original = parse_qcdata(orca_path(filename))
+    d = qcdata_to_dict(original)
+    restored = dict_to_qcdata(d)
+    assert asdict(restored) == asdict(original)
+
+
+@pytest.mark.parametrize("filename", ASE_FREQ_FILES + ASE_TS_FILES)
+def test_qcdata_roundtrip_ase(filename):
+    """ASE-sourced QCData round-trips through the cache schema unchanged
+    (the cache layer is source-format-agnostic)."""
+    original = parse_qcdata(ase_path(filename))
     d = qcdata_to_dict(original)
     restored = dict_to_qcdata(d)
     assert asdict(restored) == asdict(original)

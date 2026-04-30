@@ -7,7 +7,9 @@ from datetime import datetime
 import pytest
 
 import logging
+import numpy as np
 from goodvibes.utils import all_same, add_time, display_name, setup_logging, fatal
+from goodvibes.sort import deduplicate
 
 
 # ===========================================================================
@@ -125,17 +127,22 @@ def test_fatal_exits(tmp_path):
 # sort.deduplicate
 # ===========================================================================
 
+class MockBBE:
+    """Mock object for GoodVibes BBE (energies, frequencies, etc.) for testing."""
+    def __init__(self, scf_energy=None, roconst=None, frequency_wn=None, cartesians=None):
+        if scf_energy is not None:
+            self.scf_energy = scf_energy
+        if roconst is not None:
+            self.roconst = roconst
+        if frequency_wn is not None:
+            self.frequency_wn = frequency_wn
+        if cartesians is not None:
+            self.cartesians = cartesians
+
 def test_deduplicate_identical_structures():
     """Two structures with identical properties should be flagged as duplicates."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
-    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0])
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
+    bbe2 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
     dups = deduplicate(thermo_data)
@@ -145,15 +152,8 @@ def test_deduplicate_identical_structures():
 
 def test_deduplicate_different_structures():
     """Two structures with very different energies are not duplicates."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
-    bbe2 = MockBBE(-99.0, [10.0, 20.0, 30.0])
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
+    bbe2 = MockBBE(scf_energy=-99.0, roconst=[10.0, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
     dups = deduplicate(thermo_data)
@@ -162,22 +162,14 @@ def test_deduplicate_different_structures():
 
 def test_deduplicate_no_files():
     """Empty file list returns no duplicates."""
-    from goodvibes.sort import deduplicate
     assert deduplicate({}) == []
 
 
 def test_deduplicate_abs_energy_diff():
     """Energy comparison uses absolute value — order should not matter."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
     # file1 has LOWER energy than file2 (1.0 Hartree difference)
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
-    bbe2 = MockBBE(-99.0, [10.0, 20.0, 30.0])
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
+    bbe2 = MockBBE(scf_energy=-99.0, roconst=[10.0, 20.0, 30.0])
 
     # Both orderings should reject (1.0 Ha = 627.5 kcal/mol >> 0.05 kcal/mol cutoff)
     assert deduplicate({'file1.log': bbe1, 'file2.log': bbe2}) == []
@@ -186,15 +178,8 @@ def test_deduplicate_abs_energy_diff():
 
 def test_deduplicate_custom_energy_cutoff():
     """Custom energy cutoff allows larger differences to pass."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
-    bbe2 = MockBBE(-100.001, [10.0, 20.0, 30.0])
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
+    bbe2 = MockBBE(scf_energy=-100.001, roconst=[10.0, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
     # Default cutoff (0.05 kcal/mol) should NOT flag (0.001 Ha ~ 0.63 kcal/mol > 0.05)
@@ -205,15 +190,8 @@ def test_deduplicate_custom_energy_cutoff():
 
 def test_deduplicate_custom_roconst_cutoff():
     """Custom rotational constant cutoff."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
-    bbe2 = MockBBE(-100.0, [10.2, 20.0, 30.0])
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
+    bbe2 = MockBBE(scf_energy=-100.0, roconst=[10.2, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
     # Relative diff on first constant = 0.2/10.1 ~ 2% > 1% default, so rejected
@@ -224,18 +202,10 @@ def test_deduplicate_custom_roconst_cutoff():
 
 def test_deduplicate_custom_rmsd_cutoff():
     """RMSD comparison with custom threshold."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst, cartesians):
-            self.scf_energy = scf
-            self.roconst = roconst
-            self.cartesians = cartesians
-
     coords1 = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
     coords2 = [[0.0, 0.0, 0.0], [1.5, 0.0, 0.0], [0.0, 1.0, 0.0]]  # RMSD ~ 0.167
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], coords1)
-    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0], coords2)
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords1)
+    bbe2 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords2)
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
     # Tight cutoff (0.125 Å) should reject (aligned RMSD ~ 0.129 > 0.125)
@@ -246,15 +216,6 @@ def test_deduplicate_custom_rmsd_cutoff():
 
 def test_deduplicate_rmsd_alignment():
     """Kabsch alignment handles translated and rotated identical structures."""
-    from goodvibes.sort import deduplicate
-    import numpy as np
-
-    class MockBBE:
-        def __init__(self, scf, roconst, cartesians):
-            self.scf_energy = scf
-            self.roconst = roconst
-            self.cartesians = cartesians
-
     coords = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
     # Same structure translated by [5, 5, 5]
     coords_translated = [[5.0, 5.0, 5.0], [6.0, 5.0, 5.0], [5.0, 6.0, 5.0]]
@@ -262,9 +223,9 @@ def test_deduplicate_rmsd_alignment():
     R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
     coords_rotated = (np.array(coords) @ R.T).tolist()
 
-    bbe_orig = MockBBE(-100.0, [10.0, 20.0, 30.0], coords)
-    bbe_trans = MockBBE(-100.0, [10.0, 20.0, 30.0], coords_translated)
-    bbe_rot = MockBBE(-100.0, [10.0, 20.0, 30.0], coords_rotated)
+    bbe_orig = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords)
+    bbe_trans = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords_translated)
+    bbe_rot = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords_rotated)
 
     # Translated copy should be flagged as duplicate (RMSD ~ 0 after alignment)
     assert len(deduplicate({'a.log': bbe_orig, 'b.log': bbe_trans}, rmsd_cutoff=0.125)) == 1
@@ -274,15 +235,8 @@ def test_deduplicate_rmsd_alignment():
 
 def test_deduplicate_tighter_cutoff_rejects():
     """Tighter cutoffs can reject pairs that would pass defaults."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0])
-    bbe2 = MockBBE(-100.00005, [10.0, 20.0, 30.0])
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0])
+    bbe2 = MockBBE(scf_energy=-100.00005, roconst=[10.0, 20.0, 30.0])
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
     # Default cutoffs: should be flagged
@@ -293,39 +247,18 @@ def test_deduplicate_tighter_cutoff_rejects():
 
 def test_deduplicate_missing_attributes_not_flagged():
     """Structures missing attributes should not be flagged as duplicates."""
-    from goodvibes.sort import deduplicate
-
-    class MinimalBBE:
-        pass
-
-    thermo_data = {'file1.log': MinimalBBE(), 'file2.log': MinimalBBE()}
+    thermo_data = {'file1.log': MockBBE(), 'file2.log': MockBBE()}
     assert deduplicate(thermo_data) == []
 
 
 def test_deduplicate_no_cross_pair_leakage():
     """Values from one pair comparison must not leak to the next pair."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst, freqs, cartesians):
-            self.scf_energy = scf
-            self.roconst = roconst
-            self.frequency_wn = freqs
-            self.cartesians = cartesians
-
-    class PartialBBE:
-        """BBE missing scf_energy — should never match."""
-        def __init__(self):
-            self.roconst = [10.0, 20.0, 30.0]
-            self.frequency_wn = [500.0, 1000.0, 1500.0]
-            self.cartesians = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
-
     coords = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
     # First two are near-duplicates (sets e_diff ~ 0)
-    bbe1 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0], coords)
-    bbe2 = MockBBE(-100.0, [10.0, 20.0, 30.0], [500.0, 1000.0, 1500.0], coords)
+    bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], frequency_wn=[500.0, 1000.0, 1500.0], cartesians=coords)
+    bbe2 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], frequency_wn=[500.0, 1000.0, 1500.0], cartesians=coords)
     # Third has no energy — old code would inherit e_diff from pair (1,0)
-    bbe3 = PartialBBE()
+    bbe3 = MockBBE(roconst=[10.0, 20.0, 30.0], frequency_wn=[500.0, 1000.0, 1500.0], cartesians=coords)
 
     thermo_data = {'a.log': bbe1, 'b.log': bbe2, 'c.log': bbe3}
     dups = deduplicate(thermo_data)
@@ -337,15 +270,8 @@ def test_deduplicate_no_cross_pair_leakage():
 
 def test_deduplicate_single_atoms_zero_roconst():
     """Single atoms with all-zero rotational constants should be flagged as duplicates."""
-    from goodvibes.sort import deduplicate
-
-    class MockBBE:
-        def __init__(self, scf, roconst):
-            self.scf_energy = scf
-            self.roconst = roconst
-
     # Two single atoms: same energy, all-zero rotational constants
-    bbe1 = MockBBE(-242.328708, [0.0, 0.0, 0.0])
-    bbe2 = MockBBE(-242.328708, [0.0, 0.0, 0.0])
+    bbe1 = MockBBE(scf_energy=-242.328708, roconst=[0.0, 0.0, 0.0])
+    bbe2 = MockBBE(scf_energy=-242.328708, roconst=[0.0, 0.0, 0.0])
     thermo_data = {'Al_298K.log': bbe1, 'Al_400K.log': bbe2}
     assert len(deduplicate(thermo_data)) == 1
