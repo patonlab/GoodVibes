@@ -345,7 +345,7 @@ def calc_avg_moment_of_inertia(roconst):
     if av_roconst_ghz <= 0:
         raise ValueError("Average rotational constant must be positive")
     av_roconst_hz = av_roconst_ghz * 1e9  # Hz
-    return PLANCK_CONSTANT / av_roconst_hz  # kg m^2
+    return PLANCK_CONSTANT / (8 * math.pi**2 * av_roconst_hz)  # kg m^2
 
 
 def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=None):
@@ -545,7 +545,7 @@ class calc_bbe:
                 self.sp_energy = '!'
             else:
                 try:
-                    (self.sp_energy, _,
+                    (self.sp_energy, self.sp_program,
                      self.sp_version_program, self.sp_solvation_model,
                      _, self.sp_charge,
                      self.sp_empirical_dispersion,
@@ -562,7 +562,7 @@ class calc_bbe:
             self.sp_empirical_dispersion = qcdata.empirical_dispersion
             self.sp_multiplicity = qcdata.multiplicity
         else:
-            (self.sp_energy, _,
+            (self.sp_energy, self.sp_program,
              self.sp_version_program, self.sp_solvation_model,
              _, self.sp_charge,
              self.sp_empirical_dispersion,

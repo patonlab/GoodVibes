@@ -13,14 +13,15 @@ import os
 
 
 def _load_solvents():
-    """Load solvent data from the JSON file and build a flat alias -> (mw, density) dict."""
+    """Load solvent data from the JSON file and build a flat alias -> (mw, density, canonical_name) dict."""
     json_path = os.path.join(os.path.dirname(__file__), 'solvents.json')
     with open(json_path, 'r') as f:
         data = json.load(f)
 
     result = {}
     for entry in data['solvents']:
-        value = (entry['mw'], entry['density'])
+        canonical = entry['name']
+        value = (entry['mw'], entry['density'], canonical)
         for alias in entry['aliases']:
             result[alias.lower()] = value
     return result
@@ -43,8 +44,20 @@ def compute_media_conc(media, file):
         float or None: concentration in mol/L, or None if the file doesn't match.
     """
     from .utils import display_name
-    key = media.lower()
-    if key in solvents and key == display_name(file).lower():
-        mweight, density = solvents[key]
-        return (density * 1000) / mweight
+    media_key = media.lower()
+    file_key = display_name(file).lower()
+
+    # Get canonical identities for both media and file
+    if media_key not in solvents:
+        return None
+
+    mweight, density, media_canonical = solvents[media_key]
+
+    # Check if file also references a known solvent
+    if file_key in solvents:
+        _, _, file_canonical = solvents[file_key]
+        # Only apply concentration correction if both refer to the same canonical solvent
+        if media_canonical == file_canonical:
+            return (density * 1000) / mweight
+
     return None

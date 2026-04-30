@@ -33,7 +33,9 @@ def kabsch_rmsd(coords_a, coords_b):
     sign_matrix = np.diag([1.0, 1.0, d])
     R = Vt.T @ sign_matrix @ U.T
     b_aligned = b @ R.T
-    return np.sqrt(np.mean((a - b_aligned) ** 2))
+    # Compute per-atom squared distances, then mean, then sqrt
+    per_atom_sq_dist = np.sum((a - b_aligned) ** 2, axis=1)
+    return np.sqrt(np.mean(per_atom_sq_dist))
 
 
 def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,

@@ -10,7 +10,7 @@
 
 GoodVibes computes quasi-harmonic thermochemical corrections from electronic structure calculations (Gaussian, ORCA, NWChem, QChem, xTB, ASE). It corrects the poor description of low-frequency vibrations by the rigid-rotor harmonic oscillator (RRHO) treatment using the approaches of [Grimme](http://dx.doi.org/10.1002/chem.201200497) and [Truhlar](http://dx.doi.org/10.1021/jp205508z).
 
-#### Features
+## Features
 
 - Grimme quasi-RRHO (mRRHO) and Truhlar quasi-harmonic entropy corrections
 - Head-Gordon quasi-harmonic enthalpy correction
@@ -26,7 +26,7 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 - Supports Gaussian, ORCA, NWChem, QChem, xTB, and ASE output files
 
 
-#### Installation
+## Installation
 
 Requires Python >= 3.9.
 
@@ -52,7 +52,7 @@ For development (editable install):
 pip install -e .
 ```
 
-#### Quick Start
+## Quick Start
 
 ```bash
 goodvibes <output_file(s)> -q
@@ -60,7 +60,7 @@ goodvibes <output_file(s)> -q
 
 The `-q` flag applies quasi-harmonic corrections (Grimme entropy + Head-Gordon enthalpy). Use `-h` for the full list of options.
 
-#### Supported Programs
+## Supported Programs
 
 GoodVibes reads output files from:
 
@@ -73,11 +73,11 @@ GoodVibes reads output files from:
 
 The program is auto-detected from the output file contents. Additional file extensions can be registered with `--custom_ext`.
 
-#### Documentation
+## Documentation
 
 Full documentation is available on [Read the Docs](https://goodvibespy.readthedocs.io/en/latest/).
 
-#### Examples
+## Examples
 
 ##### Example 1: Grimme-type quasi-harmonic correction with a cut-off of 150 cm<sup>-1</sup>
 ```bash
@@ -243,7 +243,7 @@ o                              20.98         60:40         1.5:1             R  
    *****************************************************************************************
 ```
 
-#### CLI Reference
+## CLI Reference
 
 Run `goodvibes -h` for the full list of options. Key flags:
 
@@ -284,7 +284,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--nogconf` | Disable Gconf correction in PES analysis | off |
 | `--graph FILE` | Graph a reaction profile from free energies | -- |
 
-#### Dependencies
+## Dependencies
 
 - **Python** >= 3.9
 - **numpy** -- numerical computations
@@ -292,7 +292,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 
 Build requires setuptools >= 64. See `pyproject.toml` for details.
 
-#### Contributing
+## Contributing
 
 Install for development:
 
@@ -316,10 +316,10 @@ Test data is organized by program:
 
 Test helpers in `tests/conftest.py` provide path resolvers (`g16path()`, `orca_path()`, `orca5_path()`, `qchem_path()`, `xtb_path()`, `ase_path()`) and categorized file lists (`G16_FREQ_FILES`, `ORCA_FREQ_FILES`, `QCHEM_FREQ_FILES`, `XTB_FREQ_FILES`, `ASE_FREQ_FILES`, etc.) used by parametrized tests.
 
-#### Citing GoodVibes
+## Citing GoodVibes
 Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
 
-#### References
+## References
 1. Ribeiro, R. F.; Marenich, A. V.; Cramer, C. J.; Truhlar, D. G. *J. Phys. Chem. B* **2011**, *115*, 14556-14562 [**DOI:** 10.1021/jp205508z](http://dx.doi.org/10.1021/jp205508z)
 2. Grimme, S. *Chem. Eur. J.* **2012**, *18*, 9955-9964 [**DOI:** 10.1002/chem.201200497](http://dx.doi.org/10.1002/chem.201200497)
 3. Li, Y.; Gomes, J.; Sharada, S. M.; Bell, A. T.; Head-Gordon, M. *J. Phys. Chem. C* **2015**, *119*, 1840-1850 [**DOI:** 10.1021/jp509921r](http://dx.doi.org/10.1021/jp509921r)
@@ -328,6 +328,6 @@ Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Au
 6. Pracht, P.; Grimme, S. *Chem. Sci.* **2021**, *12*, 6551-6568 [**DOI:** 10.1039/D1SC00621E](https://doi.org/10.1039/D1SC00621E)
 
 ---
-#### License
+## License
 
 GoodVibes is freely available under an [MIT](https://opensource.org/licenses/MIT) License

@@ -41,7 +41,7 @@ Tests `getoutData`, `parse_data`, `level_of_theory`, `read_initial`, and
 Tests the subset of `goodvibes/io.py` functions that work with ORCA 6 output.
 `parse_data` and `read_initial` have independent ORCA parsing paths that work
 correctly. `getoutData` (cclib) and `level_of_theory` (Gaussian archive format)
-are marked `xfail` for ORCA 6.
+are marked `xfail` for ORCA 6 (cclib/ORCA compatibility and Gaussian archive format respectively).
 
 - **Energy, program, charge/multiplicity** — via `parse_data`
 - **Progress and solvation** — via `read_initial`
