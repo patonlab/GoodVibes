@@ -234,7 +234,11 @@ def test_triplet_multiplicity_thermo():
 ])
 def test_ase_idealgas_thermochemistry_match(filename, geometry):
     """Cross-validate GoodVibes RRHO thermochemistry against ASE's IdealGasThermo."""
-    ase = pytest.importorskip("ase")
+    # Skip if ASE isn't really installed — the tests/ase/ fixture directory
+    # is itself a namespace package, so plain `importorskip("ase")` can pass
+    # even when ASE proper is missing.
+    pytest.importorskip("ase.units")
+    pytest.importorskip("ase.thermochemistry")
     import ase.units as units
     from ase.io import read
     from ase.thermochemistry import IdealGasThermo
