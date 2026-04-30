@@ -1,0 +1,18 @@
+$comment
+Water HF/6-31G(d) frequency calculation. Gaussian applied a 0.95 scale
+factor in-line; Q-Chem reports unscaled frequencies — use GoodVibes
+`-s 0.95` (or its scaling-factor lookup for HF/6-31G*) at thermo time.
+$end
+
+$molecule
+0 1
+O   0.000000   0.000000   0.117176
+H   0.000000   0.757601  -0.468704
+H   0.000000  -0.757601  -0.468704
+$end
+
+$rem
+   JOBTYPE     freq
+   METHOD      hf
+   BASIS       6-31G*
+$end

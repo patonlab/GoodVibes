@@ -1,0 +1,32 @@
+$comment
+Methanol PBE/6-311G(d,p) opt+freq. PBEPBE in Gaussian = PBE exchange +
+PBE correlation; in Q-Chem METHOD = pbe selects the same combination.
+$end
+
+$molecule
+0 1
+C  -0.049227   0.665112   0.000000
+O  -0.049227  -0.765437   0.000000
+H  -0.049227   1.094980  -1.016452
+H   0.844113   1.044766   0.526851
+H  -0.942567   1.044766   0.526851
+H  -0.049227  -1.051686   0.923338
+$end
+
+$rem
+   JOBTYPE   opt
+   METHOD    pbe
+   BASIS    6-311G(d,p)
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    pbe
+   BASIS    6-311G(d,p)
+$end

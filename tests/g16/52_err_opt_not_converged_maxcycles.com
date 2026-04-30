@@ -1,0 +1,28 @@
+%chk=52_err_opt_not_converged.chk
+%mem=96GB
+%nproc=16
+# B3LYP/6-31G(d) Opt=(MaxCycles=2) Freq
+
+ERROR EXAMPLE: Geometry optimization convergence failure (L9999)
+n-Butanol with deliberately poor starting geometry and MaxCycles=2
+Optimizer cannot converge in 2 steps — needs ~15-30 for a molecule this flexible
+Gaussian error: "Number of steps exceeded" / L9999 termination
+Fix: Remove MaxCycles or increase to 100+; improve starting geometry
+
+0 1
+C     -1.950000    0.300000    0.150000
+C     -0.550000   -0.200000   -0.200000
+C      0.500000    0.700000    0.400000
+C      1.900000    0.200000    0.000000
+O      2.800000    1.100000    0.600000
+H     -2.700000   -0.350000   -0.300000
+H     -2.100000    1.330000   -0.180000
+H     -2.050000    0.250000    1.240000
+H     -0.400000   -1.230000    0.130000
+H     -0.450000   -0.150000   -1.290000
+H      0.350000    1.730000    0.070000
+H      0.400000    0.650000    1.490000
+H      2.050000   -0.830000    0.330000
+H      2.000000    0.150000   -1.090000
+H      3.680000    0.800000    0.350000
+

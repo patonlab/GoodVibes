@@ -1,0 +1,20 @@
+$comment
+Water B3LYP/6-31G(d) VPT2 anharmonic frequency calculation.
+ANHAR = TRUE enables Q-Chem's VPT2 anharmonic post-treatment after the
+harmonic Hessian is built. Some Q-Chem 6 builds use a $vpt2 block for
+finer control; the defaults here match the basic VPT2 workflow.
+$end
+
+$molecule
+0 1
+O   0.000000   0.000000   0.117176
+H   0.000000   0.757601  -0.468704
+H   0.000000  -0.757601  -0.468704
+$end
+
+$rem
+   JOBTYPE     freq
+   METHOD      b3lyp
+   BASIS       6-31G*
+   ANHAR       true
+$end

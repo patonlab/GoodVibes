@@ -1,0 +1,21 @@
+! opt freq RKS CAM-B3LYP DEF2-SVP
+%method
+  RangeSepEXX  True    # must be set 
+  RangeSepMu   0.33    # should not be set to 0.0 or below
+  RangeSepScal 0.46    # should sum to 1 with ACM-A and ACM-B
+  ACM 0.19, 0.35, 0.81 # ACM-A, ACM-B, ACM-C(same as B3LYP)
+end
+%maxcore 6000
+
+# default parameters for CAM-B3LYP
+
+* xyz 0 1
+C   0.000000   0.000000   0.000000
+C   0.000000   0.000000   1.540000
+H   1.026719   0.000000  -0.363000
+H  -0.513360   0.889165  -0.363000
+H  -0.513360  -0.889165  -0.363000
+H  -1.026719   0.000000   1.903000
+H   0.513360   0.889165   1.903000
+H   0.513360  -0.889165   1.903000
+*

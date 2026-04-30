@@ -1,0 +1,41 @@
+$comment
+Benzene radical cation (charge=+1, doublet) with TPSS/6-311+G(d,p).
+TPSSTPSS in Gaussian = TPSS exchange + TPSS correlation; in Q-Chem
+this is selected with METHOD = tpss.
+$end
+
+$molecule
+1 2
+C   0.000000   1.396792   0.000000
+C   1.209613   0.698396   0.000000
+C   1.209613  -0.698396   0.000000
+C   0.000000  -1.396792   0.000000
+C  -1.209613  -0.698396   0.000000
+C  -1.209613   0.698396   0.000000
+H   0.000000   2.484212   0.000000
+H   2.150590   1.242106   0.000000
+H   2.150590  -1.242106   0.000000
+H   0.000000  -2.484212   0.000000
+H  -2.150590  -1.242106   0.000000
+H  -2.150590   1.242106   0.000000
+$end
+
+$rem
+   JOBTYPE          opt
+   METHOD           tpss
+   BASIS            6-311+G(d,p)
+   UNRESTRICTED     true
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE          freq
+   METHOD           tpss
+   BASIS            6-311+G(d,p)
+   UNRESTRICTED     true
+$end

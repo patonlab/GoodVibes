@@ -1,0 +1,166 @@
+"""Utility classes and functions for GoodVibes."""
+import logging
+import os.path
+import sys
+from datetime import datetime, timedelta
+from typing import Optional
+
+try:
+    from rich.console import Console
+except ImportError:
+    Console = None
+
+
+_console_stdout: Optional["Console"] = None
+_console_dat: Optional["Console"] = None
+
+
+def all_same(items):
+    """
+    Determine whether every element of `items` equals the first element.
+    
+    Parameters:
+        items (Sequence): A non-empty sequence of comparable elements.
+    
+    Returns:
+        True if every element equals the first element, False otherwise.
+    
+    Raises:
+        IndexError: If `items` is empty.
+    """
+    return all(x == items[0] for x in items)
+
+
+def setup_logging(filein, append):
+    """
+    Configure the 'goodvibes' logger to write to both stdout and a .dat file and initialize module-level Rich consoles.
+    
+    Initializes the logger named 'goodvibes' to emit messages to standard output and to a file at "{filein}_{append}.dat". Opens the .dat file for writing and, if Rich is available, assigns module-level Console instances for stdout and the .dat file for later use.
+    
+    Parameters:
+        filein (str): Prefix for the output file (e.g., "GoodVibes").
+        append (str): Suffix for the output file (e.g., "output").
+    """
+    global _console_stdout, _console_dat
+
+    logger = logging.getLogger('goodvibes')
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(message)s')
+
+    # Remove any existing handlers to prevent duplicates
+    for handler in logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler):
+            # Close file handle if it's a file-based stream
+            if hasattr(handler.stream, 'close') and handler.stream not in (sys.stdout, sys.stderr):
+                handler.stream.close()
+            logger.removeHandler(handler)
+
+    # stdout handler + terminal console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.terminator = ''
+    logger.addHandler(console_handler)
+
+    if Console is not None:
+        _console_stdout = Console(highlight=False, force_terminal=True, width=200)
+
+    # .dat file: shared handle for both logging and Rich output
+    dat_path = f'{filein}_{append}.dat'
+    dat_fp = open(dat_path, 'w', encoding='utf-8')
+
+    # Use StreamHandler with the open file, not FileHandler (avoids double-open)
+    datfile_handler = logging.StreamHandler(dat_fp)
+    datfile_handler.setFormatter(formatter)
+    datfile_handler.terminator = ''
+    logger.addHandler(datfile_handler)
+
+    if Console is not None:
+        _console_dat = Console(
+            file=dat_fp,
+            force_terminal=True,  # emit box-drawing chars even though file is not a TTY
+            no_color=True,        # strip ANSI color codes
+            highlight=False,      # don't auto-highlight tokens
+        )
+
+
+def fatal(message):
+    """
+    Log a critical error message and terminate the process.
+    
+    Shuts down the logging subsystem and exits the process with status code 1.
+    
+    Parameters:
+        message (str): The message to emit at the critical level.
+    """
+    log = logging.getLogger('goodvibes')
+    log.critical(message + "\n")
+    logging.shutdown()
+    sys.exit(1)
+
+
+def add_time(tm, cpu):
+    """
+    Create a datetime representing tm's day/time advanced by an elapsed CPU-style interval.
+    
+    Parameters:
+        tm (datetime): Source datetime whose day, hour, minute, second, and microsecond are used.
+        cpu (Sequence[int]): Elapsed time as [days, hrs, mins, secs, msecs].
+    
+    Returns:
+        datetime: A new datetime with year set to 100 and month set to 1, using tm's day/time
+        plus the interval from `cpu` (milliseconds interpreted as 1/1000 second).
+    """
+    [days, hrs, mins, secs, msecs] = cpu
+    fulldate = datetime(100, 1, tm.day, tm.hour, tm.minute, tm.second, tm.microsecond)
+    fulldate = fulldate + timedelta(days=days, hours=hrs, minutes=mins, seconds=secs, microseconds=msecs * 1000)
+    return fulldate
+
+
+def display_name(file):
+    """
+    Get the basename of a file path without its extension for display.
+    
+    Parameters:
+        file (str): Path or filename from which to extract the display name.
+    
+    Returns:
+        display_name (str): The filename portion of `file` with the final extension removed.
+    """
+    return os.path.splitext(os.path.basename(file))[0]
+
+
+def natural_key(path):
+    """Sort key that orders ``conf_2`` before ``conf_10`` (and before ``conf_a``).
+
+    Splits on digit runs and treats them as integers so ordinary string
+    comparison won't put ``conf_10`` between ``conf_1`` and ``conf_2``.
+    Comparison uses the basename so files from different directories with the
+    same name don't separate solely by directory path.
+    """
+    import re
+    base = os.path.basename(path)
+    return [int(t) if t.isdigit() else t.lower()
+            for t in re.split(r'(\d+)', base)]
+
+
+def get_console_stdout() -> "Console":
+    """
+    Get the Rich Console configured for colored stdout output.
+    
+    Returns:
+        Console: The Rich Console instance used for stdout.
+    
+    Raises:
+        RuntimeError: If `setup_logging()` has not been called and the console is not initialized.
+    """
+    if _console_stdout is None:
+        raise RuntimeError("setup_logging() must be called before get_console_stdout()")
+    return _console_stdout
+
+
+def get_console_dat() -> "Console":
+    """Return the Rich Console for the .dat file (no color, box-drawing chars)."""
+    if _console_dat is None:
+        raise RuntimeError("setup_logging() must be called before get_console_dat()")
+    return _console_dat

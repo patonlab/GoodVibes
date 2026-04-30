@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goodvibes"
+version = "4.0"
+description = "A python program to compute corrections to thermochemical data from frequency calculations"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    { name = "Paton Research Group", email = "patonlab@colostate.edu" },
+]
+keywords = ["compchem", "thermochemistry", "gaussian", "vibrational-entropies", "temperature"]
+dependencies = [
+    "numpy",
+    "pymsym",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+ase = ["ase>=3.22"]
+test = ["pytest", "ase>=3.22"]
+
+[project.urls]
+Homepage = "https://github.com/patonlab/goodvibes"
+Download = "https://github.com/patonlab/GoodVibes/archive/v4.0.zip"
+
+[project.scripts]
+goodvibes = "goodvibes.GoodVibes:main"
+
+[tool.setuptools.package-data]
+goodvibes = ["scaling_factors.json", "solvents.json", "examples/**/*", "share/*"]

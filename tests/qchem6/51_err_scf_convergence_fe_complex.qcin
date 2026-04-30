@@ -1,0 +1,62 @@
+$comment
+ERROR EXAMPLE: SCF convergence failure.
+Fe(II) porphine model, quintet (mult=5). MAX_SCF_CYCLES = 10 is far
+too few for an open-shell first-row TM with near-degenerate states.
+Q-Chem error: "SCF failed to converge" / SCF_NOT_CONVERGED.
+Fix: raise MAX_SCF_CYCLES to 200+, try SCF_GUESS = sad or read,
+SCF_ALGORITHM = diis_gdm or rca_diis.
+$end
+
+$molecule
+0 5
+Fe    0.000000   0.000000   0.000000
+N     2.020000   0.000000   0.000000
+N     0.000000   2.020000   0.000000
+N    -2.020000   0.000000   0.000000
+N     0.000000  -2.020000   0.000000
+C     2.870000   1.100000   0.000000
+C     2.870000  -1.100000   0.000000
+C    -2.870000   1.100000   0.000000
+C    -2.870000  -1.100000   0.000000
+C     1.100000   2.870000   0.000000
+C    -1.100000   2.870000   0.000000
+C     1.100000  -2.870000   0.000000
+C    -1.100000  -2.870000   0.000000
+C     4.200000   0.680000   0.000000
+C     4.200000  -0.680000   0.000000
+C    -4.200000   0.680000   0.000000
+C    -4.200000  -0.680000   0.000000
+C     0.680000   4.200000   0.000000
+C    -0.680000   4.200000   0.000000
+C     0.680000  -4.200000   0.000000
+C    -0.680000  -4.200000   0.000000
+H     5.080000   1.310000   0.000000
+H     5.080000  -1.310000   0.000000
+H    -5.080000   1.310000   0.000000
+H    -5.080000  -1.310000   0.000000
+H     1.310000   5.080000   0.000000
+H    -1.310000   5.080000   0.000000
+H     1.310000  -5.080000   0.000000
+H    -1.310000  -5.080000   0.000000
+$end
+
+$rem
+   JOBTYPE          opt
+   METHOD           b3lyp
+   BASIS            6-31G*
+   UNRESTRICTED     true
+   MAX_SCF_CYCLES   10
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE          freq
+   METHOD           b3lyp
+   BASIS            6-31G*
+   UNRESTRICTED     true
+$end

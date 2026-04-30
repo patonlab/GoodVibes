@@ -1,0 +1,56 @@
+$comment
+Methylammonium cation (charge=+1) M06/6-311+G(d,p) opt+freq with CPCM
+solvation in water (pKa-relevant calculation).
+$end
+
+$molecule
+1 1
+N   0.000000   0.000000   0.000000
+C   0.000000   0.000000   1.490000
+H   1.013000   0.000000  -0.342000
+H  -0.507000   0.878000  -0.342000
+H  -0.507000  -0.878000  -0.342000
+H  -1.025000   0.000000   1.832000
+H   0.513000   0.889000   1.832000
+H   0.513000  -0.889000   1.832000
+$end
+
+$rem
+   JOBTYPE          opt
+   METHOD           m06
+   BASIS            6-311+G(d,p)
+   SOLVENT_METHOD   pcm
+$end
+
+$pcm
+   THEORY    cpcm
+   METHOD    SWIG
+   SOLVER    INVERSION
+$end
+
+$solvent
+   Dielectric    78.39
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE          freq
+   METHOD           m06
+   BASIS            6-311+G(d,p)
+   SOLVENT_METHOD   pcm
+$end
+
+$pcm
+   THEORY    cpcm
+   METHOD    SWIG
+   SOLVER    INVERSION
+$end
+
+$solvent
+   Dielectric    78.39
+$end

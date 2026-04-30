@@ -1,0 +1,20 @@
+# ERROR EXAMPLE: Job runs fine but doesn't finish (timed out / walltime exceeded)
+# Ethanol B3LYP/6-31G(d) Opt Freq — valid input that would normally complete
+# Simulates a job killed by the scheduler before reaching "ORCA TERMINATED NORMALLY"
+# ORCA symptom: output file exists but lacks "ORCA TERMINATED NORMALLY" at the end
+# Fix: Increase walltime in job script; use restart from last geometry (*.gbw / *.xyz)
+! B3LYP 6-31G(d) Opt Freq pal16
+
+%maxcore 6000
+
+* xyz 0 1
+H      1.885300   -0.040100    1.085400
+C      1.269900   -0.047700    0.177200
+H      1.584000    0.800700   -0.444900
+H      1.508900   -0.963600   -0.379100
+C     -0.203300    0.028200    0.534500
+H     -0.499300   -0.828700    1.171400
+H     -0.423500    0.951300    1.106400
+O     -0.939400    0.015700   -0.667400
+H     -1.854000    0.062600   -0.425200
+*

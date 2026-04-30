@@ -1,0 +1,34 @@
+$comment
+Furan MN15/def2-TZVP opt+freq. MN15 = Minnesota 2016 hybrid meta-GGA.
+$end
+
+$molecule
+0 1
+O   0.000000   0.000000   1.392000
+C   1.192000   0.000000   0.697000
+C   0.724000   0.000000  -0.600000
+C  -0.724000   0.000000  -0.600000
+C  -1.192000   0.000000   0.697000
+H   2.148000   0.000000   1.219000
+H   1.286000   0.000000  -1.485000
+H  -1.286000   0.000000  -1.485000
+H  -2.148000   0.000000   1.219000
+$end
+
+$rem
+   JOBTYPE   opt
+   METHOD    mn15
+   BASIS    def2-TZVP
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    mn15
+   BASIS    def2-TZVP
+$end

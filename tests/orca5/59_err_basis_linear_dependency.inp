@@ -1,0 +1,15 @@
+# ERROR EXAMPLE: Basis set linear dependency
+# Dilithium with heavily augmented quintuple-zeta basis set
+# The highly diffuse functions on two electropositive Li atoms overlap so strongly
+# that the overlap matrix becomes near-singular, causing numerical instability
+# ORCA error: "Linear dependency detected" / overlap eigenvalue below threshold
+# Fix: Use a smaller basis (cc-pVTZ, aug-cc-pVTZ), or adjust linear dependency
+# threshold with %scf LinDepThresh
+! HF aug-cc-pV5Z Opt Freq pal16
+
+%maxcore 6000
+
+* xyz 0 1
+Li     0.000000    0.000000    0.000000
+Li     2.670000    0.000000    0.000000
+*

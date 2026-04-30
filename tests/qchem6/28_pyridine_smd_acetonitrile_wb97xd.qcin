@@ -1,0 +1,46 @@
+$comment
+Pyridine wB97X-D/6-311+G(d,p) opt+freq with SMD solvation in acetonitrile.
+$end
+
+$molecule
+0 1
+N   0.000000   0.000000   1.417226
+C   1.143193   0.000000   0.739193
+C   1.199400   0.000000  -0.646540
+C   0.000000   0.000000  -1.349880
+C  -1.199400   0.000000  -0.646540
+C  -1.143193   0.000000   0.739193
+H   2.037264   0.000000   1.352020
+H   2.147310   0.000000  -1.162730
+H   0.000000   0.000000  -2.433660
+H  -2.147310   0.000000  -1.162730
+H  -2.037264   0.000000   1.352020
+$end
+
+$rem
+   JOBTYPE          opt
+   METHOD           wb97x-d
+   BASIS            6-311+G(d,p)
+   SOLVENT_METHOD   SMD
+$end
+
+$smx
+   solvent acetonitrile
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE          freq
+   METHOD           wb97x-d
+   BASIS            6-311+G(d,p)
+   SOLVENT_METHOD   SMD
+$end
+
+$smx
+   solvent acetonitrile
+$end

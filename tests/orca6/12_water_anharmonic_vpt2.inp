@@ -1,0 +1,23 @@
+# VPT2 Analysis of H2O
+!RHF def2-SVP ExtremeSCF VPT2
+%maxcore 6000
+
+%vpt2
+  VPT2               On      # do a VPT2 analysis, same as !VPT2 (see above)
+  AnharmDisp         0.05    # anharmonic displacement factor, default is 0.05
+  HessianCutoff      1e-12   # cut-off for Hessian elements, default is 1e-10
+  PrintLevel         1       # VPT2 print level [1, 2, 3, 4]
+  MinimiseOrcaPrint  True    # Minimises the remaining orca output
+end
+
+%method
+    Z_Tol               1e-14
+end
+
+%pal nprocs 16
+end
+* xyz 0 1
+  O   0.00000000000000      0.06256176106279      0.06256176106280
+  H   0.00000000000000     -0.06185639479702      0.99929463373422
+  H   0.00000000000000      0.99929463373424     -0.06185639479703
+*

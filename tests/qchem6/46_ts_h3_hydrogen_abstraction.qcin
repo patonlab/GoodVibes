@@ -1,0 +1,31 @@
+$comment
+TS04: H + H2 -> H2 + H linear (D∞h) doublet TS at MP2/aug-cc-pVTZ.
+Expect 1 imaginary mode (~1500i cm-1, antisymmetric stretch).
+$end
+
+$molecule
+0 2
+H   0.000000   0.000000  -0.930000
+H   0.000000   0.000000   0.000000
+H   0.000000   0.000000   0.930000
+$end
+
+$rem
+   JOBTYPE       ts
+   METHOD        mp2
+   BASIS         aug-cc-pVTZ
+   UNRESTRICTED  true
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE       freq
+   METHOD        mp2
+   BASIS         aug-cc-pVTZ
+   UNRESTRICTED  true
+$end

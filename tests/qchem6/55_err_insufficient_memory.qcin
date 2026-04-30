@@ -1,0 +1,36 @@
+$comment
+ERROR EXAMPLE: Insufficient memory allocation.
+CCSD(T)/cc-pVTZ on naphthalene with MEM_TOTAL = 100 (MB) — far too
+small for a coupled-cluster job with this many basis functions.
+Q-Chem error: "Insufficient memory" / OUT_OF_MEMORY.
+Fix: raise MEM_TOTAL to 16000+ MB and ensure the compute node has the RAM.
+$end
+
+$molecule
+0 1
+C    1.245500   0.717100   0.000000
+C    1.245500  -0.717100   0.000000
+C    0.000000  -1.403500   0.000000
+C   -1.245500  -0.717100   0.000000
+C   -1.245500   0.717100   0.000000
+C    0.000000   1.403500   0.000000
+C    2.437400   1.398300   0.000000
+C    2.437400  -1.398300   0.000000
+C   -2.437400  -1.398300   0.000000
+C   -2.437400   1.398300   0.000000
+H    0.000000  -2.490700   0.000000
+H    0.000000   2.490700   0.000000
+H    2.437700   2.485400   0.000000
+H    2.437700  -2.485400   0.000000
+H   -2.437700  -2.485400   0.000000
+H   -2.437700   2.485400   0.000000
+H    3.381100   0.858700   0.000000
+H    3.381100  -0.858700   0.000000
+$end
+
+$rem
+   JOBTYPE     sp
+   METHOD      ccsd(t)
+   BASIS       cc-pVTZ
+   MEM_TOTAL   100
+$end

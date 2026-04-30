@@ -1,0 +1,40 @@
+$comment
+Formaldehyde S1 excited-state opt+freq via TD-DFT.
+B97-D/def2-SVP, 5 singlet roots, optimize on root 1 (n→π*).
+CIS_STATE_DERIV = 1 selects root 1 for analytical-gradient excited-state
+opt; the follow-up freq inherits the excited-state Hessian.
+$end
+
+$molecule
+0 1
+C    0.00000000   0.00000000  -0.52384100
+O    0.30085383  -0.00000000   0.69806633
+H    0.40450492   0.87365134  -0.99075545
+H    0.40450492  -0.87365134  -0.99075545
+$end
+
+$rem
+   JOBTYPE          opt
+   METHOD           b97-d
+   BASIS            def2-SVP
+   CIS_N_ROOTS      5
+   CIS_SINGLETS     true
+   CIS_TRIPLETS     false
+   CIS_STATE_DERIV  1
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE          freq
+   METHOD           b97-d
+   BASIS            def2-SVP
+   CIS_N_ROOTS      5
+   CIS_SINGLETS     true
+   CIS_TRIPLETS     false
+   CIS_STATE_DERIV  1
+$end
