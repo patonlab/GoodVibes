@@ -14,7 +14,7 @@ Two layers of validation:
 import pytest
 import numpy as np
 
-from goodvibes.thermo import calc_bbe, calc_rrho_entropy, calc_translational_energy, calc_rotational_entropy
+from goodvibes.thermo import calc_bbe
 from goodvibes.io import parse_qcdata
 from conftest import (ASE_G16_PAIRS, ase_path, g16path)
 
@@ -122,7 +122,6 @@ def truhlar_qh_gibbs_correction(frequency_wn, temp, pressure, cutoff_cm1=100.0):
 
     k_b = constants.k
     c = constants.c
-    h = constants.h
     hbar = constants.hbar
 
     # Apply Truhlar correction: use max(freq, cutoff) instead of freq

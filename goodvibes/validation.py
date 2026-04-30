@@ -5,7 +5,7 @@ import sys
 
 from .sort import deduplicate
 from .utils import all_same
-from .io import level_of_theory, parse_qcdata, read_initial, find_spc_file
+from .io import parse_qcdata, read_initial, find_spc_file
 
 log = logging.getLogger('goodvibes')
 

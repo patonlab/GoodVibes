@@ -89,7 +89,6 @@ def _build_results_table(options) -> "Table":
     dp = getattr(options, 'dp', 6)
     dw = dp - 6
     ew = 11 + dw  # wide numeric column (energies)
-    nw = 8 + dw   # narrow numeric column (for columns < 10)
     sw = 2 + dp   # small column (ZPE, T.S, T.qh-S - always 0.xxx)
 
     table = Table(
@@ -157,11 +156,6 @@ def print_results(thermo_data, options, media_conc=None,
     """
     files = list(thermo_data)
     dp = getattr(options, 'dp', 6)
-    dw = dp - 6
-
-    # Format helpers for legacy fallback
-    ef = '{{:{w}.{d}f}}'.format(w=13 + dw, d=dp)
-    nf = '{{:{w}.{d}f}}'.format(w=10 + dw, d=dp)
 
     # Check if user has chosen to make any low lying imaginary frequencies positive
     inverted_freqs, inverted_files = [], []

@@ -7,9 +7,7 @@ import pytest
 from goodvibes.io import (parse_data, parse_qchem_thermo, parse_qcdata,
                           read_initial)
 from conftest import (qchem_path, QCHEM_FREQ_FILES, QCHEM_TS_FILES,
-                      QCHEM_SP_ONLY_FILES, QCHEM_LINEAR_FILES,
-                      QCHEM_SOLVATION_FILES, QCHEM_LINKED_FILES,
-                      QCHEM_ERROR_FILES)
+                      QCHEM_SP_ONLY_FILES, QCHEM_ERROR_FILES)
 
 
 # ---------------------------------------------------------------------------

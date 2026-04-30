@@ -707,7 +707,6 @@ def sp_cpu(file):
     return cpu
 
 
-import re
 
 # Tokens on the ORCA ``!`` keyword line that are NOT method or basis set.
 _ORCA_SKIP_TOKENS = {
@@ -2071,7 +2070,7 @@ def parse_xtb_thermo(file):
         if qcdata.molecular_mass == 0.0:
             qcdata.molecular_mass = total_mass
         if qcdata.rotemp == [0.0, 0.0, 0.0]:
-            roconst_cm = [16.857629 / I if I > 1e-3 else 0.0 for I in eigvals]
+            roconst_cm = [16.857629 / I if I > 1e-3 else 0.0 for I in eigvals]  # noqa: E741
             qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
             qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
 
@@ -2352,7 +2351,7 @@ def parse_qchem_thermo(file):
                         qcdata.roconst = [B_cm * 29.9792458] * 3
                         qcdata.rotemp = [HC_OVER_KB * B_cm] * 3
                     elif len(nonzero) == 3:
-                        roconst_cm = [16.857629 / I for I in nonzero]
+                        roconst_cm = [16.857629 / I for I in nonzero]  # noqa: E741
                         qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
                         qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
                 except (IndexError, ValueError):
@@ -2368,10 +2367,14 @@ def parse_qchem_thermo(file):
         if 'Total job time:' in line:
             try:
                 wall_s = float(line.split(':', 1)[1].split('s(wall)')[0].strip())
-                days = int(wall_s // 86400); rem = wall_s - days * 86400
-                hours = int(rem // 3600);    rem -= hours * 3600
-                mins = int(rem // 60);       rem -= mins * 60
-                secs = int(rem);             ms = int(round((rem - secs) * 1000))
+                days = int(wall_s // 86400)
+                rem = wall_s - days * 86400
+                hours = int(rem // 3600)
+                rem -= hours * 3600
+                mins = int(rem // 60)
+                rem -= mins * 60
+                secs = int(rem)
+                ms = int(round((rem - secs) * 1000))
                 qcdata.cpu = [days, hours, mins, secs, ms]
             except (IndexError, ValueError):
                 pass
@@ -2554,7 +2557,7 @@ def parse_ase_thermo(file):
             qcdata.roconst = [B_cm * 29.9792458] * 3
             qcdata.rotemp = [HC_OVER_KB * B_cm] * 3
         elif len(nonzero) == 3:
-            roconst_cm = [16.857629 / I for I in nonzero]
+            roconst_cm = [16.857629 / I for I in nonzero]  # noqa: E741
             qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
             qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
 

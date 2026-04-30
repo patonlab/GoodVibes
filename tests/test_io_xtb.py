@@ -12,8 +12,8 @@ import pytest
 from goodvibes.io import (parse_data, level_of_theory, read_initial,
                           parse_xtb_thermo, parse_qcdata)
 from conftest import (xtb_path, XTB_FREQ_FILES, XTB_SP_ONLY_FILES,
-                      XTB_SOLVATION_FILES, XTB_LINEAR_FILES,
-                      XTB_GFN1_FILES, XTB_SADDLE_FILES, XTB_ERROR_FILES)
+                      XTB_LINEAR_FILES,
+                      XTB_ERROR_FILES)
 
 
 # ---------------------------------------------------------------------------

@@ -515,14 +515,14 @@ def _qchem_thermo_block(path):
     with open(path, encoding='utf-8', errors='replace') as f:
         lines = f.readlines()
     last = -1
-    for i, l in enumerate(lines):
-        if 'STANDARD THERMODYNAMIC QUANTITIES AT' in l:
+    for i, line in enumerate(lines):
+        if 'STANDARD THERMODYNAMIC QUANTITIES AT' in line:
             last = i
     if last < 0:
         return None
     out = {}
-    for l in lines[last:]:
-        s = l.strip()
+    for line in lines[last:]:
+        s = line.strip()
         if s.startswith('Zero point vibrational energy:'):
             out['zpe'] = float(s.split(':')[1].split()[0])
         elif s.startswith('Total Enthalpy:'):
@@ -531,7 +531,7 @@ def _qchem_thermo_block(path):
             out['s'] = float(s.split(':')[1].split()[0])
         elif s.startswith('QRRHO-Total Entropy:'):
             out['qhs'] = float(s.split(':')[1].split()[0])
-        if 'Thank you very much' in l:
+        if 'Thank you very much' in line:
             break
     return out
 
