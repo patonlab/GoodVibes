@@ -16,22 +16,30 @@ _console_dat: Optional["Console"] = None
 
 
 def all_same(items):
-    """Returns bool for checking if all items in a list are the same."""
+    """
+    Determine whether every element of `items` equals the first element.
+    
+    Parameters:
+        items (Sequence): A non-empty sequence of comparable elements.
+    
+    Returns:
+        True if every element equals the first element, False otherwise.
+    
+    Raises:
+        IndexError: If `items` is empty.
+    """
     return all(x == items[0] for x in items)
 
 
 def setup_logging(filein, append):
-    """Configure the 'goodvibes' logger with dual output: stdout + .dat file.
-
-    Creates a shared .dat file handle for both the logging FileHandler and a
-    no-color Rich Console, ensuring ANSI codes don't corrupt the .dat output.
-    The .dat Console uses box-drawing characters but no color.
-
-    Also initializes module-level Rich Consoles for use by output.py functions.
-
+    """
+    Configure the 'goodvibes' logger to write to both stdout and a .dat file and initialize module-level Rich consoles.
+    
+    Initializes the logger named 'goodvibes' to emit messages to standard output and to a file at "{filein}_{append}.dat". Opens the .dat file for writing and, if Rich is available, assigns module-level Console instances for stdout and the .dat file for later use.
+    
     Parameters:
-        filein (str): prefix for the output file (e.g. "GoodVibes").
-        append (str): suffix for the output file (e.g. "output").
+        filein (str): Prefix for the output file (e.g., "GoodVibes").
+        append (str): Suffix for the output file (e.g., "output").
     """
     global _console_stdout, _console_dat
 
@@ -69,7 +77,14 @@ def setup_logging(filein, append):
 
 
 def fatal(message):
-    """Log a critical message and exit."""
+    """
+    Log a critical error message and terminate the process.
+    
+    Shuts down the logging subsystem and exits the process with status code 1.
+    
+    Parameters:
+        message (str): The message to emit at the critical level.
+    """
     log = logging.getLogger('goodvibes')
     log.critical(message + "\n")
     logging.shutdown()
@@ -77,7 +92,17 @@ def fatal(message):
 
 
 def add_time(tm, cpu):
-    """Calculate elapsed time."""
+    """
+    Create a datetime representing tm's day/time advanced by an elapsed CPU-style interval.
+    
+    Parameters:
+        tm (datetime): Source datetime whose day, hour, minute, second, and microsecond are used.
+        cpu (Sequence[int]): Elapsed time as [days, hrs, mins, secs, msecs].
+    
+    Returns:
+        datetime: A new datetime with year set to 100 and month set to 1, using tm's day/time
+        plus the interval from `cpu` (milliseconds interpreted as 1/1000 second).
+    """
     [days, hrs, mins, secs, msecs] = cpu
     fulldate = datetime(100, 1, tm.day, tm.hour, tm.minute, tm.second, tm.microsecond)
     fulldate = fulldate + timedelta(days=days, hours=hrs, minutes=mins, seconds=secs, microseconds=msecs * 1000)
@@ -85,7 +110,15 @@ def add_time(tm, cpu):
 
 
 def display_name(file):
-    """Return the basename without extension, used for output display."""
+    """
+    Get the basename of a file path without its extension for display.
+    
+    Parameters:
+        file (str): Path or filename from which to extract the display name.
+    
+    Returns:
+        display_name (str): The filename portion of `file` with the final extension removed.
+    """
     return os.path.splitext(os.path.basename(file))[0]
 
 
@@ -104,7 +137,15 @@ def natural_key(path):
 
 
 def get_console_stdout() -> "Console":
-    """Return the Rich Console for stdout (with colors/formatting)."""
+    """
+    Get the Rich Console configured for colored stdout output.
+    
+    Returns:
+        Console: The Rich Console instance used for stdout.
+    
+    Raises:
+        RuntimeError: If `setup_logging()` has not been called and the console is not initialized.
+    """
     if _console_stdout is None:
         raise RuntimeError("setup_logging() must be called before get_console_stdout()")
     return _console_stdout

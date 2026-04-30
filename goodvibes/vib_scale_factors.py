@@ -65,16 +65,14 @@ FUNCTIONAL_ALIASES = {
 
 
 def canonicalize_level(level_basis):
-    """Normalize a level/basis string for consistent dictionary lookup.
-
-    Applied to both database keys (at load time) and query strings (at lookup
-    time) to ensure matching regardless of program-specific naming.
-
-    Steps:
-        1. Uppercase the entire string
-        2. Split functional from basis set at the first '/'
-        3. Apply functional alias mapping
-        4. Rejoin
+    """
+    Normalize a level/basis string to a canonical form suitable for dictionary lookup.
+    
+    Parameters:
+        level_basis (str): Level and optional basis separated by '/', e.g. "b3lyp/6-31g*".
+    
+    Returns:
+        str: Canonicalized "FUNCTIONAL" or "FUNCTIONAL/BASIS" string where the functional name has been normalized (aliases resolved and case-normalized) and formatted for consistent lookup.
     """
     s = level_basis.strip().upper()
     if '/' in s:
@@ -89,7 +87,13 @@ def canonicalize_level(level_basis):
 
 
 def _load_scaling_data():
-    """Load scaling factor data from the JSON file."""
+    """
+    Load scaling-factor references and a mapping of canonicalized level/basis strings to ScalingData from the module's scaling_factors.json.
+    
+    Returns:
+        refs (list[str]): Reference citation strings extracted from the JSON file.
+        entries (dict[str, ScalingData]): Mapping from canonicalized `LEVEL/BASIS` keys to `ScalingData` instances built from each JSON entry.
+    """
     json_path = os.path.join(os.path.dirname(__file__), 'scaling_factors.json')
     with open(json_path, 'r') as f:
         data = json.load(f)

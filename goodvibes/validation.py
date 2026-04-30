@@ -11,16 +11,16 @@ log = logging.getLogger('goodvibes')
 
 
 def print_check_fails(check_attribute, file, attribute, option2=None):
-    """Log a warning when a consistency check finds differing values across files.
-
-    Groups files by their attribute value and prints each group. Long file lists
-    are abbreviated (first 3 shown, remainder counted).
-
+    """
+    Report groups of files that share differing attribute values.
+    
+    Groups files by the values in check_attribute (or by (value, option2_value) when option2 is provided) and logs each distinct group. For each group the doc prints the attribute value(s) and up to the first three filenames; if more files are present the remaining count is reported.
+    
     Parameters:
-        check_attribute (list): attribute values, one per file (e.g. level of theory).
-        file (list): file identifiers, parallel to check_attribute.
-        attribute (str): human-readable name for the check (e.g. "levels of theory").
-        option2 (list, optional): secondary attribute (e.g. multiplicity alongside charge).
+        check_attribute (list): Attribute values aligned with the files list (one value per file).
+        file (list): File identifiers aligned with check_attribute.
+        attribute (str): Human-readable name of the attribute being checked (e.g., "levels of theory").
+        option2 (list, optional): Secondary attribute values aligned with the files list; when provided groups are keyed by (check_attribute[i], option2[i]).
     """
     unique_attr = {}
     for i, attr in enumerate(check_attribute):
@@ -48,14 +48,17 @@ def print_check_fails(check_attribute, file, attribute, option2=None):
 
 
 def collect_and_validate_files(files, options):
-    """Read initial data from files, remove error/incomplete ones, and check SPC file status.
-
+    """
+    Read initial metadata for each output file, remove files that terminated with 'Error' or 'Incomplete', and verify SPC file termination when SPC mode is enabled.
+    
+    When a file's initial read reports progress 'Error' or 'Incomplete', that file is removed from the returned lists and a warning is logged. If SPC mode (options.spc) is set and not 'link', the function attempts to locate corresponding SPC files; if any discovered SPC file reports 'Error' or 'Incomplete' the program exits. Returned lists remain aligned: the returned level_of_theory and solvation_model correspond to the returned files order.
+    
     Parameters:
-        files (list): output file paths from the command line.
-        options (Namespace): parsed CLI options. Uses: spc.
-
+        files (list): Paths to output files to validate.
+        options (Namespace): Parsed CLI options. Uses the `spc` attribute to control SPC lookup behavior.
+    
     Returns:
-        tuple: (files, level_of_theory, solvation_model) — filtered file list, levels of theory, and solvation models.
+        tuple: (files, level_of_theory, solvation_model) — the filtered file paths, and parallel lists of each file's level of theory and solvation model.
     """
     level_of_theory, solvation_model, progress, spc_progress = [], [], {}, {}
     for file in files:
