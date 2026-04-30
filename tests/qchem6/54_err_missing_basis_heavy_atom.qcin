@@ -1,0 +1,33 @@
+$comment
+ERROR EXAMPLE: Basis set missing parameters for a heavy element.
+PbCl2 with 6-311+G(d,p). Pople basis sets only cover up to Kr (Z=36)
+in standard Q-Chem libraries — Pb (Z=82) is unsupported.
+Q-Chem error: "Basis set not defined for atom" / BASIS_NOT_FOUND.
+Fix: use BASIS = gen with an SDD or def2-TZVP entry for Pb (with ECP),
+or switch the whole molecule to def2-TZVP.
+$end
+
+$molecule
+0 1
+Pb    0.000000   0.000000   0.000000
+Cl    2.320000   0.700000   0.000000
+Cl   -2.320000   0.700000   0.000000
+$end
+
+$rem
+   JOBTYPE   opt
+   METHOD    b3lyp
+   BASIS    6-311+G(d,p)
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    b3lyp
+   BASIS    6-311+G(d,p)
+$end

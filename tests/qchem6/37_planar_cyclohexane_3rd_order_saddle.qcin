@@ -1,0 +1,47 @@
+$comment
+Planar (D6h) cyclohexane SECOND-order saddle point with B3LYP/6-31G*.
+JOBTYPE = ts attempts to follow the lowest imaginary mode; the
+follow-up freq job characterises the resulting stationary point (expect
+2 imaginary frequencies for a 2nd-order saddle).
+$end
+
+$molecule
+0 1
+C   -2.68575   0.01827   0.00000
+C   -1.29059   0.01827   0.00000
+C   -0.59305   1.22602   0.00000
+C   -1.29071   2.43453   0.00000
+C   -2.68553   2.43445   0.00000
+C   -3.38313   1.22625   0.00000
+H   -3.00194  -0.52938  -0.86283
+H   -3.00194  -0.52938   0.86283
+H   -0.97444  -0.52942   0.86313
+H   -0.97444  -0.52942  -0.86313
+H    0.03932   1.22596   0.86313
+H    0.03932   1.22596  -0.86313
+H   -0.97453   2.98218   0.86313
+H   -0.97453   2.98218  -0.86313
+H   -3.00199   2.98211   0.86283
+H   -3.00199   2.98211  -0.86283
+H   -4.01551   1.22626   0.86313
+H   -4.01551   1.22626  -0.86313
+$end
+
+$rem
+   JOBTYPE       ts
+   METHOD        b3lyp
+   BASIS         6-31G*
+   SYM_TOL       1.0e-2
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE       freq
+   METHOD        b3lyp
+   BASIS         6-31G*
+$end

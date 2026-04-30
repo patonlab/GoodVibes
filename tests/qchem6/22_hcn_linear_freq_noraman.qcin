@@ -1,0 +1,31 @@
+$comment
+HCN linear (C∞v) M06-2X/6-311+G(d,p) opt+freq. Use SYM_IGNORE = true to
+mirror Gaussian's `nosymm` keyword (no symmetry imposition).
+$end
+
+$molecule
+0 1
+H   0.000000   0.000000  -1.064700
+C   0.000000   0.000000   0.000000
+N   0.000000   0.000000   1.155600
+$end
+
+$rem
+   JOBTYPE      opt
+   METHOD       m06-2x
+   BASIS        6-311+G(d,p)
+   SYM_IGNORE   true
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE      freq
+   METHOD       m06-2x
+   BASIS        6-311+G(d,p)
+   SYM_IGNORE   true
+$end

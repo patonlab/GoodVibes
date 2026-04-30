@@ -1,0 +1,31 @@
+$comment
+TS07: Ammonia umbrella inversion (planar D3h TS) at MP2/6-311+G(d,p).
+Low barrier (~5.8 kcal/mol). Expect 1 imaginary mode (~1000i cm-1,
+out-of-plane N inversion).
+$end
+
+$molecule
+0 1
+N   0.000000   0.000000   0.000000
+H   0.000000   0.947200   0.000000
+H   0.820100  -0.473600   0.000000
+H  -0.820100  -0.473600   0.000000
+$end
+
+$rem
+   JOBTYPE   ts
+   METHOD    mp2
+   BASIS    6-311+G(d,p)
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    mp2
+   BASIS    6-311+G(d,p)
+$end

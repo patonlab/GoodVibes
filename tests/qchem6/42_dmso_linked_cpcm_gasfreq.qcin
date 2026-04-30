@@ -1,0 +1,49 @@
+$comment
+DMSO linked job: B3LYP/6-311+G(d,p) opt with CPCM solvation in water,
+then gas-phase frequency on the solvated-optimized geometry. The freq
+job omits the $pcm/$solvent blocks to mimic Gaussian's "gas-phase freq
+on solvated geometry" pattern.
+$end
+
+$molecule
+0 1
+S   0.000000   0.000000   0.000000
+O   0.000000   0.000000   1.530000
+C   1.765000   0.000000  -0.490000
+C  -1.765000   0.000000  -0.490000
+H   1.900000   0.890000  -1.110000
+H   1.900000  -0.890000  -1.110000
+H   2.580000   0.000000   0.230000
+H  -1.900000   0.890000  -1.110000
+H  -1.900000  -0.890000  -1.110000
+H  -2.580000   0.000000   0.230000
+$end
+
+$rem
+   JOBTYPE          opt
+   METHOD           b3lyp
+   BASIS            6-311+G(d,p)
+   SOLVENT_METHOD   pcm
+$end
+
+$pcm
+   THEORY    cpcm
+   METHOD    SWIG
+   SOLVER    INVERSION
+$end
+
+$solvent
+   Dielectric    78.39
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    b3lyp
+   BASIS    6-311+G(d,p)
+$end

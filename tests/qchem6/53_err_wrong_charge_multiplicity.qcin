@@ -1,0 +1,35 @@
+$comment
+ERROR EXAMPLE: Impossible charge/multiplicity combination.
+Water (10 electrons) declared as neutral doublet (0,2). An even number of
+electrons cannot give multiplicity 2.
+Q-Chem error: "Inconsistent number of electrons / multiplicity" /
+WAVEFUNCTION_INCONSISTENT.
+Fix: use (0,1) for neutral singlet, or (-1,2)/(+1,2) for a radical ion.
+$end
+
+$molecule
+0 2
+O   0.000000   0.000000   0.117300
+H   0.000000   0.756950  -0.469200
+H   0.000000  -0.756950  -0.469200
+$end
+
+$rem
+   JOBTYPE         opt
+   METHOD          b3lyp
+   BASIS           6-31G*
+   UNRESTRICTED    true
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE         freq
+   METHOD          b3lyp
+   BASIS           6-31G*
+   UNRESTRICTED    true
+$end

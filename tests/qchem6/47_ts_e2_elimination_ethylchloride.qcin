@@ -1,0 +1,37 @@
+$comment
+TS06: E2 elimination OH- + CH3CH2Cl -> CH2=CH2 + H2O + Cl-,
+B3LYP/6-311+G(d,p). Anti-periplanar geometry, charge=-1, singlet.
+Expect 1 imaginary mode (~600i cm-1, H transfer + C-Cl breaking).
+$end
+
+$molecule
+-1 1
+O    2.77161165  -0.38936104  -0.02076057
+H    3.57803965   0.14248496  -0.09389557
+C    0.97489900   0.93106400  -0.00436900
+C   -0.19678000   0.05874900   0.09433900
+Cl  -1.70729123   1.19525144  -0.21912879
+H    1.85020400   0.28980100   0.01812900
+H    1.03611600   1.63867300   0.82645300
+H    0.98170500   1.49593600  -0.93829800
+H   -0.19776200  -0.64480400   0.93165000
+H   -0.15112700  -0.64354300  -0.75148900
+$end
+
+$rem
+   JOBTYPE   ts
+   METHOD    b3lyp
+   BASIS    6-311+G(d,p)
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    b3lyp
+   BASIS    6-311+G(d,p)
+$end

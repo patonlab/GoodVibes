@@ -1,0 +1,19 @@
+$comment
+ERROR EXAMPLE: Typos in $rem keys.
+"METHOD = b3lpy" (typo for b3lyp) and "JOBTYPE = feq" (typo for freq).
+Q-Chem error: "Unrecognised method/jobtype" / INVALID_KEYWORD.
+Fix: spell-check $rem keys; consult the manual for valid METHOD names.
+$end
+
+$molecule
+0 1
+O   0.000000   0.000000   0.117300
+H   0.000000   0.756950  -0.469200
+H   0.000000  -0.756950  -0.469200
+$end
+
+$rem
+   JOBTYPE   feq
+   METHOD    b3lpy
+   BASIS    6-31G*
+$end

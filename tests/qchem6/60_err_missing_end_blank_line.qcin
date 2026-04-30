@@ -1,0 +1,19 @@
+$comment
+ERROR EXAMPLE: Missing $end terminator on the $molecule block.
+Q-Chem requires every section to end with $end on its own line. Without
+it, the parser keeps reading into the next section.
+Q-Chem error: "Unexpected $rem inside $molecule" / SECTION_PARSE_ERROR.
+Fix: add the missing $end after the last atom.
+$end
+
+$molecule
+0 1
+O   0.000000   0.000000   0.117300
+H   0.000000   0.756950  -0.469200
+H   0.000000  -0.756950  -0.469200
+
+$rem
+   JOBTYPE   opt
+   METHOD    b3lyp
+   BASIS    6-31G*
+$end

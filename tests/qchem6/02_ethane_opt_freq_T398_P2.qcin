@@ -1,0 +1,35 @@
+$comment
+Ethane B3LYP/6-311+G(d,p) opt+freq. Gaussian set T=398.15K, P=2.0 atm
+in the route line; Q-Chem reports thermochemistry at the default 298.15 K
+(use GoodVibes --temperature 398.15 --conc 0.061 to apply at thermo time).
+$end
+
+$molecule
+0 1
+C   0.000000   0.000000   0.000000
+C   0.000000   0.000000   1.540000
+H   1.026719   0.000000  -0.363000
+H  -0.513360   0.889165  -0.363000
+H  -0.513360  -0.889165  -0.363000
+H  -1.026719   0.000000   1.903000
+H   0.513360   0.889165   1.903000
+H   0.513360  -0.889165   1.903000
+$end
+
+$rem
+   JOBTYPE     opt
+   METHOD      b3lyp
+   BASIS       6-311+G(d,p)
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE     freq
+   METHOD      b3lyp
+   BASIS       6-311+G(d,p)
+$end

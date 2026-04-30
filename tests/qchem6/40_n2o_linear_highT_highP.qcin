@@ -1,0 +1,30 @@
+$comment
+N2O linear (C∞v) CCSD/cc-pVTZ opt+freq. Gaussian set T=1000K, P=100atm
+in the route line; Q-Chem reports thermo at default 298.15 K — apply
+T/P at GoodVibes thermo time with --temperature 1000 --conc 1.218.
+$end
+
+$molecule
+0 1
+N   0.000000   0.000000  -1.128000
+N   0.000000   0.000000   0.000000
+O   0.000000   0.000000   1.185000
+$end
+
+$rem
+   JOBTYPE   opt
+   METHOD    ccsd
+   BASIS    cc-pVTZ
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE   freq
+   METHOD    ccsd
+   BASIS    cc-pVTZ
+$end

@@ -1,0 +1,33 @@
+$comment
+Formaldehyde wB97X-D/6-31G** opt+freq with extra population analysis
+(Mulliken + NBO + ESP-fit). Q-Chem's wB97X-D is selected with METHOD
+= wb97x-d.
+$end
+
+$molecule
+0 1
+C   0.000000   0.000000  -0.523841
+O   0.000000   0.000000   0.676159
+H   0.000000   0.939547  -1.109428
+H   0.000000  -0.939547  -1.109428
+$end
+
+$rem
+   JOBTYPE         opt
+   METHOD          wb97x-d
+   BASIS           6-31G**
+   POP_MULLIKEN    1
+   ESP_CHARGES     1
+$end
+
+@@@
+
+$molecule
+   READ
+$end
+
+$rem
+   JOBTYPE         freq
+   METHOD          wb97x-d
+   BASIS           6-31G**
+$end

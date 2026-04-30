@@ -1,0 +1,26 @@
+$comment
+Water dimer BSSE-corrected interaction energy (Boys-Bernardi
+counterpoise) at B3LYP/6-311+G(d,p) + Grimme D3. Q-Chem's $molecule
+block uses `--` as fragment separators when JOBTYPE = bsse.
+$end
+
+$molecule
+0 1
+--
+0 1
+O   0.000000   0.000000   0.119262
+H   0.000000   0.756950  -0.477047
+H   0.000000  -0.756950  -0.477047
+--
+0 1
+O   0.000000   0.000000   2.836000
+H   0.000000   0.756950   3.432047
+H   0.000000  -0.756950   3.432047
+$end
+
+$rem
+   JOBTYPE   bsse
+   METHOD    b3lyp
+   BASIS    6-311+G(d,p)
+   DFT_D    d3_zero
+$end
