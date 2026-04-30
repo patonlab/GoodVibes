@@ -474,36 +474,35 @@ class calc_bbe:
     """
     def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
                  invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None):
-        
-        # 1. Parse all data from file (program-agnostic), or use provided cache
         """
-                 Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
-                 
-                 Parameters:
-                     file (str): Path to the quantum-chemistry output file used for parsing when qcdata is not supplied.
-                     QS (str): Vibrational entropy scheme; either "grimme" or "truhlar".
-                     QH (bool): If True, compute quasi-harmonic (qRRHO/qRRHO enthalpy) corrections.
-                     cutoff (float): Frequency cutoff (cm⁻¹) used for quasi-RRHO damping / RRQHO selection.
-                     H_FREQ_CUTOFF (float): Frequency cutoff (cm⁻¹) used for quasi-harmonic enthalpy damping.
-                     temp (float): Temperature in kelvin for all thermal calculations.
-                     conc (float or None): Concentration in mol/L used for translational entropy; None leaves behavior to defaults.
-                     scale_fac (float or list or None): Frequency scaling factor (or list for ONIOM: [qm_scale, mm_scale]).
-                     solv (str or None): Solvent identifier; if None or 'none', translational entropy is computed as ideal gas.
-                     spc (None, bool, or str): Single-point correction control. If not None and not 'link', a single-point file is sought/applied.
-                     invert (None, str, or numeric): Policy for handling imaginary frequencies; passed to _apply_frequency_inversion.
-                     symm (bool): If True, attempt a symmetry entropy correction via pymsym and add it to computed entropies.
-                     mm_freq_scale_factor (float or None): MM frequency scale factor for ONIOM blending; when provided, enables ONIOM blending.
-                     inertia (str): 'global' to use the global GRIMME_BAV moment of inertia, otherwise attempt to derive from rotational constants.
-                     qcdata (QCData or None): Pre-parsed QC data object; when provided, parsing of file is skipped.
-                 
-                 Notes:
-                     - On successful initialization the instance will have computed attributes including (but not limited to)
-                       enthalpy, qh_enthalpy, entropy, qh_entropy, gibbs_free_energy, qh_gibbs_free_energy, zpe,
-                       frequency_wn, im_frequency_wn, inverted_freqs, and various intermediate thermal terms.
-                     - If required frequency/ZPE/rotational data are missing or unparsable, thermal quantities remain unset or zeroed
-                       according to the module's behavior.
-                 """
-                 if qcdata is None:
+        Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
+
+        Parameters:
+            file (str): Path to the quantum-chemistry output file used for parsing when qcdata is not supplied.
+            QS (str): Vibrational entropy scheme; either "grimme" or "truhlar".
+            QH (bool): If True, compute quasi-harmonic (qRRHO/qRRHO enthalpy) corrections.
+            cutoff (float): Frequency cutoff (cm⁻¹) used for quasi-RRHO damping / RRQHO selection.
+            H_FREQ_CUTOFF (float): Frequency cutoff (cm⁻¹) used for quasi-harmonic enthalpy damping.
+            temp (float): Temperature in kelvin for all thermal calculations.
+            conc (float or None): Concentration in mol/L used for translational entropy; None leaves behavior to defaults.
+            scale_fac (float or list or None): Frequency scaling factor (or list for ONIOM: [qm_scale, mm_scale]).
+            solv (str or None): Solvent identifier; if None or 'none', translational entropy is computed as ideal gas.
+            spc (None, bool, or str): Single-point correction control. If not None and not 'link', a single-point file is sought/applied.
+            invert (None, str, or numeric): Policy for handling imaginary frequencies; passed to _apply_frequency_inversion.
+            symm (bool): If True, attempt a symmetry entropy correction via pymsym and add it to computed entropies.
+            mm_freq_scale_factor (float or None): MM frequency scale factor for ONIOM blending; when provided, enables ONIOM blending.
+            inertia (str): 'global' to use the global GRIMME_BAV moment of inertia, otherwise attempt to derive from rotational constants.
+            qcdata (QCData or None): Pre-parsed QC data object; when provided, parsing of file is skipped.
+
+        Notes:
+            - On successful initialization the instance will have computed attributes including (but not limited to)
+              enthalpy, qh_enthalpy, entropy, qh_entropy, gibbs_free_energy, qh_gibbs_free_energy, zpe,
+              frequency_wn, im_frequency_wn, inverted_freqs, and various intermediate thermal terms.
+            - If required frequency/ZPE/rotational data are missing or unparsable, thermal quantities remain unset or zeroed
+              according to the module's behavior.
+        """
+        # 1. Parse all data from file (program-agnostic), or use provided cache
+        if qcdata is None:
             qcdata = parse_qcdata(file)
 
         # 2. Geometry data (from native parser via qcdata)
