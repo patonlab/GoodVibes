@@ -8,7 +8,7 @@
 [![DOI](https://zenodo.org/badge/54848929.svg)](https://zenodo.org/badge/latestdoi/54848929)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/goodvibes/badges/license.svg)](https://anaconda.org/conda-forge/goodvibes)
 
-GoodVibes computes quasi-harmonic thermochemical corrections from electronic structure calculations (Gaussian, ORCA, NWChem). It corrects the poor description of low-frequency vibrations by the rigid-rotor harmonic oscillator (RRHO) treatment using the approaches of [Grimme](http://dx.doi.org/10.1002/chem.201200497) and [Truhlar](http://dx.doi.org/10.1021/jp205508z).
+GoodVibes computes quasi-harmonic thermochemical corrections from electronic structure calculations (Gaussian, ORCA, NWChem, QChem, xTB, ASE). It corrects the poor description of low-frequency vibrations by the rigid-rotor harmonic oscillator (RRHO) treatment using the approaches of [Grimme](http://dx.doi.org/10.1002/chem.201200497) and [Truhlar](http://dx.doi.org/10.1021/jp205508z).
 
 #### Features
 
@@ -23,7 +23,7 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 - Solvent standard-state concentration and free-space corrections
 - JSON caching for fast re-analysis (`--cache-save` / `--cache-read`)
 - Duplicate structure detection (`--dedup`) and energy-sorted output (`--sort`)
-- Supports Gaussian, ORCA, and NWChem output files
+- Supports Gaussian, ORCA, NWChem, QChem, xTB, and ASE output files
 
 
 #### Installation
@@ -62,11 +62,14 @@ The `-q` flag applies quasi-harmonic corrections (Grimme entropy + Head-Gordon e
 
 #### Supported Programs
 
-GoodVibes reads output files (`.log`, `.out`) from:
+GoodVibes reads output files from:
 
-- **Gaussian** (09, 16) -- optimization, frequency, single-point, link jobs, ONIOM, VPT2 anharmonic
-- **ORCA** (5, 6) -- optimization, frequency, single-point, DLPNO-CCSD(T)
-- **NWChem** -- optimization, frequency, single-point
+- **Gaussian** (09, 16) `.log` / `.out` -- optimization, frequency, single-point, link jobs, ONIOM, VPT2 anharmonic
+- **ORCA** (5, 6) `.out` -- optimization, frequency, single-point, DLPNO-CCSD(T)
+- **NWChem** `.out` -- optimization, frequency, single-point
+- **QChem** (6) `.out` / `.qcin` -- optimization, frequency, single-point, linked jobs
+- **xTB** `.out` -- frequency calculations (ORCA/xTB integration compatible)
+- **ASE** (Atomic Simulation Environment) `.extxyz` -- extended XYZ format with energy & frequency data
 
 The program is auto-detected from the output file contents. Additional file extensions can be registered with `--custom_ext`.
 
@@ -307,8 +310,11 @@ Test data is organized by program:
 - `tests/g16/` -- Gaussian 16 output files
 - `tests/orca6/` -- ORCA 6 output files (full coverage)
 - `tests/orca5/` -- ORCA 5 output files (lightweight regression layer)
+- `tests/qchem6/` -- QChem 6 output files
+- `tests/xtb/` -- xTB output files
+- `tests/ase/` -- ASE (extended XYZ) test files
 
-Test helpers in `tests/conftest.py` provide `g16path()`, `orca_path()`, and `orca5_path()` for resolving test file paths, plus categorized file lists (`G16_FREQ_FILES`, `ORCA_FREQ_FILES`, `ORCA5_FILES`, etc.) used by parametrized tests.
+Test helpers in `tests/conftest.py` provide path resolvers (`g16path()`, `orca_path()`, `orca5_path()`, `qchem_path()`, `xtb_path()`, `ase_path()`) and categorized file lists (`G16_FREQ_FILES`, `ORCA_FREQ_FILES`, `QCHEM_FREQ_FILES`, `XTB_FREQ_FILES`, `ASE_FREQ_FILES`, etc.) used by parametrized tests.
 
 #### Citing GoodVibes
 Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. GoodVibes: Automated Thermochemistry for Heterogeneous Computational Chemistry Data. *F1000Research*, **2020**, *9*, 291 [**DOI:** 10.12688/f1000research.22758.1](https://doi.org/10.12688/f1000research.22758.1)
