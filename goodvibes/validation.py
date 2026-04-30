@@ -2,6 +2,7 @@
 import logging
 import os.path
 import sys
+import numpy
 
 from .sort import deduplicate
 from .utils import all_same
@@ -255,9 +256,11 @@ def check_files(thermo_data, options, level_of_theory):
     # Checks whether any TS have > 1 imaginary frequency and any GS have any imaginary frequencies
     for file in files:
         bbe = thermo_data[file]
-        if bbe.job_type.find('TS') > -1 and len(bbe.im_frequency_wn) != 1:
+        # Filter for only significant imaginary frequencies (< -50 cm^-1)
+        significant_im = [f for f in bbe.im_frequency_wn if f < -50]
+        if bbe.job_type.find('TS') > -1 and len(significant_im) != 1:
             log.info("\nx  Caution! TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
-        if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and bbe.im_frequency_wn:
+        if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and len(significant_im) > 0:
             log.info("\nx  Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
 
     # Check for empirical dispersion
@@ -333,19 +336,16 @@ def check_files(thermo_data, options, level_of_theory):
         if len(geom_duplic_list[0]) == len(geom_duplic_list_spc[0]):
             for i in range(len(files)):
                 count = 1
-                for j in range(len(geom_duplic_list[0][i])):
-                    if count == 1:
-                        if geom_duplic_list[0][i][j] == geom_duplic_list_spc[0][i][j]:
-                            pass
-                        elif '{0:.3f}'.format(geom_duplic_list[0][i][j][0]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][0] * (-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][0]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][0]):
-                            if '{0:.3f}'.format(geom_duplic_list[0][i][j][1]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][1] * (-1)) or '{0:.3f}'.format(geom_duplic_list[0][i][j][1]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][1] * (-1)):
-                                pass
-                            if '{0:.3f}'.format(geom_duplic_list[0][i][j][2]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][2] * (-1)) or '{0:.3f}'.format(
-                                geom_duplic_list[0][i][j][2]) == '{0:.3f}'.format(geom_duplic_list_spc[0][i][j][2] * (-1)):
-                                pass
-                        else:
-                            spc_mismatching += ", " + geom_duplic_list[1][i]
-                            count = count + 1
+                # Reshape coordinates into (N,3) arrays and compare
+                coords_freq = numpy.array(geom_duplic_list[0][i])
+                coords_spc = numpy.array(geom_duplic_list_spc[0][i])
+
+                # Check direct equality or equality to fully negated array
+                direct_match = numpy.allclose(coords_freq, coords_spc, atol=1e-3)
+                negated_match = numpy.allclose(coords_freq, -coords_spc, atol=1e-3)
+
+                if not (direct_match or negated_match):
+                    spc_mismatching += ", " + geom_duplic_list[1][i]
             if spc_mismatching == "Caution! Potential differences found between frequency and single-point geometries -":
                 log.info("\no  No potential differences found between frequency and single-point geometries (based on input coordinates).")
             else:

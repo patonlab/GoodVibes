@@ -59,12 +59,16 @@ def print_cpu_time(thermo_data, exclude=None):
     for file, bbe in thermo_data.items():
         if exclude and fnmatch(file, exclude):
             continue
+        prev_total = total_cpu_time
         if hasattr(bbe, "cpu") and bbe.cpu is not None:
             total_cpu_time = add_time(total_cpu_time, bbe.cpu)
+            days_added = (total_cpu_time - prev_total).days
+            add_days += days_added
+            prev_total = total_cpu_time
         if hasattr(bbe, "sp_cpu") and bbe.sp_cpu is not None:
             total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
-        if total_cpu_time.month > 1:
-            add_days += 31
+            days_added = (total_cpu_time - prev_total).days
+            add_days += days_added
     log.info(f'   {"TOTAL CPU":<13} {total_cpu_time.day + add_days - 1:>2} {"days":>4} '
               f'{total_cpu_time.hour:>2} {"hrs":>3} {total_cpu_time.minute:>2} {"mins":>4} '
               f'{total_cpu_time.second:>2} {"secs":>4}\n')
@@ -357,8 +361,8 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
                 key = os.path.splitext(os.path.basename(file))[0]
                 cached_qcdata = qcdata_cache.get(key)
             bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
-                           conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                           inertia=options.inertia, qcdata=cached_qcdata)
+                           conc, options.freq_scale_factor, solv=options.freespace, spc=options.spc, invert=options.invert,
+                           symm=options.symm, inertia=options.inertia, qcdata=cached_qcdata)
             interval_bbe_data[h].append(bbe)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -471,10 +475,15 @@ def print_pes_results(thermo_data, options, dup_list,
                                            temp * pes.s_abs[k][m], temp * pes.qs_abs[k][m], pes.g_abs[k][m],
                                            pes.qhg_abs[k][m]]
                             relative = [s - z for s, z in zip(species, zero_vals)]
-                            e_sum += math.exp(-relative[1] * J_TO_AU / GAS_CONSTANT / temp)
-                            h_sum += math.exp(-relative[3] * J_TO_AU / GAS_CONSTANT / temp)
-                            g_sum += math.exp(-relative[7] * J_TO_AU / GAS_CONSTANT / temp)
-                            qhg_sum += math.exp(-relative[8] * J_TO_AU / GAS_CONSTANT / temp)
+                            idx_e = 1
+                            idx_h = 3
+                            idx_g = 7 if options.QH else 6
+                            idx_qhg = 8 if options.QH else 7
+                            e_sum += math.exp(-relative[idx_e] * J_TO_AU / GAS_CONSTANT / temp)
+                            h_sum += math.exp(-relative[idx_h] * J_TO_AU / GAS_CONSTANT / temp)
+                            g_sum += math.exp(-relative[idx_g] * J_TO_AU / GAS_CONSTANT / temp)
+                            if options.QH:
+                                qhg_sum += math.exp(-relative[idx_qhg] * J_TO_AU / GAS_CONSTANT / temp)
                     if options.spc is None:
                         log.info("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ")  at T: " + str(temp)))
                         if options.QH:
@@ -584,10 +593,15 @@ def print_pes_results(thermo_data, options, dup_list,
                                    options.temperature * pes.s_abs[i][j], options.temperature * pes.qs_abs[i][j],
                                    pes.g_abs[i][j], pes.qhg_abs[i][j]]
                     relative = [s - z for s, z in zip(species, zero_vals)]
-                    e_sum += math.exp(-relative[1] * J_TO_AU / GAS_CONSTANT / options.temperature)
-                    h_sum += math.exp(-relative[3] * J_TO_AU / GAS_CONSTANT / options.temperature)
-                    g_sum += math.exp(-relative[7] * J_TO_AU / GAS_CONSTANT / options.temperature)
-                    qhg_sum += math.exp(-relative[8] * J_TO_AU / GAS_CONSTANT / options.temperature)
+                    idx_e = 1
+                    idx_h = 3
+                    idx_g = 7 if options.QH else 6
+                    idx_qhg = 8 if options.QH else 7
+                    e_sum += math.exp(-relative[idx_e] * J_TO_AU / GAS_CONSTANT / options.temperature)
+                    h_sum += math.exp(-relative[idx_h] * J_TO_AU / GAS_CONSTANT / options.temperature)
+                    g_sum += math.exp(-relative[idx_g] * J_TO_AU / GAS_CONSTANT / options.temperature)
+                    if options.QH:
+                        qhg_sum += math.exp(-relative[idx_qhg] * J_TO_AU / GAS_CONSTANT / options.temperature)
 
             if options.spc is None:
                 log.info("\n   " + '{:<40}'.format("RXN: " + path + " (" + pes.units + ") ", ))
