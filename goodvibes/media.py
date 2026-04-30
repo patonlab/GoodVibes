@@ -13,7 +13,14 @@ import os
 
 
 def _load_solvents():
-    """Load solvent data from the JSON file and build a flat alias -> (mw, density, canonical_name) dict."""
+    """
+    Load the bundled solvents.json and build a flat mapping from each lowercase alias to its (molecular weight, density) tuple.
+    
+    The JSON file is read from the same directory as this module. Each solvent entry's `aliases` list is expanded and normalized to lowercase.
+    
+    Returns:
+        dict: Mapping where keys are lowercase alias strings and values are `(mw, density)` tuples — `mw` in g/mol and `density` in g/mL.
+    """
     json_path = os.path.join(os.path.dirname(__file__), 'solvents.json')
     with open(json_path, 'r') as f:
         data = json.load(f)
@@ -31,17 +38,15 @@ solvents = _load_solvents()
 
 
 def compute_media_conc(media, file):
-    """Return the neat solvent concentration if the filename matches the solvent name.
-
-    Used to replace the default concentration with the pure-solvent concentration
-    when the calculation is for the solvent molecule itself.
-
+    """
+    Compute the neat-solvent molar concentration when the output file corresponds to the specified solvent.
+    
     Parameters:
-        media (str): solvent name from --media.
-        file (str): output file path.
-
+        media (str): Solvent name as provided (e.g., from --media).
+        file (str): Path to the output file used to infer the solvent name.
+    
     Returns:
-        float or None: concentration in mol/L, or None if the file doesn't match.
+        float or None: Neat-solvent concentration in mol/L if the file's solvent matches `media`, `None` otherwise.
     """
     from .utils import display_name
     media_key = media.lower()

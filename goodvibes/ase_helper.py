@@ -25,30 +25,28 @@ def write_thermo_extxyz(
     job_type=None,
     energy_units='Hartree',
 ):
-    """Write a GoodVibes-compatible ASE thermo extxyz file.
-
-    Parameters
-    ----------
-    path : str
-        Output file path (typically ``*.extxyz``).
-    atoms : ase.Atoms
-        Geometry. Element symbols + Cartesian positions are written.
-    energy : float
-        Electronic (SCF) energy. Hartree by default — override with
-        ``energy_units='eV'`` (or ``'kcal/mol'`` / ``'kJ/mol'``).
-    frequencies : iterable of float, optional
-        Vibrational frequencies in cm-1. Negative values are imaginary modes.
-    charge, multiplicity : int
-        Defaults: 0 / 1 (closed-shell singlet).
-    level_of_theory : str, optional
-        Free-form string, e.g. ``"B3LYP/6-31G*"``. Used by the GoodVibes scaling
-        factor lookup; omit to fall back on ``--freq_scale_factor``.
-    zpe : float, optional
-        Zero-point energy in Hartree. If omitted, GoodVibes recomputes it from
-        ``frequencies`` at thermo time.
-    job_type : str, optional
-        ``'Freq'`` / ``'GSFreq'`` / ``'TS'`` / ``'SP'``. If omitted the parser
-        infers from frequency presence/sign.
+    """
+    Write a GoodVibes-compatible ASE thermo `.extxyz` file for the supplied geometry and metadata.
+    
+    Parameters:
+        path (str): Output file path (typically ending with `.extxyz`).
+        atoms (ase.Atoms): Geometry; element symbols and Cartesian positions are written.
+        energy (float): Electronic (SCF) energy.
+        frequencies (iterable[float], optional): Vibrational frequencies in cm^-1; negative values indicate imaginary modes.
+        charge (int, optional): Total molecular charge. Default: 0.
+        multiplicity (int, optional): Spin multiplicity. Default: 1.
+        level_of_theory (str, optional): Free-form method/basis description (e.g., "B3LYP/6-31G*") used for GoodVibes scaling lookup.
+        solvation_model (str or None, optional): Description of solvation model (defaults to 'gas phase'); set to None to omit.
+        empirical_dispersion (str, optional): Empirical dispersion tag (included when non-empty).
+        point_group (str, optional): Molecular point group symbol.
+        symmno (int, optional): Symmetry number.
+        linear_mol (bool, optional): Whether the molecule is linear.
+        zpe (float, optional): Zero-point energy in the same units as `energy`.
+        job_type (str, optional): Job type hint (e.g., 'Freq', 'GSFreq', 'TS', 'SP'); parser may infer if omitted.
+        energy_units (str, optional): Units for `energy` (default: 'Hartree').
+    
+    Raises:
+        ImportError: If ASE is not installed (suggests installing via `pip install ase`).
     """
     try:
         import ase  # noqa: F401

@@ -12,20 +12,22 @@ log = logging.getLogger('goodvibes')
 
 def get_selectivity(pattern, files, boltz_facs, temperature, dup_list):
     """
-    Calculate selectivity as enantioselectivity/diastereomeric ratio.
-
+    Compute selectivity between two sets of files identified by a colon-delimited pattern and estimate a corresponding Gibbs-like energy barrier.
+    
     Parameters:
-    pattern (str): pattern to recognize for selectivity calculation, i.e. "R":"S".
-    files (str): files to use for selectivity calculation.
-    boltz_facs (dict): normalized Boltzmann populations for each file.
-    temperature (float)
-
+        pattern (str): Colon-delimited selection pattern "pattern_a:pattern_b" used to match filenames (each side is a glob pattern).
+        files (list[str]): Iterable of file paths to consider for summing Boltzmann populations.
+        boltz_facs (dict): Mapping from file path to normalized Boltzmann population (values summing to ~1).
+        temperature (float): Temperature in Kelvin used to compute the free-energy estimate.
+        dup_list (list): List of duplicate entries; any entry whose first element equals a file path is excluded from sums.
+    
     Returns:
-    float: enantiomeric/diasteriomeric ratio.
-    str: pattern used to identify ratio.
-    float: Gibbs free energy barrier.
-    bool: flag for failed selectivity calculation.
-    str: preferred enantiomer/diastereomer configuration.
+        ee (float): Absolute enantiomeric/diastereomeric excess as a percentage (0–100).
+        r (str): Rounded population percentages formatted as "A:B".
+        ratio (str): Preferred-side ratio formatted as "X:1" or "1:X"; uses '1:0' or '0:1' when one side has zero population.
+        dd_free_energy (float): Estimated Gibbs-like free-energy barrier (in atomic units); 0.0 if calculation fails due to division-by-zero.
+        failed (bool): True when no selectivity is detected (ee == 0), False otherwise.
+        pref (str): Preferred configuration token (alphanumeric characters extracted from the corresponding side of the input pattern).
     """
     dirs = []
     for file in files:
@@ -112,20 +114,17 @@ def get_selectivity(pattern, files, boltz_facs, temperature, dup_list):
 
 
 def get_boltz(thermo_data, temperature, dup_list, key='gibbs'):
-    """Compute normalized Boltzmann populations from thermo_data.
-
-    Duplicates in dup_list are excluded from the population.
-
+    """
+    Produce normalized Boltzmann populations for structures in thermo_data.
+    
     Parameters:
-        thermo_data (dict): file path → calc_bbe mapping.
-        temperature (float): temperature in Kelvin for Boltzmann weighting.
-        dup_list (list): pairs [file_i, file_j] to exclude as duplicates.
-        key (str): energy attribute to weight by — 'energy' (scf_energy) or
-            'gibbs' (qh_gibbs_free_energy). Default: 'gibbs'.
-
+        thermo_data (dict): Mapping from file path to a thermo record containing energy attributes.
+        temperature (float): Temperature in Kelvin used for Boltzmann weighting.
+        dup_list (list): Iterable of pairs [file_i, file_j]; any entry whose file path appears as the first element of a pair is excluded from weighting.
+        key (str): Selects which energy attribute to use (resolved via SORT_KEYS), e.g. 'gibbs' or 'energy'. Default: 'gibbs'.
+    
     Returns:
-        dict: boltz_facs — normalized Boltzmann populations keyed by file path
-        (values sum to 1.0).
+        dict: Mapping of file path to normalized Boltzmann population (values sum to 1.0). If no valid energies are found or the total Boltzmann weight is zero, an empty dict may be returned.
     """
     attr = SORT_KEYS[key]
     files = list(thermo_data)

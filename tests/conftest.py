@@ -20,36 +20,90 @@ except ImportError:
 
 
 def datapath(path):
+    """
+    Resolve a filesystem path inside the package's examples directory.
+    
+    Parameters:
+        path (str): Relative path or filename within the examples directory.
+    
+    Returns:
+        str: Absolute or normalized filesystem path to the requested examples resource.
+    """
     return os.path.join(BASEPATH, 'examples', path)
 
 
 def g16path(filename):
-    """Return absolute path to a G16 test file."""
+    """
+    Get the filesystem path to a G16 test fixture.
+    
+    Parameters:
+        filename (str): Name of the G16 fixture file (including extension).
+    
+    Returns:
+        str: Filesystem path to the specified file within the G16 tests directory.
+    """
     return os.path.join(G16_DIR, filename)
 
 
 def orca_path(filename):
-    """Return absolute path to an ORCA 6 test file."""
+    """
+    Get the filesystem path for an ORCA 6 test fixture.
+    
+    Parameters:
+    	filename (str): Filename relative to the ORCA 6 tests directory.
+    
+    Returns:
+    	path (str): Full filesystem path to the specified ORCA 6 test file.
+    """
     return os.path.join(ORCA_DIR, filename)
 
 
 def orca5_path(filename):
-    """Return absolute path to an ORCA 5 test file."""
+    """
+    Get the absolute filesystem path for an ORCA 5 test fixture.
+    
+    Returns:
+        path (str): Absolute path to the fixture file named by `filename`.
+    """
     return os.path.join(ORCA5_DIR, filename)
 
 
 def xtb_path(filename):
-    """Return absolute path to an xtb test file."""
+    """
+    Get the absolute filesystem path to an xTB test fixture.
+    
+    Parameters:
+        filename (str): Name of the fixture file located in the xTB tests directory.
+    
+    Returns:
+        str: Absolute path to the specified xTB fixture file.
+    """
     return os.path.join(XTB_DIR, filename)
 
 
 def ase_path(filename):
-    """Return absolute path to an ASE extxyz test file."""
+    """
+    Get the absolute filesystem path for an ASE extxyz test fixture.
+    
+    Parameters:
+        filename (str): Name of the extxyz file relative to the ASE tests directory.
+    
+    Returns:
+        str: Absolute path to the specified ASE extxyz fixture.
+    """
     return os.path.join(ASE_DIR, filename)
 
 
 def qchem_path(filename):
-    """Return absolute path to a Q-Chem 6 test file."""
+    """
+    Return the absolute filesystem path to a Q-Chem 6 test fixture.
+    
+    Parameters:
+        filename (str): Filename relative to the Q-Chem 6 tests directory.
+    
+    Returns:
+        path (str): Absolute path to the requested test file.
+    """
     return os.path.join(QCHEM_DIR, filename)
 
 

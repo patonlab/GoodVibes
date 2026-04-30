@@ -8,17 +8,15 @@ log = logging.getLogger('goodvibes')
 
 
 def kabsch_rmsd(coords_a, coords_b):
-    """Compute RMSD between two coordinate sets after optimal Kabsch alignment.
-
-    Centers both structures, finds the optimal rotation via SVD, and returns
-    the RMSD of the aligned coordinates.
-
+    """
+    Compute the RMSD between two Nx3 Cartesian coordinate sets after optimal rigid alignment using the Kabsch algorithm.
+    
     Parameters:
-        coords_a (array-like): Nx3 Cartesian coordinates (reference).
-        coords_b (array-like): Nx3 Cartesian coordinates (mobile).
-
+        coords_a (array-like): Reference coordinates with shape (N, 3).
+        coords_b (array-like): Mobile coordinates with shape (N, 3).
+    
     Returns:
-        float: RMSD in the same units as the input coordinates.
+        float: Root-mean-square deviation between the aligned coordinates, in the same units as the inputs.
     """
     a = np.array(coords_a, dtype=float)
     b = np.array(coords_b, dtype=float)
@@ -128,6 +126,15 @@ def sort_thermo(thermo_data, key):
     inf = float('inf')
 
     def sort_val(item):
+        """
+        Compute the sort key for a thermochemistry mapping item, treating flagged or missing values as infinite so they sort last.
+        
+        Parameters:
+            item (tuple): A (key, calc_bbe) pair where `calc_bbe` is the object containing thermochemical attributes.
+        
+        Returns:
+            float: The attribute value `getattr(calc_bbe, attr)` when present and not None; `float('inf')` if `calc_bbe.linear_warning` is truthy or the attribute is missing/None.
+        """
         bbe = item[1]
         if getattr(bbe, 'linear_warning', False):
             return inf

@@ -49,6 +49,29 @@ class get_pes:
     """
     def __init__(self, file, thermo_data, temperature, gconf, QH):
         # Default values
+        """
+        Initialize a get_pes instance by parsing a pathway definition file and populating thermochemical data for each pathway point.
+        
+        Reads the specified pathway file, maps SPECIES entries to keys in the provided thermo_data, computes Boltzmann-weighted conformer averages at the given temperature (optionally applying the gconf "single-minimum plus correction" model), and fills instance attributes used for downstream graphing and analysis (e.g., path, species, *_abs and *_zero arrays for energies, entropies, and quasi-harmonic variants).
+        
+        Parameters:
+            file (str): Path to the pathway definition file to parse.
+            thermo_data (dict): Mapping from identifier keys to objects containing thermochemical attributes
+                (expected attributes include scf_energy, zpe, enthalpy, entropy, gibbs_free_energy,
+                qh_enthalpy, qh_entropy, qh_gibbs_free_energy, and optionally sp_energy).
+            temperature (float): Temperature (in Kelvin) used for Boltzmann weighting.
+            gconf (bool): If True, apply conformer-correction model that uses the lowest‑energy conformer
+                plus Boltzmann-weighted enthalpy/entropy corrections.
+            QH (bool): If True, compute Gibbs energies using quasi-harmonic enthalpy/entropy (qh_* fields)
+                when applying gconf corrections.
+        
+        Side effects:
+            - Reads the input file and may log warnings via the module logger.
+            - Initializes numerous instance lists (path, species, spc_abs, e_abs, zpe_abs, h_abs, qh_abs,
+              s_abs, qs_abs, g_abs, qhg_abs and corresponding *_zero lists, plus graphing helpers g_qhgvals,
+              g_species_qhgzero, g_rel_val).
+            - May call sys.exit for fatal conditions (e.g., missing SPC values or malformed zero-species).
+        """
         self.dec, self.units, self.boltz = 2, 'kcal/mol', False
 
         with open(file) as f:
@@ -474,7 +497,17 @@ class get_pes:
                             pass
 
 def jitter(datasets, color, ax, nx, marker, edgecol='black'):
-    """Scatter points that may overlap when graphing by randomly offsetting them."""
+    """
+    Randomly offsets and plots vertically overlapping points to reduce marker overlap on a matplotlib Axes.
+    
+    Parameters:
+        datasets (iterable): Iterable of numeric y-values (each element plotted as a point).
+        color (str or tuple): Marker color.
+        ax (matplotlib.axes.Axes): Axes on which to draw the markers.
+        nx (float): Center x-coordinate around which points are jittered.
+        marker (str): Marker style string.
+        edgecol (str, optional): Marker edge color. Defaults to 'black'.
+    """
     import numpy as np
     for i, p in enumerate(datasets):
         y = [p]
@@ -484,15 +517,13 @@ def jitter(datasets, color, ax, nx, marker, edgecol='black'):
 
 def graph_reaction_profile(graph_data, options, plt):
     """
-    Graph a reaction profile using quasi-harmonic Gibbs free energy values.
-
-    Use matplotlib package to graph a reaction pathway potential energy surface.
-
+    Render a reaction energy profile plot using quasi-harmonic Gibbs free energies.
+    
     Parameters:
-    graph_data (get_pes object): potential energy surface object containing relative thermodynamic data.
-    log (Logger object): Logger to write status updates to user on command line.
-    options (dict): input options for GV.
-    plt (matplotlib): matplotlib library reference.
+        graph_data (get_pes): Populated PES object providing pathway labels and thermodynamic arrays used for plotting (e.g., `path`, `qhg_abs`, `qhg_zero`, `e_abs`, `species`, `g_qhgvals`, `g_species_qhgzero`, `g_rel_val`, and `units`).
+        options (object): Options container with a `graph` attribute pointing to a formatting file that controls plot appearance (ylim, colors, title, dpi, etc.). If `dpi` is set in that file, an image file named "Rxn_profile_<options.graph stem>.png" will be written.
+        plt (module): The matplotlib.pyplot module (used to create and display the figure).
+    
     """
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches

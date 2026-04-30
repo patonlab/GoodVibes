@@ -47,11 +47,12 @@ def _print_rich_table(table: "Table") -> None:
 
 
 def print_cpu_time(thermo_data, exclude=None):
-    """Sum and print total CPU time (including SPC) across all files.
-
+    """
+    Aggregate and log total CPU time across the provided thermochemistry results.
+    
     Parameters:
-        thermo_data (dict): file path → calc_bbe mapping.
-        exclude (str, optional): glob pattern — skip matching files from the total.
+        thermo_data (dict): Mapping of file path to calc_bbe-like objects whose `cpu` and optional `sp_cpu` attributes contribute to the total.
+        exclude (str, optional): Glob pattern; files matching this pattern are omitted from the summed total.
     """
     from fnmatch import fnmatch
     total_cpu_time, add_days = datetime(100, 1, 1, 0, 0, 0, 0), 0
@@ -74,10 +75,17 @@ def print_cpu_time(thermo_data, exclude=None):
 
 
 def _build_results_table(options) -> "Table":
-    """Build a Rich Table with columns for thermochemistry results.
-
-    Column layout is determined by the options (QH, spc, boltz, symm, imag_freq).
-    Returns a Table configured but with no rows yet.
+    """
+    Create a Rich Table configured for thermochemistry result columns based on the provided options.
+    
+    Columns included depend on the options flags: QH, spc, boltz, symm/pg, and imag_freq. Column widths and numeric precision are derived from options.dp when present.
+    
+    Parameters:
+        options: An object with attributes used to determine the table layout (commonly includes
+            `dp`, `QH`, `spc`, `boltz`, `symm`, `pg`, and `imag_freq`).
+    
+    Returns:
+        table (Table | None): A configured rich.table.Table ready for rows, or `None` if Rich is not available.
     """
     if Table is None:
         return None
@@ -280,21 +288,22 @@ def print_results(thermo_data, options, media_conc=None,
 
 
 def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cache=None):
-    """Recompute thermochemistry across a temperature range and print results.
-
-    Re-runs calc_bbe at each temperature step for every file, printing enthalpy,
-    entropy, and free energy at each point.
-
+    """
+    Recompute thermochemical properties over a temperature interval, log formatted results for each structure and return the computed per-temperature data.
+    
+    For each file in `thermo_data` this function evaluates thermochemistry at every temperature in the interval (derived from options.temperature_interval), logs a human-readable table of H, T·S, G(T) and their quasi-harmonic variants when requested, and collects the resulting computed objects.
+    
     Parameters:
-        thermo_data (dict): file path → calc_bbe mapping (used for file list).
-        options (Namespace): parsed CLI options. Uses: dp, QH, QS, S_freq_cutoff,
-            H_freq_cutoff, spc, conc, freq_scale_factor, freespace, invert,
-            inertia, media, temperature_interval.
-        media_conc (float, optional): neat solvent concentration for display.
-        qcdata_cache (dict, optional): pre-parsed QCData keyed by basename.
-
+        thermo_data (dict): Mapping of file path → previously computed thermochemistry object (used to determine file order).
+        options (Namespace): Parsed CLI/options object. Uses these attributes: temperature_interval, dp, QH, QS, S_freq_cutoff, H_freq_cutoff, spc, conc, freq_scale_factor, freespace, invert, inertia, media.
+        media_conc (float, optional): Solvent concentration (M) to annotate solvent-matching structures when media is enabled.
+        qcdata_cache (dict, optional): Optional mapping from file basename → pre-parsed QCData to pass through to the recomputation routine.
+    
     Returns:
-        tuple: (interval_bbe_data, interval, file_list).
+        tuple: (interval_bbe_data, interval, file_list)
+            - interval_bbe_data (list[list]): Outer list indexed by file; each inner list contains the recomputed thermochemistry objects (one per temperature).
+            - interval (range): Python range object describing the temperatures iterated.
+            - file_list (list): List of file paths in the order processed.
     """
     files = list(thermo_data)
     dp = getattr(options, 'dp', 6)
