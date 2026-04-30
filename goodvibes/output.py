@@ -26,6 +26,8 @@ log = logging.getLogger('goodvibes')
 def _print_rich_table(table: "Table") -> None:
     """Print a Rich Table to both stdout and .dat file consoles."""
     if Table is not None:
+        # Add leading newline for spacing
+        log.info("\n\n")
         get_console_stdout().print(table)
         get_console_dat().print(table)
 
