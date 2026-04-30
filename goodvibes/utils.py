@@ -17,6 +17,8 @@ _console_dat: Optional["Console"] = None
 
 def all_same(items):
     """Returns bool for checking if all items in a list are the same."""
+    if len(items) == 0 or len(items) == 1:
+        return True
     return all(x == items[0] for x in items)
 
 
@@ -40,6 +42,14 @@ def setup_logging(filein, append):
 
     formatter = logging.Formatter('%(message)s')
 
+    # Remove any existing handlers to prevent duplicates
+    for handler in logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler):
+            # Close file handle if it's a file-based stream
+            if hasattr(handler.stream, 'close') and handler.stream not in (sys.stdout, sys.stderr):
+                handler.stream.close()
+            logger.removeHandler(handler)
+
     # stdout handler + terminal console
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
@@ -51,7 +61,7 @@ def setup_logging(filein, append):
 
     # .dat file: shared handle for both logging and Rich output
     dat_path = f'{filein}_{append}.dat'
-    dat_fp = open(dat_path, 'w')
+    dat_fp = open(dat_path, 'w', encoding='utf-8')
 
     # Use StreamHandler with the open file, not FileHandler (avoids double-open)
     datfile_handler = logging.StreamHandler(dat_fp)
