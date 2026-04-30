@@ -5,7 +5,7 @@ import sys
 
 from .sort import deduplicate
 from .utils import all_same
-from .io import level_of_theory, parse_qcdata, read_initial
+from .io import level_of_theory, parse_qcdata, read_initial, find_spc_file
 
 log = logging.getLogger('goodvibes')
 
@@ -55,23 +55,21 @@ def collect_and_validate_files(files, options):
         options (Namespace): parsed CLI options. Uses: spc.
 
     Returns:
-        tuple: (files, l_o_t, s_m) — filtered file list, levels of theory, and solvation models.
+        tuple: (files, level_of_theory, solvation_model) — filtered file list, levels of theory, and solvation models.
     """
-    l_o_t, s_m, progress, spc_progress = [], [], {}, {}
+    level_of_theory, solvation_model, progress, spc_progress = [], [], {}, {}
     for file in files:
         lot_sm_prog = read_initial(file)
-        l_o_t.append(lot_sm_prog[0])
-        s_m.append(lot_sm_prog[1])
+        level_of_theory.append(lot_sm_prog[0])
+        solvation_model.append(lot_sm_prog[1])
         progress[file] = lot_sm_prog[2]
         # Check spc files for normal termination
         if options.spc is not None and options.spc != 'link':
-            name, ext = os.path.splitext(file)
-            if os.path.exists(name + '_' + options.spc + '.log'):
-                spc_file = name + '_' + options.spc + '.log'
-            elif os.path.exists(name + '_' + options.spc + '.out'):
-                spc_file = name + '_' + options.spc + '.out'
-            lot_sm_prog = read_initial(spc_file)
-            spc_progress[spc_file] = lot_sm_prog[2]
+            name, _ = os.path.splitext(file)
+            spc_file = find_spc_file(name, options.spc)
+            if spc_file is not None:
+                lot_sm_prog = read_initial(spc_file)
+                spc_progress[spc_file] = lot_sm_prog[2]
 
     remove_key = []
     # Remove problem files and print errors
@@ -95,15 +93,15 @@ def collect_and_validate_files(files, options):
 
     for [i, key] in list(reversed(remove_key)):
         files.remove(key)
-        del l_o_t[i]
-        del s_m[i]
+        del level_of_theory[i]
+        del solvation_model[i]
     if not files:
         sys.exit("\n\nPlease try again with normally terminated output files.\nFor help, use option '-h'\n")
 
-    return files, l_o_t, s_m
+    return files, level_of_theory, solvation_model
 
 
-def check_files(thermo_data, options, l_o_t):
+def check_files(thermo_data, options, level_of_theory):
     """Run consistency checks across all calculation output files.
 
     Checks: program version, solvation model, level of theory, charge/multiplicity,
@@ -113,7 +111,7 @@ def check_files(thermo_data, options, l_o_t):
     Parameters:
         thermo_data (dict): file path → calc_bbe mapping.
         options (Namespace): parsed CLI options. Uses: conc, spc, duplicate.
-        l_o_t (list): level of theory strings, one per file.
+        level_of_theory (list): level of theory strings, one per file.
     """
     files = list(thermo_data)
     STARS = "   " + "*" * 128
@@ -128,10 +126,10 @@ def check_files(thermo_data, options, l_o_t):
         print_check_fails(version_check, file_check, "programs or versions")
 
     # Check level of theory
-    if all_same(l_o_t):
-        log.info("\no  Using {} in all calculations.".format(l_o_t[0]))
+    if all_same(level_of_theory):
+        log.info("\no  Using {} in all calculations.".format(level_of_theory[0]))
     else:
-        print_check_fails(l_o_t, file_check, "levels of theory")
+        print_check_fails(level_of_theory, file_check, "levels of theory")
 
     # Check for solvent models
     solvent_check = [thermo_data[key].solvation_model[0] for key in thermo_data]
@@ -144,16 +142,15 @@ def check_files(thermo_data, options, l_o_t):
 
     # Check for -c 1 when solvent is added
     if all_same(solvent_check):
-        if solvent_check[0] == "gas phase" and str(round(options.conc, 4)) == str(round(0.0408740470708, 4)):
+        if solvent_check[0] == "gas phase" and options.conc is None:
             log.info("\no  Using a standard concentration of 1 atm for gas phase.")
-        elif solvent_check[0] == "gas phase" and str(round(options.conc, 4)) != str(round(0.0408740470708, 4)):
+        elif solvent_check[0] == "gas phase" and options.conc is not None:
             log.info("\nx  Caution! Standard concentration is not 1 atm for gas phase (using {} M).".format(options.conc))
-        elif solvent_check[0] != "gas phase" and str(round(options.conc, 4)) == str(round(0.0408740470708, 4)):
+        elif solvent_check[0] != "gas phase" and options.conc is None:
             log.info("\nx  Using a standard concentration of 1 atm for solvent phase (option -c 1 should be included for 1 M).")
         elif solvent_check[0] != "gas phase" and str(options.conc) == str(1.0):
             log.info("\no  Using a standard concentration of 1 M for solvent phase.")
-        elif solvent_check[0] != "gas phase" and str(round(options.conc, 4)) != str(round(0.0408740470708, 4)) and str(
-                options.conc) != str(1.0):
+        elif solvent_check[0] != "gas phase" and options.conc is not None and str(options.conc) != str(1.0):
             log.info("\nx  Caution! Standard concentration is not 1 M for solvent phase (using {} M).".format(options.conc))
     if not all_same(solvent_check) and "gas phase" in solvent_check:
         log.info("\nx  Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
@@ -277,11 +274,10 @@ def check_files(thermo_data, options, l_o_t):
         log.info("\n" + STARS)
         names_spc, version_check_spc = [], []
         for file in files:
-            name, ext = os.path.splitext(file)
-            if os.path.exists(name + '_' + options.spc + '.log'):
-                names_spc.append(name + '_' + options.spc + '.log')
-            elif os.path.exists(name + '_' + options.spc + '.out'):
-                names_spc.append(name + '_' + options.spc + '.out')
+            name, _ = os.path.splitext(file)
+            spc_file = find_spc_file(name, options.spc)
+            if spc_file is not None:
+                names_spc.append(spc_file)
 
         # Check SPC program versions
         version_check_spc = [thermo_data[key].sp_version_program for key in thermo_data]

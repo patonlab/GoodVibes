@@ -4,22 +4,20 @@ import math
 import os.path
 import sys
 from glob import glob
-from string import ascii_lowercase as alphabet
-
 from .constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU
+from .sort import SORT_KEYS
 
 log = logging.getLogger('goodvibes')
 
 
-def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, dup_list):
+def get_selectivity(pattern, files, boltz_facs, temperature, dup_list):
     """
     Calculate selectivity as enantioselectivity/diastereomeric ratio.
 
     Parameters:
     pattern (str): pattern to recognize for selectivity calculation, i.e. "R":"S".
     files (str): files to use for selectivity calculation.
-    boltz_facs (dict): dictionary of Boltzmann factors for each file used in the calculation.
-    boltz_sum (float)
+    boltz_facs (dict): normalized Boltzmann populations for each file.
     temperature (float)
 
     Returns:
@@ -73,9 +71,9 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, dup_list
                     duplicate = True
         if not duplicate:
             if file in a_files:
-                a_sum += boltz_facs[file] / boltz_sum
+                a_sum += boltz_facs[file]
             elif file in b_files:
-                b_sum += boltz_facs[file] / boltz_sum
+                b_sum += boltz_facs[file]
     # Get ratios
     A_round = round(a_sum * 100)
     B_round = round(b_sum * 100)
@@ -112,37 +110,31 @@ def get_selectivity(pattern, files, boltz_facs, boltz_sum, temperature, dup_list
     return ee, r, ratio, dd_free_energy, failed, pref
 
 
-def get_boltz(thermo_data, clustering, clusters, temperature, dup_list):
-    """Compute Boltzmann factors, weighted free energies, and the partition sum.
+def get_boltz(thermo_data, temperature, dup_list, key='gibbs'):
+    """Compute normalized Boltzmann populations from thermo_data.
 
-    Uses quasi-harmonic Gibbs free energies from thermo_data. Duplicates in
-    dup_list are excluded from the population.
+    Duplicates in dup_list are excluded from the population.
 
     Parameters:
         thermo_data (dict): file path → calc_bbe mapping.
-        clustering (bool): whether to aggregate by cluster.
-        clusters (list): cluster definitions (groups of file paths), or None.
         temperature (float): temperature in Kelvin for Boltzmann weighting.
         dup_list (list): pairs [file_i, file_j] to exclude as duplicates.
+        key (str): energy attribute to weight by — 'energy' (scf_energy) or
+            'gibbs' (qh_gibbs_free_energy). Default: 'gibbs'.
 
     Returns:
-        tuple: (boltz_facs, weighted_free_energy, boltz_sum) — dicts keyed by
-        file path and the total Boltzmann sum.
+        dict: boltz_facs — normalized Boltzmann populations keyed by file path
+        (values sum to 1.0).
     """
+    attr = SORT_KEYS[key]
     files = list(thermo_data)
-    boltz_facs, weighted_free_energy, e_rel, e_min, boltz_sum = {}, {}, {}, sys.float_info.max, 0.0
+    boltz_facs, e_min, boltz_sum = {}, sys.float_info.max, 0.0
 
     for file in files:  # Need the most stable structure
-        bbe = thermo_data[file]
-        if hasattr(bbe, "qh_gibbs_free_energy"):
-            if bbe.qh_gibbs_free_energy is not None:
-                if bbe.qh_gibbs_free_energy < e_min:
-                    e_min = bbe.qh_gibbs_free_energy
+        val = getattr(thermo_data[file], attr, None)
+        if val is not None and val < e_min:
+            e_min = val
 
-    if clustering:
-        for n, cluster in enumerate(clusters):
-            boltz_facs['cluster-' + alphabet[n].upper()] = 0.0
-            weighted_free_energy['cluster-' + alphabet[n].upper()] = 0.0
     # Calculate E_rel and Boltzmann factors
     for file in files:
         duplicate = False
@@ -151,20 +143,14 @@ def get_boltz(thermo_data, clustering, clusters, temperature, dup_list):
                 if dup[0] == file:
                     duplicate = True
         if not duplicate:
+            val = getattr(thermo_data[file], attr, None)
+            if val is not None:
+                boltz_facs[file] = math.exp(-(val - e_min) * J_TO_AU / GAS_CONSTANT / temperature)
+                boltz_sum += boltz_facs[file]
 
-            bbe = thermo_data[file]
-            if hasattr(bbe, "qh_gibbs_free_energy"):
-                if bbe.qh_gibbs_free_energy is not None:
-                    e_rel[file] = bbe.qh_gibbs_free_energy - e_min
-                    boltz_facs[file] = math.exp(-e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature)
-                    if clustering:
-                        for n, cluster in enumerate(clusters):
-                            for structure in cluster:
-                                if structure == file:
-                                    boltz_facs['cluster-' + alphabet[n].upper()] += math.exp(
-                                        -e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature)
-                                    weighted_free_energy['cluster-' + alphabet[n].upper()] += math.exp(
-                                        -e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature) * bbe.qh_gibbs_free_energy
-                    boltz_sum += math.exp(-e_rel[file] * J_TO_AU / GAS_CONSTANT / temperature)
+    # Normalize to populations that sum to 1.0
+    if boltz_sum > 0:
+        for file in boltz_facs:
+            boltz_facs[file] /= boltz_sum
 
-    return boltz_facs, weighted_free_energy, boltz_sum
+    return boltz_facs

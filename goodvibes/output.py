@@ -40,7 +40,7 @@ def print_cpu_time(thermo_data, exclude=None):
 
 
 def print_results(thermo_data, options, media_conc=None,
-                  dup_list=None, boltz_facs=None, boltz_sum=None):
+                  dup_list=None, boltz_facs=None):
     """Print the single-temperature thermochemistry results table.
 
     Outputs energies, enthalpies, entropies and free energies for each file.
@@ -56,8 +56,6 @@ def print_results(thermo_data, options, media_conc=None,
             Computed by deduplicate() in the orchestrator. Defaults to [].
         boltz_facs (dict, optional): Boltzmann factors keyed by file path.
             Computed by get_boltz() in the orchestrator. None when --boltz is off.
-        boltz_sum (float, optional): total Boltzmann partition sum.
-            None when --boltz is off.
     """
     files = list(thermo_data)
     # Decimal places for energy output (default 6)
@@ -93,12 +91,12 @@ def print_results(thermo_data, options, media_conc=None,
         stars += '*' * (14 + dw)
     # Width of the energy data columns (stars minus leading spaces and name)
     data_width = len(stars) - 3 - 39
-    if options.imag_freq is True:
-        stars += '*' * 9
-    if options.boltz is True:
+    if options.boltz:
         stars += '*' * 7
     if options.symm or options.pg:
         stars += '*' * 13
+    if options.imag_freq is True:
+        stars += '*' * 9
 
     total_cpu_time, add_days = datetime(100, 1, 1, 00, 00, 00, 00), 0
 
@@ -128,12 +126,12 @@ def print_results(thermo_data, options, media_conc=None,
                        '{{:>{ew}}}').format(ew=ew, nw=nw).format(
                 "Structure", "E_SPC", "E", "ZPE", "H_SPC", "T.S", "T.qh-S", "G(T)_SPC",
                 "qh-G(T)_SPC"))
-    if options.boltz is True:
+    if options.boltz:
         log.info('{:>7}'.format("Boltz"))
-    if options.imag_freq is True:
-        log.info('{:>9}'.format("im freq"))
     if options.symm or options.pg:
         log.info('{:>13}'.format("Point Group"))
+    if options.imag_freq is True:
+        log.info('{:>9}'.format("im freq"))
     log.info("\n" + stars + "")
 
     # Default dup_list if not passed by caller
@@ -187,9 +185,11 @@ def print_results(thermo_data, options, media_conc=None,
                     log.info("\nx  " + '{:<39}'.format(display_name(file)))
                 if bbe.scf_energy is not None:
                     log.info((' ' + ef).format(bbe.scf_energy))
-                # No freqs found
+                # No freqs found — pad to the same width as a full data row
+                # so trailing columns (Point Group, im freq) align with rows
+                # that do have thermo data.
                 if not hasattr(bbe, "gibbs_free_energy"):
-                    log.info("   Warning! Couldn't find frequency information ...")
+                    log.info("   Warning! Couldn't find frequency information ...".ljust(data_width - 14 - dw))
                 else:
                     if all(getattr(bbe, attrib) for attrib in
                            ["enthalpy", "entropy", "qh_entropy", "gibbs_free_energy", "qh_gibbs_free_energy"]):
@@ -210,22 +210,25 @@ def print_results(thermo_data, options, media_conc=None,
                             display_name(file).lower():
                         log.info("  Solvent: {:4.2f}M ".format(media_conc))
 
-            # Append requested options to end of output
-            if options.boltz is True:
-                log.info('{:7.3f}'.format(boltz_facs[file] / boltz_sum))
-            if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
-                for freq in bbe.im_frequency_wn:
-                    log.info('{:9.2f}'.format(freq))
+            # Append requested options to end of output.
+            # Point Group prints before im freq so a saddle point with
+            # multiple imaginary modes (variable column width) doesn't
+            # push Point Group out of its header column.
+            if options.boltz:
+                log.info('{:7.3f}'.format(boltz_facs[file]))
             if options.symm or options.pg:
                 if hasattr(bbe, "point_group") and bbe.point_group:
                     log.info('{:>13}'.format(bbe.point_group))
                 else:
-                    log.info('{:>37}'.format('---'))
+                    log.info('{:>13}'.format('---'))
+            if options.imag_freq is True and hasattr(bbe, "im_frequency_wn"):
+                for freq in bbe.im_frequency_wn:
+                    log.info('{:9.2f}'.format(freq))
 
     log.info("\n" + stars + "\n")
 
 
-def print_temperature_interval(thermo_data, options, gas_phase, media_conc=None, qcdata_cache=None):
+def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cache=None):
     """Recompute thermochemistry across a temperature range and print results.
 
     Re-runs calc_bbe at each temperature step for every file, printing enthalpy,
@@ -236,7 +239,6 @@ def print_temperature_interval(thermo_data, options, gas_phase, media_conc=None,
         options (Namespace): parsed CLI options. Uses: dp, QH, QS, S_freq_cutoff,
             H_freq_cutoff, spc, conc, freq_scale_factor, freespace, invert,
             inertia, media, temperature_interval.
-        gas_phase (bool): whether all calculations are gas-phase (affects concentration).
         media_conc (float, optional): neat solvent concentration for display.
         qcdata_cache (dict, optional): pre-parsed QCData keyed by basename.
 
@@ -291,10 +293,7 @@ def print_temperature_interval(thermo_data, options, gas_phase, media_conc=None,
         log.info("\n" + stars)
         interval_bbe_data.append([])
         for temp in interval:  # Iterate through the temperature range
-            if gas_phase:
-                conc = ATMOS / GAS_CONSTANT / temp
-            else:
-                conc = options.conc
+            conc = options.conc if options.conc else ATMOS / GAS_CONSTANT / temp
             linear_warning = []
             # Look up cached QCData if available
             cached_qcdata = None
@@ -345,7 +344,7 @@ def print_temperature_interval(thermo_data, options, gas_phase, media_conc=None,
 
 
 def print_pes_results(thermo_data, options, dup_list,
-                      boltz_facs=None, boltz_sum=None,
+                      boltz_facs=None,
                       interval_bbe_data=None, interval=None, file_list=None):
     """Print relative PES energies from a YAML-defined reaction pathway.
 
@@ -360,8 +359,6 @@ def print_pes_results(thermo_data, options, dup_list,
         dup_list (list): pairs of duplicate/enantiomer file paths.
         boltz_facs (dict, optional): Boltzmann factors keyed by file path.
             Computed by get_boltz() in the orchestrator. None when --ee is off.
-        boltz_sum (float, optional): total Boltzmann partition sum.
-            None when --ee is off.
         interval_bbe_data (list, optional): per-file, per-temperature calc_bbe data.
         interval (range, optional): temperature steps for variable-T PES.
         file_list (list, optional): file list from temperature interval analysis.
@@ -626,7 +623,7 @@ def print_pes_results(thermo_data, options, dup_list,
     # Compute enantiomeric excess
     if options.ee is not None:
         selec_stars = "   " + '*' * 109
-        ee, er, ratio, dd_free_energy, failed, preference = get_selectivity(options.ee, files, boltz_facs, boltz_sum,
+        ee, er, ratio, dd_free_energy, failed, preference = get_selectivity(options.ee, files, boltz_facs,
                                                                             options.temperature, dup_list)
         if not failed:
             log.info("\n   " + '{:<39} {:>13} {:>13} {:>13} {:>13} {:>13}'.format("Selectivity", "Excess (%)", "Ratio (%)", "Ratio", "Major Iso", "ddG"))

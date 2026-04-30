@@ -5,7 +5,7 @@ import os.path
 import sys
 import numpy as np
 
-from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu
+from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
 
 # PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
@@ -539,18 +539,20 @@ class calc_bbe:
 
         # 4. Read any single point energies if requested
         if spc and spc != 'link':
-            name, ext = os.path.splitext(file)
-            try:
-                (self.sp_energy, _,
-                 self.sp_version_program, self.sp_solvation_model,
-                 _, self.sp_charge,
-                 self.sp_empirical_dispersion,
-                 self.sp_multiplicity) = parse_data(
-                    name + '_' + spc + ext)
-                self.cpu = _sp_cpu(name + '_' + spc + ext)
-            except ValueError:
+            name, _ = os.path.splitext(file)
+            sp_file = find_spc_file(name, spc)
+            if sp_file is None:
                 self.sp_energy = '!'
-                pass
+            else:
+                try:
+                    (self.sp_energy, _,
+                     self.sp_version_program, self.sp_solvation_model,
+                     _, self.sp_charge,
+                     self.sp_empirical_dispersion,
+                     self.sp_multiplicity) = parse_data(sp_file)
+                    self.cpu = _sp_cpu(sp_file)
+                except ValueError:
+                    self.sp_energy = '!'
         elif qcdata is not None and not os.path.exists(file):
             # Cache-only mode: derive sp_* fields from cached QCData
             self.sp_energy = qcdata.scf_energy

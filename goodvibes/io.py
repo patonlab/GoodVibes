@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os.path
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import List, Optional
@@ -170,6 +171,53 @@ def element_id(massno, num=False):
     except IndexError:
         return "XX"
 
+
+# Standard atomic weights (IUPAC 2021), most common isotope where applicable.
+# Used by parse_ase_thermo when an extxyz fixture omits molecular_mass / rotational
+# constants and they must be computed from the geometry.
+ATOMIC_MASSES = {
+    'H': 1.00782503207, 'He': 4.002602,
+    'Li': 7.0160034366, 'Be': 9.012183065, 'B': 11.00930536, 'C': 12.0,
+    'N': 14.0030740048, 'O': 15.99491461957, 'F': 18.998403163, 'Ne': 19.9924401762,
+    'Na': 22.9897692820, 'Mg': 23.985041697, 'Al': 26.98153853, 'Si': 27.97692653465,
+    'P': 30.97376199842, 'S': 31.9720711744, 'Cl': 34.968852682, 'Ar': 39.9623831237,
+    'K': 38.96370648, 'Ca': 39.96259098, 'Sc': 44.95590828, 'Ti': 47.94794198,
+    'V': 50.94395704, 'Cr': 51.94050623, 'Mn': 54.93804451, 'Fe': 55.93493633,
+    'Co': 58.93319429, 'Ni': 57.93534241, 'Cu': 62.92959772, 'Zn': 63.92914201,
+    'Ga': 68.9255735, 'Ge': 73.921177761, 'As': 74.92159457, 'Se': 79.9165218,
+    'Br': 78.9183376, 'Kr': 83.9114977282,
+    'Rb': 84.91178974, 'Sr': 87.9056125, 'Y': 88.9058403, 'Zr': 89.9046977,
+    'Nb': 92.906373, 'Mo': 97.90540482, 'Tc': 98.9062508, 'Ru': 101.9043441,
+    'Rh': 102.905498, 'Pd': 105.9034804, 'Ag': 106.9050916, 'Cd': 113.90336509,
+    'In': 114.903878776, 'Sn': 119.90220163, 'Sb': 120.903812, 'Te': 129.906222748,
+    'I': 126.9044719, 'Xe': 131.9041550856,
+}
+
+
+def _principal_moments_of_inertia(atom_types, cartesians):
+    """Return (total_mass [amu], [I_a, I_b, I_c] in amu*Angstrom^2).
+
+    Used as a fallback when an extxyz fixture omits molecular_mass / roconst /
+    rotemp; computes them from the geometry using ATOMIC_MASSES.
+    """
+    masses = np.array([ATOMIC_MASSES.get(a, 0.0) for a in atom_types])
+    coords = np.array(cartesians, dtype=float)
+    total = float(masses.sum())
+    if total <= 0.0 or len(coords) == 0:
+        return total, np.array([0.0, 0.0, 0.0])
+    com = (masses[:, None] * coords).sum(axis=0) / total
+    r = coords - com
+    Ixx = float((masses * (r[:, 1] ** 2 + r[:, 2] ** 2)).sum())
+    Iyy = float((masses * (r[:, 0] ** 2 + r[:, 2] ** 2)).sum())
+    Izz = float((masses * (r[:, 0] ** 2 + r[:, 1] ** 2)).sum())
+    Ixy = float(-(masses * r[:, 0] * r[:, 1]).sum())
+    Ixz = float(-(masses * r[:, 0] * r[:, 2]).sum())
+    Iyz = float(-(masses * r[:, 1] * r[:, 2]).sum())
+    inertia = np.array([[Ixx, Ixy, Ixz], [Ixy, Iyy, Iyz], [Ixz, Iyz, Izz]])
+    eigvals = np.linalg.eigvalsh(inertia)
+    eigvals = np.sort(np.maximum(eigvals, 0.0))
+    return total, eigvals
+
 def compute_connectivity(atom_types, cartesians, tolerance=0.2):
     """Compute molecular connectivity based on covalent radii."""
     connectivity = []
@@ -209,6 +257,34 @@ def write_xyz(filepath, files, thermo_data):
                 for atom, carts in zip(bbe.atom_types, bbe.cartesians):
                     f.write(f'{atom:>1}{carts[0]:13.6f}{carts[1]:13.6f}{carts[2]:13.6f}\n')
 
+def find_spc_file(name, spc):
+    """Locate the single-point-correction output paired with ``name``.
+
+    Pattern matched: ``{name}_*{spc}.{log,out}``.  The ``*`` allows extra
+    qualifiers (e.g. basis-set names) to sit between the underscore and the
+    user-supplied suffix, so ``--spc TZVP`` finds ``filename_def2_TZVP.log``
+    as well as the legacy exact form ``filename_TZVP.log``.
+
+    Parameters
+    ----------
+    name : str
+        Path stem of the parent output file (no extension).
+    spc : str
+        Suffix passed via ``--spc``.
+
+    Returns
+    -------
+    str or None
+        Path to the first matching file, or None if nothing matches.
+    """
+    from glob import glob
+    for ext in ('.log', '.out'):
+        matches = sorted(glob(f'{name}_*{spc}{ext}'))
+        if matches:
+            return matches[0]
+    return None
+
+
 def parse_data(file):
     """
     Read computational chemistry output file.
@@ -233,14 +309,43 @@ def parse_data(file):
 
     data = None
     stub = os.path.splitext(file)[0]
-    possible_filenames = (stub + ".log", stub + ".out")
+    possible_filenames = (stub + ".log", stub + ".out", stub + ".extxyz", file)
+    actual_file = file
     for possible_filename in possible_filenames:
         if os.path.exists(possible_filename):
-            with open(possible_filename) as f:
+            actual_file = possible_filename
+            with open(possible_filename, encoding='utf-8', errors='replace') as f:
                 data = f.readlines()
+            break
 
     if data is None:
         raise ValueError("File {} does not exist".format(file))
+
+    # ASE extxyz: delegate to parse_ase_thermo and translate to parse_data's
+    # tuple shape; ASE files have no separate single-point semantics.
+    if len(data) >= 2 and 'program=ase' in data[1]:
+        q = parse_ase_thermo(actual_file)
+        return (q.scf_energy if q.scf_energy is not None else 'none',
+                'ase',
+                q.version_program,
+                q.solvation_model or 'gas phase',
+                file,
+                q.charge if q.charge is not None else 0,
+                q.empirical_dispersion or 'No empirical dispersion detected',
+                q.multiplicity)
+
+    # Q-Chem: delegate to parse_qchem_thermo (Q-Chem energy lines, MP2/CCSD
+    # precedence, and $molecule echo are all already handled there).
+    if any('You are running Q-Chem' in ln or 'Welcome to Q-Chem' in ln for ln in data[:80]):
+        q = parse_qchem_thermo(actual_file)
+        return (q.scf_energy if q.scf_energy is not None else 'none',
+                'QChem',
+                q.version_program,
+                q.solvation_model or 'gas phase',
+                file,
+                q.charge if q.charge is not None else 0,
+                q.empirical_dispersion or 'No empirical dispersion detected',
+                q.multiplicity)
 
     for line in data:
         if "Gaussian" in line:
@@ -530,10 +635,10 @@ def sp_cpu(file):
     program, data, cpu = None, [], None
 
     if os.path.exists(os.path.splitext(file)[0] + '.log'):
-        with open(os.path.splitext(file)[0] + '.log') as f:
+        with open(os.path.splitext(file)[0] + '.log', encoding='utf-8', errors='replace') as f:
             data = f.readlines()
     elif os.path.exists(os.path.splitext(file)[0] + '.out'):
-        with open(os.path.splitext(file)[0] + '.out') as f:
+        with open(os.path.splitext(file)[0] + '.out', encoding='utf-8', errors='replace') as f:
             data = f.readlines()
     else:
         raise ValueError("File {} does not exist".format(file))
@@ -741,7 +846,7 @@ def _parse_orca_lot(data):
 def level_of_theory(file):
     """Read output for the level of theory and basis set used."""
     repeated_theory = 0
-    with open(file) as f:
+    with open(file, encoding='utf-8', errors='replace') as f:
         data = f.readlines()
     level, bs = 'none', 'none'
 
@@ -806,7 +911,7 @@ def level_of_theory(file):
 
 def read_initial(file):
     """At beginning of procedure, read level of theory, solvation model, and check for normal termination"""
-    with open(file) as f:
+    with open(file, encoding='utf-8', errors='replace') as f:
         data = f.readlines()
     level, bs, program, keyword_line = 'none', 'none', 'none', 'none'
     solvation_model = "gas phase"
@@ -830,6 +935,12 @@ def read_initial(file):
         if "x T B" in line or "xtb version" in line:
             program = "xtb"
             break
+        if "You are running Q-Chem" in line or "Welcome to Q-Chem" in line:
+            program = "QChem"
+            break
+    # ASE extxyz: program=ase appears in line 2 (the comment line)
+    if program == 'none' and len(data) >= 2 and 'program=ase' in data[1]:
+        program = 'ase'
     for line in data:
         # Grab pertinent information from file
         if line.strip().find('External calculation') > -1:
@@ -972,6 +1083,64 @@ def read_initial(file):
             if 'finished run on' in ln:
                 progress = 'Normal'
 
+    # Q-Chem: parse $rem METHOD/BASIS from the input echo, solvation from
+    # the run banner, and termination from "Thank you very much" footer.
+    elif program == 'QChem':
+        in_rem = False
+        method, basis = 'none', 'none'
+        cpcm = smd = solvent_name = ''
+        for line in data:
+            s = line.strip()
+            if s.lower() == '$rem':
+                in_rem = True
+                continue
+            if in_rem:
+                if s == '$end' or s.startswith('$'):
+                    in_rem = False
+                else:
+                    parts = s.split()
+                    if len(parts) >= 2:
+                        key = parts[0].lower()
+                        if key == 'method' and method == 'none':
+                            method = parts[1]
+                        elif key == 'basis' and basis == 'none':
+                            basis = parts[1]
+            if 'Using C-PCM' in s or 'C-PCM dielectric factor' in s:
+                cpcm = 'CPCM'
+            elif 'Using the SMD solvation model' in s:
+                smd = 'SMD'
+            elif s.startswith('Solvent:'):
+                try:
+                    solvent_name = s.split(':', 1)[1].strip()
+                except IndexError:
+                    pass
+            if 'Thank you very much for using Q-Chem' in line:
+                progress = 'Normal'
+            elif 'Q-Chem fatal error' in line or 'fatal error occurred' in line:
+                progress = 'Error'
+        level, bs = method, basis
+        if smd:
+            solvation_model = 'SMD,' + solvent_name if solvent_name else 'SMD'
+        elif cpcm:
+            solvation_model = 'CPCM,' + solvent_name if solvent_name else 'CPCM'
+
+    # ASE extxyz: pull metadata directly from the comment-line key=values
+    elif program == 'ase':
+        info = _parse_extxyz_comment(data[1]) if len(data) >= 2 else {}
+        lot = info.get('level_of_theory', '')
+        if '/' in lot:
+            level, bs = lot.split('/', 1)
+        elif lot:
+            level, bs = lot, 'none'
+        else:
+            level, bs = 'none', 'none'
+        solvation_model = info.get('solvation_model', 'gas phase') or 'gas phase'
+        try:
+            float(info.get('scf_energy', ''))
+            progress = 'Normal'
+        except ValueError:
+            progress = 'Incomplete'
+
     # ORCA parsing for solvation model and level of theory
     elif program == 'Orca':
         level, bs = _parse_orca_lot(data)
@@ -1006,7 +1175,7 @@ def read_initial(file):
 def gaussian_jobtype(filename):
     """Read the jobtype from a Gaussian archive string."""
     job = ''
-    with open(filename) as f:
+    with open(filename, encoding='utf-8', errors='replace') as f:
         for line in f:
             if line.strip().find('\\SP\\') > -1:
                 job += 'SP'
@@ -1048,7 +1217,7 @@ def parse_gaussian_thermo(file):
     qcdata.job_type = gaussian_jobtype(file)
 
     # Read file
-    with open(file) as f:
+    with open(file, encoding='utf-8', errors='replace') as f:
         g_output = f.readlines()
 
     # Auto-detect G4 composite method
@@ -1267,7 +1436,7 @@ def parse_nwchem_thermo(file):
         pass
 
     # NWChem has no archive string for job type; detect from content
-    with open(file) as f:
+    with open(file, encoding='utf-8', errors='replace') as f:
         g_output = f.readlines()
 
     frequency_wn = []
@@ -1372,7 +1541,7 @@ def parse_orca_thermo(file):
     """
     qcdata = QCData(file=file, program='Orca')
 
-    with open(file) as f:
+    with open(file, encoding='utf-8', errors='replace') as f:
         output = f.readlines()
 
     frequency_wn = []
@@ -1891,6 +2060,21 @@ def parse_xtb_thermo(file):
             qcdata.atom_types = atom_types
             qcdata.cartesians = cartesians
 
+    # Mass / rotational fallback: --hess-only runs print frequencies but skip
+    # the THERMODYNAMIC block, so 'molecular mass / u' and 'rotational
+    # constants / cm⁻¹' are absent.  Recompute from the geometry we just
+    # loaded (B [cm⁻¹] = h/(8π²cI) ≈ 16.857629 / I[amu·Å²]).
+    if (qcdata.molecular_mass == 0.0 or qcdata.rotemp == [0.0, 0.0, 0.0]) \
+            and qcdata.atom_types and qcdata.cartesians:
+        total_mass, eigvals = _principal_moments_of_inertia(
+            qcdata.atom_types, qcdata.cartesians)
+        if qcdata.molecular_mass == 0.0:
+            qcdata.molecular_mass = total_mass
+        if qcdata.rotemp == [0.0, 0.0, 0.0]:
+            roconst_cm = [16.857629 / I if I > 1e-3 else 0.0 for I in eigvals]
+            qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+            qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+
     # Linear molecules: keep only physical rotational temperatures.  xtb
     # inverts a near-zero moment of inertia for the linear axis, producing
     # either a huge positive number (e.g. 1e27 K) or a huge negative one;
@@ -1916,6 +2100,478 @@ def parse_xtb_thermo(file):
     return qcdata
 
 
+# Bohr → Ångström conversion (squared, for amu*Bohr² → amu*Å²)
+_BOHR2_TO_ANGSTROM2 = 0.5291772109 ** 2
+
+
+def parse_qchem_thermo(file):
+    """Parse a Q-Chem 6 output file for all thermochemistry-relevant data.
+
+    Handles single-job and multi-job (`@@@`-separated opt + freq + sp) inputs:
+    the LAST occurrence wins for SCF energy, geometry, and frequencies, so
+    the converged opt geometry and post-correlation energies are picked up
+    correctly. Recognises native HF/DFT total energy, MP2 total energy, CCSD
+    total energy, and CCSD(T) total energy via the precedence
+    CCSD(T) > CCSD > MP2 > Total energy.
+
+    Parameters
+    ----------
+    file : str
+        Path to a Q-Chem 6 output file.
+    """
+    qcdata = QCData(file=file, program='QChem')
+
+    with open(file, encoding='utf-8', errors='replace') as f:
+        output = f.readlines()
+
+    if not output:
+        return qcdata
+
+    HC_OVER_KB = 1.4387768775  # K per cm⁻¹
+
+    # First pass: locate the last freq block, last geometry block, last
+    # thermo header, and the input $molecule + $rem echoes (for charge,
+    # multiplicity, and the requested correlation method).
+    last_geom_header = -1
+    last_thermo_header = -1
+    last_freq_header = -1
+    molecule_block_lines = []
+    rem_methods = []
+    in_molecule_block = False
+    in_rem_block = False
+    user_input_seen = False
+
+    for i, line in enumerate(output):
+        stripped = line.strip()
+        if 'You are running Q-Chem version' in stripped:
+            try:
+                qcdata.version_program = 'Q-Chem version ' + stripped.split('version:')[1].strip()
+            except IndexError:
+                pass
+        elif 'User input:' in stripped:
+            user_input_seen = True
+        elif user_input_seen and stripped == '$molecule' and not molecule_block_lines:
+            in_molecule_block = True
+            continue
+        elif in_molecule_block:
+            if stripped == '$end' or stripped.startswith('$'):
+                in_molecule_block = False
+            elif stripped:
+                molecule_block_lines.append(stripped)
+        elif user_input_seen and stripped.lower() == '$rem':
+            in_rem_block = True
+            continue
+        elif in_rem_block:
+            if stripped == '$end' or stripped.startswith('$'):
+                in_rem_block = False
+            elif stripped and not stripped.startswith('!'):
+                parts = stripped.split()
+                if len(parts) >= 2 and parts[0].lower() == 'method':
+                    rem_methods.append(parts[1].lower())
+        if 'Standard Nuclear Orientation (Angstroms)' in line:
+            last_geom_header = i
+        # Anchor on the harmonic block ("AT 298.15 K AND ..."); skip the
+        # anharmonic VPT2/TOSH summaries that print only ZPE.
+        if 'STANDARD THERMODYNAMIC QUANTITIES AT' in line:
+            last_thermo_header = i
+        if stripped.startswith('Frequency:'):
+            last_freq_header = i
+
+    # Method of the FINAL job step decides which energy line to trust.
+    final_method = rem_methods[-1] if rem_methods else ''
+
+    # Charge / multiplicity from the input $molecule block.
+    # First non-`READ` line is "<charge> <mult>".
+    for line in molecule_block_lines:
+        s = line.strip()
+        if s.upper() == 'READ':
+            continue
+        parts = s.split()
+        if len(parts) >= 2:
+            try:
+                qcdata.charge = int(parts[0])
+                qcdata.multiplicity = int(parts[1])
+            except ValueError:
+                pass
+            break
+
+    # Multiplicity fallback from "There are N alpha and M beta electrons".
+    if qcdata.multiplicity == 1:
+        for line in output:
+            if 'alpha and' in line and 'beta electrons' in line:
+                parts = line.split()
+                try:
+                    nalpha = int(parts[parts.index('alpha') - 1])
+                    nbeta = int(parts[parts.index('beta') - 1])
+                    qcdata.multiplicity = abs(nalpha - nbeta) + 1
+                except (ValueError, IndexError):
+                    pass
+
+    # Energies — collect candidates; pick by FINAL method, not by precedence.
+    # Q-Chem prints "MP2 total energy" as an extra analysis even when the
+    # method is e.g. B2PLYP (a double hybrid that's properly captured by the
+    # SCF "Total energy" line), so we can't blindly prefer correlated lines.
+    scf_total = None
+    mp2_total = None
+    ccsd_total = None
+    ccsdt_total = None
+    for line in output:
+        stripped = line.strip()
+        if stripped.startswith('Total energy ='):
+            try:
+                scf_total = float(stripped.split('=')[1].split()[0])
+            except (IndexError, ValueError):
+                pass
+        elif 'MP2' in stripped and 'total energy =' in stripped:
+            try:
+                mp2_total = float(stripped.split('=')[1].split()[0])
+            except (IndexError, ValueError):
+                pass
+        elif stripped.startswith('CCSD total energy') or stripped.startswith('CCSD   total energy'):
+            try:
+                ccsd_total = float(stripped.split('=')[1].split()[0])
+            except (IndexError, ValueError):
+                pass
+        elif stripped.startswith('CCSD(T) total energy'):
+            try:
+                ccsdt_total = float(stripped.split('=')[1].split()[0])
+            except (IndexError, ValueError):
+                pass
+    if 'ccsd(t)' in final_method and ccsdt_total is not None:
+        qcdata.scf_energy = ccsdt_total
+    elif final_method == 'ccsd' and ccsd_total is not None:
+        qcdata.scf_energy = ccsd_total
+    elif final_method in ('mp2', 'rimp2', 'ump2') and mp2_total is not None:
+        qcdata.scf_energy = mp2_total
+    else:
+        qcdata.scf_energy = scf_total
+
+    # Solvation
+    solvation_type = ''
+    solvent_name = ''
+    for line in output:
+        stripped = line.strip()
+        if 'Using C-PCM' in stripped or 'C-PCM dielectric factor' in stripped:
+            solvation_type = solvation_type or 'CPCM'
+        elif 'Using the SMD solvation model' in stripped:
+            solvation_type = 'SMD'
+        elif stripped.startswith('Solvent:'):
+            try:
+                solvent_name = stripped.split(':', 1)[1].strip()
+            except IndexError:
+                pass
+    if solvation_type:
+        qcdata.solvation_model = (solvation_type + ',' + solvent_name) if solvent_name else solvation_type
+
+    # Final geometry — read from the LAST Standard Nuclear Orientation block.
+    if last_geom_header >= 0:
+        atom_nums, atom_types, cartesians = [], [], []
+        # Skip 2 header lines + the dashes line before atoms.
+        i = last_geom_header + 3
+        while i < len(output):
+            parts = output[i].split()
+            if len(parts) >= 5:
+                try:
+                    int(parts[0])  # row index
+                    elem = parts[1]
+                    xyz = [float(parts[2]), float(parts[3]), float(parts[4])]
+                    atom_types.append(elem)
+                    atom_nums.append(element_id(elem, num=True))
+                    cartesians.append(xyz)
+                    i += 1
+                    continue
+                except ValueError:
+                    pass
+            break
+        qcdata.atom_types = atom_types
+        qcdata.atom_nums = atom_nums
+        qcdata.cartesians = cartesians
+
+    # Frequencies — collect from contiguous Frequency: lines starting at the last header.
+    if last_freq_header >= 0:
+        # Walk forward from the last_freq_header but we want all preceding
+        # contiguous Frequency: lines that belong to the same final block.
+        # Strategy: scan the file once more and collect freqs from the LAST
+        # contiguous run of Frequency: lines (separated only by columns of
+        # mode data, never by another major section header).
+        freq_blocks = []
+        current = []
+        for line in output:
+            stripped = line.strip()
+            if stripped.startswith('Frequency:'):
+                try:
+                    nums = [float(x) for x in stripped.split(':', 1)[1].split()]
+                    current.extend(nums)
+                except ValueError:
+                    pass
+            elif current and ('STANDARD THERMODYNAMIC' in line or
+                              'Standard Nuclear Orientation' in line):
+                # End of a freq block; new section ahead.
+                freq_blocks.append(current)
+                current = []
+        if current:
+            freq_blocks.append(current)
+        if freq_blocks:
+            freqs = freq_blocks[-1]
+            qcdata.frequency_wn = [f for f in freqs if f >= 0]
+            qcdata.im_frequency_wn = [f for f in freqs if f < 0]
+
+    # Point group: printed once per SCF (before the thermo block); take LAST.
+    for line in output:
+        if 'Molecular Point Group' in line:
+            try:
+                after = line.split('Molecular Point Group', 1)[1].strip()
+                qcdata.point_group = after.split()[0]
+            except (IndexError, ValueError):
+                pass
+
+    # Thermo block: ZPE, mass, symmno, principal moments (last block wins).
+    if last_thermo_header >= 0:
+        for line in output[last_thermo_header:]:
+            stripped = line.strip()
+            if stripped.startswith('Zero point vibrational energy:'):
+                # "Zero point vibrational energy: 14.050 kcal/mol"
+                try:
+                    zpe_kcal = float(stripped.split(':')[1].split()[0])
+                    qcdata.zero_point_corr = zpe_kcal / 627.509541
+                except (IndexError, ValueError):
+                    pass
+            elif stripped.startswith('Molecular Mass:'):
+                try:
+                    qcdata.molecular_mass = float(stripped.split(':')[1].split()[0])
+                except (IndexError, ValueError):
+                    pass
+            elif stripped.startswith('Eigenvalues --'):
+                try:
+                    eigs_bohr2 = [float(x) for x in stripped.split('--', 1)[1].split()][:3]
+                    eigs_a2 = [e * _BOHR2_TO_ANGSTROM2 for e in eigs_bohr2]
+                    nonzero = [e for e in eigs_a2 if e > 1e-6]
+                    if len(nonzero) == 2:  # linear
+                        qcdata.linear_mol = True
+                        B_cm = 16.857629 / nonzero[-1]
+                        qcdata.roconst = [B_cm * 29.9792458] * 3
+                        qcdata.rotemp = [HC_OVER_KB * B_cm] * 3
+                    elif len(nonzero) == 3:
+                        roconst_cm = [16.857629 / I for I in nonzero]
+                        qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+                        qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+                except (IndexError, ValueError):
+                    pass
+            elif 'Rotational Symmetry Number is' in stripped:
+                try:
+                    qcdata.symmno = int(stripped.split('is')[1].split()[0])
+                except (IndexError, ValueError):
+                    pass
+
+    # CPU time: "Total job time:  1.70s(wall), 21.27s(cpu)" — convert wall to days/h/m/s/ms.
+    for line in reversed(output):
+        if 'Total job time:' in line:
+            try:
+                wall_s = float(line.split(':', 1)[1].split('s(wall)')[0].strip())
+                days = int(wall_s // 86400); rem = wall_s - days * 86400
+                hours = int(rem // 3600);    rem -= hours * 3600
+                mins = int(rem // 60);       rem -= mins * 60
+                secs = int(rem);             ms = int(round((rem - secs) * 1000))
+                qcdata.cpu = [days, hours, mins, secs, ms]
+            except (IndexError, ValueError):
+                pass
+            break
+
+    # Job type from observed content.
+    has_freq = bool(qcdata.frequency_wn) or bool(qcdata.im_frequency_wn)
+    has_geom_block = last_geom_header >= 0
+    if qcdata.im_frequency_wn:
+        qcdata.job_type = 'TS'
+    elif has_geom_block and has_freq:
+        qcdata.job_type = 'GSFreq'
+    elif has_freq:
+        qcdata.job_type = 'Freq'
+    else:
+        qcdata.job_type = 'SP'
+
+    return qcdata
+
+
+# Regex matching extxyz comment-line tokens: bare key=value or key="value with spaces"
+_EXTXYZ_TOKEN = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|\S+)')
+
+
+def _parse_extxyz_comment(line):
+    """Parse an extxyz comment line into a {key: str} dict.
+
+    Strips surrounding double quotes from quoted values; leaves unquoted values
+    untouched. Caller is responsible for type coercion.
+    """
+    out = {}
+    for key, val in _EXTXYZ_TOKEN.findall(line):
+        if len(val) >= 2 and val[0] == '"' and val[-1] == '"':
+            val = val[1:-1]
+        out[key] = val
+    return out
+
+
+def _extxyz_bool(s):
+    """Decode an extxyz boolean (T/F/True/False) to a Python bool."""
+    return str(s).strip().lower() in ('t', 'true', '1', 'yes')
+
+
+def parse_ase_thermo(file):
+    """Parse a GoodVibes ASE thermo extxyz file.
+
+    The format is standard extended XYZ with thermochemistry metadata in the
+    second line (key=value, ASE Atoms.info convention). Required keys:
+    ``program=ase``, ``scf_energy``. Frequencies are space-separated in cm-1
+    (negatives are imaginary). See tests/ase/README.md for the full spec.
+    """
+    qcdata = QCData(file=file, program='ase')
+
+    with open(file, encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+    if len(lines) < 2:
+        return qcdata
+    try:
+        natoms = int(lines[0].strip())
+    except ValueError:
+        return qcdata
+
+    info = _parse_extxyz_comment(lines[1])
+
+    # Provenance
+    qcdata.version_program = info.get('ase_version', 'ase')
+
+    # Charge / multiplicity (defaults: 0 / 1)
+    try:
+        qcdata.charge = int(float(info.get('charge', '0')))
+    except ValueError:
+        qcdata.charge = 0
+    try:
+        qcdata.multiplicity = int(float(info.get('multiplicity', '1')))
+    except ValueError:
+        qcdata.multiplicity = 1
+
+    # Electronic energy (Hartree by default; eV converted)
+    if 'scf_energy' in info:
+        try:
+            e = float(info['scf_energy'])
+            units = info.get('scf_energy_units', 'Hartree').lower()
+            if units in ('ev',):
+                e = e / 27.211386245988
+            elif units in ('kcal/mol', 'kcalmol'):
+                e = e / 627.509541
+            elif units in ('kj/mol', 'kjmol'):
+                e = e / 2625.4996394799
+            qcdata.scf_energy = e
+        except ValueError:
+            pass
+
+    # Zero-point energy (Hartree)
+    if 'zpe' in info:
+        try:
+            qcdata.zero_point_corr = float(info['zpe'])
+        except ValueError:
+            pass
+
+    # Frequencies (cm-1; negatives are imaginary)
+    if 'frequencies' in info:
+        for tok in info['frequencies'].split():
+            try:
+                v = float(tok)
+            except ValueError:
+                continue
+            if v < 0:
+                qcdata.im_frequency_wn.append(v)
+            else:
+                qcdata.frequency_wn.append(v)
+
+    # Optional model-chemistry metadata
+    qcdata.solvation_model = info.get('solvation_model', '')
+    qcdata.empirical_dispersion = info.get('empirical_dispersion', '')
+    qcdata.point_group = info.get('point_group', '')
+    if 'symmno' in info:
+        try:
+            qcdata.symmno = int(float(info['symmno']))
+        except ValueError:
+            pass
+    if 'linear_mol' in info:
+        qcdata.linear_mol = _extxyz_bool(info['linear_mol'])
+    if 'applied_freq_scale_factor' in info:
+        try:
+            qcdata.applied_freq_scale_factor = float(info['applied_freq_scale_factor'])
+        except ValueError:
+            pass
+
+    # Atom block: species, x, y, z (additional columns ignored)
+    atom_nums, atom_types, cartesians = [], [], []
+    for line in lines[2:2 + natoms]:
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        elem = parts[0]
+        try:
+            xyz = [float(parts[1]), float(parts[2]), float(parts[3])]
+        except ValueError:
+            continue
+        atom_types.append(elem)
+        atom_nums.append(element_id(elem, num=True))
+        cartesians.append(xyz)
+    qcdata.atom_types = atom_types
+    qcdata.atom_nums = atom_nums
+    qcdata.cartesians = cartesians
+
+    # Molecular mass: explicit override, else compute from atomic masses
+    if 'molecular_mass' in info:
+        try:
+            qcdata.molecular_mass = float(info['molecular_mass'])
+        except ValueError:
+            pass
+    if not qcdata.molecular_mass and atom_types:
+        qcdata.molecular_mass = sum(ATOMIC_MASSES.get(a, 0.0) for a in atom_types)
+
+    # Rotational constants: explicit override (cm-1), else derived from inertia
+    HC_OVER_KB = 1.4387768775  # K per cm⁻¹
+    if 'roconst_cm' in info:
+        try:
+            roconst_cm = [float(t) for t in info['roconst_cm'].split()][:3]
+            qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+            qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+        except ValueError:
+            pass
+    elif 'rotemp' in info:
+        try:
+            qcdata.rotemp = [float(t) for t in info['rotemp'].split()][:3]
+            qcdata.roconst = [t / HC_OVER_KB * 29.9792458 for t in qcdata.rotemp]
+        except ValueError:
+            pass
+    if not any(qcdata.rotemp) and len(atom_types) >= 2:
+        _mass, eigvals = _principal_moments_of_inertia(atom_types, cartesians)
+        # Linear molecules: smallest principal moment is ~0.
+        nonzero = [e for e in eigvals if e > 1e-3]
+        if not qcdata.linear_mol and len(nonzero) == 2:
+            qcdata.linear_mol = True
+        if qcdata.linear_mol:
+            # Use the largest two equal moments; physics needs a single B.
+            B_cm = 16.857629 / nonzero[-1]  # cm⁻¹
+            qcdata.roconst = [B_cm * 29.9792458] * 3
+            qcdata.rotemp = [HC_OVER_KB * B_cm] * 3
+        elif len(nonzero) == 3:
+            roconst_cm = [16.857629 / I for I in nonzero]
+            qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+            qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+
+    # Job type: explicit override, else infer from frequency presence/sign
+    if 'job_type' in info:
+        qcdata.job_type = info['job_type']
+    else:
+        if qcdata.im_frequency_wn:
+            qcdata.job_type = 'TS'
+        elif qcdata.frequency_wn:
+            qcdata.job_type = 'Freq'
+        else:
+            qcdata.job_type = 'SP'
+
+    return qcdata
+
+
 def parse_qcdata(file):
     """Parse any supported output file into a QCData object.
 
@@ -1927,7 +2583,7 @@ def parse_qcdata(file):
         Path to quantum chemistry output file.
     """
     stub = os.path.splitext(file)[0]
-    possible_filenames = (stub + '.log', stub + '.out')
+    possible_filenames = (stub + '.log', stub + '.out', stub + '.extxyz', file)
     data = None
     actual_file = file
     for possible_filename in possible_filenames:
@@ -1940,9 +2596,9 @@ def parse_qcdata(file):
     if data is None:
         return QCData(file=file, program='unknown')
 
-    # Detect program from first ~50 lines
+    # Detect program from first ~80 lines (Q-Chem banner is past the SLURM preamble)
     program = 'unknown'
-    for line in data[:50]:
+    for line in data[:80]:
         if 'Gaussian' in line:
             program = 'Gaussian'
             break
@@ -1955,6 +2611,12 @@ def parse_qcdata(file):
         if 'x T B' in line or 'xtb version' in line:
             program = 'xtb'
             break
+        if 'You are running Q-Chem' in line or 'Welcome to Q-Chem' in line:
+            program = 'QChem'
+            break
+    # ASE extxyz: program=ase appears in the comment line (2nd line).
+    if program == 'unknown' and len(data) >= 2 and 'program=ase' in data[1]:
+        program = 'ase'
 
     if program == 'Gaussian':
         return parse_gaussian_thermo(actual_file)
@@ -1964,5 +2626,9 @@ def parse_qcdata(file):
         return parse_nwchem_thermo(actual_file)
     elif program == 'xtb':
         return parse_xtb_thermo(actual_file)
+    elif program == 'QChem':
+        return parse_qchem_thermo(actual_file)
+    elif program == 'ase':
+        return parse_ase_thermo(actual_file)
     else:
         return QCData(file=file, program='unknown')

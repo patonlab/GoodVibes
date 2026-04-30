@@ -3,9 +3,9 @@
 # VERSION NUMBER
 __version__ = "4.0"
 
-SUPPORTED_EXTENSIONS = set(('.out', '.log'))
+SUPPORTED_EXTENSIONS = set(('.out', '.log', '.extxyz'))
 
-# PHYSICAL CONSTANTS                                      UNITS
+# PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
 ATMOS = 101.325  # UNIT CONVERSION
 J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION

@@ -57,3 +57,17 @@ def add_time(tm, cpu):
 def display_name(file):
     """Return the basename without extension, used for output display."""
     return os.path.splitext(os.path.basename(file))[0]
+
+
+def natural_key(path):
+    """Sort key that orders ``conf_2`` before ``conf_10`` (and before ``conf_a``).
+
+    Splits on digit runs and treats them as integers so ordinary string
+    comparison won't put ``conf_10`` between ``conf_1`` and ``conf_2``.
+    Comparison uses the basename so files from different directories with the
+    same name don't separate solely by directory path.
+    """
+    import re
+    base = os.path.basename(path)
+    return [int(t) if t.isdigit() else t.lower()
+            for t in re.split(r'(\d+)', base)]

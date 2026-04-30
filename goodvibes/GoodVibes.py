@@ -7,7 +7,7 @@ from glob import glob
 from argparse import ArgumentParser
 
 from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
-from .io import write_xyz, load_cache, save_cache, qcdata_to_dict
+from .io import write_xyz, load_cache, save_cache, qcdata_to_dict, find_spc_file
 from .thermo import calc_bbe, get_free_space
 from .media import solvents, compute_media_conc
 from .constants import (
@@ -16,7 +16,7 @@ from .constants import (
     oniom_scale_ref, gv_banner
 )
 import logging
-from .utils import all_same, setup_logging, fatal
+from .utils import all_same, setup_logging, fatal, natural_key
 from .validation import collect_and_validate_files, check_files, print_check_fails
 from .sort import deduplicate, sort_thermo
 from .selectivity import get_boltz
@@ -36,12 +36,14 @@ def parse_arguments():
                         help="Moment of inertia for free-rotor entropy: 'global' uses Bav = 10e-44 kg m^2 "
                              "for all molecules, 'conf' computes from rotational constants per file "
                              "(default: global)")
-    parser.add_argument("--boltz", dest="boltz", action="store_true", default=False,
-                        help="Print Boltzmann-weighted populations for each structure")
+    parser.add_argument("--boltz", dest="boltz", default=None, nargs='?', const='gibbs',
+                        type=str, choices=['energy', 'gibbs'], metavar="KEY",
+                        help="Print Boltzmann-weighted populations ('energy' for SCF, 'gibbs' for quasi-harmonic G; "
+                             "default when flag used: gibbs)")
     parser.add_argument("--check", dest="check", action="store_true", default=False,
                         help="Verify all files use the same program, level of theory, and solvation model; "
                              "also flag potential duplicates")
-    parser.add_argument("--conc", dest="conc", default=None, type=float, metavar="CONC",
+    parser.add_argument("-c", "--conc", dest="conc", default=None, type=float, metavar="CONC",
                         help="Concentration in mol/L for solution-phase entropy; gas phase (1 atm) if not set")
     parser.add_argument("--cpu", dest="cputime", action="store_true", default=False,
                         help="Print total CPU time from output files")
@@ -77,7 +79,7 @@ def parse_arguments():
                         help="Graph a reaction profile from free energies; provide the PES YAML file")
     parser.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
                         help="Print imaginary frequencies for each structure")
-    parser.add_argument("--invert", dest="invert", nargs='?', const=True, default=None,
+    parser.add_argument("--invert", dest="invert", nargs='?', const=True, default=None, type=float,
                         help="Invert small imaginary frequencies (> -50 cm-1) to positive values; "
                              "optionally provide a custom threshold in cm-1")
     parser.add_argument("--media", dest="media", default=None, metavar="solvent",
@@ -139,39 +141,50 @@ def parse_arguments():
     elif options.invert is not None and options.invert > 0:
         options.invert = -1 * options.invert
 
-    # Get the filenames from the command line prompt
-    args = sys.argv[1:]
-    command = 'o  Requested: goodvibes '
+    # Build the command echo from the original CLI invocation.
+    # File-path positional args (often dozens of .log/.out files) are
+    # collapsed to a "<N files>" placeholder so the line stays readable.
+    file_args, flag_args = [], []
+    for arg in sys.argv[1:]:
+        if os.path.splitext(arg)[1].lower() in SUPPORTED_EXTENSIONS:
+            file_args.append(arg)
+        else:
+            flag_args.append(arg)
+    file_summary = f'<{len(file_args)} file{"" if len(file_args) == 1 else "s"}>' if file_args else ''
+    parts = ['o  Requested: goodvibes']
+    if file_summary:
+        parts.append(file_summary)
+    parts.extend(flag_args)
+    command = ' '.join(parts)
+    print(command)
+
+    # Collect filenames from the unrecognized positional arguments
     files = []
     for elem in args:
-        try:
-            if os.path.splitext(elem)[1].lower() in SUPPORTED_EXTENSIONS:  # Look for file names
-                for file in glob(elem):
-                    if options.spc is None or options.spc == 'link':
-                        files.append(file)
-                    else:
-                        if f'_{options.spc}.' not in file:
-                            files.append(file)
-                            name, ext = os.path.splitext(file)
-                            if not (os.path.exists(name + '_' + options.spc + '.log') or os.path.exists(
-                                    name + '_' + options.spc + '.out')) and options.spc != 'link':
-                                sys.exit("\nError! SPC calculation file '{}' not found! Make sure files are named with "
-                                         "the convention: 'filename_spc' or specify link job.\nFor help, use option '-h'\n"
-                                         "".format(name + '_' + options.spc))
-            else: command += elem + ' '
-        except IndexError:
-            pass
+        if os.path.splitext(elem)[1].lower() not in SUPPORTED_EXTENSIONS:
+            continue
+        for file in glob(elem):
+            if options.spc is not None and options.spc != 'link' and f'_{options.spc}.' in file:
+                continue
+            files.append(file)
+            if options.spc is not None and options.spc != 'link':
+                name, _ = os.path.splitext(file)
+                if find_spc_file(name, options.spc) is None:
+                    sys.exit("\nError! No SPC calculation file matching '{0}_*{1}.(log|out)' found! "
+                             "Make sure files are named with the convention: 'filename_spc' or specify "
+                             "link job.\nFor help, use option '-h'\n".format(name, options.spc))
 
     # Exclude files matching the --exclude glob pattern
     if options.exclude:
         from fnmatch import fnmatch
         files = [f for f in files if not fnmatch(f, options.exclude)]
-
-    print(command)
+    # Natural-sort so file order is deterministic across shells (some glob
+    # implementations don't sort) and conf_10 follows conf_9, not conf_1.
+    files.sort(key=natural_key)
     return options, files
 
 
-def resolve_scaling_factor(files, options, l_o_t):
+def resolve_scaling_factor(files, options, level_of_theory):
     """Look up or validate the vibrational frequency scaling factor.
 
     If the user provided --freq_scale_factor, log it. Otherwise, attempt automatic
@@ -181,35 +194,35 @@ def resolve_scaling_factor(files, options, l_o_t):
     Parameters:
         files (list): output file paths.
         options (Namespace): parsed CLI options. Uses: freq_scale_factor, mm_freq_scale_factor, boltz, ee.
-        l_o_t (list): level of theory strings, one per file.
+        level_of_theory (list): level of theory strings, one per file.
     """
     if options.freq_scale_factor is not None:
-        if 'ONIOM' not in l_o_t[0]:
-            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {l_o_t[0]} level of theory")
+        if 'ONIOM' not in level_of_theory[0]:
+            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {level_of_theory[0]} level of theory")
         else:
-            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for QM region of {l_o_t[0]}")
+            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for QM region of {level_of_theory[0]}")
     else:
         # Look for vibrational scaling factor automatically
-        if all_same(l_o_t):
-            level = canonicalize_level(l_o_t[0])
+        if all_same(level_of_theory):
+            level = canonicalize_level(level_of_theory[0])
             if level in scaling_data_dict:
                 options.freq_scale_factor = scaling_data_dict[level].harm_fac
                 ref = scaling_refs[scaling_data_dict[level].harm_ref]
                 log.info("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
-                          "   {}".format(options.freq_scale_factor, l_o_t[0], ref))
+                          "   {}".format(options.freq_scale_factor, level_of_theory[0], ref))
 
     # Warn if different levels of theory are found
-    if not all_same(l_o_t):
-        print_check_fails(list(l_o_t), list(files), "levels of theory")
+    if not all_same(level_of_theory):
+        print_check_fails(list(level_of_theory), list(files), "levels of theory")
 
     # Exit program if a comparison of Boltzmann factors is requested and level of theory is not uniform across all files
-    if not all_same(l_o_t) and (options.boltz is not False or options.ee is not None):
+    if not all_same(level_of_theory) and (options.boltz or options.ee is not None):
         sys.exit("\n\n   ✗ FATAL ERROR: Boltzmann factors require all species computed at the same level of theory\n")
 
     # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
     if options.mm_freq_scale_factor is not None:
-        if all_same(l_o_t) and 'ONIOM' in l_o_t[0]:
-            log.info(f"\n\n   User-defined vibrational scale factor {options.mm_freq_scale_factor} for MM region of {l_o_t[0]}")
+        if all_same(level_of_theory) and 'ONIOM' in level_of_theory[0]:
+            log.info(f"\n\n   User-defined vibrational scale factor {options.mm_freq_scale_factor} for MM region of {level_of_theory[0]}")
             log.info("\n   {}".format(oniom_scale_ref))
         else:
             sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
@@ -240,7 +253,7 @@ def warn_orca_prescaled(files):
                 pass
 
 
-def validate_and_configure(options, s_m):
+def validate_and_configure(options, solvation_model):
     """Validate solvent, print QH/QS configuration, and return (symm_option, vmm_option)."""
     # Checks to see whether the available free space of a requested solvent is defined
     if options.freespace is not None:
@@ -249,7 +262,7 @@ def validate_and_configure(options, s_m):
             log.info(f"\n   Specified solvent {options.freespace}: free volume {freespace / 10.0:.3f} (mol/l) corrects the translational entropy")
 
     # Check for implicit solvation
-    if any('smd' in i.lower() or 'cpcm' in i.lower() for i in s_m):
+    if any('smd' in i.lower() or 'cpcm' in i.lower() for i in solvation_model):
         log.info("\n   Caution! Implicit solvation (SMD/CPCM) detected. Enthalpic and entropic terms cannot be "
                   "safely separated. Use them at your own risk!")
 
@@ -320,8 +333,8 @@ def compute_thermochem(files, options, qcdata_cache=None):
             key = os.path.splitext(os.path.basename(file))[0]
             cached_qcdata = qcdata_cache.get(key)
 
-        # Use media concentration instead of options.conc when the file matches the solvent
-        conc = options.conc
+        # Use gas-phase concentration (P/RT) when --conc is not specified
+        conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
         if options.media:
             media_conc = compute_media_conc(options.media, file)
             if media_conc is not None:
@@ -369,31 +382,28 @@ def main():
 
     # Concentration / pressure
     if options.conc:
-        gas_phase = False
         log.info(f"   Concentration = {options.conc} mol/L")
     else:
-        gas_phase = True
-        options.conc = ATMOS / (GAS_CONSTANT * options.temperature)
         log.info("   Pressure = 1 atm")
 
     if cache_only:
         # Cache-only mode: skip file validation (no output files on disk)
-        l_o_t, s_m = [], []
+        level_of_theory, solvation_model = [], []
         for key, qcdata in qcdata_cache.items():
-            l_o_t.append('')
+            level_of_theory.append('')
             # solvation_model may be a string or a list [sorted, display] depending on parser
             sm = qcdata.solvation_model
             if isinstance(sm, list):
                 sm = sm[0]
-            s_m.append(sm)
+            solvation_model.append(sm)
         if options.freq_scale_factor is None:
             options.freq_scale_factor = 1.0
         log.info("\n   Reading from QCData cache: " + options.cache_read)
     else:
         # Collect file data and validate
-        files, l_o_t, s_m = collect_and_validate_files(files, options)
+        files, level_of_theory, solvation_model = collect_and_validate_files(files, options)
         # Resolve frequency scaling factor
-        resolve_scaling_factor(files, options, l_o_t)
+        resolve_scaling_factor(files, options, level_of_theory)
         if options.cache_read:
             log.info("\n   Loaded QCData cache from " + options.cache_read)
 
@@ -401,7 +411,7 @@ def main():
     warn_orca_prescaled(files)
 
     # Validate options, configure and print
-    validate_and_configure(options, s_m)
+    validate_and_configure(options, solvation_model)
 
     # Compute thermochemistry for all files
     thermo_data = compute_thermochem(files, options, qcdata_cache=qcdata_cache)
@@ -432,10 +442,10 @@ def main():
                            rmsd_cutoff=options.rmsd_cutoff) if options.duplicate else []
 
     # Compute Boltzmann factors once (used by --boltz display and --ee selectivity)
-    boltz_facs, boltz_sum = None, None
+    boltz_facs = None
     if options.boltz or options.ee is not None:
-        boltz_facs, _, boltz_sum = get_boltz(
-            thermo_data, False, None, options.temperature, dup_list)
+        boltz_key = options.boltz if options.boltz else 'gibbs'
+        boltz_facs = get_boltz(thermo_data, options.temperature, dup_list, key=boltz_key)
 
     # Variables populated by temperature-interval mode, used by PES
     interval_bbe_data, interval, file_list = None, None, None
@@ -443,16 +453,15 @@ def main():
     # Standard mode: single temperature
     if options.temperature_interval is None:
         print_results(thermo_data, options, media_conc=media_conc,
-                      dup_list=dup_list, boltz_facs=boltz_facs, boltz_sum=boltz_sum)
+                      dup_list=dup_list, boltz_facs=boltz_facs)
 
     # Perform checks for consistent options
     if options.check:
-        check_files(thermo_data, options, l_o_t)
+        check_files(thermo_data, options, level_of_theory)
 
     # Variable temperature analysis
     elif options.temperature_interval:
-        interval_bbe_data, interval, file_list = print_temperature_interval(
-            thermo_data, options, gas_phase, media_conc=media_conc, qcdata_cache=qcdata_cache)
+        print_temperature_interval(thermo_data, options, media_conc=media_conc, qcdata_cache=qcdata_cache)
 
     # Print CPU usage if requested
     if options.cputime:
@@ -461,7 +470,7 @@ def main():
     # Tabulate relative values (PES)
     if options.pes:
         print_pes_results(thermo_data, options, dup_list,
-                          boltz_facs=boltz_facs, boltz_sum=boltz_sum,
+                          boltz_facs=boltz_facs,
                           interval_bbe_data=interval_bbe_data, interval=interval, file_list=file_list)
 
     # Close the log

@@ -63,35 +63,44 @@ def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,
     log.info("\n" + cutoff_msg)
     for i, file in enumerate(files):
         for j in range(0, i):
-            # Reset to values that exceed all cutoffs (safe reject)
-            e_diff = e_cutoff_au + 1.0
-            ro_diff = ro_cutoff + 1.0
             bbe_i, bbe_j = thermo_data[files[i]], thermo_data[files[j]]
-            if hasattr(bbe_i, "scf_energy") and hasattr(bbe_j, "scf_energy"):
-                e_diff = abs(bbe_i.scf_energy - bbe_j.scf_energy)
-            if hasattr(bbe_i, "roconst") and hasattr(bbe_j, "roconst"):
-                if len(bbe_i.roconst) == len(bbe_j.roconst):
-                    ri = np.array(bbe_i.roconst)
-                    rj = np.array(bbe_j.roconst)
-                    avg = 0.5 * (ri + rj)
-                    # Relative difference per constant; skip any with zero average
-                    nonzero = avg > 0
-                    if np.any(nonzero):
-                        ro_diff = np.max(np.abs(ri[nonzero] - rj[nonzero]) / avg[nonzero])
-                    else:
-                        # Both structures have all-zero rotational constants
-                        # (e.g. single atoms) — treat as matching
-                        ro_diff = 0.0
-            rmsd_pass = True
+
+            # Energy gate (cheap): reject the pair before computing ro_diff or RMSD.
+            if not (hasattr(bbe_i, "scf_energy") and hasattr(bbe_j, "scf_energy")):
+                continue
+            if abs(bbe_i.scf_energy - bbe_j.scf_energy) >= e_cutoff_au:
+                continue
+
+            # Rotational-constants gate (microseconds): only run if energy passed.
+            if not (hasattr(bbe_i, "roconst") and hasattr(bbe_j, "roconst")):
+                continue
+            if len(bbe_i.roconst) != len(bbe_j.roconst):
+                continue
+            ri = np.array(bbe_i.roconst)
+            rj = np.array(bbe_j.roconst)
+            avg = 0.5 * (ri + rj)
+            nonzero = avg > 0
+            if np.any(nonzero):
+                ro_diff = np.max(np.abs(ri[nonzero] - rj[nonzero]) / avg[nonzero])
+            else:
+                # Both structures have all-zero rotational constants
+                # (e.g. single atoms) — treat as matching
+                ro_diff = 0.0
+            if ro_diff >= ro_cutoff:
+                continue
+
+            # Kabsch RMSD gate (most expensive): only run if e and ro both passed.
             if rmsd_cutoff is not None:
-                rmsd_pass = False
-                if hasattr(bbe_i, "cartesians") and hasattr(bbe_j, "cartesians"):
-                    coords_i = np.array(bbe_i.cartesians)
-                    coords_j = np.array(bbe_j.cartesians)
-                    if coords_i.shape == coords_j.shape and len(coords_i) > 0:
-                        rmsd_pass = kabsch_rmsd(coords_i, coords_j) < rmsd_cutoff
-            if e_diff < e_cutoff_au and ro_diff < ro_cutoff and rmsd_pass:
-                dup_list.append([files[i], files[j]])
+                if not (hasattr(bbe_i, "cartesians") and hasattr(bbe_j, "cartesians")):
+                    continue
+                coords_i = np.array(bbe_i.cartesians)
+                coords_j = np.array(bbe_j.cartesians)
+                if coords_i.shape != coords_j.shape or len(coords_i) == 0:
+                    continue
+                if kabsch_rmsd(coords_i, coords_j) >= rmsd_cutoff:
+                    continue
+
+            dup_list.append([files[i], files[j]])
     return dup_list
 
 
