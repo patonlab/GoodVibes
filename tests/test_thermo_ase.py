@@ -242,11 +242,12 @@ def test_ase_idealgas_thermochemistry_match(filename, geometry):
     path = ase_path(filename)
     atoms = read(path)
 
-    # Extract frequencies for ASE
+    # Extract frequencies for ASE — pass all modes (real + imaginary) and
+    # let ASE drop imaginary ones via ignore_imag_modes. Pre-filtering would
+    # leave a TS with 3N-7 modes, which ASE rejects (it expects 3N-6 for
+    # nonlinear / 3N-5 for linear).
     freqs_cm = [float(f) for f in atoms.info['frequencies']]
-    # ASE requires vibrational energies in eV, real modes only
-    # For transition states with imaginary frequencies, filter to positive-frequency modes only
-    vib_energies = [f * units.invcm for f in freqs_cm if f > 0]
+    vib_energies = [f * units.invcm for f in freqs_cm]
 
     # Extract SCF energy
     e_scf_ha = float(atoms.info['scf_energy'])
@@ -261,7 +262,8 @@ def test_ase_idealgas_thermochemistry_match(filename, geometry):
         atoms=atoms,
         geometry=geometry,
         symmetrynumber=symmno,
-        spin=spin
+        spin=spin,
+        ignore_imag_modes=True,
     )
 
     # Calculate using ASE at standard conditions (298.15 K, 101325 Pa)
