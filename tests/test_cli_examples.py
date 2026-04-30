@@ -103,8 +103,8 @@ def assert_line_present(text, pattern):
 
 
 def assert_separator_lines(text, count=None):
-    """Assert separator lines (rows of ``*``) are present."""
-    sep_lines = [line for line in text.splitlines() if line.strip().startswith('***')]
+    """Assert separator lines (rows of ``─`` or ``*``) are present."""
+    sep_lines = [line for line in text.splitlines() if line.strip().startswith(('───', '***'))]
     if count is not None:
         assert len(sep_lines) >= count, (
             f"Expected at least {count} separator lines, found {len(sep_lines)}"

@@ -47,7 +47,7 @@ def setup_logging(filein, append):
     logger.addHandler(console_handler)
 
     if Console is not None:
-        _console_stdout = Console(highlight=False, force_terminal=True)
+        _console_stdout = Console(highlight=False, force_terminal=True, width=200)
 
     # .dat file: shared handle for both logging and Rich output
     dat_path = f'{filein}_{append}.dat'

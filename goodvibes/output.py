@@ -26,12 +26,22 @@ log = logging.getLogger('goodvibes')
 def _print_rich_table(table: "Table") -> None:
     """Print a Rich Table to both stdout and .dat file consoles."""
     if Table is not None:
+        from io import StringIO
         # Add leading newline for spacing
         log.info("\n\n")
         get_console_stdout().print(table)
         get_console_dat().print(table)
-        # Add solid line below the table
-        log.info("   " + "─" * 80)
+        # Measure actual rendered table width by rendering to a temp buffer
+        # Use the same width as the actual stdout console
+        temp_buf = StringIO()
+        from rich.console import Console
+        stdout_console = get_console_stdout()
+        temp_console = Console(file=temp_buf, force_terminal=True, no_color=True, width=stdout_console.width)
+        temp_console.print(table)
+        rendered = temp_buf.getvalue()
+        # Find the longest line to determine table width
+        line_width = max((len(line.rstrip()) for line in rendered.split('\n')), default=0)
+        log.info("─" * line_width)
         # Add trailing newline for spacing
         log.info("\n")
 
@@ -70,8 +80,9 @@ def _build_results_table(options) -> "Table":
 
     dp = getattr(options, 'dp', 6)
     dw = dp - 6
-    ew = 13 + dw  # wide numeric column
-    nw = 10 + dw  # narrow numeric column
+    ew = 11 + dw  # wide numeric column (energies)
+    nw = 8 + dw   # narrow numeric column (for columns < 10)
+    sw = 2 + dp   # small column (ZPE, T.S, T.qh-S - always 0.xxx)
 
     table = Table(
         box=rich_box.SIMPLE_HEAD,
@@ -84,21 +95,22 @@ def _build_results_table(options) -> "Table":
 
     # Status column (o/x markers)
     table.add_column("", width=3)
-    table.add_column("Structure", min_width=39, no_wrap=True)
+    table.add_column("Structure", no_wrap=True)
 
     if options.spc is not None:
         table.add_column("E_SPC", min_width=ew, justify="right")
     table.add_column("E", min_width=ew, justify="right")
-    table.add_column("ZPE", min_width=nw, justify="right")
+    table.add_column("ZPE", min_width=sw, justify="right")
 
+    h_col = "H_SPC" if options.spc is not None else "H"
     if options.QH:
-        table.add_column("H", min_width=ew, justify="right")
+        table.add_column(h_col, min_width=ew, justify="right")
         table.add_column("qh-H", min_width=ew, justify="right")
     else:
-        table.add_column("H", min_width=ew, justify="right")
+        table.add_column(h_col, min_width=ew, justify="right")
 
-    table.add_column("T.S", min_width=nw, justify="right")
-    table.add_column("T.qh-S", min_width=nw, justify="right")
+    table.add_column("T.S", min_width=sw, justify="right")
+    table.add_column("T.qh-S", min_width=sw, justify="right")
 
     if options.spc is not None:
         table.add_column("G(T)_SPC", min_width=ew, justify="right")
@@ -201,13 +213,10 @@ def print_results(thermo_data, options, media_conc=None,
             marker = "o" if hasattr(bbe, "gibbs_free_energy") else "x"
             name = display_name(file)
 
-            # No gibbs free energy computed
+            # No gibbs free energy — print warning as text, skip table row
             if not hasattr(bbe, "gibbs_free_energy"):
-                row = [marker, name, "Warning! Couldn't find frequency information"]
-                # Pad with empty cells to match other rows
-                num_cols = len(table.columns) - 2  # -2 for marker and name
-                row.extend([""] * num_cols)
-                table.add_row(*row)
+                log.info('\nx  {} — Warning! Couldn\'t find frequency information'.format(
+                    display_name(file)))
                 continue
 
             row.append(marker)
@@ -227,7 +236,7 @@ def print_results(thermo_data, options, media_conc=None,
                 row.append("----")
 
             # ZPE column
-            row.append(f"{bbe.zpe:.{dp-3}f}")  # narrow format
+            row.append(f"{bbe.zpe:.{dp}f}")
 
             # H and optionally qh-H
             row.append(f"{bbe.enthalpy:.{dp}f}")
@@ -235,8 +244,8 @@ def print_results(thermo_data, options, media_conc=None,
                 row.append(f"{bbe.qh_enthalpy:.{dp}f}")
 
             # T.S and T.qh-S
-            row.append(f"{options.temperature * bbe.entropy:.{dp-3}f}")  # narrow format
-            row.append(f"{options.temperature * bbe.qh_entropy:.{dp-3}f}")  # narrow format
+            row.append(f"{options.temperature * bbe.entropy:.{dp}f}")
+            row.append(f"{options.temperature * bbe.qh_entropy:.{dp}f}")
 
             # G(T) and qh-G(T) (or with _SPC suffix)
             row.append(f"{bbe.gibbs_free_energy:.{dp}f}")
