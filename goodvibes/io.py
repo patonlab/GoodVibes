@@ -52,6 +52,11 @@ class QCData:
     # CPU time [days, hours, mins, secs, msecs]
     cpu: List[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
 
+    # Number of MPI processes / cores reported by the QC program. Used by
+    # the ORCA parser to convert TOTAL RUN TIME (wall) into an effective
+    # CPU-time estimate (wall × nprocs); 1 elsewhere.
+    nprocs: int = 1
+
     # ONIOM MM frequency scaling fractions (per-frequency, empty if not ONIOM)
     fract_modelsys: List[float] = field(default_factory=list)
     has_oniom: bool = False
@@ -1528,6 +1533,25 @@ def parse_nwchem_thermo(file):
     return qcdata
 
 
+def _scale_cpu(cpu, factor):
+    """Multiply a [days, hours, mins, secs, msecs] tuple by an integer factor.
+
+    Used by the ORCA parser to convert wall time × nprocs → effective CPU.
+    """
+    total_ms = (
+        cpu[0] * 86_400_000
+        + cpu[1] * 3_600_000
+        + cpu[2] * 60_000
+        + cpu[3] * 1_000
+        + cpu[4]
+    ) * factor
+    days, total_ms = divmod(total_ms, 86_400_000)
+    hours, total_ms = divmod(total_ms, 3_600_000)
+    mins, total_ms = divmod(total_ms, 60_000)
+    secs, msecs = divmod(total_ms, 1_000)
+    return [days, hours, mins, secs, msecs]
+
+
 def parse_orca_thermo(file):
     """Parse ORCA output for all thermochemistry-relevant data.
 
@@ -1683,17 +1707,30 @@ def parse_orca_thermo(file):
             except (IndexError, ValueError):
                 pass
 
-        # CPU time
+        # CPU time. ORCA prints wall time only ("TOTAL RUN TIME:"); we scale
+        # by the number of MPI processes (parsed from "Program running with
+        # N parallel MPI-processes") to get an effective CPU time, matching
+        # how Gaussian/NWChem/xTB report theirs.
         elif stripped.startswith('TOTAL RUN TIME:'):
             parts = stripped.split()
             try:
-                qcdata.cpu = [
+                cpu_list = [
                     int(parts[3]),   # days
                     int(parts[5]),   # hours
                     int(parts[7]),   # minutes
                     int(parts[9]),   # seconds
                     int(parts[11]),  # msec
                 ]
+                if qcdata.nprocs > 1:
+                    cpu_list = _scale_cpu(cpu_list, qcdata.nprocs)
+                qcdata.cpu = cpu_list
+            except (IndexError, ValueError):
+                pass
+
+        # MPI process count (printed once per task; we keep the first hit).
+        elif 'parallel MPI-processes' in stripped and qcdata.nprocs == 1:
+            try:
+                qcdata.nprocs = int(stripped.split('with')[1].split('parallel')[0].strip())
             except (IndexError, ValueError):
                 pass
 
@@ -2362,13 +2399,15 @@ def parse_qchem_thermo(file):
                 except (IndexError, ValueError):
                     pass
 
-    # CPU time: "Total job time:  1.70s(wall), 21.27s(cpu)" — convert wall to days/h/m/s/ms.
+    # CPU time: "Total job time:  1.70s(wall), 21.27s(cpu)" — take the (cpu)
+    # value (the wall × ncores estimate Q-Chem prints) so the sum matches
+    # the Gaussian/NWChem/xTB convention of true summed CPU.
     for line in reversed(output):
         if 'Total job time:' in line:
             try:
-                wall_s = float(line.split(':', 1)[1].split('s(wall)')[0].strip())
-                days = int(wall_s // 86400)
-                rem = wall_s - days * 86400
+                cpu_s = float(line.split(',')[1].split('s(cpu)')[0].strip())
+                days = int(cpu_s // 86400)
+                rem = cpu_s - days * 86400
                 hours = int(rem // 3600)
                 rem -= hours * 3600
                 mins = int(rem // 60)

@@ -349,7 +349,6 @@ def _print_rich_table(table: "Table") -> None:
     import re
     from io import StringIO
     from rich.console import Console
-    log.info("\n")
     ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGK]")
 
     def _render(console):
@@ -365,7 +364,10 @@ def _print_rich_table(table: "Table") -> None:
         # Drop trailing visually-blank lines (Rich SIMPLE-box padding).
         while lines and not ANSI_RE.sub("", lines[-1]).strip():
             lines.pop()
-        return "\n".join(lines) + "\n"
+        # Leading "\n\n" gives exactly one blank line before the table:
+        # the logger uses terminator='' so the prior message has no trailing
+        # \n; the first \n closes that line, the second is the blank line.
+        return "\n\n" + "\n".join(lines) + "\n"
 
     for console in (get_console_stdout(), get_console_dat()):
         console.file.write(_render(console))
@@ -503,6 +505,7 @@ def print_cpu_time(thermo_data, exclude=None):
     """
     from fnmatch import fnmatch
     total_cpu_time, add_days = datetime(100, 1, 1, 0, 0, 0, 0), 0
+    has_orca_scaled = False
     for file, bbe in thermo_data.items():
         if exclude and fnmatch(file, exclude):
             continue
@@ -512,9 +515,18 @@ def print_cpu_time(thermo_data, exclude=None):
             total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
         if total_cpu_time.month > 1:
             add_days += 31
+        # Detect ORCA wall-time-scaled-by-nprocs entries via QCData.
+        qc = getattr(bbe, "xyz", None)
+        if qc is not None and getattr(qc, "program", None) == "Orca" and getattr(qc, "nprocs", 1) > 1:
+            has_orca_scaled = True
     log.info(f'   {"TOTAL CPU":<13} {total_cpu_time.day + add_days - 1:>2} {"days":>4} '
               f'{total_cpu_time.hour:>2} {"hrs":>3} {total_cpu_time.minute:>2} {"mins":>4} '
-              f'{total_cpu_time.second:>2} {"secs":>4}\n')
+              f'{total_cpu_time.second:>2} {"secs":>4}')
+    if has_orca_scaled:
+        log.info("\n   † ORCA wall-time × nprocs counted as CPU time (ORCA does not "
+                 "report a summed CPU time).\n")
+    else:
+        log.info("\n")
 
 
 def _build_results_table(options) -> "Table":
@@ -604,6 +616,20 @@ def print_results(thermo_data, options, media_conc=None,
     files = list(thermo_data)
     dp = getattr(options, 'dp', 6)
 
+    # Surface files lacking frequency info up front (one summary line, not
+    # one per file). Truncated to first 3 + count when it gets long.
+    no_freq_files = [
+        display_name(f) for f in files
+        if not hasattr(thermo_data[f], "gibbs_free_energy")
+    ]
+    if no_freq_files:
+        if len(no_freq_files) > 3:
+            n_more = len(no_freq_files) - 3
+            list_str = ', '.join(no_freq_files[:3]) + f', and {n_more} others'
+        else:
+            list_str = ', '.join(no_freq_files)
+        log.info(f'\n\n   ! No frequency information found: {list_str}')
+
     # Check if user has chosen to make any low lying imaginary frequencies positive
     inverted_freqs, inverted_files = [], []
     for file in files:
@@ -638,7 +664,7 @@ def print_results(thermo_data, options, media_conc=None,
             for dup in dup_list:
                 if dup[0] == file:
                     duplicate = True
-                    log.info('\nx  {} is a duplicate or enantiomer of {}'.format(dup[0].rsplit('.', 1)[0],
+                    log.info('\n   x {} is a duplicate or enantiomer of {}'.format(dup[0].rsplit('.', 1)[0],
                                                                                   dup[1].rsplit('.', 1)[0]))
                     break
         if not duplicate:
@@ -653,7 +679,7 @@ def print_results(thermo_data, options, media_conc=None,
 
             # Handle linear molecule warning separately (not a table row)
             if bbe.linear_warning:
-                log.info('\nx  {} — Caution! Potential invalid linear molecule calculation in Gaussian'.format(
+                log.info('\n   x {} — Caution! Potential invalid linear molecule calculation in Gaussian'.format(
                     display_name(file)))
                 continue
 
@@ -662,10 +688,8 @@ def print_results(thermo_data, options, media_conc=None,
             marker = "o" if hasattr(bbe, "gibbs_free_energy") else "x"
             name = display_name(file)
 
-            # No gibbs free energy — print warning as text, skip table row
+            # No gibbs free energy — already reported in the summary above.
             if not hasattr(bbe, "gibbs_free_energy"):
-                log.info('\nx  {} — Warning! Couldn\'t find frequency information'.format(
-                    display_name(file)))
                 continue
 
             row.append(marker)
@@ -803,16 +827,16 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
             interval_bbe_data[h].append(bbe)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
-                log.info("\nx  ")
+                log.info("\n   x ")
                 log.info('{:<39}'.format(display_name(file)))
                 log.info('             Warning! Potential invalid calculation of linear molecule from Gaussian ...')
             else:
                 # Gaussian spc files
                 if bbe.scf_energy is not None and not hasattr(bbe, "gibbs_free_energy"):
-                    log.info("\nx  " + '{:<39}'.format(display_name(file)))
+                    log.info("\n   x " + '{:<39}'.format(display_name(file)))
                 # ORCA spc files
                 elif bbe.scf_energy is None and not hasattr(bbe, "gibbs_free_energy"):
-                    log.info("\nx  " + '{:<39}'.format(display_name(file)))
+                    log.info("\n   x " + '{:<39}'.format(display_name(file)))
                 if not hasattr(bbe, "gibbs_free_energy"):
                     log.info("Warning! Couldn't find frequency information ...")
                 else:

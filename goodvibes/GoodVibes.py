@@ -260,7 +260,10 @@ def warn_orca_prescaled(files):
     for file in files:
         if file.endswith('.out'):
             try:
-                with open(file) as f:
+                # ORCA can emit non-UTF-8 bytes (paths, internal metadata);
+                # match the io.py parsers and replace bad bytes rather than
+                # crash on UnicodeDecodeError.
+                with open(file, encoding='utf-8', errors='replace') as f:
                     for line in f:
                         if 'Scaling factor for frequencies' in line and 'already applied' in line:
                             try:

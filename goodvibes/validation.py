@@ -75,23 +75,32 @@ def collect_and_validate_files(files, options):
                 spc_progress[spc_file] = lot_sm_prog[2]
 
     remove_key = []
-    # Remove problem files and print errors
+    # Remove problem files and print errors. Only the first ! warning gets
+    # a blank line before it; subsequent warnings stack tightly.
+    first_warning = True
+
+    def _warn_prefix():
+        nonlocal first_warning
+        prefix = "\n\n" if first_warning else "\n"
+        first_warning = False
+        return prefix
+
     for i, key in enumerate(files):
         if progress[key] == 'Error':
-            log.info("\nx  Warning! Error termination found in {}: omitted from further "
+            log.info(_warn_prefix() + "   ! Error termination found in {}: omitted from further "
                       "calculations.".format(key))
             remove_key.append([i, key])
         elif progress[key] == 'Incomplete':
-            log.info("\nx  Warning! {} may not have terminated normally or the calculation may still be "
+            log.info(_warn_prefix() + "   ! {} may not have terminated normally or the calculation may still be "
                       "running: omitted from further calculations.".format(key))
             remove_key.append([i, key])
     # Check spc files for normal termination
     if spc_progress:
         for key in spc_progress:
             if spc_progress[key] == 'Error':
-                sys.exit("\nx  ERROR! Error termination found in file {} calculations.".format(key))
+                sys.exit(_warn_prefix() + "   ! Error termination found in file {} calculations.".format(key))
             elif spc_progress[key] == 'Incomplete':
-                sys.exit("\nx  ERROR! File {} may not have terminated normally or the "
+                sys.exit(_warn_prefix() + "   ! File {} may not have terminated normally or the "
                     "calculation may still be running.".format(key))
 
     for [i, key] in list(reversed(remove_key)):
@@ -148,17 +157,17 @@ def check_files(thermo_data, options, level_of_theory):
         if solvent_check[0] == "gas phase" and options.conc is None:
             log.info("\no  Using a standard concentration of 1 atm for gas phase.")
         elif solvent_check[0] == "gas phase" and options.conc is not None:
-            log.info("\nx  Caution! Standard concentration is not 1 atm for gas phase (using {} M).".format(options.conc))
+            log.info("\n   x Caution! Standard concentration is not 1 atm for gas phase (using {} M).".format(options.conc))
         elif solvent_check[0] != "gas phase" and options.conc is None:
-            log.info("\nx  Using a standard concentration of 1 atm for solvent phase (option -c 1 should be included for 1 M).")
+            log.info("\n   x Using a standard concentration of 1 atm for solvent phase (option -c 1 should be included for 1 M).")
         elif solvent_check[0] != "gas phase" and str(options.conc) == str(1.0):
             log.info("\no  Using a standard concentration of 1 M for solvent phase.")
         elif solvent_check[0] != "gas phase" and options.conc is not None and str(options.conc) != str(1.0):
-            log.info("\nx  Caution! Standard concentration is not 1 M for solvent phase (using {} M).".format(options.conc))
+            log.info("\n   x Caution! Standard concentration is not 1 M for solvent phase (using {} M).".format(options.conc))
     if not all_same(solvent_check) and "gas phase" in solvent_check:
-        log.info("\nx  Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
+        log.info("\n   x Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
     if not all_same(solvent_check) and "gas phase" not in solvent_check:
-        log.info("\nx  Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
+        log.info("\n   x Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
 
     # Check charge and multiplicity
     charge_check = [thermo_data[key].charge for key in thermo_data]
@@ -177,7 +186,7 @@ def check_files(thermo_data, options, level_of_theory):
     if not dup_list:
         log.info("\no  No duplicates or enantiomers found")
     else:
-        log.info("\nx  Caution! Possible duplicates or enantiomers found:")
+        log.info("\n   x Caution! Possible duplicates or enantiomers found:")
         for dup in dup_list:
             log.info('\n        {} and {}'.format(dup[0], dup[1]))
 
@@ -242,13 +251,13 @@ def check_files(thermo_data, options, level_of_theory):
         if not linear_mol_wrong:
             log.info("\n-  No linear molecules found.")
         if linear_mol_wrong:
-            log.info("\nx  Caution! Potential linear molecules with wrong number of frequencies found "
+            log.info("\n   x Caution! Potential linear molecules with wrong number of frequencies found "
                       "(correct number = 3N-5) -{}.".format(linear_wrong_print))
     elif linear_mol_correct:
         if not linear_mol_wrong:
             log.info("\no  All the linear molecules have the correct number of frequencies -{}.".format(linear_correct_print))
         if linear_mol_wrong:
-            log.info("\nx  Caution! Potential linear molecules with wrong number of frequencies found -{}. Correct "
+            log.info("\n   x Caution! Potential linear molecules with wrong number of frequencies found -{}. Correct "
                       "number of frequencies (3N-5) found in other calculations -{}.".format(linear_wrong_print,
                                                                                              linear_correct_print))
 
@@ -256,9 +265,9 @@ def check_files(thermo_data, options, level_of_theory):
     for file in files:
         bbe = thermo_data[file]
         if bbe.job_type.find('TS') > -1 and len(bbe.im_frequency_wn) != 1:
-            log.info("\nx  Caution! TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
+            log.info("\n   x Caution! TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
         if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and bbe.im_frequency_wn:
-            log.info("\nx  Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
+            log.info("\n   x Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
 
     # Check for empirical dispersion
     dispersion_check = [thermo_data[key].empirical_dispersion for key in thermo_data]
@@ -351,9 +360,9 @@ def check_files(thermo_data, options, level_of_theory):
             else:
                 spc_mismatching_1 = spc_mismatching[:84]
                 spc_mismatching_2 = spc_mismatching[85:]
-                log.info("\nx  " + spc_mismatching_1 + spc_mismatching_2 + '.')
+                log.info("\n   x " + spc_mismatching_1 + spc_mismatching_2 + '.')
         else:
-            log.info("\nx  One or more geometries from single-point corrections are missing.")
+            log.info("\n   x One or more geometries from single-point corrections are missing.")
 
         # Check for SPC dispersion models
         dispersion_check_spc = [thermo_data[key].sp_empirical_dispersion for key in thermo_data]

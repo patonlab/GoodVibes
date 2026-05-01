@@ -43,7 +43,7 @@ Plus several in-flight features that are partially detected
 | 7 | **Wigner tunneling correction** for TS rates: κ_W = 1 + (1/24)(hcν‡/kT)². Eckart deferred to v5.0. Auto-applied when `--tunneling wigner` and `len(im_frequency_wn) == 1`. | Pending |
 | 8 | **Parallel parsing** with `concurrent.futures.ProcessPoolExecutor`, `--jobs N`. Target: 1,000 ORCA outputs in <30s on 8 cores. | Pending |
 | 9 | **Hindered-rotor treatment** (Pitzer–Gwinn / Truhlar HO-QHO interpolation). Manual `--hindered-rotor MODE_INDEX,V,I_red` for v4.2; auto detection deferred to v5.0+. | Pending |
-| Sub-plan B | **PES rewrite**: 3-layer data model (`ConformerSet`/`Point`/`Pathway`), true-YAML input alongside legacy parser, stoichiometry support, Rich tables, JSON v0.4 `pes` block. Plot deferred to v5.0. | Drafted |
+| Sub-plan B | **PES rewrite**: 3-layer data model (`ConformerSet`/`Point`/`Pathway`), true-YAML input alongside legacy parser, stoichiometry support, Rich tables, JSON v0.4 `pes` block, `--lowest-only` flag. Plot deferred to v5.0. | ✅ Done — [`03549d1`](../../commit/03549d1) |
 
 **Sequencing.** Item 5 is the keystone — unblocks 6 and enables clean
 Wigner integration in 7. Items 8 and 9 are independent and can run in
