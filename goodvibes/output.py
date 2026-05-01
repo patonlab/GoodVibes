@@ -21,7 +21,7 @@ from .media import solvents
 # --------------------------------------------------------------------------
 # Schema version is independent of __version__ — bump on every breaking
 # change to the JSON layout. v0.x means "preview, may change without notice".
-JSON_SCHEMA_VERSION = "0.1"
+JSON_SCHEMA_VERSION = "0.3"
 
 # Run-level option keys that should appear in the JSON header, mapped from
 # their Namespace attribute names. Any options not in this list are dropped
@@ -75,8 +75,157 @@ def _bbe_to_json(bbe, file_path, media_conc=None, boltz_factor=None):
     return entry
 
 
+def print_selectivity_results(results_by_method):
+    """Print one or more selectivity tables, one block per method.
+
+    Parameters:
+        results_by_method (dict[str, list[SelectivityResult]]): ordered
+            mapping of method name (e.g. "Boltzmann-averaged",
+            "Lowest conformer only") to its list of SelectivityResults.
+            Single-temperature mode passes a one-element list per method;
+            scan mode passes one per temperature.
+    """
+    if not results_by_method or Table is None:
+        return
+    for method, results in results_by_method.items():
+        if not results:
+            continue
+        if len(results) == 1:
+            _print_selectivity_single(results[0], method=method)
+        else:
+            _print_selectivity_scan(results, method=method)
+
+
+def _format_ratio(populations, labels, scale=100):
+    """Format populations as integer-percent ratio string ('60:40' or '40:30:20:10')."""
+    rounded = [round(populations[label] * scale) for label in labels]
+    return ':'.join(str(v) for v in rounded)
+
+
+def _print_selectivity_single(result, method=""):
+    """Per-species table + summary footer for a single SelectivityResult."""
+    HA_TO_KCAL = 627.509541
+    suffix = f", {method}" if method else ""
+    log.info(f"\n   Selectivity{suffix} ({result.key}, T = {result.temperature:.2f} K)")
+
+    # Per-species table: leading marker column (★ for major) | Species |
+    # Files | Population (%) | ΔΔG (kcal/mol, vs. major).
+    table = Table(
+        box=rich_box.SIMPLE_HEAD,
+        show_header=True,
+        show_edge=False,
+        pad_edge=False,
+        highlight=False,
+        header_style="",
+    )
+    table.add_column("", width=3)             # marker col, mirrors print_results
+    table.add_column("Species", no_wrap=True)
+    table.add_column("Files", justify="right")
+    table.add_column("Population (%)", justify="right")
+    table.add_column("ΔΔG (kcal/mol)", justify="right")
+
+    # ΔΔG = -RT ln(p / p_max); the major species is 0 by construction,
+    # others are positive (less stable). Skip when p == 0 (printed as "—").
+    ref_pop = max(result.populations.values())
+    rt_kcal = 8.3144621 * result.temperature / 1000.0 / 4.184  # kcal/mol
+    for label in result.labels:
+        p = result.populations[label]
+        n_files = len(result.files_per_label.get(label, []))
+        marker = "★" if label == result.preferred else " "
+        if p > 0:
+            dG = -rt_kcal * math.log(p / ref_pop)
+            # The major species's dG can be -0.0 from float math; force +0.000.
+            if abs(dG) < 1e-9:
+                dG = 0.0
+            dG_str = f"{dG:.3f}"
+        else:
+            dG_str = "—"
+        table.add_row(marker, label, str(n_files), f"{p * 100:.2f}", dG_str)
+
+    _print_rich_table(table)
+
+    # Summary line: ratio (always); ee + ΔΔG‡ for N=2.
+    n = len(result.labels)
+    ratio_str = _format_ratio(result.populations, result.labels)
+    pieces = [f"Ratio {':'.join(result.labels)} = {ratio_str}"]
+    pieces.append(f"Major: {result.preferred}")
+    if n == 2 and result.ee is not None:
+        pieces.append(f"ee = {result.ee:.2f}%")
+    if n == 2 and result.ddG is not None:
+        pieces.append(f"ΔΔG‡ = {result.ddG * HA_TO_KCAL:.2f} kcal/mol")
+    log.info("\n   " + "   ".join(pieces) + "\n")
+
+
+def _print_selectivity_scan(results, method=""):
+    """One row per temperature: ee/ΔΔG‡ for N=2, populations only for N>2."""
+    HA_TO_KCAL = 627.509541
+    labels = results[0].labels
+    n = len(labels)
+    suffix = f", {method}" if method else ""
+    log.info(f"\n   Selectivity scan{suffix} ({results[0].key})")
+
+    table = Table(
+        box=rich_box.SIMPLE_HEAD,
+        show_header=True,
+        show_edge=False,
+        pad_edge=False,
+        highlight=False,
+        header_style="",
+    )
+    table.add_column("", width=3)             # leading indent, mirrors single-T
+    table.add_column("T (K)", justify="right")
+    for label in labels:
+        table.add_column(f"{label} (%)", justify="right")
+    if n == 2:
+        table.add_column("ee (%)", justify="right")
+        table.add_column("ΔΔG‡ (kcal/mol)", justify="right")
+    table.add_column("Major", justify="center")
+
+    for r in results:
+        row = ["", f"{r.temperature:g}"]
+        for label in labels:
+            row.append(f"{r.populations[label] * 100:.2f}")
+        if n == 2:
+            row.append(f"{r.ee:.2f}" if r.ee is not None else "—")
+            ddG_kc = r.ddG * HA_TO_KCAL if r.ddG is not None else None
+            row.append(f"{ddG_kc:.2f}" if ddG_kc is not None else "—")
+        row.append(r.preferred)
+        table.add_row(*row)
+
+    _print_rich_table(table)
+    log.info("\n")
+
+
+def _selectivity_to_json(selectivity_results):
+    """Serialize a list of SelectivityResult instances for the JSON payload.
+
+    For N=2 each entry includes ee + ddG; for N>2 those fields are null
+    and consumers derive any ratios they need from `populations`.
+    """
+    if not selectivity_results:
+        return None
+    first = selectivity_results[0]
+    return {
+        'labels': list(first.labels),
+        'key': first.key,
+        'results': [
+            {
+                'temperature': r.temperature,
+                'populations': dict(r.populations),
+                'raw_boltzmann': dict(r.raw_boltzmann),
+                'preferred': r.preferred,
+                'ee': r.ee,
+                'ddG': r.ddG,
+                'files_per_label': {k: list(v) for k, v in r.files_per_label.items()},
+            }
+            for r in selectivity_results
+        ],
+    }
+
+
 def write_json_results(thermo_data, options, path, media_conc_per_file=None,
-                       boltz_facs=None):
+                       boltz_facs=None, selectivity_results=None,
+                       selectivity_lowest_results=None):
     """Write structured run results to *path* as JSON.
 
     Captures every parsed QCData field plus computed thermo per file, the
@@ -91,6 +240,8 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
             concentration applied to that specific file (None for files
             where --media didn't match).
         boltz_facs (dict, optional): file path -> Boltzmann factor.
+        selectivity_results (list[SelectivityResult], optional): one entry
+            per temperature; included as a top-level "selectivity" block.
     """
     media_conc_per_file = media_conc_per_file or {}
     boltz_facs = boltz_facs or {}
@@ -108,6 +259,12 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
             for file, bbe in thermo_data.items()
         ],
     }
+    sel_block = _selectivity_to_json(selectivity_results)
+    if sel_block is not None:
+        payload['selectivity'] = sel_block
+    sel_low_block = _selectivity_to_json(selectivity_lowest_results)
+    if sel_low_block is not None:
+        payload['selectivity_lowest'] = sel_low_block
     # default=str catches anything stringifiable that json doesn't natively
     # know about (e.g., the '!' sentinel value calc_bbe uses for failed SPC).
     with open(path, 'w', encoding='utf-8') as f:

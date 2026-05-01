@@ -19,8 +19,14 @@ import logging
 from .utils import all_same, setup_logging, fatal, natural_key
 from .validation import collect_and_validate_files, check_files, print_check_fails
 from .sort import deduplicate, sort_thermo
-from .selectivity import get_boltz
-from .output import print_results, print_temperature_interval, print_pes_results, print_cpu_time, write_json_results
+from .selectivity import (get_boltz, parse_label_args, load_label_yaml,
+                            assign_files_to_labels, compute_selectivity,
+                            compute_selectivity_scan,
+                            compute_selectivity_lowest_only,
+                            compute_selectivity_lowest_only_scan)
+from .output import (print_results, print_temperature_interval,
+                      print_pes_results, print_cpu_time, write_json_results,
+                      print_selectivity_results)
 
 log = logging.getLogger('goodvibes')
 
@@ -59,8 +65,19 @@ def parse_arguments():
     parser.add_argument("--rmsd_cutoff", dest="rmsd_cutoff", default=None, type=float, metavar="ANGS",
                         help="RMSD cutoff for duplicate detection in Angstrom (default: off; 0.125 matches CREST)")
     parser.add_argument("--ee", dest="ee", default=None, type=str, metavar="patterns",
-                        help="Compute selectivity (ee, ratio) from a conformer mixture; provide glob patterns "
-                             "for two species (e.g. '*_R*,*_S*')")
+                        help="DEPRECATED — use --label/--selectivity. Compute 2-species "
+                             "selectivity from a colon-delimited glob pair (e.g. '*_R*:*_S*'). "
+                             "Will be removed in v5.0.")
+    parser.add_argument("--label", dest="labels", default=None, action='append', metavar="NAME=PATTERN",
+                        help="Repeatable: assign files matching fnmatch PATTERN to species NAME "
+                             "for selectivity analysis. Two or more species supported "
+                             "(N=2: ee + ΔΔG‡; N>2: populations only). Example: "
+                             "--label R='*P_R_*' --label S='*P_S_*'.")
+    parser.add_argument("--selectivity", dest="selectivity_spec", default=None, metavar="FILE.yaml",
+                        help="YAML spec for selectivity analysis. Top-level key 'labels' "
+                             "maps species -> fnmatch pattern, or 'files' maps species -> "
+                             "explicit list of files. Use instead of --label for many "
+                             "species or shareable specs.")
     parser.add_argument("--exclude", dest="exclude", default=None, type=str, metavar="PATTERN",
                         help="Glob pattern to exclude files from the analysis (e.g. '*_TZ.out')")
     parser.add_argument("--sort", dest="sort", default=None, nargs='?', const='gibbs',
@@ -378,6 +395,29 @@ def main():
             f"Supported (case-sensitive): {', '.join(FREESPACE_SOLVENTS)}."
         )
 
+    # Selectivity spec: parse --label and --selectivity into a label_patterns
+    # / label_files dict before any heavy work, so typos fail immediately.
+    label_patterns, label_files = None, None
+    if options.labels and options.selectivity_spec:
+        fatal("\n   ✗ FATAL ERROR: --label and --selectivity are mutually exclusive.")
+    if options.ee is not None and (options.labels or options.selectivity_spec):
+        fatal("\n   ✗ FATAL ERROR: --ee is incompatible with --label / --selectivity. "
+              "Use one selectivity API at a time.")
+    if options.labels:
+        try:
+            label_patterns = parse_label_args(options.labels)
+        except ValueError as exc:
+            fatal(f"\n   ✗ FATAL ERROR: {exc}")
+    elif options.selectivity_spec:
+        try:
+            mode, spec = load_label_yaml(options.selectivity_spec)
+        except (ValueError, RuntimeError, FileNotFoundError, OSError) as exc:
+            fatal(f"\n   ✗ FATAL ERROR: {exc}")
+        if mode == 'patterns':
+            label_patterns = spec
+        else:
+            label_files = spec
+
     # Load QCData cache early if requested (needed to determine file list in cache-only mode)
     qcdata_cache = None
     cache_only = False
@@ -463,6 +503,41 @@ def main():
         boltz_key = options.boltz if options.boltz else 'gibbs'
         boltz_facs = get_boltz(thermo_data, options.temperature, dup_list, key=boltz_key)
 
+    # Selectivity (new --label / --selectivity API). Computed once for
+    # single-T mode; one entry per temperature in --ti scan mode. Two
+    # methods are computed side-by-side: Boltzmann-averaged across all
+    # conformers in each species, and lowest-conformer-only.
+    selectivity_results = None
+    selectivity_lowest_results = None
+    if label_patterns is not None or label_files is not None:
+        if label_patterns is not None:
+            files_per_label = assign_files_to_labels(list(thermo_data), label_patterns)
+        else:
+            files_per_label = label_files
+        sel_key = options.boltz if options.boltz else 'gibbs'
+        try:
+            if options.temperature_interval is None:
+                selectivity_results = [compute_selectivity(
+                    thermo_data, files_per_label, options.temperature,
+                    dup_list=dup_list, key=sel_key)]
+                selectivity_lowest_results = [compute_selectivity_lowest_only(
+                    thermo_data, files_per_label, options.temperature,
+                    dup_list=dup_list, key=sel_key)]
+            else:
+                # Mirror print_temperature_interval's parsing of --ti.
+                ti = [float(x) for x in options.temperature_interval.split(',')]
+                if len(ti) == 2:
+                    ti.append((ti[1] - ti[0]) / 10.0)
+                temps = list(range(int(ti[0]), int(ti[1]) + 1, int(ti[2])))
+                selectivity_results = compute_selectivity_scan(
+                    thermo_data, files_per_label, temps,
+                    dup_list=dup_list, key=sel_key)
+                selectivity_lowest_results = compute_selectivity_lowest_only_scan(
+                    thermo_data, files_per_label, temps,
+                    dup_list=dup_list, key=sel_key)
+        except ValueError as exc:
+            fatal(f"\n   ✗ FATAL ERROR: {exc}")
+
     # Variables populated by temperature-interval mode, used by PES
     interval_bbe_data, interval, file_list = None, None, None
 
@@ -470,6 +545,11 @@ def main():
     if options.temperature_interval is None:
         print_results(thermo_data, options, media_conc=media_conc,
                       dup_list=dup_list, boltz_facs=boltz_facs)
+        if selectivity_results is not None:
+            print_selectivity_results({
+                'Boltzmann-averaged': selectivity_results,
+                'Lowest conformer only': selectivity_lowest_results,
+            })
 
     # Structured (JSON) output — preview of v5.0 schema. Additive; runs
     # alongside the .dat output. Single-temperature mode only for now.
@@ -482,7 +562,9 @@ def main():
                     media_conc_per_file[file] = mc
         write_json_results(thermo_data, options, options.json_path,
                            media_conc_per_file=media_conc_per_file,
-                           boltz_facs=boltz_facs)
+                           boltz_facs=boltz_facs,
+                           selectivity_results=selectivity_results,
+                           selectivity_lowest_results=selectivity_lowest_results)
 
     # Perform checks for consistent options
     if options.check:
@@ -491,6 +573,11 @@ def main():
     # Variable temperature analysis
     elif options.temperature_interval:
         print_temperature_interval(thermo_data, options, media_conc=media_conc, qcdata_cache=qcdata_cache)
+        if selectivity_results is not None:
+            print_selectivity_results({
+                'Boltzmann-averaged': selectivity_results,
+                'Lowest conformer only': selectivity_lowest_results,
+            })
 
     # Print CPU usage if requested
     if options.cputime:
