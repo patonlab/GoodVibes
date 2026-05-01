@@ -8,8 +8,8 @@ from argparse import ArgumentParser
 
 from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
 from .io import write_xyz, load_cache, save_cache, qcdata_to_dict, find_spc_file
-from .thermo import calc_bbe, get_free_space
-from .media import solvents, compute_media_conc
+from .thermo import calc_bbe, get_free_space, FREESPACE_SOLVENTS
+from .media import solvents, compute_media_conc, lookup_solvent
 from .constants import (
     SUPPORTED_EXTENSIONS, GAS_CONSTANT, ATMOS,
     grimme_mRRHO_ref, grimme_msRRHO_ref, truhlar_ref, head_gordon_ref,
@@ -361,6 +361,19 @@ def main():
 
     # Print banner
     log.info(gv_banner)
+
+    # Fail fast on unknown solvent names — let the user fix the typo before we
+    # parse a thousand files.
+    if options.media is not None:
+        try:
+            lookup_solvent(options.media)
+        except ValueError as exc:
+            fatal(f"\n   ✗ FATAL ERROR: {exc}")
+    if options.freespace is not None and options.freespace not in FREESPACE_SOLVENTS:
+        fatal(
+            f"\n   ✗ FATAL ERROR: Unknown --freespace solvent {options.freespace!r}. "
+            f"Supported (case-sensitive): {', '.join(FREESPACE_SOLVENTS)}."
+        )
 
     # Load QCData cache early if requested (needed to determine file list in cache-only mode)
     qcdata_cache = None

@@ -36,6 +36,29 @@ def _load_solvents():
 solvents = _load_solvents()
 
 
+def lookup_solvent(name):
+    """Look up a solvent by alias and return its (mw, density).
+
+    Raises ValueError with a "did you mean ..." hint and a list of common
+    aliases if `name` is unknown. Use this to validate user input (e.g.
+    --media / --freespace) up-front; `compute_media_conc` and other call
+    sites can then assume the alias is valid.
+    """
+    key = name.lower()
+    if key not in solvents:
+        import difflib
+        suggestions = difflib.get_close_matches(key, solvents.keys(), n=5, cutoff=0.5)
+        common = ['water', 'methanol', 'ethanol', 'acetone', 'dmso', 'dmf',
+                  'thf', 'benzene', 'toluene', 'chloroform', 'dcm', 'acetonitrile']
+        msg = f"Unknown solvent {name!r}."
+        if suggestions:
+            msg += f" Did you mean: {', '.join(suggestions)}?"
+        msg += (f" Common aliases: {', '.join(common)} "
+                f"({len(solvents)} total in goodvibes/solvents.json).")
+        raise ValueError(msg)
+    return solvents[key]
+
+
 def compute_media_conc(media, file):
     """
     Compute the neat-solvent molar concentration when the output file corresponds to the specified solvent.

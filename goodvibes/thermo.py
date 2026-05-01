@@ -17,6 +17,10 @@ AMU_to_KG = 1.66053886E-27  # UNIT CONVERSION
 J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
 GRIMME_BAV = 1.00e-44  # Default average moment of inertia (kg m^2) from Grimme
 
+# Solvents supported by --freespace (Shakhnovich & Whitesides free-volume model).
+# Case-sensitive — these are the literal strings the user must pass.
+FREESPACE_SOLVENTS = ("H2O", "toluene", "DMF", "AcOH", "chloroform")
+
 
 # Symmetry numbers for different point groups
 pg_sm = {"C1": 1, "Cs": 1, "Ci": 1, "C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "C7": 7, "C8": 8, "D2": 4, "D3": 6,
@@ -163,7 +167,7 @@ def get_free_space(solv):
         DeprecationWarning,
         stacklevel=2,
     )
-    solvent_list = ["H2O", "toluene", "DMF", "AcOH", "chloroform"]
+    solvent_list = list(FREESPACE_SOLVENTS)
     molarity = [55.6, 9.4, 12.9, 17.4, 12.5]  # mol/l
     molecular_vol = [27.944, 149.070, 77.442, 86.10, 97.0]  # Angstrom^3
 
