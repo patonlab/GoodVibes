@@ -20,7 +20,7 @@ from .utils import all_same, setup_logging, fatal, natural_key
 from .validation import collect_and_validate_files, check_files, print_check_fails
 from .sort import deduplicate, sort_thermo
 from .selectivity import get_boltz
-from .output import print_results, print_temperature_interval, print_pes_results, print_cpu_time
+from .output import print_results, print_temperature_interval, print_pes_results, print_cpu_time, write_json_results
 
 log = logging.getLogger('goodvibes')
 
@@ -82,6 +82,9 @@ def parse_arguments():
     parser.add_argument("--invert", dest="invert", nargs='?', const=True, default=None, type=float,
                         help="Invert small imaginary frequencies (> -50 cm-1) to positive values; "
                              "optionally provide a custom threshold in cm-1")
+    parser.add_argument("--json", dest="json_path", default=None, metavar="PATH",
+                        help="Write structured results to PATH as JSON (every parsed and computed "
+                             "field per file plus the run options). Schema is preview/v0.1.")
     parser.add_argument("--media", dest="media", default=None, metavar="solvent",
                         help="Apply standard-state concentration correction for the given solvent "
                              "(e.g. H2O corrects to 55.34 M)")
@@ -467,6 +470,19 @@ def main():
     if options.temperature_interval is None:
         print_results(thermo_data, options, media_conc=media_conc,
                       dup_list=dup_list, boltz_facs=boltz_facs)
+
+    # Structured (JSON) output — preview of v5.0 schema. Additive; runs
+    # alongside the .dat output. Single-temperature mode only for now.
+    if options.json_path and options.temperature_interval is None:
+        media_conc_per_file = {}
+        if options.media:
+            for file in thermo_data:
+                mc = compute_media_conc(options.media, file)
+                if mc is not None:
+                    media_conc_per_file[file] = mc
+        write_json_results(thermo_data, options, options.json_path,
+                           media_conc_per_file=media_conc_per_file,
+                           boltz_facs=boltz_facs)
 
     # Perform checks for consistent options
     if options.check:

@@ -1,17 +1,118 @@
 """Output formatting and printing functions for GoodVibes."""
+import json
 import logging
 import math
 import os.path
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .utils import display_name, add_time, get_console_stdout, get_console_dat
 from .selectivity import get_selectivity
-from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU
+from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__
+from .io import qcdata_to_dict
 
 from .pes import get_pes, graph_reaction_profile
 from .thermo import calc_bbe
 from .media import solvents
+
+
+# --------------------------------------------------------------------------
+# Structured (JSON) output
+# --------------------------------------------------------------------------
+# Schema version is independent of __version__ — bump on every breaking
+# change to the JSON layout. v0.x means "preview, may change without notice".
+JSON_SCHEMA_VERSION = "0.1"
+
+# Run-level option keys that should appear in the JSON header, mapped from
+# their Namespace attribute names. Any options not in this list are dropped
+# (avoids leaking nuisance flags like --output, --custom_ext, etc.).
+_JSON_OPTION_KEYS = (
+    'temperature', 'temperature_interval', 'conc',
+    'QS', 'QH', 'freq_cutoff', 'S_freq_cutoff', 'H_freq_cutoff',
+    'freq_scale_factor', 'media', 'freespace', 'spc',
+    'invert', 'symm', 'duplicate', 'boltz', 'inertia',
+    'mm_freq_scale_factor',
+)
+
+# calc_bbe attributes whose names match exactly between the object and the
+# JSON output. Optional — None when calc_bbe didn't compute them (SP-only).
+_THERMO_FIELDS = (
+    'scf_energy', 'sp_energy', 'zpe', 'zero_point_corr',
+    'enthalpy', 'qh_enthalpy',
+    'entropy', 'qh_entropy',
+    'gibbs_free_energy', 'qh_gibbs_free_energy',
+    'frequency_wn', 'im_frequency_wn', 'inverted_freqs',
+    'point_group', 'symmno', 'linear_mol',
+    'multiplicity', 'job_type', 'applied_freq_scale_factor',
+)
+
+
+def _options_to_json(options):
+    """Project the argparse Namespace down to the JSON-relevant subset."""
+    out = {}
+    for key in _JSON_OPTION_KEYS:
+        out[key] = getattr(options, key, None)
+    return out
+
+
+def _bbe_to_json(bbe, file_path, media_conc=None, boltz_factor=None):
+    """Serialize one calc_bbe instance + its underlying QCData to a dict."""
+    entry = {
+        'file': os.path.abspath(file_path),
+        'name': display_name(file_path),
+    }
+    qcdata = getattr(bbe, 'xyz', None)
+    if qcdata is not None:
+        d = qcdata_to_dict(qcdata)
+        d.pop('_cache_version', None)
+        entry['qcdata'] = d
+    thermo = {}
+    for field_name in _THERMO_FIELDS:
+        thermo[field_name] = getattr(bbe, field_name, None)
+    entry['thermo'] = thermo
+    entry['media_conc'] = media_conc
+    entry['boltzmann_factor'] = boltz_factor
+    return entry
+
+
+def write_json_results(thermo_data, options, path, media_conc_per_file=None,
+                       boltz_facs=None):
+    """Write structured run results to *path* as JSON.
+
+    Captures every parsed QCData field plus computed thermo per file, the
+    schema version, the goodvibes version, and the run options. Schema is
+    preview/v0.x — fields may shift before v5.0 stabilizes it.
+
+    Parameters:
+        thermo_data (dict): file path -> calc_bbe.
+        options (Namespace): the parsed CLI options.
+        path (str): output JSON file path.
+        media_conc_per_file (dict, optional): file path -> neat solvent
+            concentration applied to that specific file (None for files
+            where --media didn't match).
+        boltz_facs (dict, optional): file path -> Boltzmann factor.
+    """
+    media_conc_per_file = media_conc_per_file or {}
+    boltz_facs = boltz_facs or {}
+    payload = {
+        'schema_version': JSON_SCHEMA_VERSION,
+        'goodvibes_version': __version__,
+        'generated_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'options': _options_to_json(options),
+        'results': [
+            _bbe_to_json(
+                bbe, file,
+                media_conc=media_conc_per_file.get(file),
+                boltz_factor=boltz_facs.get(file),
+            )
+            for file, bbe in thermo_data.items()
+        ],
+    }
+    # default=str catches anything stringifiable that json doesn't natively
+    # know about (e.g., the '!' sentinel value calc_bbe uses for failed SPC).
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2, default=str)
+    log.info(f"\n   ✔ Structured results written to {path} (schema v{JSON_SCHEMA_VERSION}).")
 
 try:
     from rich.table import Table
