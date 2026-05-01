@@ -1,500 +1,153 @@
 # -*- coding: utf-8 -*-
+"""PES driver: legacy `get_pes` class re-implemented on top of the v4.2 model.
+
+The class signature is unchanged; everything that printed/plotted off
+`get_pes` instances in v4.0/v4.1 still does. Internally we delegate
+parsing and rollup to `pes_loader` + `pes_model`, then project the
+resulting `PESResult` into the legacy parallel-list attribute layout
+that `output.print_pes_results` and `pes.graph_reaction_profile`
+already consume.
+
+This shim ships through the v4.x line. v5.1 removes `get_pes` entirely
+in favor of the structured API (item 12 / Sub-plan B in ROADMAP.md).
+"""
 import logging
-import math
-import os.path
-import sys
+
+from .pes_loader import load_pes
 
 log = logging.getLogger('goodvibes')
 
 # PHYSICAL CONSTANTS                                      UNITS
-GAS_CONSTANT = 8.3144621  # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
-KCAL_TO_AU = 627.509541  # UNIT CONVERSION
+GAS_CONSTANT = 8.3144621                                 # J / K / mol
+J_TO_AU = 4.184 * 627.509541 * 1000.0                    # UNIT CONVERSION
+KCAL_TO_AU = 627.509541                                  # UNIT CONVERSION
+
 
 class get_pes:
-    """
-    Obtain relative thermochemistry between species and for reactions.
+    """Back-compat surface around `pes_loader.load_pes`.
 
-    Routine that computes Boltzmann populations of conformer sets at each step of a reaction, obtaining
-    relative energetic and thermodynamic values for each step in a reaction pathway.
-    Determines reaction pathway from .yaml formatted file containing definitions for where files fit in pathway.
-
-    Attributes:
-        dec (int): decimal places to display after PES calculations.
-        units (str): units do display values in, choice of kcal/mol or kJ/mol.
-        boltz (str): allows for selectivity calculation to display to user.
-        path (list): list of strings defining each reaction pathway.
-        species (list): list of strings defining which files correspond to names given in reaction pathway.
-        spc_abs (list): list of relative single-point energy values.
-        e_abs (list): list of relative energy values.
-        zpe_abs (list): list of relative zero point energy values.
-        h_abs (list): list of relative enthalpy values.
-        qh_abs (list): list of relative quasi-harmonic enthalpy values.
-        s_abs (list): list of relative entropy values.
-        qs_abs (list): list of relative quasi-harmonic entropy values.
-        g_abs (list): list of relative Gibbs free energy values.
-        qhg_abs (list): list of relative quasi-harmonic Gibbs free energy values.
-        spc_zero (list): list of single point energy "zero" species values to compare all other steps in pathway to.
-        e_zero (list): list of energy "zero" species values to compare all other steps in pathway to.
-        zpe_zero (list): list of zero point energy "zero" species values to compare all other steps in pathway to.
-        h_zero (list): list of enthalpy "zero" species values to compare all other steps in pathway to.
-        qh_zero (list): list of quasi-harmonic enthalpy "zero" species values to compare all other steps in pathway to.
-        ts_zero (list): list of T*entropy "zero" species values to compare all other steps in pathway to.
-        qhts_zero (list): list of quasi-harmonic T*entropy "zero" species values to compare all other steps in pathway to.
-        g_zero (list): list of Gibbs free energy "zero" species values to compare all other steps in pathway to.
-        qhg_zero (list): list of quasi-harmonic Gibbs free energy "zero" species values to compare all other steps in pathway to.
-        g_qhgvals (list): relative quasi-harmonic Gibbs free energy values used for graphing.
-        g_species_qhgzero (list):quasi-harmonic Gibbs free energy "zero" values used for graphing.
-        g_rel_val (list): relative Gibbs free energy values used for graphing.
+    Reads a PES definition file (legacy line-based or modern YAML),
+    computes Boltzmann-weighted thermo at each pathway point with
+    optional gconf correction, and exposes the same parallel-list
+    attribute layout as the pre-v4.2 implementation: `path`, `species`,
+    `*_abs`, `*_zero`, plus `g_qhgvals` / `g_species_qhgzero` /
+    `g_rel_val` for the reaction-profile plot.
     """
+
     def __init__(self, file, thermo_data, temperature, gconf, QH):
-        # Default values
-        """
-        Initialize a get_pes instance by parsing a pathway definition file and populating thermochemical data for each pathway point.
-        
-        Reads the specified pathway file, maps SPECIES entries to keys in the provided thermo_data, computes Boltzmann-weighted conformer averages at the given temperature (optionally applying the gconf "single-minimum plus correction" model), and fills instance attributes used for downstream graphing and analysis (e.g., path, species, *_abs and *_zero arrays for energies, entropies, and quasi-harmonic variants).
-        
-        Parameters:
-            file (str): Path to the pathway definition file to parse.
-            thermo_data (dict): Mapping from identifier keys to objects containing thermochemical attributes
-                (expected attributes include scf_energy, zpe, enthalpy, entropy, gibbs_free_energy,
-                qh_enthalpy, qh_entropy, qh_gibbs_free_energy, and optionally sp_energy).
-            temperature (float): Temperature (in Kelvin) used for Boltzmann weighting.
-            gconf (bool): If True, apply conformer-correction model that uses the lowest‑energy conformer
-                plus Boltzmann-weighted enthalpy/entropy corrections.
-            QH (bool): If True, compute Gibbs energies using quasi-harmonic enthalpy/entropy (qh_* fields)
-                when applying gconf corrections.
-        
-        Side effects:
-            - Reads the input file and may log warnings via the module logger.
-            - Initializes numerous instance lists (path, species, spc_abs, e_abs, zpe_abs, h_abs, qh_abs,
-              s_abs, qs_abs, g_abs, qhg_abs and corresponding *_zero lists, plus graphing helpers g_qhgvals,
-              g_species_qhgzero, g_rel_val).
-            - May call sys.exit for fatal conditions (e.g., missing SPC values or malformed zero-species).
-        """
-        self.dec, self.units, self.boltz = 2, 'kcal/mol', False
+        # 1. Parse + resolve via the new pipeline.
+        result = load_pes(file, thermo_data, temperatures=[temperature])
 
-        with open(file) as f:
-            data = f.readlines()
-        names, files, zeros, pes_list = [], [], [], []
-        for i, dline in enumerate(data):
-            if dline.strip().find('PES') > -1:
-                for j, line in enumerate(data[i + 1:]):
-                    if line.strip().startswith('#'):
-                        pass
-                    elif len(line) <= 2:
-                        pass
-                    elif line.strip().startswith('---'):
-                        break
-                    elif line.strip() != '':
-                        pathway, pes = line.strip().replace(':', '=').split("=")
-                        # Auto-grab first species as zero unless specified
-                        pes_list.append(pes)
-                        zeros.append(pes.strip().lstrip('[').rstrip(']').split(',')[0])
-                        # Look at SPECIES block to determine filenames
-            if dline.strip().find('SPECIES') > -1:
-                for j, line in enumerate(data[i + 1:]):
-                    if line.strip().startswith('---'):
-                        break
+        # Surface options.
+        self.units = result.options.units
+        self.dec = result.options.decimals
+        # Legacy `boltz` flag (string like 'ee' or False) lives in format_extras.
+        # Re-parsed from the original file because PESOptions discards it.
+        self.boltz = _read_boltz(file)
+
+        # 2. Initialise legacy parallel-list attributes (one slot per pathway).
+        self.path = []
+        self.species = []
+        self.spc_zero = []; self.e_zero = []; self.zpe_zero = []
+        self.h_zero = [];   self.qh_zero = []
+        self.ts_zero = [];  self.qhts_zero = []
+        self.g_zero = [];   self.qhg_zero = []
+        self.spc_abs = [];  self.e_abs = [];  self.zpe_abs = []
+        self.h_abs = [];    self.qh_abs = []
+        self.s_abs = [];    self.qs_abs = []
+        self.g_abs = [];    self.qhg_abs = []
+        self.g_qhgvals = []
+        self.g_species_qhgzero = []
+        self.g_rel_val = []
+
+        # 3. Project each pathway into the legacy layout.
+        for pathway in result.pathways:
+            self.path.append(pathway.name)
+            zero_th = pathway.zero.thermo(temperature, gconf=gconf, QH=QH)
+
+            # Zero values (single-element lists per legacy convention).
+            self.spc_zero.append([zero_th.sp_energy if zero_th.sp_energy is not None else 0.0])
+            self.e_zero.append([zero_th.scf_energy])
+            self.zpe_zero.append([zero_th.zpe])
+            self.h_zero.append([zero_th.enthalpy])
+            self.qh_zero.append([zero_th.qh_enthalpy])
+            self.ts_zero.append([zero_th.entropy])      # raw S; T applied at print
+            self.qhts_zero.append([zero_th.qh_entropy])
+            self.g_zero.append([zero_th.gibbs])
+            self.qhg_zero.append([zero_th.qh_gibbs])
+
+            # Per-step abs lists.
+            self.species.append([])
+            self.spc_abs.append([]); self.e_abs.append([]); self.zpe_abs.append([])
+            self.h_abs.append([]);  self.qh_abs.append([])
+            self.s_abs.append([]);  self.qs_abs.append([])
+            self.g_abs.append([]);  self.qhg_abs.append([])
+            self.g_qhgvals.append([])
+            self.g_species_qhgzero.append([])
+            self.g_rel_val.append([])
+
+            for point in pathway.points:
+                pt_th = point.thermo(temperature, gconf=gconf, QH=QH)
+                self.species[-1].append(point.label)
+                self.spc_abs[-1].append(
+                    pt_th.sp_energy if pt_th.sp_energy is not None else 0.0
+                )
+                self.e_abs[-1].append(pt_th.scf_energy)
+                self.zpe_abs[-1].append(pt_th.zpe)
+                self.h_abs[-1].append(pt_th.enthalpy)
+                self.qh_abs[-1].append(pt_th.qh_enthalpy)
+                self.s_abs[-1].append(pt_th.entropy)
+                self.qs_abs[-1].append(pt_th.qh_entropy)
+                self.g_abs[-1].append(pt_th.gibbs)
+                self.qhg_abs[-1].append(pt_th.qh_gibbs)
+
+                # Per-conformer arrays for the reaction-profile plot.
+                # g_qhgvals[step] is a list of per-species lists of conformer qh-G;
+                # g_species_qhgzero[step] is the per-species Boltzmann reference;
+                # g_rel_val[step] is the stoichiometric sum across species.
+                step_qhgvals = []
+                step_species_zero = []
+                rel_val = 0.0
+                for coeff, cset in point.species:
+                    step_qhgvals.append(
+                        [b.qh_gibbs_free_energy for b in cset.bbes]
+                    )
+                    if cset.is_single:
+                        species_zero = cset.bbes[0].qh_gibbs_free_energy
                     else:
-                        if line.lower().strip().find('folder') > -1:
-                            try:
-                                _ = line.strip().replace('#', '=').split("=")[1].strip()
-                            except IndexError:
-                                pass
-                        else:
-                            try:
-                                n, f = (line.strip().replace(':', '=').split("="))
-                                # Check the specified filename is also one that GoodVibes has thermochemistry for:
-                                if f.find('*') == -1 and f not in pes_list:
-                                    match = None
-                                    for key in thermo_data:
-                                        if os.path.splitext(os.path.basename(key))[0] in f.replace('[', '').replace(']', '').replace('+', ',').replace(' ', '').split(','):
-                                            match = key
-                                    if match:
-                                        names.append(n.strip())
-                                        files.append(match)
-                                    else:
-                                        log.info("   Warning! " + f.strip() + ' is specified in ' + file +
-                                                  ' but no thermochemistry data found\n')
-                                elif f not in pes_list:
-                                    match = []
-                                    for key in thermo_data:
-                                        if os.path.splitext(os.path.basename(key))[0].find(f.strip().strip('*')) == 0:
-                                            match.append(key)
-                                    if match:
-                                        names.append(n.strip())
-                                        files.append(match)
-                                    else:
-                                        log.info("   Warning! " + f.strip() + ' is specified in ' + file +
-                                                  ' but no thermochemistry data found\n')
-                            except ValueError:
-                                if line.isspace():
-                                    pass
-                                elif line.strip().find('#') > -1:
-                                    pass
-                                elif len(line) > 2:
-                                    warn = "   Warning! " + file + ' input is incorrectly formatted for line:\n\t' + line
-                                    log.info(warn)
-            # Look at FORMAT block to see if user has specified any formatting rules
-            if dline.strip().find('FORMAT') > -1:
-                for j, line in enumerate(data[i + 1:]):
-                    if line.strip().find('dec') > -1:
-                        try:
-                            self.dec = int(line.strip().replace(':', '=').split("=")[1].strip())
-                        except IndexError:
-                            pass
-                    if line.strip().find('zero') > -1:
-                        zeros = []
-                        try:
-                            zeros.append(line.strip().replace(':', '=').split("=")[1].strip())
-                        except IndexError:
-                            pass
-                    if line.strip().find('units') > -1:
-                        try:
-                            self.units = line.strip().replace(':', '=').split("=")[1].strip()
-                        except IndexError:
-                            pass
-                    if line.strip().find('boltz') > -1:
-                        try:
-                            self.boltz = line.strip().replace(':', '=').split("=")[1].strip()
-                        except IndexError:
-                            pass
+                        species_zero = cset.boltzmann_weighted(temperature).qh_gibbs
+                    step_species_zero.append(species_zero)
+                    rel_val += coeff * species_zero
+                self.g_qhgvals[-1].append(step_qhgvals)
+                self.g_species_qhgzero[-1].append(step_species_zero)
+                self.g_rel_val[-1].append(rel_val)
 
-        for i in range(len(files)):
-            if len(files[i]) == 1:
-                files[i] = files[i][0]
-        species = dict(zip(names, files))
-        self.path, self.species = [], []
-        self.spc_abs, self.e_abs, self.zpe_abs, self.h_abs, self.qh_abs, self.s_abs, self.qs_abs, self.g_abs, self.qhg_abs = [], [], [], [], [], [], [], [], []
-        self.spc_zero, self.e_zero, self.zpe_zero, self.h_zero, self.qh_zero, self.ts_zero, self.qhts_zero, self.g_zero, self.qhg_zero = [], [], [], [], [], [], [], [], []
-        self.g_qhgvals, self.g_species_qhgzero, self.g_rel_val = [], [], []
-        # Loop over .yaml file, grab energies, populate arrays and compute Boltzmann factors
-        with open(file) as f:
-            data = f.readlines()
-        for i, dline in enumerate(data):
-            if dline.strip().find('PES') > -1:
-                n = 0
-                for j, line in enumerate(data[i + 1:]):
-                    if line.strip().startswith('#'):
-                        pass
-                    elif len(line) <= 2:
-                        pass
-                    elif line.strip().startswith('---'):
+
+def _read_boltz(path):
+    """Recover the legacy `boltz:` FORMAT key (string or False).
+
+    Lives outside `PESOptions` because it gates output behavior, not thermo
+    math. Returns False if not set or the file can't be opened.
+    """
+    try:
+        with open(path) as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith('#'):
+                    continue
+                if 'boltz' not in stripped.lower():
+                    continue
+                # `boltz: ee` or `boltz = ee`
+                for sep in (':', '='):
+                    if sep in stripped:
+                        key, _, value = stripped.partition(sep)
+                        if key.strip().lower() == 'boltz':
+                            return value.strip()
                         break
-                    elif line.strip() != '':
-                        try:
-                            self.e_zero.append([])
-                            self.spc_zero.append([])
-                            self.zpe_zero.append([])
-                            self.h_zero.append([])
-                            self.qh_zero.append([])
-                            self.ts_zero.append([])
-                            self.qhts_zero.append([])
-                            self.g_zero.append([])
-                            self.qhg_zero.append([])
-                            min_conf = None
-                            spc_zero, e_zero, zpe_zero, h_zero, qh_zero, s_zero, qs_zero, g_zero, qhg_zero = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                            h_conf, h_tot, s_conf, s_tot, qh_conf, qh_tot, qs_conf, qs_tot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                            zero_structures = zeros[n].replace(' ', '').split('+')
-                            # Routine for 'zero' values
-                            for structure in zero_structures:
-                                try:
-                                    if not isinstance(species[structure], list):
-                                        if hasattr(thermo_data[species[structure]], "sp_energy"):
-                                            spc_zero += thermo_data[species[structure]].sp_energy
-                                        e_zero += thermo_data[species[structure]].scf_energy
-                                        zpe_zero += thermo_data[species[structure]].zpe
-                                        h_zero += thermo_data[species[structure]].enthalpy
-                                        qh_zero += thermo_data[species[structure]].qh_enthalpy
-                                        s_zero += thermo_data[species[structure]].entropy
-                                        qs_zero += thermo_data[species[structure]].qh_entropy
-                                        g_zero += thermo_data[species[structure]].gibbs_free_energy
-                                        qhg_zero += thermo_data[species[structure]].qh_gibbs_free_energy
-                                    else:  # If we have a list of different kinds of structures: loop over conformers
-                                        g_min, boltz_sum = sys.float_info.max, 0.0
-                                        for conformer in species[
-                                            structure]:  # Find minimum G, along with associated enthalpy and entropy
-                                            if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
-                                                min_conf = thermo_data[conformer]
-                                                g_min = thermo_data[conformer].qh_gibbs_free_energy
-                                        for conformer in species[structure]:  # Get a Boltzmann sum for conformers
-                                            g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                                            boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
-                                            boltz_sum += boltz_fac
-                                        for conformer in species[
-                                            structure]:  # Calculate relative data based on Gmin and the Boltzmann sum
-                                            g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                                            boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
-                                            boltz_prob = boltz_fac / boltz_sum
-                                            #if no contribution, skip further calculations
-                                            if boltz_prob == 0.0:
-                                                continue
+    except OSError:
+        pass
+    return False
 
-                                            if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[
-                                                conformer].sp_energy != '!':
-                                                spc_zero += thermo_data[conformer].sp_energy * boltz_prob
-                                            if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[
-                                                conformer].sp_energy == '!':
-                                                sys.exit(
-                                                    "Not all files contain a SPC value, relative values will not be calculated.")
-                                            e_zero += thermo_data[conformer].scf_energy * boltz_prob
-                                            zpe_zero += thermo_data[conformer].zpe * boltz_prob
-                                            # Default calculate gconf correction for conformers, skip if no contribution
-                                            if gconf and boltz_prob > 0.0 and boltz_prob != 1.0:
-                                                h_conf += thermo_data[conformer].enthalpy * boltz_prob
-                                                s_conf += thermo_data[conformer].entropy * boltz_prob
-                                                s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
-
-                                                qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
-                                                qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
-                                                qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
-                                            elif gconf and boltz_prob == 1.0:
-                                                h_conf += thermo_data[conformer].enthalpy
-                                                s_conf += thermo_data[conformer].entropy
-                                                qh_conf += thermo_data[conformer].qh_enthalpy
-                                                qs_conf += thermo_data[conformer].qh_entropy
-                                            else:
-                                                h_zero += thermo_data[conformer].enthalpy * boltz_prob
-                                                s_zero += thermo_data[conformer].entropy * boltz_prob
-                                                g_zero += thermo_data[conformer].gibbs_free_energy * boltz_prob
-
-                                                qh_zero += thermo_data[conformer].qh_enthalpy * boltz_prob
-                                                qs_zero += thermo_data[conformer].qh_entropy * boltz_prob
-                                                qhg_zero += thermo_data[conformer].qh_gibbs_free_energy * boltz_prob
-
-                                        if gconf:
-                                            h_adj = h_conf - min_conf.enthalpy
-                                            h_tot = min_conf.enthalpy + h_adj
-                                            s_adj = s_conf - min_conf.entropy
-                                            s_tot = min_conf.entropy + s_adj
-                                            g_corr = h_tot - temperature * s_tot
-                                            qh_adj = qh_conf - min_conf.qh_enthalpy
-                                            qh_tot = min_conf.qh_enthalpy + qh_adj
-                                            qs_adj = qs_conf - min_conf.qh_entropy
-                                            qs_tot = min_conf.qh_entropy + qs_adj
-                                            if QH:
-                                                qg_corr = qh_tot - temperature * qs_tot
-                                            else:
-                                                qg_corr = h_tot - temperature * qs_tot
-                                except KeyError:
-                                    log.info(
-                                        "   Warning! Structure " + structure + ' has not been defined correctly as energy-zero in ' + file + '\n')
-                                    log.info(
-                                        "   Make sure this structure matches one of the SPECIES defined in the same file\n")
-                                    sys.exit("   Please edit " + file + " and try again\n")
-                            # Set zero vals here
-                            conformers, single_structure, mix = False, False, False
-                            for structure in zero_structures:
-                                if not isinstance(species[structure], list):
-                                    single_structure = True
-                                else:
-                                    conformers = True
-                            if conformers and single_structure:
-                                mix = True
-                            if gconf and min_conf is not None:
-                                if mix:
-                                    h_mix = h_tot + h_zero
-                                    s_mix = s_tot + s_zero
-                                    g_mix = g_corr + g_zero
-                                    qh_mix = qh_tot + qh_zero
-                                    qs_mix = qs_tot + qs_zero
-                                    qg_mix = qg_corr + qhg_zero
-                                    self.h_zero[n].append(h_mix)
-                                    self.ts_zero[n].append(s_mix)
-                                    self.g_zero[n].append(g_mix)
-                                    self.qh_zero[n].append(qh_mix)
-                                    self.qhts_zero[n].append(qs_mix)
-                                    self.qhg_zero[n].append(qg_mix)
-                                elif conformers:
-                                    self.h_zero[n].append(h_tot)
-                                    self.ts_zero[n].append(s_tot)
-                                    self.g_zero[n].append(g_corr)
-                                    self.qh_zero[n].append(qh_tot)
-                                    self.qhts_zero[n].append(qs_tot)
-                                    self.qhg_zero[n].append(qg_corr)
-                            else:
-                                self.h_zero[n].append(h_zero)
-                                self.ts_zero[n].append(s_zero)
-                                self.g_zero[n].append(g_zero)
-
-                                self.qh_zero[n].append(qh_zero)
-                                self.qhts_zero[n].append(qs_zero)
-                                self.qhg_zero[n].append(qhg_zero)
-
-                            self.spc_zero[n].append(spc_zero)
-                            self.e_zero[n].append(e_zero)
-                            self.zpe_zero[n].append(zpe_zero)
-
-                            self.species.append([])
-                            self.e_abs.append([])
-                            self.spc_abs.append([])
-                            self.zpe_abs.append([])
-                            self.h_abs.append([])
-                            self.qh_abs.append([])
-                            self.s_abs.append([])
-                            self.g_abs.append([])
-                            self.qs_abs.append([])
-                            self.qhg_abs.append([])
-                            self.g_qhgvals.append([])
-                            self.g_species_qhgzero.append([])
-                            self.g_rel_val.append([])  # graphing
-
-                            pathway, pes = line.strip().replace(':', '=').split("=")
-                            pes = pes.strip()
-                            points = [entry.strip() for entry in pes.lstrip('[').rstrip(']').split(',')]
-                            self.path.append(pathway.strip())
-                            # Obtain relative values for each species
-                            for i, point in enumerate(points):
-                                if point != '':
-                                    # Create values to populate
-                                    point_structures = point.replace(' ', '').split('+')
-                                    e_abs, spc_abs, zpe_abs, h_abs, qh_abs, s_abs, g_abs, qs_abs, qhg_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                                    qh_conf, qh_tot, qs_conf, qs_tot, h_conf, h_tot, s_conf, s_tot, g_corr, qg_corr = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                                    min_conf = None
-                                    rel_val = 0.0
-                                    self.g_qhgvals[n].append([])
-                                    self.g_species_qhgzero[n].append([])
-                                    try:
-                                        for j, structure in enumerate(point_structures):  # Loop over structures, structures are species specified
-                                            zero_conf = 0.0
-                                            self.g_qhgvals[n][i].append([])
-                                            if not isinstance(species[structure], list):  # Only one conf in structures
-                                                e_abs += thermo_data[species[structure]].scf_energy
-                                                if hasattr(thermo_data[species[structure]], "sp_energy"):
-                                                    spc_abs += thermo_data[species[structure]].sp_energy
-                                                zpe_abs += thermo_data[species[structure]].zpe
-                                                h_abs += thermo_data[species[structure]].enthalpy
-                                                qh_abs += thermo_data[species[structure]].qh_enthalpy
-                                                s_abs += thermo_data[species[structure]].entropy
-                                                g_abs += thermo_data[species[structure]].gibbs_free_energy
-                                                qs_abs += thermo_data[species[structure]].qh_entropy
-                                                qhg_abs += thermo_data[species[structure]].qh_gibbs_free_energy
-                                                zero_conf += thermo_data[species[structure]].qh_gibbs_free_energy
-                                                self.g_qhgvals[n][i][j].append(
-                                                    thermo_data[species[structure]].qh_gibbs_free_energy)
-                                                rel_val += thermo_data[species[structure]].qh_gibbs_free_energy
-                                            else:  # If we have a list of different kinds of structures: loop over conformers
-                                                g_min, boltz_sum = sys.float_info.max, 0.0
-                                                # Find minimum G, along with associated enthalpy and entropy
-                                                for conformer in species[structure]:
-                                                    if thermo_data[conformer].qh_gibbs_free_energy <= g_min:
-                                                        min_conf = thermo_data[conformer]
-                                                        g_min = thermo_data[conformer].qh_gibbs_free_energy
-                                                # Get a Boltzmann sum for conformers
-                                                for conformer in species[structure]:
-                                                    g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                                                    boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
-                                                    boltz_sum += boltz_fac
-                                                # Calculate relative data based on Gmin and the Boltzmann sum
-                                                for conformer in species[structure]:
-                                                    g_rel = thermo_data[conformer].qh_gibbs_free_energy - g_min
-                                                    boltz_fac = math.exp(-g_rel * J_TO_AU / GAS_CONSTANT / temperature)
-                                                    boltz_prob = boltz_fac / boltz_sum
-                                                    if boltz_prob == 0.0:
-                                                        continue
-                                                    if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[
-                                                        conformer].sp_energy != '!':
-                                                        spc_abs += thermo_data[conformer].sp_energy * boltz_prob
-                                                    if hasattr(thermo_data[conformer], "sp_energy") and thermo_data[conformer].sp_energy == '!':
-                                                        sys.exit("\n   Not all files contain a SPC value, relative values will not be calculated.\n")
-                                                    e_abs += thermo_data[conformer].scf_energy * boltz_prob
-                                                    zpe_abs += thermo_data[conformer].zpe * boltz_prob
-                                                    zero_conf += thermo_data[
-                                                                     conformer].qh_gibbs_free_energy * boltz_prob
-                                                    rel_val += thermo_data[
-                                                                   conformer].qh_gibbs_free_energy * boltz_prob
-                                                    # Default calculate gconf correction for conformers, skip if no contribution
-                                                    if gconf and boltz_prob > 0.0 and boltz_prob != 1.0:
-                                                        h_conf += thermo_data[conformer].enthalpy * boltz_prob
-                                                        s_conf += thermo_data[conformer].entropy * boltz_prob
-                                                        s_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
-
-                                                        qh_conf += thermo_data[conformer].qh_enthalpy * boltz_prob
-                                                        qs_conf += thermo_data[conformer].qh_entropy * boltz_prob
-                                                        qs_conf += -GAS_CONSTANT / J_TO_AU * boltz_prob * math.log(boltz_prob)
-                                                    elif gconf and boltz_prob == 1.0:
-                                                        h_conf += thermo_data[conformer].enthalpy
-                                                        s_conf += thermo_data[conformer].entropy
-                                                        qh_conf += thermo_data[conformer].qh_enthalpy
-                                                        qs_conf += thermo_data[conformer].qh_entropy
-                                                    else:
-                                                        h_abs += thermo_data[conformer].enthalpy * boltz_prob
-                                                        s_abs += thermo_data[conformer].entropy * boltz_prob
-                                                        g_abs += thermo_data[conformer].gibbs_free_energy * boltz_prob
-
-                                                        qh_abs += thermo_data[conformer].qh_enthalpy * boltz_prob
-                                                        qs_abs += thermo_data[conformer].qh_entropy * boltz_prob
-                                                        qhg_abs += thermo_data[
-                                                                       conformer].qh_gibbs_free_energy * boltz_prob
-                                                    self.g_qhgvals[n][i][j].append(thermo_data[conformer].qh_gibbs_free_energy)
-                                                if gconf:
-                                                    h_adj = h_conf - min_conf.enthalpy
-                                                    h_tot = min_conf.enthalpy + h_adj
-                                                    s_adj = s_conf - min_conf.entropy
-                                                    s_tot = min_conf.entropy + s_adj
-                                                    g_corr = h_tot - temperature * s_tot
-                                                    qh_adj = qh_conf - min_conf.qh_enthalpy
-                                                    qh_tot = min_conf.qh_enthalpy + qh_adj
-                                                    qs_adj = qs_conf - min_conf.qh_entropy
-                                                    qs_tot = min_conf.qh_entropy + qs_adj
-                                                    if QH:
-                                                        qg_corr = qh_tot - temperature * qs_tot
-                                                    else:
-                                                        qg_corr = h_tot - temperature * qs_tot
-                                            self.g_species_qhgzero[n][i].append(zero_conf)  # Raw data for graphing
-                                    except KeyError:
-                                        log.info("   Warning! Structure " + structure + ' has not been defined correctly in ' + file + '\n')
-                                        sys.exit("   Please edit " + file + " and try again\n")
-                                    self.species[n].append(point)
-                                    self.e_abs[n].append(e_abs)
-                                    self.spc_abs[n].append(spc_abs)
-                                    self.zpe_abs[n].append(zpe_abs)
-                                    conformers, single_structure, mix = False, False, False
-                                    self.g_rel_val[n].append(rel_val)
-                                    for structure in point_structures:
-                                        if not isinstance(species[structure], list):
-                                            single_structure = True
-                                        else:
-                                            conformers = True
-                                    if conformers and single_structure:
-                                        mix = True
-                                    if gconf and min_conf is not None:
-                                        if mix:
-                                            h_mix = h_tot + h_abs
-                                            s_mix = s_tot + s_abs
-                                            g_mix = g_corr + g_abs
-                                            qh_mix = qh_tot + qh_abs
-                                            qs_mix = qs_tot + qs_abs
-                                            qg_mix = qg_corr + qhg_abs
-                                            self.h_abs[n].append(h_mix)
-                                            self.s_abs[n].append(s_mix)
-                                            self.g_abs[n].append(g_mix)
-                                            self.qh_abs[n].append(qh_mix)
-                                            self.qs_abs[n].append(qs_mix)
-                                            self.qhg_abs[n].append(qg_mix)
-                                        elif conformers:
-                                            self.h_abs[n].append(h_tot)
-                                            self.s_abs[n].append(s_tot)
-                                            self.g_abs[n].append(g_corr)
-                                            self.qh_abs[n].append(qh_tot)
-                                            self.qs_abs[n].append(qs_tot)
-                                            self.qhg_abs[n].append(qg_corr)
-                                    else:
-                                        self.h_abs[n].append(h_abs)
-                                        self.s_abs[n].append(s_abs)
-                                        self.g_abs[n].append(g_abs)
-
-                                        self.qh_abs[n].append(qh_abs)
-                                        self.qs_abs[n].append(qs_abs)
-                                        self.qhg_abs[n].append(qhg_abs)
-                                else:
-                                    self.species[n].append('none')
-                                    self.e_abs[n].append(float('nan'))
-
-                            n = n + 1
-                        except IndexError:
-                            pass
 
 def jitter(datasets, color, ax, nx, marker, edgecol='black'):
     """

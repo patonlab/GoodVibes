@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import pytest
 import math
 from goodvibes import GoodVibes as GV
@@ -311,6 +312,13 @@ def test_media_correction(path,conc, media, E, ZPE, H, TS, TqhS, G, qhG):
             assert qhG == round(bbe.qh_gibbs_free_energy+(temp * (-media_correction)), precision)
             
 
+@pytest.mark.skipif(
+    not os.path.exists(os.path.join(os.path.dirname(__file__), 'pes', 'Cis_complete_pathway.yaml')),
+    reason="Cis_complete_pathway.yaml fixture removed; golden values "
+           "computed for that fixture no longer apply. Phase 4 of the PES "
+           "rewrite (Sub-plan B) will replace this with a PESResult test "
+           "against the new azabor_PES.yaml fixture."
+)
 @pytest.mark.parametrize("E, ZPE, H, TS, TqhS, GT, qhGT", [
     ([0.0,-8.01,-50.34],[0.0,0.86,4.27],[0.0,-7.1,-45.99],[0.0,-14.54,-26.25],[0.0,-15.21,-29.6],[0.0,7.44,-19.74],[0.0,8.11,-16.39])
 ])

@@ -21,7 +21,7 @@ from .media import solvents
 # --------------------------------------------------------------------------
 # Schema version is independent of __version__ — bump on every breaking
 # change to the JSON layout. v0.x means "preview, may change without notice".
-JSON_SCHEMA_VERSION = "0.3"
+JSON_SCHEMA_VERSION = "0.4"
 
 # Run-level option keys that should appear in the JSON header, mapped from
 # their Namespace attribute names. Any options not in this list are dropped
@@ -223,9 +223,62 @@ def _selectivity_to_json(selectivity_results):
     }
 
 
+def _pes_to_json(result, temperature):
+    """Serialize a PESResult into the v0.4 JSON `pes` block.
+
+    Per-pathway, per-point: the original label, the species breakdown
+    (with coefficient and resolved files), and the relative thermo bundle
+    (Hartree internally, converted to user units in the `units` field).
+    """
+    if result is None or not result.pathways:
+        return None
+    pathways_out = []
+    units_factor = result.options.to_user_units(1.0)   # Hartree → kcal/mol or kJ/mol
+    lowest_only = getattr(result.options, 'lowest_only', False)
+    rollup_kw = dict(gconf=result.options.gconf, QH=result.options.QH,
+                     lowest_only=lowest_only)
+    for pathway in result.pathways:
+        zero_th = pathway.zero.thermo(temperature, **rollup_kw)
+        points_out = []
+        for point in pathway.points:
+            pt_th = point.thermo(temperature, **rollup_kw)
+            rel = pt_th - zero_th
+            points_out.append({
+                'label': point.label,
+                'species': [
+                    {
+                        'coefficient': coeff,
+                        'name': cset.name,
+                        'files': list(cset.files),
+                    }
+                    for coeff, cset in point.species
+                ],
+                'relative': {
+                    'scf': rel.scf_energy * units_factor,
+                    'zpe': rel.zpe * units_factor,
+                    'h': rel.enthalpy * units_factor,
+                    'qh_h': rel.qh_enthalpy * units_factor,
+                    'ts': temperature * rel.entropy * units_factor,
+                    'qh_ts': temperature * rel.qh_entropy * units_factor,
+                    'g': rel.gibbs * units_factor,
+                    'qh_g': rel.qh_gibbs * units_factor,
+                    'spc': (rel.sp_energy * units_factor) if rel.sp_energy is not None else None,
+                },
+            })
+        pathways_out.append({
+            'name': pathway.name,
+            'temperature': temperature,
+            'units': result.options.units,
+            'zero_label': pathway.zero.label,
+            'points': points_out,
+        })
+    return {'pathways': pathways_out}
+
+
 def write_json_results(thermo_data, options, path, media_conc_per_file=None,
                        boltz_facs=None, selectivity_results=None,
-                       selectivity_lowest_results=None):
+                       selectivity_lowest_results=None,
+                       pes_result=None):
     """Write structured run results to *path* as JSON.
 
     Captures every parsed QCData field plus computed thermo per file, the
@@ -265,6 +318,9 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
     sel_low_block = _selectivity_to_json(selectivity_lowest_results)
     if sel_low_block is not None:
         payload['selectivity_lowest'] = sel_low_block
+    pes_block = _pes_to_json(pes_result, getattr(options, 'temperature', 298.15))
+    if pes_block is not None:
+        payload['pes'] = pes_block
     # default=str catches anything stringifiable that json doesn't natively
     # know about (e.g., the '!' sentinel value calc_bbe uses for failed SPC).
     with open(path, 'w', encoding='utf-8') as f:
@@ -282,26 +338,159 @@ log = logging.getLogger('goodvibes')
 
 
 def _print_rich_table(table: "Table") -> None:
-    """Print a Rich Table to both stdout and .dat file consoles."""
-    if Table is not None:
-        from io import StringIO
-        # Add leading newline for spacing
-        log.info("\n\n")
-        get_console_stdout().print(table)
-        get_console_dat().print(table)
-        # Measure actual rendered table width by rendering to a temp buffer
-        # Use the same width as the actual stdout console
-        temp_buf = StringIO()
-        from rich.console import Console
-        stdout_console = get_console_stdout()
-        temp_console = Console(file=temp_buf, force_terminal=True, no_color=True, width=stdout_console.width)
-        temp_console.print(table)
-        rendered = temp_buf.getvalue()
-        # Find the longest line to determine table width
-        line_width = max((len(line.rstrip()) for line in rendered.split('\n')), default=0)
-        log.info("─" * line_width)
-        # Add trailing newline for spacing
-        log.info("\n")
+    """Print a Rich Table to both stdout and .dat file consoles.
+
+    Renders to a buffer per console, strips Rich's trailing blank padding
+    row (`box.SIMPLE` always adds one), and writes directly so the
+    separator that follows lands immediately under the data.
+    """
+    if Table is None:
+        return
+    import re
+    from io import StringIO
+    from rich.console import Console
+    log.info("\n")
+    ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGK]")
+
+    def _render(console):
+        buf = StringIO()
+        Console(
+            file=buf,
+            force_terminal=console.is_terminal,
+            color_system=console.color_system,
+            width=console.width,
+        ).print(table)
+        text = buf.getvalue().rstrip("\n")
+        lines = text.split("\n")
+        # Drop trailing visually-blank lines (Rich SIMPLE-box padding).
+        while lines and not ANSI_RE.sub("", lines[-1]).strip():
+            lines.pop()
+        return "\n".join(lines) + "\n"
+
+    for console in (get_console_stdout(), get_console_dat()):
+        console.file.write(_render(console))
+        console.file.flush()
+
+    # Measure visible width via a plain render (no escape codes).
+    stdout_console = get_console_stdout()
+    plain_buf = StringIO()
+    Console(file=plain_buf, color_system=None, width=stdout_console.width).print(table)
+    line_width = max(
+        (len(line.rstrip()) for line in plain_buf.getvalue().split("\n")),
+        default=0,
+    )
+    log.info("─" * line_width)
+    log.info("\n")
+
+
+# ---------------------------------------------------------------------------
+# PES tables (v4.2 Rich renderer; see Sub-plan B in ROADMAP.md)
+# ---------------------------------------------------------------------------
+
+def _pes_column_spec(spc_used: bool, QH: bool):
+    """Column headers + which ThermoVector field each one reads.
+
+    Returns a list of (header, field, scale_by_T) tuples.  `field` is the
+    attribute on a ThermoVector; `scale_by_T` indicates the column is T·S
+    rather than raw S/H/G (i.e. needs an extra multiplication at render).
+    Without --spc the energy/H/G columns use their plain names; with
+    --spc, H and G are SPC-substituted in calc_bbe so the labels are
+    annotated `_SPC` to signal that to the reader (the values themselves
+    are taken from the same fields).
+    """
+    cols = []
+    if spc_used:
+        cols.append(("ΔE_SPC", "sp_energy", False))
+    cols.append(("ΔE", "scf_energy", False))
+    cols.append(("ΔZPE", "zpe", False))
+    h_label = "ΔH_SPC" if spc_used else "ΔH"
+    cols.append((h_label, "enthalpy", False))
+    if QH:
+        qh_h_label = "Δqh-H_SPC" if spc_used else "Δqh-H"
+        cols.append((qh_h_label, "qh_enthalpy", False))
+    cols.append(("T·ΔS", "entropy", True))
+    cols.append(("T·Δqh-S", "qh_entropy", True))
+    g_label = "ΔG(T)_SPC" if spc_used else "ΔG(T)"
+    cols.append((g_label, "gibbs", False))
+    qhg_label = "Δqh-G(T)_SPC" if spc_used else "Δqh-G(T)"
+    cols.append((qhg_label, "qh_gibbs", False))
+    return cols
+
+
+def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
+    """Build a Rich Table for one Pathway at one temperature."""
+    spc_used = bool(getattr(options, 'spc', None))
+    cols = _pes_column_spec(spc_used, options.QH)
+    # Concentration: when --conc isn't set the default is gas-phase 1 atm,
+    # so report "p = 1 atm" rather than its numeric P/RT equivalent.
+    user_conc = getattr(options, 'conc', None)
+    state_str = f"c = {user_conc:.4g} mol/L" if user_conc else "p = 1 atm"
+    if getattr(pes_options, 'lowest_only', False):
+        mode_str = " — lowest conformer per species"
+    elif not pes_options.gconf:
+        mode_str = " — Boltzmann-averaged (no gconf)"
+    else:
+        mode_str = ""
+    title = (
+        f"RXN: {pathway.name}  ({pes_options.units})  "
+        f"at T = {temperature:g} K, {state_str}{mode_str}"
+    )
+    table = Table(title=title, box=rich_box.SIMPLE, header_style="bold")
+    table.add_column("", justify="left", no_wrap=True)        # leading marker (matches selectivity tables)
+    table.add_column("Species", justify="left", no_wrap=True)
+    for header, _, _ in cols:
+        table.add_column(header, justify="right")
+
+    units_factor = pes_options.to_user_units(1.0)
+    fmt = f"{{:.{pes_options.decimals}f}}"
+    rollup_kw = dict(
+        gconf=pes_options.gconf,
+        QH=pes_options.QH,
+        lowest_only=getattr(pes_options, 'lowest_only', False),
+    )
+    zero_th = pathway.zero.thermo(temperature, **rollup_kw)
+    for point in pathway.points:
+        pt_th = point.thermo(temperature, **rollup_kw)
+        rel = pt_th - zero_th
+        row = ["", point.label]
+        for _header, field, scale_by_T in cols:
+            value = getattr(rel, field)
+            if value is None:
+                row.append("—")
+                continue
+            if scale_by_T:
+                value = temperature * value
+            row.append(fmt.format(value * units_factor))
+        table.add_row(*row)
+    return table
+
+
+def print_pes_tables(result, options, temperature=None):
+    """Render PES results as Rich tables (one per pathway).
+
+    Parameters:
+        result: PESResult instance (from goodvibes.pes_loader.load_pes).
+        options: argparse Namespace; reads .QH, .spc, .gconf.
+        temperature: K. Defaults to result.temperatures[0].
+    """
+    if Table is None:                              # pragma: no cover
+        log.warning("Rich not installed; falling back to legacy text PES output.")
+        return
+    if temperature is None:
+        temperature = result.temperatures[0] if result.temperatures else 298.15
+    # Sync run-time flags into the model's options so the column spec and
+    # rollup math agree with what the user requested on the CLI.
+    result.options.gconf = bool(getattr(options, 'gconf', True))
+    result.options.QH = bool(getattr(options, 'QH', False))
+    result.options.spc_used = bool(getattr(options, 'spc', None))
+    result.options.lowest_only = bool(getattr(options, 'lowest_only', False))
+    if result.options.lowest_only:
+        log.info("\n   Lowest conformer per species (no Boltzmann averaging, no gconf)")
+    elif options.gconf:
+        log.info("\n   Gconf correction applied to relative values")
+    for pathway in result.pathways:
+        table = _build_pes_table(pathway, options, temperature, result.options)
+        _print_rich_table(table)
 
 
 def print_cpu_time(thermo_data, exclude=None):

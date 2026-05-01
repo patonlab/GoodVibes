@@ -107,6 +107,9 @@ def parse_arguments():
                              "(e.g. H2O corrects to 55.34 M)")
     parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
                         help="Disable the Gconf correction for multi-conformer ensembles (enabled by default)")
+    parser.add_argument("--lowest-only", dest="lowest_only", action="store_true", default=False,
+                        help="PES tables: use only each species' lowest qh-G conformer "
+                             "(overrides --nogconf and the default Gconf correction)")
     parser.add_argument("--output", dest="output", default="output", metavar="name",
                         help="Base name for the output file, written as GoodVibes_OUTPUT.dat (default: output)")
     parser.add_argument("--pes", dest="pes", default=None, metavar="file",
@@ -551,6 +554,15 @@ def main():
                 'Lowest conformer only': selectivity_lowest_results,
             })
 
+    # PES: build the v4.2 model once for single-T mode so we can pass it
+    # to both the Rich table renderer and the JSON writer. T-interval mode
+    # still flows through the legacy print_pes_results below.
+    pes_result = None
+    if options.pes and options.temperature_interval is None:
+        from .pes_loader import load_pes
+        pes_result = load_pes(options.pes, thermo_data,
+                              temperatures=[options.temperature])
+
     # Structured (JSON) output — preview of v5.0 schema. Additive; runs
     # alongside the .dat output. Single-temperature mode only for now.
     if options.json_path and options.temperature_interval is None:
@@ -564,7 +576,8 @@ def main():
                            media_conc_per_file=media_conc_per_file,
                            boltz_facs=boltz_facs,
                            selectivity_results=selectivity_results,
-                           selectivity_lowest_results=selectivity_lowest_results)
+                           selectivity_lowest_results=selectivity_lowest_results,
+                           pes_result=pes_result)
 
     # Perform checks for consistent options
     if options.check:
@@ -583,11 +596,17 @@ def main():
     if options.cputime:
         print_cpu_time(thermo_data, options.exclude)
 
-    # Tabulate relative values (PES)
+    # Tabulate relative values (PES). New Rich table renderer for the
+    # single-T case; T-interval still uses the legacy text path.
     if options.pes:
-        print_pes_results(thermo_data, options, dup_list,
-                          boltz_facs=boltz_facs,
-                          interval_bbe_data=interval_bbe_data, interval=interval, file_list=file_list)
+        if options.temperature_interval is None:
+            from .output import print_pes_tables
+            print_pes_tables(pes_result, options, temperature=options.temperature)
+        else:
+            print_pes_results(thermo_data, options, dup_list,
+                              boltz_facs=boltz_facs,
+                              interval_bbe_data=interval_bbe_data,
+                              interval=interval, file_list=file_list)
 
     # Close the log
     logging.shutdown()

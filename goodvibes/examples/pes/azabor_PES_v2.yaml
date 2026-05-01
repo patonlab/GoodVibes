@@ -1,0 +1,46 @@
+# Aza-borocyclization PES — true YAML format (introduced in v4.2).
+#
+# Schema:
+#   pathways: <name> -> ordered list of point labels (strings).
+#             Point labels can be a single species, a stoichiometric sum
+#             ("A + B"), or use integer coefficients ("2*A + B").
+#   species:  <name> -> {files: <glob OR list of paths>}.
+#             Shorthand `name: "glob"` or `name: [a.log, b.log]` is also accepted.
+#   zero:     (optional) <pathway> -> point label used as ΔG=0 reference.
+#             Defaults to each pathway's first point.
+#   format:   (optional) units, decimals, plus any graph-styling keys
+#             (dpi, color, title, ...) preserved as extras.
+#
+# This file is the new-style equivalent of azabor_PES.yaml. Both files
+# parse to identical PESResults; the legacy form emits a DeprecationWarning.
+
+pathways:
+  Ph:
+    - "R1-An + Aza-Phos"
+    - "R1-Comp + THF"
+    - "AmTS + THF"
+    - "Azir-Comp + THF"
+    - "OpenTS + THF"
+    - "Syn-P + THF"
+
+species:
+  R1-An:      {files: "r1-li-3thf-c1*"}
+  Aza-Phos:   {files: "azaoxy-phosphine-full*"}
+  THF:        {files: "thf*"}
+  R1-Comp:    {files: "r1-phosphine-2thf-full*"}
+  Azir-Comp:  {files: "aziridinium-phos-full*"}
+  Syn-P:      {files: "syn-product-phos-full*"}
+  OpenTS:     {files: "openTS-phos-full*"}
+  AmTS:       {files: "aminationTS-full-unfrz-c1*"}
+
+format:
+  units: kcal/mol
+  decimals: 1
+  # Graph-styling keys (consumed by graph_reaction_profile, ignored by the
+  # data model itself):
+  dpi: 400
+  title: Potential Energy Surface
+  pointlabel: True
+  legend: False
+  color: "black,#26a6a4"
+  gridlines: False
