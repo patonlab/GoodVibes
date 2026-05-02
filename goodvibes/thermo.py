@@ -477,7 +477,8 @@ class calc_bbe:
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
     def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
-                 invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None):
+                 invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None,
+                 zpe_scale_fac=None):
         """
         Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
 
@@ -592,9 +593,17 @@ class calc_bbe:
             s_trans = calc_translational_entropy(molecular_mass, conc, temp, solvent)
             s_elec = calc_electronic_entropy(self.multiplicity)
 
-            # Rotational and Vibrational contributions to the energy entropy
+            # Rotational and Vibrational contributions to the energy entropy.
+            #
+            # The Truhlar database (Alecu et al., JCTC 2010) calibrates ZPE
+            # and harmonic-frequency scale factors *separately* — they
+            # correct for slightly different systematic errors. When
+            # `zpe_scale_fac` is supplied, ZPE uses it; the partition-function
+            # frequencies (H_vib, S_vib) keep using `scale_fac`. When None,
+            # ZPE falls back to `scale_fac` (preserves v4.x.0 behavior).
+            effective_zpe_scale = zpe_scale_fac if zpe_scale_fac is not None else scale_fac
             if len(frequency_wn) > 0:
-                zpe = calc_zeropoint_energy(frequency_wn, scale_fac, fract_modelsys)
+                zpe = calc_zeropoint_energy(frequency_wn, effective_zpe_scale, fract_modelsys)
                 u_rot = calc_rotational_energy(temp, monatomic=(self.zero_point_corr == 0.0), linear=(linear_mol == 1))
                 u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac, fract_modelsys)
                 s_rot = calc_rotational_entropy(temp, rotemp,

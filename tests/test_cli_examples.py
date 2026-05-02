@@ -153,7 +153,7 @@ class TestExample2a:
     """python -m goodvibes examples/ethane_spc.out --spc link"""
 
     EXPECTED = [
-        ('ethane_spc', [-79.858399, -79.830421, 0.074561, -79.779414, 0.027540, 0.027542, -79.806954, -79.806956]),
+        ('ethane_spc', [-79.858399, -79.830421, 0.073508, -79.779414, 0.027540, 0.027542, -79.806954, -79.806956]),
     ]
     HEADER_COLS = ['E_SPC', 'E', 'ZPE', 'H_SPC', 'T.S', 'T.qh-S', 'G(T)_SPC', 'qh-G(T)_SPC']
 
@@ -178,7 +178,7 @@ class TestExample2b:
     """python -m goodvibes examples/ethane.out --spc TZ"""
 
     EXPECTED = [
-        ('ethane', [-79.858399, -79.830421, 0.074561, -79.779414, 0.027540, 0.027542, -79.806954, -79.806956]),
+        ('ethane', [-79.858399, -79.830421, 0.073508, -79.779414, 0.027540, 0.027542, -79.806954, -79.806956]),
     ]
     HEADER_COLS = ['E_SPC', 'E', 'ZPE', 'H_SPC', 'T.S', 'T.qh-S', 'G(T)_SPC', 'qh-G(T)_SPC']
 

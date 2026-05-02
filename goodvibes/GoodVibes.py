@@ -142,8 +142,13 @@ def parse_arguments():
     parser.add_argument("--ti", dest="temperature_interval", default=None, metavar="TI",
                         help="Temperature interval as START,END,STEP in Kelvin (e.g. '300,1000,100')")
     parser.add_argument("-v", "--vscal", dest="freq_scale_factor", default=None, type=float, metavar="SCALE_FACTOR",
-                        help="Vibrational frequency scaling factor; auto-detected from level of theory if not set, "
-                             "falls back to 1.0")
+                        help="Vibrational frequency scaling factor for the partition-function frequencies "
+                             "(H_vib, S_vib); auto-detected from level of theory via Truhlar's harm_fac if "
+                             "not set, falls back to 1.0")
+    parser.add_argument("--zpe-vscal", dest="zpe_scale_factor", default=None, type=float, metavar="ZPE_SCALE_FACTOR",
+                        help="Separate scaling factor for the zero-point energy (ZPE); auto-detected from "
+                             "level of theory via Truhlar's zpe_fac if not set. If --vscal is set but "
+                             "--zpe-vscal is not, ZPE inherits --vscal (back-compat).")
     parser.add_argument("--vmm", dest="mm_freq_scale_factor", default=None, type=float, metavar="MM_SCALE_FACTOR",
                         help="Frequency scaling factor for the MM region in ONIOM calculations")
     parser.add_argument("--xyz", dest="xyz", action="store_true", default=False,
@@ -233,14 +238,22 @@ def resolve_scaling_factor(files, options, level_of_theory):
         else:
             log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for QM region of {level_of_theory[0]}")
     else:
-        # Look for vibrational scaling factor automatically
+        # Look for vibrational scaling factor automatically. Truhlar's
+        # database provides separate harm_fac (for partition functions)
+        # and zpe_fac (for ZPE). When auto-detecting, use both; when the
+        # user supplied --vscal explicitly, ZPE inherits it unless they
+        # also passed --zpe-vscal (handled below).
         if all_same(level_of_theory):
             level = canonicalize_level(level_of_theory[0])
             if level in scaling_data_dict:
-                options.freq_scale_factor = scaling_data_dict[level].harm_fac
-                ref = scaling_refs[scaling_data_dict[level].harm_ref]
-                log.info("\n\no  Found vibrational scaling factor of {:.3f} for {} level of theory\n"
-                          "   {}".format(options.freq_scale_factor, level_of_theory[0], ref))
+                entry = scaling_data_dict[level]
+                options.freq_scale_factor = entry.harm_fac
+                if options.zpe_scale_factor is None:
+                    options.zpe_scale_factor = entry.zpe_fac
+                ref = scaling_refs[entry.harm_ref]
+                log.info("\n\no  Found vibrational scaling factors of {:.3f} (harmonic, H/S) and "
+                         "{:.3f} (ZPE) for {} level of theory\n   {}".format(
+                              entry.harm_fac, entry.zpe_fac, level_of_theory[0], ref))
 
     # Warn if different levels of theory are found
     if not all_same(level_of_theory):
@@ -356,6 +369,7 @@ def _calc_bbe_worker(args):
         spc=opts['spc'], invert=opts['invert'],
         symm=opts['symm'], mm_freq_scale_factor=opts['mm_freq_scale_factor'],
         inertia=opts['inertia'], qcdata=cached_qcdata,
+        zpe_scale_fac=opts.get('zpe_scale_factor'),
     )
 
 
@@ -385,6 +399,7 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'H_freq_cutoff': options.H_freq_cutoff,
         'temperature': options.temperature,
         'freq_scale_factor': options.freq_scale_factor,
+        'zpe_scale_factor': getattr(options, 'zpe_scale_factor', None),
         'freespace': options.freespace,
         'spc': options.spc, 'invert': options.invert,
         'symm': options.symm,

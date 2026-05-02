@@ -98,8 +98,10 @@ def test_parity_with_calc_bbe_default_args():
     fac = scaling_data_dict[canonicalize_level("HF/6-31G(d)")].harm_fac
 
     api = compute_thermo(WATER_HF)
+    entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
     direct = calc_bbe(WATER_HF, "grimme", False, 100.0, 100.0, T, conc,
-                      fac, "none", None, None)
+                      entry.harm_fac, "none", None, None,
+                      zpe_scale_fac=entry.zpe_fac)
     assert api.qh_gibbs_free_energy == direct.qh_gibbs_free_energy
     assert api.gibbs_free_energy == direct.gibbs_free_energy
     assert api.entropy == direct.entropy
@@ -109,13 +111,38 @@ def test_parity_with_calc_bbe_default_args():
 def test_parity_with_calc_bbe_qh_on():
     T = 298.15
     conc = ATMOS / (GAS_CONSTANT * T)
-    fac = scaling_data_dict[canonicalize_level("HF/6-31G(d)")].harm_fac
+    entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
 
     api = compute_thermo(WATER_HF, QH=True)
     direct = calc_bbe(WATER_HF, "grimme", True, 100.0, 100.0, T, conc,
-                      fac, "none", None, None)
+                      entry.harm_fac, "none", None, None,
+                      zpe_scale_fac=entry.zpe_fac)
     assert api.qh_enthalpy == direct.qh_enthalpy
     assert api.qh_gibbs_free_energy == direct.qh_gibbs_free_energy
+
+
+def test_zpe_uses_zpe_fac_not_harm_fac():
+    """The Truhlar database has separate harm_fac (for partition functions)
+    and zpe_fac (for ZPE). Auto-lookup must use zpe_fac for ZPE, even
+    when zpe_fac != harm_fac."""
+    entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
+    # Sanity: the two factors must actually differ for this LOT,
+    # otherwise the test isn't proving anything.
+    assert entry.zpe_fac != entry.harm_fac, "fixture LOT has identical zpe/harm factors"
+
+    r_auto = compute_thermo(WATER_HF)
+    # Build the comparison: ZPE computed with zpe_fac, H/S with harm_fac.
+    T = 298.15
+    conc = ATMOS / (GAS_CONSTANT * T)
+    correct = calc_bbe(WATER_HF, "grimme", False, 100.0, 100.0, T, conc,
+                       entry.harm_fac, "none", None, None,
+                       zpe_scale_fac=entry.zpe_fac)
+    # And the wrong version (harm_fac for both) for comparison.
+    wrong = calc_bbe(WATER_HF, "grimme", False, 100.0, 100.0, T, conc,
+                     entry.harm_fac, "none", None, None)
+
+    assert r_auto.zpe == correct.zpe
+    assert r_auto.zpe != wrong.zpe       # confirms zpe_fac != harm_fac path
 
 
 def test_explicit_freq_scale_factor_overrides_lookup():
@@ -147,11 +174,11 @@ def test_explicit_temperature():
 
 def test_default_freq_scale_factor_picks_db_value_for_known_lot():
     r = compute_thermo(WATER_HF)
-    fac = scaling_data_dict[canonicalize_level("HF/6-31G(d)")].harm_fac
-    # Verify by calling calc_bbe with the explicit factor and comparing.
+    entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
     T, conc = 298.15, ATMOS / (GAS_CONSTANT * 298.15)
     direct = calc_bbe(WATER_HF, "grimme", False, 100.0, 100.0, T, conc,
-                      fac, "none", None, None)
+                      entry.harm_fac, "none", None, None,
+                      zpe_scale_fac=entry.zpe_fac)
     assert r.zpe == direct.zpe
 
 

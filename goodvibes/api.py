@@ -93,6 +93,7 @@ def compute_thermo(
     temperature: float = 298.15,
     concentration: Optional[float] = None,
     freq_scale_factor: Optional[float] = None,
+    zpe_scale_factor: Optional[float] = None,
     solv: Optional[str] = None,
     spc: Optional[str] = None,
     invert: Optional[float] = None,
@@ -113,7 +114,13 @@ def compute_thermo(
         h_freq_cutoff      enthalpy cutoff (cm⁻¹) — only used when QH=True
         temperature        K
         concentration      mol/L. None → gas phase 1 atm.
-        freq_scale_factor  None → auto-lookup from level of theory
+        freq_scale_factor  None → auto-lookup harm_fac from level of theory.
+                           Applied to the partition-function frequencies
+                           (used in H_vib and S_vib).
+        zpe_scale_factor   None → auto-lookup zpe_fac from level of theory.
+                           Applied to ZPE only. If `freq_scale_factor` is
+                           explicitly set but `zpe_scale_factor` is None,
+                           ZPE inherits `freq_scale_factor` (back-compat).
         solv               'none', or solvent name for free-space correction
         spc                None, 'link', or filename suffix for SPC files
         invert             None, or threshold for converting small imag → real
@@ -124,20 +131,22 @@ def compute_thermo(
     if concentration is None:
         concentration = ATMOS / (GAS_CONSTANT * temperature)
 
-    # Mirror the CLI's auto-lookup: scan the file for level of theory
-    # via read_initial(), look up in the Truhlar scaling DB, fall back
-    # to 1.0 if the LOT isn't recognised. (QCData itself doesn't carry
-    # level_of_theory; that lives in the read_initial() scan, same as
-    # what validation.py uses.)
+    # Auto-lookup mirroring the CLI behaviour. The Truhlar database
+    # gives separate scale factors for ZPE and harmonic-frequency
+    # partition functions; honor that when the user doesn't override.
     lot = None
-    if freq_scale_factor is None:
+    if freq_scale_factor is None or zpe_scale_factor is None:
         if path is not None:
             lot = read_initial(path)[0]
+        entry = None
         if lot and lot != "none":
             entry = scaling_data_dict.get(canonicalize_level(lot))
+        if freq_scale_factor is None:
             freq_scale_factor = entry.harm_fac if entry is not None else 1.0
-        else:
-            freq_scale_factor = 1.0
+        if zpe_scale_factor is None and entry is not None:
+            zpe_scale_factor = entry.zpe_fac
+        # When the LOT isn't in the DB, leave zpe_scale_factor=None so
+        # calc_bbe falls back to freq_scale_factor (= 1.0 in that case).
 
     bbe = calc_bbe(
         path, QS, QH,
@@ -146,6 +155,7 @@ def compute_thermo(
         freq_scale_factor, solv, spc, invert,
         symm, mm_freq_scale_factor, inertia,
         qcdata=qcdata,
+        zpe_scale_fac=zpe_scale_factor,
     )
     return bbe_to_result(bbe, path, level_of_theory=lot)
 
