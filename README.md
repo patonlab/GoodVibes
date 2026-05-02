@@ -99,11 +99,11 @@ goodvibes examples/ethane_spc.out --spc link
 
    Structure                E_SPC             E        ZPE         H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
    ***********************************************************************************************************************
-o  ethane_spc          -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
+o  ethane_spc          -79.858399    -79.830421   0.073508    -79.779414   0.027540   0.027542    -79.806954    -79.806956
    ***********************************************************************************************************************
 ```
 
-This calculation contains a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. Note the use of the `--spc link` option. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the appropriate scaling factor of 0.977 (this can be suppressed to apply no scaling with -v 1.0)
+This calculation contains a multi-step job: an optimization and frequency calculation with a small basis set followed by (--Link1--) a larger basis set single point energy. Note the use of the `--spc link` option. The standard harmonic and quasi-harmonic corrected thermochemical data are obtained from the small basis set partition function combined with the larger basis set single point electronic energy. In this example, GoodVibes automatically recognizes the level of theory used in the frequency calculation, B3LYP/6-31G(d), and applies the [Truhlar group scaling factors](https://t1.chem.umn.edu/freqscale/index.html) of 0.991 (harmonic, used for H<sub>vib</sub> and S<sub>vib</sub>) and 0.977 (ZPE). Use `-v 1.0` to suppress all scaling, or `--zpe-vscal Y` to override only the ZPE factor.
 
 Alternatively, if a single point energy calculation has been performed separately, provided both file names share a common root e.g. `ethane.out` and `ethane_TZ.out` then use of the `--spc TZ` option is appropriate. This will give identical results as above.
 
@@ -112,7 +112,7 @@ goodvibes examples/ethane.out --spc TZ
 
    Structure                E_SPC             E        ZPE         H_SPC        T.S     T.qh-S      G(T)_SPC   qh-G(T)_SPC
    ***********************************************************************************************************************
-o  ethane              -79.858399    -79.830421   0.073508    -79.780448   0.027569   0.027570    -79.808017    -79.808019
+o  ethane              -79.858399    -79.830421   0.073508    -79.779414   0.027540   0.027542    -79.806954    -79.806956
    ***********************************************************************************************************************
 ```
 
