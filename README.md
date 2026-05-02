@@ -17,8 +17,9 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 - Variable temperature and concentration thermochemistry
 - Automated vibrational frequency scaling factor lookup (~200 levels of theory)
 - Single-point energy corrections (link jobs or separate files)
-- Boltzmann-weighted populations and stereoselectivity (ee, dr)
-- Potential energy surface analysis with YAML-defined pathways and Gconf corrections
+- Boltzmann-weighted populations and N-way stereoselectivity (`--label`)
+- Potential energy surface analysis with YAML-defined pathways, stoichiometric sums (`2*A + B`), and Gconf corrections
+- Structured JSON output (`--json`) for downstream pipelines
 - Symmetry-corrected entropy via pymsym point-group detection
 - Solvent standard-state concentration and free-space corrections
 - JSON caching for fast re-analysis (`--cache-save` / `--cache-read`)
@@ -262,8 +263,12 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--spc SUFFIX` | Single-point energy correction (suffix or `link`) | -- |
 | `--symm` | Apply symmetry correction to entropy (pymsym) | off |
 | `--boltz` | Print Boltzmann-weighted populations | off |
-| `--ee PATTERNS` | Compute selectivity from two species (e.g. `"*_R*:*_S*"`) | -- |
-| `--pes FILE` | YAML-defined reaction pathway analysis | -- |
+| `--label NAME=PATTERN` | N-way selectivity bucket (repeatable, fnmatch on basenames) | -- |
+| `--selectivity FILE.yaml` | Selectivity spec via YAML (alternative to `--label`) | -- |
+| `--ee PATTERNS` | (deprecated) Two-species selectivity, e.g. `"*_R*:*_S*"` — use `--label` | -- |
+| `--pes FILE` | YAML-defined reaction pathway analysis (legacy + true YAML auto-detected) | -- |
+| `--lowest-only` | PES tables: use only each species' lowest qh-G conformer | off |
+| `--json PATH` | Write structured results (schema v0.4: thermo, selectivity, pes blocks) | -- |
 | `--media SOLVENT` | Solvent standard-state concentration correction | -- |
 | `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
 | `--invert [THRESH]` | Invert small imaginary frequencies to positive values | off |
@@ -289,6 +294,12 @@ Run `goodvibes -h` for the full list of options. Key flags:
 - **Python** >= 3.9
 - **numpy** -- numerical computations
 - **pymsym** -- point group detection and symmetry numbers
+- **rich** >= 13 -- console table rendering
+
+Optional:
+
+- **ase** >= 3.22 (`goodvibes[ase]`) -- only needed to parse `.extxyz` inputs
+- **pyyaml** -- needed at runtime when reading new-style PES YAML or `--selectivity FILE.yaml`; included in the `test` extra
 
 Build requires setuptools >= 64. See `pyproject.toml` for details.
 

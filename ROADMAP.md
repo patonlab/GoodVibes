@@ -44,10 +44,12 @@ Plus several in-flight features that are partially detected
 | 8 | **Parallel parsing** with `concurrent.futures.ProcessPoolExecutor`, `--jobs N`. Target: 1,000 ORCA outputs in <30s on 8 cores. | Pending |
 | 9 | **Hindered-rotor treatment** (Pitzer–Gwinn / Truhlar HO-QHO interpolation). Manual `--hindered-rotor MODE_INDEX,V,I_red` for v4.2; auto detection deferred to v5.0+. | Pending |
 | Sub-plan B | **PES rewrite**: 3-layer data model (`ConformerSet`/`Point`/`Pathway`), true-YAML input alongside legacy parser, stoichiometry support, Rich tables, JSON v0.4 `pes` block, `--lowest-only` flag. Plot deferred to v5.0. | ✅ Done — [`03549d1`](../../commit/03549d1) |
+| Docs | **Refresh Read the Docs** for v4.1 + v4.2: `--label` / `--selectivity` selectivity flow, `--json` schema v0.4, new PES YAML format (with `2*A + B` stoichiometry), `--lowest-only`, ORCA CPU-time scaling. Stays on the existing Sphinx/RTD setup; the mkdocs migration is reserved for v5.0. | Pending |
 
 **Sequencing.** Item 5 is the keystone — unblocks 6 and enables clean
 Wigner integration in 7. Items 8 and 9 are independent and can run in
-parallel with 5/6/7.
+parallel with 5/6/7. Docs refresh sits on top of whichever subset of
+5–9 has shipped at the time it's tackled.
 
 ---
 

@@ -28,7 +28,9 @@ from goodvibes.selectivity import (
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SEL_DIR = os.path.join(ROOT_DIR, 'tests', 'selectivity_example')
+# Diels–Alder exo/endo × 1,2- vs 1,4- TS set; one (DA_exo_14_ii) errored
+# during the original calculation and is filtered by the orchestrator.
+SEL_DIR = os.path.join(ROOT_DIR, 'goodvibes', 'examples', 'selectivity')
 
 
 def _stub(g_value, scf=None):
@@ -428,13 +430,13 @@ def test_get_selectivity_emits_deprecation_warning():
     """get_selectivity (the --ee back-end) warns but still returns the
     legacy 6-tuple shape so the existing CLI print path keeps working."""
     files = [
-        os.path.join(SEL_DIR, 'P_R_re_TS_conf_1.log'),
-        os.path.join(SEL_DIR, 'P_S_re_TS_conf_1.log'),
+        os.path.join(SEL_DIR, 'DA_exo_12_i.out'),
+        os.path.join(SEL_DIR, 'DA_endo_12_i.out'),
     ]
-    boltz_facs = {files[0]: 0.6, files[1]: 0.4}
+    boltz_facs = {files[0]: 0.4, files[1]: 0.6}
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = get_selectivity('*P_R_re*:*P_S_re*', files, boltz_facs,
+        result = get_selectivity('*exo*:*endo*', files, boltz_facs,
                                  298.15, [])
     assert any(issubclass(w.category, DeprecationWarning) for w in caught)
     assert len(result) == 6  # (ee, er, ratio, ddG, failed, pref)
@@ -467,57 +469,49 @@ def _run_cli(args, cwd):
     return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=env)
 
 
-def _r_files():
-    """Real R-side selectivity fixtures (skip the def2_TZVP variants which
-    are SP-only and lack thermo data)."""
+def _all_files():
+    """Diels–Alder exo/endo × 1,2- vs 1,4- fixture set. The orchestrator
+    drops DA_exo_14_ii.out (Error termination) automatically, so the
+    contributing set is 7 files: 3 exo + 4 endo."""
     import glob
-    return [f for f in glob.glob(os.path.join(SEL_DIR, 'P_R_re_TS_conf_*.log'))
-            if 'def2_TZVP' not in f]
-
-
-def _s_files():
-    import glob
-    return [f for f in glob.glob(os.path.join(SEL_DIR, 'P_S_re_TS_conf_*.log'))
-            if 'def2_TZVP' not in f]
+    return sorted(glob.glob(os.path.join(SEL_DIR, 'DA_*.out')))
 
 
 def test_cli_label_two_species(tmp_path):
     """Two --label flags produce TWO Selectivity tables in the output:
     one Boltzmann-averaged, one lowest-conformer-only."""
-    res = _run_cli(_r_files() + _s_files() + [
-        '--label', 'R=*P_R_re_TS_conf_*',
-        '--label', 'S=*P_S_re_TS_conf_*',
+    res = _run_cli(_all_files() + [
+        '--label', 'exo=*_exo_*',
+        '--label', 'endo=*_endo_*',
         '--vscal', '1.0', '--output', 'cli2',
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
     assert 'Boltzmann-averaged' in res.stdout
     assert 'Lowest conformer only' in res.stdout
-    # Each table prints a Species column, ratio summary, ee, and ΔΔG‡
-    assert res.stdout.count('Species') >= 2  # one per table
-    assert res.stdout.count('Ratio R:S') >= 2
+    assert res.stdout.count('Species') >= 2          # one Species header per table
+    assert res.stdout.count('Ratio exo:endo') >= 2
     assert res.stdout.count('ee =') >= 2
     assert res.stdout.count('ΔΔG‡') >= 2
 
 
 def test_cli_label_n_way_no_ee_line(tmp_path):
     """N=4 selectivity prints ratio but no ee or ΔΔG‡ summary."""
-    res = _run_cli(_r_files() + _s_files() + [
-        '--label', 'RR=*P_R_re_TS_conf_1*',
-        '--label', 'RS=*P_R_re_TS_conf_2*',
-        '--label', 'SR=*P_S_re_TS_conf_1*',
-        '--label', 'SS=*P_S_re_TS_conf_4*',
+    res = _run_cli(_all_files() + [
+        '--label', 'exo_12=*_exo_12*',
+        '--label', 'endo_12=*_endo_12*',
+        '--label', 'exo_14=*_exo_14*',
+        '--label', 'endo_14=*_endo_14*',
         '--vscal', '1.0', '--output', 'clin',
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
-    # Look at the last selectivity block only — ee=... won't appear in it
-    sel_idx = res.stdout.rfind('Ratio RR:RS:SR:SS')
+    sel_idx = res.stdout.rfind('Ratio exo_12:endo_12:exo_14:endo_14')
     assert sel_idx > 0
     summary_line = res.stdout[sel_idx: sel_idx + 200]
     assert 'ee =' not in summary_line
 
 
 def test_cli_label_unknown_arg_format_fails(tmp_path):
-    res = _run_cli(_r_files()[:1] + _s_files()[:1] + [
+    res = _run_cli(_all_files()[:2] + [
         '--label', 'no_equals_sign',
         '--output', 'clibad',
     ], cwd=tmp_path)
@@ -527,9 +521,9 @@ def test_cli_label_unknown_arg_format_fails(tmp_path):
 
 def test_cli_label_and_selectivity_mutually_exclusive(tmp_path):
     yaml_path = tmp_path / 'spec.yaml'
-    yaml_path.write_text("labels:\n  R: '*P_R_*'\n  S: '*P_S_*'\n")
-    res = _run_cli(_r_files()[:1] + _s_files()[:1] + [
-        '--label', 'R=*P_R_*',
+    yaml_path.write_text("labels:\n  exo: '*_exo_*'\n  endo: '*_endo_*'\n")
+    res = _run_cli(_all_files()[:2] + [
+        '--label', 'exo=*_exo_*',
         '--selectivity', str(yaml_path),
         '--output', 'cliexcl',
     ], cwd=tmp_path)
@@ -538,8 +532,8 @@ def test_cli_label_and_selectivity_mutually_exclusive(tmp_path):
 
 
 def test_cli_label_and_ee_mutually_exclusive(tmp_path):
-    res = _run_cli(_r_files()[:1] + _s_files()[:1] + [
-        '--label', 'R=*P_R_*', '--ee', '*P_R_*:*P_S_*',
+    res = _run_cli(_all_files()[:2] + [
+        '--label', 'exo=*_exo_*', '--ee', '*_exo_*:*_endo_*',
         '--output', 'cliexclee',
     ], cwd=tmp_path)
     assert res.returncode != 0
@@ -549,50 +543,48 @@ def test_cli_label_and_ee_mutually_exclusive(tmp_path):
 def test_cli_selectivity_yaml(tmp_path):
     """--selectivity FILE.yaml works as an alternative to --label."""
     yaml_path = tmp_path / 'spec.yaml'
-    yaml_path.write_text("labels:\n  R: '*P_R_re_TS_conf_*'\n  S: '*P_S_re_TS_conf_*'\n")
-    res = _run_cli(_r_files() + _s_files() + [
+    yaml_path.write_text("labels:\n  exo: '*_exo_*'\n  endo: '*_endo_*'\n")
+    res = _run_cli(_all_files() + [
         '--selectivity', str(yaml_path),
         '--vscal', '1.0', '--output', 'cliyaml',
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
     assert 'Boltzmann-averaged' in res.stdout
     assert 'Lowest conformer only' in res.stdout
-    assert 'Ratio R:S' in res.stdout
+    assert 'Ratio exo:endo' in res.stdout
 
 
 def test_cli_temperature_scan(tmp_path):
     """--label combined with --ti emits one row per temperature."""
-    res = _run_cli(_r_files() + _s_files() + [
-        '--label', 'R=*P_R_re_TS_conf_*',
-        '--label', 'S=*P_S_re_TS_conf_*',
+    res = _run_cli(_all_files() + [
+        '--label', 'exo=*_exo_*',
+        '--label', 'endo=*_endo_*',
         '--ti', '200,400,100',
         '--vscal', '1.0', '--output', 'cliscan',
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
     assert 'Selectivity scan' in res.stdout
-    # Three temperatures: 200, 300, 400 (range with step 100)
     for T in ['200', '300', '400']:
         assert T in res.stdout
 
 
 def test_cli_json_includes_selectivity(tmp_path):
     out = tmp_path / 'results.json'
-    res = _run_cli(_r_files() + _s_files() + [
-        '--label', 'R=*P_R_re_TS_conf_*',
-        '--label', 'S=*P_S_re_TS_conf_*',
+    res = _run_cli(_all_files() + [
+        '--label', 'exo=*_exo_*',
+        '--label', 'endo=*_endo_*',
         '--json', str(out),
         '--vscal', '1.0', '--output', 'clijson',
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
     payload = json.loads(out.read_text())
-    assert payload['schema_version'] == '0.3'
-    # Both blocks present
+    assert payload['schema_version'] == '0.4'
     assert 'selectivity' in payload
     assert 'selectivity_lowest' in payload
     sel = payload['selectivity']
     sel_lo = payload['selectivity_lowest']
-    assert sel['labels'] == ['R', 'S']
-    assert sel_lo['labels'] == ['R', 'S']
+    assert sel['labels'] == ['exo', 'endo']
+    assert sel_lo['labels'] == ['exo', 'endo']
     r = sel['results'][0]
     r_lo = sel_lo['results'][0]
     assert math.isclose(r['temperature'], 298.15)
@@ -608,13 +600,9 @@ def test_cli_json_includes_selectivity(tmp_path):
 
 
 def test_cli_ee_still_runs(tmp_path):
-    """Legacy --ee still parses and runs without error. The legacy
-    print path is gated on --pes (see print_pes_results); --ee alone
-    doesn't emit a Selectivity table, but the CLI must not crash. The
-    deprecation warning itself is verified at the unit level via
-    test_get_selectivity_emits_deprecation_warning."""
-    res = _run_cli(_r_files() + _s_files() + [
-        '--ee', 'P_R_re_TS_*:P_S_re_TS_*',
+    """Legacy --ee still parses and runs without error."""
+    res = _run_cli(_all_files() + [
+        '--ee', '*_exo_*:*_endo_*',
         '--vscal', '1.0', '--output', 'cliee',
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
