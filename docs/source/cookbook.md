@@ -1,0 +1,240 @@
+# Cookbook
+
+Task-oriented recipes for the workflows that landed in v4.x. Each
+section is self-contained — copy, paste, modify the inputs, run.
+
+For background on the underlying CLI flags and Python API, see the
+[programmatic API guide](api_guide.md) and the
+[main README](README.md).
+
+---
+
+## 1. One file → one structured result
+
+The lowest-friction path for notebooks and scripts. Replaces the older
+15-positional-arg `calc_bbe()` constructor.
+
+```python
+from goodvibes import compute_thermo
+
+r = compute_thermo("ethane.log", QH=True, spc="TZ", temperature=313.15)
+
+print(f"qh-G(T) = {r.qh_gibbs_free_energy:.6f} Hartree")
+print(f"point group: {r.point_group}, σ = {r.symmno}")
+print(f"level of theory (auto-detected): {r.level_of_theory}")
+print(f"frequency scale factor (auto-applied): {r.bbe.scale_fac}")
+```
+
+`compute_thermo` returns a frozen `ThermoResult` dataclass with every
+attribute `calc_bbe` produces, plus `r.bbe` and `r.qcdata` for advanced
+reads. Defaults match the CLI: gas-phase concentration (`P/RT`),
+auto-lookup of the frequency scaling factor from the level of theory
+via the Truhlar database.
+
+---
+
+## 2. Batch a directory with parallel parsing → DataFrame
+
+The most common notebook workflow: parse hundreds of conformers,
+filter, sort, export.
+
+```python
+import glob
+from goodvibes import compute_batch, to_dataframe
+from goodvibes.constants import KCAL_TO_AU
+
+paths = sorted(glob.glob("conformers/*.log"))
+results = compute_batch(paths, jobs=8)        # 8 worker processes
+
+df = to_dataframe(results)
+df = df.sort_values("qh_gibbs_free_energy")
+df["ΔG_kcal"] = (df.qh_gibbs_free_energy - df.qh_gibbs_free_energy.min()) * KCAL_TO_AU
+
+# Drop conformers more than 3 kcal/mol above the lowest
+keep = df[df["ΔG_kcal"] < 3.0]
+print(f"{len(keep)} of {len(df)} conformers within 3 kcal/mol of the lowest")
+keep[["name", "qh_gibbs_free_energy", "ΔG_kcal"]].to_csv("survivors.csv", index=False)
+```
+
+`jobs=0` uses all CPU cores. Output preserves input order. Pandas is
+optional — install with `pip install goodvibes[full]`.
+
+The same thing from the shell, no Python:
+
+```bash
+goodvibes conformers/*.log --jobs 8 --csv all_thermo.csv
+```
+
+---
+
+## 3. N-way selectivity (replaces `--ee`)
+
+The v4.1 redesign generalizes `--ee a:b` (2-bucket only) to N-way
+selectivity. Each bucket is named explicitly with `--label NAME=PATTERN`
+(repeatable). The patterns are `fnmatch` globs against the input
+filenames — no filesystem walks.
+
+The example fixture in `goodvibes/examples/selectivity/` is a
+Diels–Alder TS set: 8 transition states across two regiochemistries
+(1,2- vs 1,4-) and two diastereomers (exo / endo).
+
+**2-way (exo vs endo)**
+
+```bash
+cd goodvibes/examples/selectivity
+goodvibes DA_*.out --label exo='*_exo_*' --label endo='*_endo_*'
+```
+
+```
+Selectivity, Boltzmann-averaged (gibbs, T = 298.15 K)
+       Species   Files   Population (%)   ΔΔG (kcal/mol)
+       exo           3             2.56            2.156
+★      endo          4            97.44            0.000
+
+Ratio exo:endo = 3:97   Major: endo   ee = 94.88%   ΔΔG‡ = 2.16 kcal/mol
+
+Selectivity, Lowest conformer only (gibbs, T = 298.15 K)
+       Species   Files   Population (%)   ΔΔG (kcal/mol)
+       exo           1             1.84            2.355
+★      endo          1            98.16            0.000
+
+Ratio exo:endo = 2:98   Major: endo   ee = 96.31%   ΔΔG‡ = 2.36 kcal/mol
+```
+
+The two tables answer different questions: the Boltzmann row shows the
+selectivity once you average over conformers; the lowest-conformer row
+shows what the selectivity would be if only the most stable TS in each
+species mattered. The gap between them tells you how much of the
+selectivity is driven by conformer mixing.
+
+**4-way (regio × stereo)**
+
+```bash
+goodvibes DA_*.out \
+  --label exo_12='*_exo_12*'   --label endo_12='*_endo_12*' \
+  --label exo_14='*_exo_14*'   --label endo_14='*_endo_14*'
+```
+
+For N > 2 the summary line drops `ee` and `ΔΔG‡` (those are 2-bucket
+concepts) and just reports the ratio — `Ratio exo_12:endo_12:exo_14:endo_14 = 2:97:0:0`.
+
+**JSON output**
+
+Add `--json results.json` and the file gets two top-level blocks,
+`selectivity` and `selectivity_lowest`, each with the per-species
+populations, ΔΔG, ee (when N=2), and the source files for every
+species. Schema is `0.4`.
+
+**Migration from `--ee`**
+
+```bash
+# v3.x
+goodvibes *.log --ee 'P_R_*:P_S_*'
+
+# v4.x equivalent
+goodvibes *.log --label R='P_R_*' --label S='P_S_*'
+```
+
+`--ee` still works in v4.x with a `DeprecationWarning`; it's slated
+for removal in v5.0.
+
+---
+
+## 4. PES with the new YAML format
+
+The legacy line-based PES file (`--- # PES` markers) is auto-detected
+and still works, but it isn't real YAML and has no stoichiometry
+support. v4.2 adds a proper YAML schema with `pathways:` / `species:`
+/ `format:` top-level keys and a `coeff*name` syntax for stoichiometric
+sums.
+
+```yaml
+# azabor_PES_v2.yaml
+pathways:
+  Ph:
+    - "R1-An + Aza-Phos"
+    - "R1-Comp + THF"
+    - "AmTS + THF"
+    - "Azir-Comp + THF"
+    - "OpenTS + THF"
+    - "Syn-P + THF"
+
+species:
+  R1-An:      {files: "r1-li-3thf-c1*"}
+  Aza-Phos:   {files: "azaoxy-phosphine-full*"}
+  THF:        {files: "thf*"}
+  R1-Comp:    {files: "r1-phosphine-2thf-full*"}
+  Azir-Comp:  {files: "aziridinium-phos-full*"}
+  Syn-P:      {files: "syn-product-phos-full*"}
+  OpenTS:     {files: "openTS-phos-full*"}
+  AmTS:       {files: "aminationTS-full-unfrz-c1*"}
+
+format:
+  units: kcal/mol
+  decimals: 1
+```
+
+Stoichiometric example: a bimolecular reaction would write a point
+as `"2*A + B"`. Each species' `files:` is a glob (single string) or
+explicit list (`[a.log, b.log]`).
+
+Run it:
+
+```bash
+cd goodvibes/examples/pes
+goodvibes *.log --pes azabor_PES_v2.yaml --spc sp_tzpop
+```
+
+By default each species' contribution is **gconf-corrected**: lowest
+qh-G conformer + Boltzmann adjustment + the −R Σ pᵢ ln pᵢ mixing
+entropy. Two flags change that:
+
+| Mode | Flag | What it does |
+|---|---|---|
+| gconf (default) | — | lowest + adjustment + mixing entropy |
+| pure Boltzmann | `--nogconf` | Boltzmann-weighted average, no mixing entropy |
+| lowest only | `--lowest-only` | use each species' single lowest qh-G conformer |
+
+The mode tag appears in the table title:
+
+```
+RXN: Ph  (kcal/mol)  at T = 298.15 K, p = 1 atm — lowest conformer per species
+```
+
+---
+
+## 5. PES + JSON for downstream analysis
+
+```bash
+goodvibes *.log --pes azabor_PES_v2.yaml --spc sp_tzpop --json pes.json
+```
+
+The JSON gets a `pes` block (schema v0.4):
+
+```python
+import json
+
+with open("pes.json") as f:
+    payload = json.load(f)
+
+for path in payload["pes"]["pathways"]:
+    print(f"\n=== {path['name']} ({path['units']}) ===")
+    for pt in path["points"]:
+        print(f"  {pt['label']:25s}  ΔqhG = {pt['relative']['qh_g']:+7.2f}")
+```
+
+Each point carries `label`, `species` (name + coefficient + resolved
+files), and `relative` (Δ-values for E, ZPE, H, qh-H, T·S, T·qh-S, G,
+qh-G, plus SPC variants when `--spc` was set). Plug straight into
+plotting libraries or downstream pipelines.
+
+---
+
+## See also
+
+- The full CLI flag table in the [main README](README.md).
+- The [programmatic API reference](api_guide.md) for `compute_thermo`,
+  `compute_batch`, `ThermoResult`, and `to_dataframe`.
+- The full module reference covers `goodvibes.pes_loader`,
+  `goodvibes.pes_model`, `goodvibes.selectivity`, etc., for users
+  embedding GoodVibes in larger pipelines.

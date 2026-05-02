@@ -44,6 +44,13 @@ GoodVibes User Documentation
 
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Cookbook:
+
+   source/cookbook
+
+
+.. toctree::
    :maxdepth: 3
    :caption: Module reference:
 
