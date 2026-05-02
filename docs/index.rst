@@ -32,14 +32,21 @@ GoodVibes User Documentation
 .. toctree::
    :maxdepth: 2
    :caption: Getting Started:
- 
+
    source/README
 
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Programmatic API:
+
+   source/api_guide
+
+
+.. toctree::
    :maxdepth: 3
-   :caption: Docs:
-   
+   :caption: Module reference:
+
    source/goodvibes
    
 

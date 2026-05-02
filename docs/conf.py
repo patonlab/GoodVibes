@@ -21,13 +21,13 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'GoodVibes'
-copyright = '2020, Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.'
+copyright = '2020-2026, Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.'
 author = 'Luchini, G.; Alegre-Requena J. V.; Guan, Y.; Funes-Ardoiz, I.; Paton, R. S.'
 
 # The short X.Y version
-version = '3.1'
+version = '4.0'
 # The full version, including alpha/beta/rc tags
-release = '3.1.0'
+release = '4.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -42,8 +42,8 @@ release = '3.1.0'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon',
-    'recommonmark'
+    'sphinx.ext.napoleon',     # was sphinxcontrib.napoleon — moved into core in Sphinx 1.3+
+    'myst_parser',             # was recommonmark — myst_parser is the maintained successor
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -64,7 +64,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

@@ -38,18 +38,15 @@ Plus several in-flight features that are partially detected
 
 | # | Item | Status |
 | --- | --- | --- |
-| 5 | **Programmatic API façade** `goodvibes.api`: `compute_thermo(path) -> ThermoResult` and `compute_batch(...)`. `ThermoResult` mirrors `calc_bbe`'s public attributes + the source `QCData`. Internally just calls `calc_bbe` — no behavior change. | Pending |
-| 6 | **Pandas DataFrame export + CSV writer**: `goodvibes.api.to_dataframe(results)`. Pandas as an optional dep (`goodvibes[full]`). Add `--csv` CLI flag. | Pending |
-| 7 | **Wigner tunneling correction** for TS rates: κ_W = 1 + (1/24)(hcν‡/kT)². Eckart deferred to v5.0. Auto-applied when `--tunneling wigner` and `len(im_frequency_wn) == 1`. | Pending |
-| 8 | **Parallel parsing** with `concurrent.futures.ProcessPoolExecutor`, `--jobs N`. Target: 1,000 ORCA outputs in <30s on 8 cores. | Pending |
-| 9 | **Hindered-rotor treatment** (Pitzer–Gwinn / Truhlar HO-QHO interpolation). Manual `--hindered-rotor MODE_INDEX,V,I_red` for v4.2; auto detection deferred to v5.0+. | Pending |
+| 5 | **Programmatic API façade** `goodvibes.api`: `compute_thermo(path) -> ThermoResult` and `compute_batch(...)`. `ThermoResult` mirrors `calc_bbe`'s public attributes + the source `QCData`. Internally just calls `calc_bbe` — no behavior change. Re-exported from `goodvibes/__init__.py`. | ✅ Done |
+| 6 | **Pandas DataFrame export + CSV writer**: `goodvibes.api.to_dataframe(results)`, `--csv PATH` CLI flag, `goodvibes[full]` extras group (ase + pyyaml + pandas). | ✅ Done |
+| 8 | **Parallel parsing** with `concurrent.futures.ProcessPoolExecutor`, `--jobs N` CLI flag, `compute_batch(paths, jobs=N)`. ~3× speedup at 8 cores on 46 azabor PES fixtures (18.6 s → 6.2 s). | ✅ Done |
 | Sub-plan B | **PES rewrite**: 3-layer data model (`ConformerSet`/`Point`/`Pathway`), true-YAML input alongside legacy parser, stoichiometry support, Rich tables, JSON v0.4 `pes` block, `--lowest-only` flag. Plot deferred to v5.0. | ✅ Done — [`03549d1`](../../commit/03549d1) |
-| Docs | **Refresh Read the Docs** for v4.1 + v4.2: `--label` / `--selectivity` selectivity flow, `--json` schema v0.4, new PES YAML format (with `2*A + B` stoichiometry), `--lowest-only`, ORCA CPU-time scaling. Stays on the existing Sphinx/RTD setup; the mkdocs migration is reserved for v5.0. | Pending |
+| Docs | **Refresh Read the Docs** for v4.1 + v4.2: bumped Sphinx config to v4.0, swapped deprecated `sphinxcontrib-napoleon` / `recommonmark` → `sphinx.ext.napoleon` / `myst-parser`, added a dedicated `api_guide.md` page (kwargs API, batch/parallel, DataFrame/CSV, what's-new), expanded module reference to all 17 modules, added `.readthedocs.yaml`. Stays on Sphinx; the mkdocs migration is reserved for v5.0. | ✅ Done |
 
-**Sequencing.** Item 5 is the keystone — unblocks 6 and enables clean
-Wigner integration in 7. Items 8 and 9 are independent and can run in
-parallel with 5/6/7. Docs refresh sits on top of whichever subset of
-5–9 has shipped at the time it's tackled.
+**Sequencing.** Item 5 was the keystone — unblocked the structured
+DataFrame/CSV work in 6. Item 8 is independent. Docs refresh sits
+on top of whichever subset has shipped at the time it's tackled.
 
 ---
 
@@ -62,6 +59,7 @@ parallel with 5/6/7. Docs refresh sits on top of whichever subset of
 | 12 | **Clean programmatic API as the headline**: `from goodvibes import compute_thermo, Ensemble, ThermoResult`. Deprecate `calc_bbe`'s 15-arg constructor; add `calc_bbe.from_options(qcdata, ThermoOptions)`. Migration doc. | Pending |
 | 13 | **Conformational entropy correction**: S_conf = −R Σ pᵢ ln pᵢ on Ensemble; `boltzmann_averaged_G(T)` includes −T·S_conf. Wires into `pes.get_pes` so Gconf becomes first-class. | Pending |
 | 14 | **Visualization** (stretch): PES diagram, Boltzmann histogram, T-scan curves, **selectivity strip plots** (per-species ΔG scatter with Boltzmann-weighted mean overlaid, to show how much of the selectivity comes from the lowest TS vs. conformer mixing). Behind `goodvibes[plot]`. | Pending |
+| 15 | **Hindered-rotor treatment** (Pitzer–Gwinn / Truhlar HO-QHO). Auto-detect torsional modes from the normal-mode analysis + redundant internals; replace the HO contribution to S/H/ZPE with the rotor partition function. Manual `--hindered-rotor MODE,V,I_red` override. Moved from v4.2 (was item 9) — auto-detection is the version users actually want; the manual flag alone has too much friction. | Pending |
 
 **Breaking changes.** `pes.get_pes` and `selectivity.get_boltz`
 signatures change (list[dict] → Ensemble) with a one-cycle shim
