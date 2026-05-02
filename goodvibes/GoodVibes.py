@@ -102,6 +102,14 @@ def parse_arguments():
     parser.add_argument("--json", dest="json_path", default=None, metavar="PATH",
                         help="Write structured results to PATH as JSON (every parsed and computed "
                              "field per file plus the run options). Schema is preview/v0.1.")
+    parser.add_argument("--csv", dest="csv_path", default=None, metavar="PATH",
+                        help="Write per-file thermochemistry to PATH as CSV (one row per "
+                             "structure; columns mirror ThermoResult). Requires pandas; "
+                             "install with `pip install goodvibes[full]`.")
+    parser.add_argument("--jobs", dest="jobs", type=int, default=1, metavar="N",
+                        help="Parse and compute thermochemistry in parallel across N "
+                             "worker processes (default 1, sequential). 0 = use all "
+                             "available CPU cores.")
     parser.add_argument("--media", dest="media", default=None, metavar="solvent",
                         help="Apply standard-state concentration correction for the given solvent "
                              "(e.g. H2O corrects to 55.34 M)")
@@ -334,48 +342,81 @@ def validate_and_configure(options, solvation_model):
         log.info(f"\n   ✔ Applying standard concentration correction (based on density at 20C) to {options.media} solvent.")
 
 
+def _calc_bbe_worker(args):
+    """Top-level worker for ProcessPoolExecutor (must be picklable, hence
+    not a closure). Takes (file, conc, qcdata, opts_dict) and returns
+    a calc_bbe instance."""
+    file, conc, cached_qcdata, opts = args
+    return calc_bbe(
+        file,
+        QS=opts['QS'], QH=opts['QH'],
+        cutoff=opts['S_freq_cutoff'], H_FREQ_CUTOFF=opts['H_freq_cutoff'],
+        temp=opts['temperature'], conc=conc,
+        scale_fac=opts['freq_scale_factor'], solv=opts['freespace'],
+        spc=opts['spc'], invert=opts['invert'],
+        symm=opts['symm'], mm_freq_scale_factor=opts['mm_freq_scale_factor'],
+        inertia=opts['inertia'], qcdata=cached_qcdata,
+    )
+
+
 def compute_thermochem(files, options, qcdata_cache=None):
     """Run calc_bbe for each file and collect results.
 
     For files matching the --media solvent name, the neat solvent concentration
-    is used instead of options.conc.
+    is used instead of options.conc. Parallelized across `options.jobs`
+    worker processes when `>1`; sequential otherwise.
 
     Parameters:
         files (list): output file paths.
         options (Namespace): parsed CLI options. Uses: QS, QH, S_freq_cutoff,
             H_freq_cutoff, temperature, conc, freq_scale_factor, freespace,
-            spc, invert, symm, mm_freq_scale_factor, inertia, media.
+            spc, invert, symm, mm_freq_scale_factor, inertia, media, jobs.
         qcdata_cache (dict, optional): pre-parsed QCData keyed by basename.
 
     Returns:
         dict: file path → calc_bbe mapping (thermo_data).
     """
-    bbe_vals = []
-
+    # Build per-file argument tuples sequentially (cheap; only the actual
+    # calc_bbe work is parallelized).
+    opts_dict = {
+        'QS': options.QS, 'QH': options.QH,
+        'S_freq_cutoff': options.S_freq_cutoff,
+        'h_freq_cutoff': options.H_freq_cutoff,
+        'H_freq_cutoff': options.H_freq_cutoff,
+        'temperature': options.temperature,
+        'freq_scale_factor': options.freq_scale_factor,
+        'freespace': options.freespace,
+        'spc': options.spc, 'invert': options.invert,
+        'symm': options.symm,
+        'mm_freq_scale_factor': options.mm_freq_scale_factor,
+        'inertia': options.inertia,
+    }
+    default_conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
+    per_file_args = []
     for file in files:
-        # Look up cached QCData if available
         cached_qcdata = None
         if qcdata_cache is not None:
             key = os.path.splitext(os.path.basename(file))[0]
             cached_qcdata = qcdata_cache.get(key)
-
-        # Use gas-phase concentration (P/RT) when --conc is not specified
-        conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
+        conc = default_conc
         if options.media:
             media_conc = compute_media_conc(options.media, file)
             if media_conc is not None:
                 conc = media_conc
+        per_file_args.append((file, conc, cached_qcdata, opts_dict))
 
-        bbe = calc_bbe(file, QS = options.QS, QH = options.QH, cutoff=options.S_freq_cutoff, H_FREQ_CUTOFF=options.H_freq_cutoff, temp=options.temperature,
-                       conc=conc, scale_fac=options.freq_scale_factor, solv=options.freespace, spc=options.spc, invert=options.invert,
-                       symm=options.symm, mm_freq_scale_factor=options.mm_freq_scale_factor,
-                       inertia=options.inertia, qcdata=cached_qcdata)
+    jobs = getattr(options, 'jobs', 1) or 1
+    if jobs <= 0:
+        jobs = os.cpu_count() or 1
 
-        # Populate bbe_vals with indivual bbe entries for each file
-        bbe_vals.append(bbe)
+    if jobs == 1 or len(files) <= 1:
+        bbe_vals = [_calc_bbe_worker(args) for args in per_file_args]
+    else:
+        from concurrent.futures import ProcessPoolExecutor
+        with ProcessPoolExecutor(max_workers=jobs) as ex:
+            bbe_vals = list(ex.map(_calc_bbe_worker, per_file_args))
 
-    thermo_data = dict(zip(files, bbe_vals))
-    return thermo_data
+    return dict(zip(files, bbe_vals))
 
 
 def main():
@@ -581,6 +622,19 @@ def main():
                            selectivity_results=selectivity_results,
                            selectivity_lowest_results=selectivity_lowest_results,
                            pes_result=pes_result)
+
+    # CSV export (single-T only; one row per structure, ThermoResult columns).
+    # Pandas is in the optional `[full]` extras; surface a clear install hint
+    # if it isn't available rather than crashing.
+    if options.csv_path and options.temperature_interval is None:
+        from .api import bbe_to_result, to_dataframe
+        try:
+            results = [bbe_to_result(bbe, file) for file, bbe in thermo_data.items()]
+            df = to_dataframe(results)
+            df.to_csv(options.csv_path, index=False)
+            log.info(f"\n   ✔ CSV written to {options.csv_path}")
+        except ImportError as exc:
+            fatal(str(exc))
 
     # Perform checks for consistent options
     if options.check:
