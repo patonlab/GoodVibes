@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import pytest
 import math
 from goodvibes import GoodVibes as GV
 from goodvibes.constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU
-from goodvibes.pes import get_pes
 from conftest import datapath
 from goodvibes.media import solvents
 from goodvibes.vib_scale_factors import scaling_data_dict, scaling_refs
@@ -312,56 +310,10 @@ def test_media_correction(path,conc, media, E, ZPE, H, TS, TqhS, G, qhG):
             assert qhG == round(bbe.qh_gibbs_free_energy+(temp * (-media_correction)), precision)
             
 
-@pytest.mark.skipif(
-    not os.path.exists(os.path.join(os.path.dirname(__file__), 'pes', 'Cis_complete_pathway.yaml')),
-    reason="Cis_complete_pathway.yaml fixture removed; golden values "
-           "computed for that fixture no longer apply. Phase 4 of the PES "
-           "rewrite (Sub-plan B) will replace this with a PESResult test "
-           "against the new azabor_PES.yaml fixture."
-)
-@pytest.mark.parametrize("E, ZPE, H, TS, TqhS, GT, qhGT", [
-    ([0.0,-8.01,-50.34],[0.0,0.86,4.27],[0.0,-7.1,-45.99],[0.0,-14.54,-26.25],[0.0,-15.21,-29.6],[0.0,7.44,-19.74],[0.0,8.11,-16.39])
-])
-def test_pes(E, ZPE, H, TS, TqhS, GT, qhGT):
-    temp = 298.15
-    conc = GV.ATMOS / (GV.GAS_CONSTANT * temp)
-    QS, QH, s_freq_cutoff, h_freq_cutoff, freq_scale_factor, solv, invert = 'grimme', False, 100.0, 100.0, 1.0, 'none', False
-    invert, spc, gconf = False, False, True
-    precision = 2
-    files = ['pes/Int-III_Oax_cis_a.log', 'pes/Int-II_Oax_cis_a.log', 'pes/Int-I_Oax.log', 'pes/TolS.log', 'pes/TolSH.log']
-    files = [datapath(file) for file in files]
-    import logging
-    from goodvibes.utils import setup_logging
-    logger = logging.getLogger('goodvibes')
-    logger.handlers.clear()
-    setup_logging("GoodVibes", 'test')
-
-    bbe_vals = []
-    for file in files: # loop over all specified output files and compute thermochemistry
-        bbe = GV.calc_bbe(file, QS, QH, s_freq_cutoff, h_freq_cutoff, temp,
-                        conc, freq_scale_factor, solv, spc, invert)
-        bbe_vals.append(bbe)
-    fileList = [file for file in files]
-    thermo_data = dict(zip(fileList, bbe_vals)) # the collected thermochemical data for all files
-
-    pes = get_pes(datapath('pes/Cis_complete_pathway.yaml'),thermo_data,temp,gconf,QH)
-
-    zero_vals = [pes.e_zero[0][0], pes.zpe_zero[0][0], pes.h_zero[0][0], temp * pes.ts_zero[0][0], temp * pes.qhts_zero[0][0], pes.g_zero[0][0], pes.qhg_zero[0][0]]
-
-    for i, path in enumerate(pes.path):
-        for j, e_abs in enumerate(pes.e_abs[i]):
-            species = [pes.e_abs[i][j], pes.zpe_abs[i][j], pes.h_abs[i][j], temp * pes.s_abs[i][j], temp * pes.qs_abs[i][j], pes.g_abs[i][j], pes.qhg_abs[i][j]]
-            relative = [species[x]-zero_vals[x] for x in range(len(zero_vals))]
-            formatted_list = [KCAL_TO_AU * x for x in relative]
-            assert  E[j] == round(formatted_list[0], precision)
-            assert  ZPE[j] == round(formatted_list[1], precision)
-            assert  H[j] == round(formatted_list[2], precision)
-            assert  TS[j] == round(formatted_list[3], precision)
-            assert  TqhS[j] == round(formatted_list[4], precision)
-            assert  GT[j] == round(formatted_list[5], precision)
-            assert  qhGT[j] == round(formatted_list[6], precision)
-    logging.shutdown()
-    logger.handlers.clear()
+# NOTE: the old test_pes used the now-retired Cis_complete_pathway.yaml
+# fixture and the legacy `get_pes` parallel-list interface. End-to-end
+# coverage now lives in tests/test_pes_e2e.py against
+# goodvibes/examples/pes/azabor_PES_v2.yaml.
 
 
 def test_scaling_refs_indices_valid():
