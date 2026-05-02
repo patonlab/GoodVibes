@@ -371,6 +371,126 @@ def test_to_parquet_top_level_export():
 
 
 # ---------------------------------------------------------------------------
+# --import / --export CLI flags + cache deprecation (v5.0 item 10 phase 2)
+# ---------------------------------------------------------------------------
+
+def test_export_writes_v1_payload(tmp_path):
+    """`--export PATH` is a synonym for `--json PATH`; both write the v1.0
+    unified schema."""
+    import json
+    import subprocess
+    import sys
+
+    out = tmp_path / "exported.json"
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", WATER_HF,
+         "--export", str(out), "--output", "exp_smoke"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT},
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    payload = json.loads(out.read_text())
+    assert payload["schema_version"] == "1.0"
+    assert "qcdata" in payload["results"][0]
+    assert "thermo" in payload["results"][0]
+
+
+def test_import_reads_v1_payload_skips_reparse(tmp_path):
+    """Round-trip: `--export` writes a v1.0 file, `--import` reads it back
+    in cache-only mode (no positional .log files needed). The imported
+    run must finish without re-parsing the original QC output and must
+    produce the same scf_energy (independent of scaling factor — that's
+    the strict invariant for the parse-bypass path).
+
+    Note: cache-only mode falls back to freq_scale_factor=1.0 because
+    level-of-theory isn't carried by QCData. To match the original
+    run's thermo bit-for-bit, pass `--vscal X --zpe-vscal Y` explicitly
+    on the import side. Auto-restoring scaling from the cache options
+    block is a planned follow-up."""
+    import json
+    import subprocess
+    import sys
+
+    cache_path = tmp_path / "cache.json"
+    env = {**os.environ, "PYTHONPATH": REPO_ROOT}
+
+    # First run: parse + export.
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", WATER_HF,
+         "--export", str(cache_path), "--output", "first"],
+        capture_output=True, text=True, cwd=tmp_path, env=env,
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    first_payload = json.loads(cache_path.read_text())
+    first_scf = first_payload["results"][0]["thermo"]["scf_energy"]
+
+    # Second run: --import only (no positional QC files; cache-only mode).
+    second_json = tmp_path / "second.json"
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes",
+         "--import", str(cache_path),
+         "--json", str(second_json), "--output", "second"],
+        capture_output=True, text=True, cwd=tmp_path, env=env,
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    second_payload = json.loads(second_json.read_text())
+    # SCF energy survives unchanged — it's a parse output, not affected
+    # by the scaling factor fallback.
+    assert second_payload["results"][0]["thermo"]["scf_energy"] == first_scf
+
+
+def test_cache_read_emits_deprecation(tmp_path):
+    """`--cache-read PATH` works (alias for `--import PATH`) but emits a
+    DeprecationWarning."""
+    import subprocess
+    import sys
+
+    cache_path = tmp_path / "cache.json"
+    env = {**os.environ, "PYTHONPATH": REPO_ROOT}
+
+    # Build a cache file via --export.
+    subprocess.run(
+        [sys.executable, "-m", "goodvibes", WATER_HF,
+         "--export", str(cache_path), "--output", "build"],
+        capture_output=True, text=True, cwd=tmp_path, env=env,
+    )
+
+    # Read it back via --cache-read; pytest can't see the worker's stderr
+    # easily, so we run with -W error::DeprecationWarning to make the
+    # warning a hard failure if it's NOT emitted.
+    res = subprocess.run(
+        [sys.executable, "-W", "error::DeprecationWarning",
+         "-m", "goodvibes", "--cache-read", str(cache_path), "--output", "lo"],
+        capture_output=True, text=True, cwd=tmp_path, env=env,
+    )
+    # Either the warning is raised as an error (returncode != 0 with
+    # "DeprecationWarning" in the trace) OR the run succeeds and we'd see
+    # the warning printed in stderr at runtime. Accept the strict form here.
+    combined = res.stdout + res.stderr
+    assert "deprecated" in combined.lower() or "DeprecationWarning" in combined, (
+        f"expected DeprecationWarning. stderr:\n{res.stderr}"
+    )
+
+
+def test_cache_save_emits_deprecation(tmp_path):
+    """`--cache-save PATH` works (alias for `--export PATH`) but emits a
+    DeprecationWarning."""
+    import subprocess
+    import sys
+
+    cache_path = tmp_path / "old_cache.json"
+    res = subprocess.run(
+        [sys.executable, "-W", "error::DeprecationWarning",
+         "-m", "goodvibes", WATER_HF,
+         "--cache-save", str(cache_path), "--output", "cs"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT},
+    )
+    combined = res.stdout + res.stderr
+    assert "deprecated" in combined.lower() or "DeprecationWarning" in combined
+
+
+# ---------------------------------------------------------------------------
 # ThermoOptions + calc_bbe.from_options (v5.0 item 12)
 # ---------------------------------------------------------------------------
 

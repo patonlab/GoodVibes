@@ -8,7 +8,7 @@ for users embedding GoodVibes in scripts, notebooks, or libraries.
 ## TL;DR
 
 | Old | New |
-|---|---|
+| --- | --- |
 | `calc_bbe(file, QS, QH, cutoff, H_FREQ_CUTOFF, temp, conc, scale_fac, ...)` | `compute_thermo(file, **kwargs)` (returns `ThermoResult`) |
 | Same, but you need the underlying `calc_bbe` instance | `calc_bbe.from_options(file_or_qcdata, ThermoOptions(...))` |
 | 15 positional args | One `ThermoOptions` dataclass |
@@ -113,7 +113,7 @@ Three precedence cases (matches the CLI `--vscal` / `--zpe-vscal`
 flags):
 
 | `freq_scale_factor` | `zpe_scale_factor` | Result |
-|---|---|---|
+| --- | --- | --- |
 | `None` | `None` | both auto-looked-up (`harm_fac` / `zpe_fac`) |
 | `X` | `None` | both = `X` (back-compat: `--vscal` alone scales everything) |
 | `None` | `Y` | `freq` auto-looked-up; ZPE uses `Y` |
@@ -130,22 +130,73 @@ print(r.level_of_theory)   # 'B3LYP/6-31G(d)' or None if unrecognised
 print(r.program)           # 'Gaussian', 'Orca', ...
 ```
 
+## CLI changes in v5.0
+
+Most flags are unchanged. Two cache flags are renamed:
+
+| v4.x | v5.0+ | Notes |
+| --- | --- | --- |
+| `--cache-save FILE` | `--export FILE` | Now writes the v1.0 unified JSON (richer than the legacy cache envelope; same file works as a re-import source). Old flag still works with a `DeprecationWarning`. |
+| `--cache-read FILE` | `--import FILE` | Auto-detects v1.0 unified JSON OR legacy cache envelope, so existing on-disk caches keep working. Old flag deprecated. |
+
+`--export PATH` is a synonym for `--json PATH` — both write the same
+v1.0 schema. Use whichever name reads better in your script.
+
+Caveat: in cache-only mode (`--import FILE` with no positional
+`.log` files), the level-of-theory info is unavailable, so the
+frequency scale factor falls back to 1.0 unless you pass `--vscal` /
+`--zpe-vscal` explicitly. Auto-restoring scale factors from the
+cached `options` block is a planned follow-up.
+
+## JSON output schema is now stable (v1.0)
+
+The JSON written by `--json` / `--export` was a preview through v4.x
+(`schema_version: "0.4"`) and is now stable from v1.0. Use
+`goodvibes.schema` for runtime validation:
+
+```python
+import json
+from goodvibes import schema
+
+payload = json.load(open("results.json"))
+schema.validate(payload)             # raises ValueError on shape/version mismatch
+print(schema.SCHEMA_VERSION)         # '1.0'
+```
+
+Pre-v1.0 payloads are rejected by `validate()` — regenerate with a
+v5.0+ build. The v1.0 contract is **additive**: v1.x minor versions
+introduce new fields without breaking old readers, and v2.0 is the
+next allowed-to-break point.
+
+## Parquet export
+
+```bash
+goodvibes *.log --parquet thermo.parquet
+```
+
+Same column set as `--csv`; same `goodvibes[full]` extras (adds
+pandas + pyarrow).
+
+```python
+from goodvibes import compute_batch, to_parquet
+results = compute_batch(glob.glob("*.log"))
+to_parquet(results, "thermo.parquet")
+```
+
 ## What's NOT changing in v5.0
 
-- The CLI and all flag names (`--vscal`, `--zpe-vscal`, `--csv`,
-  `--jobs`, etc.).
+- Most CLI flags (`--vscal`, `--zpe-vscal`, `--csv`, `--jobs`,
+  `--label`, `--selectivity`, etc.).
 - The `.dat` output format — back-compat goldens in
   `tests/compatibility/` will guard the existing format.
 - `pes.get_pes` and its parallel-list attributes (still works as a
   back-compat shim around the v4.2 PES model; will be removed in v5.1
   with a one-cycle deprecation window).
-- JSON and CSV schemas (preview v0.4 → stable v1.0; see roadmap
-  item 10).
 
 ## When to actually migrate
 
 | Situation | What to do |
-|---|---|
+| --- | --- |
 | You only use `goodvibes` from the shell | Nothing — CLI is unchanged. |
 | You import `compute_thermo` already | Nothing — that's the v4.2 façade and is the v5.0 path too. |
 | You import `calc_bbe` and call it directly | Switch to `compute_thermo` for ergonomics, or `calc_bbe.from_options` if you specifically want the `calc_bbe` instance. |

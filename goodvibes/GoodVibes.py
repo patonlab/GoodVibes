@@ -157,10 +157,20 @@ def parse_arguments():
                         help="Frequency scaling factor for the MM region in ONIOM calculations")
     parser.add_argument("--xyz", dest="xyz", action="store_true", default=False,
                         help="Write optimized Cartesian coordinates to a .xyz file")
+    parser.add_argument("--export", dest="export_path", default=None, type=str, metavar="PATH",
+                        help="Write the unified v1.0 JSON payload to PATH "
+                             "(per-file QCData + thermo + run options + selectivity / pes "
+                             "blocks). Identical to --json. The same file can be re-loaded "
+                             "via --import to skip parsing on a follow-up run.")
+    parser.add_argument("--import", dest="import_path", default=None, type=str, metavar="PATH",
+                        help="Read pre-parsed data from a v1.0 JSON file (or a legacy "
+                             "--cache-save envelope) instead of re-parsing the input "
+                             "QC outputs. Useful for fast re-analysis at a different "
+                             "temperature/concentration without re-reading large outputs.")
     parser.add_argument("--cache-save", dest="cache_save", default=None, type=str, metavar="FILE",
-                        help="Save parsed data for all input files to a JSON cache file")
+                        help="(deprecated, use --export instead) Save parsed data to a JSON file.")
     parser.add_argument("--cache-read", dest="cache_read", default=None, type=str, metavar="FILE",
-                        help="Read pre-parsed data from a JSON cache file instead of re-parsing output files")
+                        help="(deprecated, use --import instead) Read pre-parsed data from a JSON file.")
     parser.add_argument("--dp", dest="dp", default=6, type=int, metavar="DP",
                         help="Number of decimal places for energy values in output (default: 6)")
     # Parse Arguments
@@ -489,11 +499,37 @@ def main():
         else:
             label_files = spec
 
+    # --cache-read is deprecated in v5.0 in favor of --import; redirect with a
+    # one-time warning. --cache-save likewise → --export.
+    if options.cache_read is not None:
+        import warnings
+        warnings.warn(
+            "--cache-read is deprecated; use --import instead. Both accept "
+            "v1.0 JSON payloads and legacy cache envelopes.",
+            DeprecationWarning, stacklevel=2,
+        )
+        if options.import_path is None:
+            options.import_path = options.cache_read
+    if options.cache_save is not None:
+        import warnings
+        warnings.warn(
+            "--cache-save is deprecated; use --export instead (or --json, "
+            "which is the same writer).",
+            DeprecationWarning, stacklevel=2,
+        )
+        if options.export_path is None:
+            options.export_path = options.cache_save
+        options.cache_save = None        # legacy save_cache block below skipped
+    # --export is just a synonym for --json; if both are set, --json wins so
+    # explicit --json scripts keep working unchanged.
+    if options.export_path is not None and options.json_path is None:
+        options.json_path = options.export_path
+
     # Load QCData cache early if requested (needed to determine file list in cache-only mode)
     qcdata_cache = None
     cache_only = False
-    if options.cache_read:
-        qcdata_cache = load_cache(options.cache_read)
+    if options.import_path:
+        qcdata_cache = load_cache(options.import_path)
         if not files:
             # Cache-only mode: derive file list from cache entries
             cache_only = True
@@ -525,14 +561,14 @@ def main():
             solvation_model.append(sm)
         if options.freq_scale_factor is None:
             options.freq_scale_factor = 1.0
-        log.info("\n   Reading from QCData cache: " + options.cache_read)
+        log.info("\n   Reading from QCData cache: " + options.import_path)
     else:
         # Collect file data and validate
         files, level_of_theory, solvation_model = collect_and_validate_files(files, options)
         # Resolve frequency scaling factor
         resolve_scaling_factor(files, options, level_of_theory)
-        if options.cache_read:
-            log.info("\n   Loaded QCData cache from " + options.cache_read)
+        if options.import_path:
+            log.info("\n   Loaded QCData cache from " + options.import_path)
 
     # Warn about ORCA files if pre-scaled frequencies were un-scaled
     warn_orca_prescaled(files)
@@ -631,9 +667,13 @@ def main():
         pes_result = load_pes(options.pes, thermo_data,
                               temperatures=[options.temperature])
 
-    # Structured (JSON) output — preview of v5.0 schema. Additive; runs
-    # alongside the .dat output. Single-temperature mode only for now.
-    if options.json_path and options.temperature_interval is None:
+    # Structured (JSON) output — v1.0 stable schema. Additive; runs
+    # alongside the .dat output.
+    if options.json_path:
+        # JSON write fires in both single-T and T-interval modes. In
+        # T-interval mode the per-file thermo numbers reflect the base
+        # temperature only; the temperature_interval value is recorded
+        # in `options` for downstream consumers to scan.
         media_conc_per_file = {}
         if options.media:
             for file in thermo_data:

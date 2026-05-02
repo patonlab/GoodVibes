@@ -109,10 +109,15 @@ def save_cache(cache_dict, path):
 def load_cache(path):
     """Load a QCData cache from a JSON file.
 
+    Auto-detects the format. v1.0+ payloads (the unified schema written
+    by `--export` / `--json`) are read by extracting each result's
+    `qcdata` block; the legacy cache envelope (`{_cache_version, entries}`,
+    written by pre-v5.0 `--cache-save`) is also accepted for back-compat.
+
     Parameters
     ----------
     path : str
-        Path to JSON cache file.
+        Path to JSON file (either v1.0 unified schema or legacy cache).
 
     Returns
     -------
@@ -120,11 +125,31 @@ def load_cache(path):
         Mapping of {basename_key: QCData}.
     """
     with open(path, 'r') as f:
-        envelope = json.load(f)
-    version = envelope.get('_cache_version', 0)
+        data = json.load(f)
+    if 'schema_version' in data:
+        # Unified v1.0+ payload — use each result's qcdata block.
+        from .schema import validate
+        validate(data)
+        cache = {}
+        for entry in data.get('results', []):
+            qc = entry.get('qcdata')
+            if qc is None:
+                continue
+            name = entry.get('name')
+            if name is None:
+                # Fall back to deriving from the file path.
+                fp = entry.get('file', '')
+                name = os.path.splitext(os.path.basename(fp))[0]
+            cache[name] = dict_to_qcdata(qc)
+        return cache
+    # Legacy envelope: {_cache_version, _created, entries}
+    version = data.get('_cache_version', 0)
     if version != CACHE_VERSION:
-        raise ValueError("Cache version mismatch: expected {}, got {}".format(CACHE_VERSION, version))
-    return {key: dict_to_qcdata(val) for key, val in envelope['entries'].items()}
+        raise ValueError(
+            "Cache version mismatch: expected {} (legacy) or a v1.0+ "
+            "schema_version, got _cache_version={}".format(CACHE_VERSION, version)
+        )
+    return {key: dict_to_qcdata(val) for key, val in data['entries'].items()}
 
 
 # PHYSICAL CONSTANTS                                      UNITS
