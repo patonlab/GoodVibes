@@ -209,7 +209,7 @@ RXN: Ph  (kcal/mol)  at T = 298.15 K, p = 1 atm — lowest conformer per species
 goodvibes *.log --pes azabor_PES_v2.yaml --spc sp_tzpop --json pes.json
 ```
 
-The JSON gets a `pes` block (schema v0.4):
+The JSON gets a `pes` block (schema v1.0):
 
 ```python
 import json

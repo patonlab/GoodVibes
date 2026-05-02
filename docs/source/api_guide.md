@@ -126,7 +126,7 @@ r = compute_thermo(qcdata=qc)
   `--selectivity FILE.yaml`) replaces the 2-only `--ee a:b`. Outputs
   Boltzmann-averaged AND lowest-conformer-only tables. Structured
   `SelectivityResult` exposed on the JSON output.
-- **v4.1 — `--json PATH`.** Structured output (schema v0.4) with
+- **v4.1 — `--json PATH`.** Structured output (schema v1.0) with
   per-file thermochemistry, parsed metadata, options, plus optional
   `selectivity` and `pes` blocks.
 - **v4.2 — PES rewrite.** New 3-layer model

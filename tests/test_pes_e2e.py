@@ -198,7 +198,7 @@ def test_spc_propagates_through_arithmetic(azabor_pes_result):
 
 
 # ---------------------------------------------------------------------------
-# JSON v0.4 round-trip
+# JSON v1.0 round-trip
 # ---------------------------------------------------------------------------
 
 def test_json_pes_block_matches_golden(azabor_pes_result, tmp_path):
@@ -219,7 +219,7 @@ def test_json_pes_block_matches_golden(azabor_pes_result, tmp_path):
     write_json_results({}, options, str(out), pes_result=azabor_pes_result)
     payload = json.loads(out.read_text())
 
-    assert payload["schema_version"] == "0.4"
+    assert payload["schema_version"] == "1.0"
     assert "pes" in payload
     pathway = payload["pes"]["pathways"][0]
     assert pathway["name"] == "Ph"

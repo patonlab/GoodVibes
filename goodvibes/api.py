@@ -219,6 +219,24 @@ def to_dataframe(results: Sequence[ThermoResult]):
     return pd.DataFrame(rows)
 
 
+def to_parquet(results: Sequence[ThermoResult], path: str) -> None:
+    """Write a list of ThermoResults to a Parquet file at `path`.
+
+    Same column set as `to_dataframe`. Requires pandas + a Parquet
+    engine (pyarrow or fastparquet); install with
+    `pip install goodvibes[full]` or `pip install pyarrow`.
+    """
+    df = to_dataframe(results)
+    try:
+        df.to_parquet(path, index=False)
+    except ImportError as exc:                       # pragma: no cover
+        raise ImportError(
+            "to_parquet requires a Parquet engine. Install pyarrow "
+            "(`pip install pyarrow`) or fastparquet, or use "
+            "`pip install goodvibes[full]`."
+        ) from exc
+
+
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------

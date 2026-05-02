@@ -106,6 +106,10 @@ def parse_arguments():
                         help="Write per-file thermochemistry to PATH as CSV (one row per "
                              "structure; columns mirror ThermoResult). Requires pandas; "
                              "install with `pip install goodvibes[full]`.")
+    parser.add_argument("--parquet", dest="parquet_path", default=None, metavar="PATH",
+                        help="Write per-file thermochemistry to PATH as Parquet (same "
+                             "columns as --csv). Requires pandas + a Parquet engine "
+                             "(pyarrow); install with `pip install goodvibes[full]`.")
     parser.add_argument("--jobs", dest="jobs", type=int, default=1, metavar="N",
                         help="Parse and compute thermochemistry in parallel across N "
                              "worker processes (default 1, sequential). 0 = use all "
@@ -643,16 +647,20 @@ def main():
                            selectivity_lowest_results=selectivity_lowest_results,
                            pes_result=pes_result)
 
-    # CSV export (single-T only; one row per structure, ThermoResult columns).
-    # Pandas is in the optional `[full]` extras; surface a clear install hint
-    # if it isn't available rather than crashing.
-    if options.csv_path and options.temperature_interval is None:
-        from .api import bbe_to_result, to_dataframe
+    # CSV / Parquet exports (single-T only; one row per structure,
+    # ThermoResult columns). Pandas is in the optional `[full]` extras;
+    # Parquet additionally needs pyarrow. Build the ThermoResult list
+    # once and reuse for both formats.
+    if (options.csv_path or options.parquet_path) and options.temperature_interval is None:
+        from .api import bbe_to_result, to_dataframe, to_parquet
         try:
             results = [bbe_to_result(bbe, file) for file, bbe in thermo_data.items()]
-            df = to_dataframe(results)
-            df.to_csv(options.csv_path, index=False)
-            log.info(f"\n   ✔ CSV written to {options.csv_path}")
+            if options.csv_path:
+                to_dataframe(results).to_csv(options.csv_path, index=False)
+                log.info(f"\n   ✔ CSV written to {options.csv_path}")
+            if options.parquet_path:
+                to_parquet(results, options.parquet_path)
+                log.info(f"\n   ✔ Parquet written to {options.parquet_path}")
         except ImportError as exc:
             fatal(str(exc))
 

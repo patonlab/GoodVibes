@@ -15,6 +15,7 @@ from .api import (
     compute_batch,
     compute_thermo,
     to_dataframe,
+    to_parquet,
 )
 from .constants import __version__
 from .thermo import ThermoOptions
@@ -26,5 +27,6 @@ __all__ = [
     "compute_thermo",
     "compute_batch",
     "to_dataframe",
+    "to_parquet",
     "__version__",
 ]

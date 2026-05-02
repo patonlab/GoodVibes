@@ -321,6 +321,56 @@ def test_to_dataframe_values_match_results():
 
 
 # ---------------------------------------------------------------------------
+# Parquet export (v5.0 item 10)
+# ---------------------------------------------------------------------------
+
+def test_to_parquet_round_trip(tmp_path):
+    """Parquet output round-trips the same numeric values as to_dataframe."""
+    pd = pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    from goodvibes import to_parquet
+
+    rs = compute_batch([WATER_HF, WATER_HF_HARMONIC])
+    out = tmp_path / "results.parquet"
+    to_parquet(rs, str(out))
+    df = pd.read_parquet(out)
+    assert len(df) == 2
+    for r, row in zip(rs, df.itertuples(index=False)):
+        assert row.qh_gibbs_free_energy == r.qh_gibbs_free_energy
+        assert row.name == r.name
+
+
+def test_cli_parquet_flag_writes_file(tmp_path):
+    """--parquet PATH end-to-end via subprocess."""
+    pd = pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    import subprocess
+    import sys
+
+    out = tmp_path / "results.parquet"
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", WATER_HF,
+         "--parquet", str(out), "--output", "parquet_smoke"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT},
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    assert out.exists()
+    df = pd.read_parquet(out)
+    assert len(df) == 1
+    expected = compute_thermo(WATER_HF)
+    assert math.isclose(df.iloc[0]["qh_gibbs_free_energy"],
+                        expected.qh_gibbs_free_energy, abs_tol=1e-9)
+
+
+def test_to_parquet_top_level_export():
+    """`from goodvibes import to_parquet` must work."""
+    import goodvibes
+    assert hasattr(goodvibes, "to_parquet")
+    assert "to_parquet" in goodvibes.__all__
+
+
+# ---------------------------------------------------------------------------
 # ThermoOptions + calc_bbe.from_options (v5.0 item 12)
 # ---------------------------------------------------------------------------
 

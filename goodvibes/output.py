@@ -19,9 +19,11 @@ from .media import solvents
 # --------------------------------------------------------------------------
 # Structured (JSON) output
 # --------------------------------------------------------------------------
-# Schema version is independent of __version__ — bump on every breaking
-# change to the JSON layout. v0.x means "preview, may change without notice".
-JSON_SCHEMA_VERSION = "0.4"
+# Schema is now stable from v1.0 onward — see goodvibes.schema for the
+# single source of truth (TypedDicts, version constants, validator).
+# Re-exported here as a module attribute for back-compat with anything
+# that imports `JSON_SCHEMA_VERSION` directly.
+from .schema import SCHEMA_VERSION as JSON_SCHEMA_VERSION
 
 # Run-level option keys that should appear in the JSON header, mapped from
 # their Namespace attribute names. Any options not in this list are dropped

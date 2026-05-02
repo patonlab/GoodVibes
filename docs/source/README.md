@@ -268,7 +268,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--ee PATTERNS` | (deprecated) Two-species selectivity, e.g. `"*_R*:*_S*"` — use `--label` | -- |
 | `--pes FILE` | YAML-defined reaction pathway analysis (legacy + true YAML auto-detected) | -- |
 | `--lowest-only` | PES tables: use only each species' lowest qh-G conformer | off |
-| `--json PATH` | Write structured results (schema v0.4: thermo, selectivity, pes blocks) | -- |
+| `--json PATH` | Write structured results (schema v1.0: thermo, selectivity, pes blocks) | -- |
 | `--media SOLVENT` | Solvent standard-state concentration correction | -- |
 | `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
 | `--invert [THRESH]` | Invert small imaginary frequencies to positive values | off |

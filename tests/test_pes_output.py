@@ -1,5 +1,5 @@
 """Tests for the v4.2 PES output: Rich tables (`print_pes_tables`) and
-JSON v0.4 (`_pes_to_json` + `write_json_results`)."""
+JSON v1.0 (`_pes_to_json` + `write_json_results`)."""
 import json
 import os
 from types import SimpleNamespace
@@ -134,7 +134,7 @@ def test_pes_to_json_species_breakdown():
 # ---------------------------------------------------------------------------
 
 def test_schema_version_bumped_to_0_4():
-    assert JSON_SCHEMA_VERSION == "0.4"
+    assert JSON_SCHEMA_VERSION == "1.0"
 
 
 def test_write_json_includes_pes_block_when_pes_result_given(tmp_path):
@@ -151,7 +151,7 @@ def test_write_json_includes_pes_block_when_pes_result_given(tmp_path):
     # Empty thermo_data; we only care about the pes block.
     write_json_results({}, options, str(out), pes_result=result)
     payload = json.loads(out.read_text())
-    assert payload["schema_version"] == "0.4"
+    assert payload["schema_version"] == "1.0"
     assert "pes" in payload
     assert payload["pes"]["pathways"][0]["name"] == "rxn"
 
