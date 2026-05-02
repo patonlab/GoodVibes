@@ -358,19 +358,24 @@ def validate_and_configure(options, solvation_model):
 def _calc_bbe_worker(args):
     """Top-level worker for ProcessPoolExecutor (must be picklable, hence
     not a closure). Takes (file, conc, qcdata, opts_dict) and returns
-    a calc_bbe instance."""
+    a calc_bbe instance via the v5.0 from_options entry point."""
+    from .thermo import ThermoOptions
     file, conc, cached_qcdata, opts = args
-    return calc_bbe(
-        file,
+    options = ThermoOptions(
         QS=opts['QS'], QH=opts['QH'],
-        cutoff=opts['S_freq_cutoff'], H_FREQ_CUTOFF=opts['H_freq_cutoff'],
-        temp=opts['temperature'], conc=conc,
-        scale_fac=opts['freq_scale_factor'], solv=opts['freespace'],
+        s_freq_cutoff=opts['S_freq_cutoff'],
+        h_freq_cutoff=opts['H_freq_cutoff'],
+        temperature=opts['temperature'],
+        concentration=conc,
+        freq_scale_factor=opts['freq_scale_factor'],
+        zpe_scale_factor=opts.get('zpe_scale_factor'),
+        solv=opts['freespace'],
         spc=opts['spc'], invert=opts['invert'],
-        symm=opts['symm'], mm_freq_scale_factor=opts['mm_freq_scale_factor'],
-        inertia=opts['inertia'], qcdata=cached_qcdata,
-        zpe_scale_fac=opts.get('zpe_scale_factor'),
+        symm=opts['symm'],
+        mm_freq_scale_factor=opts['mm_freq_scale_factor'],
+        inertia=opts['inertia'],
     )
+    return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
 
 
 def compute_thermochem(files, options, qcdata_cache=None):

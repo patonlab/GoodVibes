@@ -321,6 +321,146 @@ def test_to_dataframe_values_match_results():
 
 
 # ---------------------------------------------------------------------------
+# ThermoOptions + calc_bbe.from_options (v5.0 item 12)
+# ---------------------------------------------------------------------------
+
+def test_thermo_options_defaults_match_compute_thermo():
+    """ThermoOptions defaults must match compute_thermo's defaults so
+    calc_bbe.from_options(path, ThermoOptions()) == compute_thermo(path)."""
+    from goodvibes import ThermoOptions
+    opts = ThermoOptions()
+    assert opts.QS == "grimme"
+    assert opts.QH is False
+    assert opts.s_freq_cutoff == 100.0
+    assert opts.h_freq_cutoff == 100.0
+    assert opts.temperature == 298.15
+    assert opts.concentration is None
+    assert opts.freq_scale_factor is None
+    assert opts.zpe_scale_factor is None
+    assert opts.symm is False
+    assert opts.inertia == "global"
+
+
+def test_thermo_options_is_frozen():
+    """Frozen so it's safe across worker processes and shared instances."""
+    from goodvibes import ThermoOptions
+    opts = ThermoOptions()
+    with pytest.raises(Exception):       # FrozenInstanceError
+        opts.QS = "truhlar"
+
+
+def test_from_options_with_path_matches_direct_calc_bbe():
+    """calc_bbe.from_options(path, opts) must yield bit-identical numbers
+    to a direct calc_bbe(...) call with the equivalent kwargs."""
+    from goodvibes import ThermoOptions
+    T = 298.15
+    conc = ATMOS / (GAS_CONSTANT * T)
+    entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
+
+    opts = ThermoOptions(
+        QH=True, temperature=T, concentration=conc,
+        freq_scale_factor=entry.harm_fac,
+        zpe_scale_factor=entry.zpe_fac,
+    )
+    via_opts = calc_bbe.from_options(WATER_HF, opts)
+    direct = calc_bbe(WATER_HF, "grimme", True, 100.0, 100.0, T, conc,
+                      entry.harm_fac, None, None, None,
+                      zpe_scale_fac=entry.zpe_fac)
+    assert via_opts.qh_gibbs_free_energy == direct.qh_gibbs_free_energy
+    assert via_opts.qh_enthalpy == direct.qh_enthalpy
+    assert via_opts.zpe == direct.zpe
+
+
+def test_from_options_with_qcdata_skips_reparse():
+    """Passing a pre-parsed QCData avoids the second parse_qcdata call."""
+    from goodvibes import ThermoOptions
+    from goodvibes.io import parse_qcdata
+
+    qc = parse_qcdata(WATER_HF)
+    opts = ThermoOptions()
+    via_qcdata = calc_bbe.from_options(qc, opts)
+    via_path = calc_bbe.from_options(WATER_HF, opts)
+    # Same calc_bbe.scf_energy proves both went through the same parser.
+    assert via_qcdata.scf_energy == via_path.scf_energy
+
+
+def test_legacy_calc_bbe_constructor_emits_deprecation_warning():
+    """Direct calc_bbe(file, QS, QH, ...) must trip the DeprecationWarning
+    pointing users at from_options / compute_thermo."""
+    with pytest.warns(DeprecationWarning, match="from_options"):
+        calc_bbe(WATER_HF, "grimme", False, 100.0, 100.0, 298.15,
+                 0.040874, 0.922, None, None, None)
+
+
+def test_compute_thermo_does_not_emit_deprecation_warning():
+    """The high-level façade routes through from_options internally —
+    must not trip the legacy-constructor warning."""
+    import warnings
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        compute_thermo(WATER_HF)
+    msgs = [str(w.message) for w in caught
+            if issubclass(w.category, DeprecationWarning)]
+    assert not any("calc_bbe" in m for m in msgs), (
+        f"compute_thermo should not emit calc_bbe DeprecationWarning, "
+        f"but got: {msgs}"
+    )
+
+
+def test_from_options_does_not_emit_deprecation_warning():
+    """Same contract as compute_thermo — from_options is the v5.0 path."""
+    import warnings
+    from goodvibes import ThermoOptions
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        calc_bbe.from_options(WATER_HF, ThermoOptions())
+    msgs = [str(w.message) for w in caught
+            if issubclass(w.category, DeprecationWarning)]
+    assert not any("calc_bbe" in m for m in msgs)
+
+
+def test_thermo_options_re_exported_from_top_level():
+    """`from goodvibes import ThermoOptions` must work alongside
+    ThermoResult and compute_thermo."""
+    import goodvibes
+    assert hasattr(goodvibes, "ThermoOptions")
+    assert "ThermoOptions" in goodvibes.__all__
+
+
+def test_vscal_alone_inherits_for_zpe():
+    """--vscal X (freq_scale_factor=X with zpe_scale_factor=None) must
+    apply X to ZPE too, matching v3.x and v4.x.0 behaviour where
+    --vscal was the single scale factor that scaled everything.
+    Regression: an earlier draft of split-scaling auto-looked-up
+    zpe_fac independently, surprising users with pinned scripts."""
+    from goodvibes import ThermoOptions
+    opts_vscal_only = ThermoOptions(freq_scale_factor=1.0)
+    bbe = calc_bbe.from_options(WATER_HF, opts_vscal_only)
+
+    # Compare against an unscaled reference (both factors = 1.0).
+    opts_both = ThermoOptions(freq_scale_factor=1.0, zpe_scale_factor=1.0)
+    bbe_ref = calc_bbe.from_options(WATER_HF, opts_both)
+    assert bbe.zpe == bbe_ref.zpe
+
+
+def test_zpe_vscal_alone_lets_freq_autolookup():
+    """--zpe-vscal Y alone leaves freq_scale_factor to auto-lookup
+    harm_fac. ZPE uses Y, partition functions use harm_fac."""
+    from goodvibes import ThermoOptions
+    entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
+    opts = ThermoOptions(zpe_scale_factor=0.5)
+    bbe = calc_bbe.from_options(WATER_HF, opts)
+
+    # ZPE matches a separate calc with zpe=0.5
+    ref = calc_bbe.from_options(
+        WATER_HF,
+        ThermoOptions(freq_scale_factor=entry.harm_fac, zpe_scale_factor=0.5),
+    )
+    assert bbe.zpe == ref.zpe
+    assert bbe.qh_entropy == ref.qh_entropy
+
+
+# ---------------------------------------------------------------------------
 # bbe_to_result (CLI adapter)
 # ---------------------------------------------------------------------------
 

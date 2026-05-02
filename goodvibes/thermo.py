@@ -3,6 +3,10 @@
 import math
 import os.path
 import sys
+import warnings
+from dataclasses import dataclass
+from typing import Optional, Union
+
 import numpy as np
 
 from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
@@ -429,6 +433,57 @@ def _apply_frequency_inversion(raw_freqs, raw_im_freqs, invert, job_type):
     return frequency_wn, im_frequency_wn, inverted_freqs
 
 
+@dataclass(frozen=True)
+class ThermoOptions:
+    """Bundle of thermochemistry options for `calc_bbe.from_options`.
+
+    Frozen so it's safe to share across worker processes (parallel
+    parsing) and across multiple `calc_bbe` calls without accidental
+    mutation. Field names match the v4.2 façade `compute_thermo` kwargs;
+    the older `calc_bbe.__init__` parameter names are mapped internally.
+    """
+    QS: str = "grimme"                          # 'grimme' or 'truhlar'
+    QH: bool = False                            # Head-Gordon enthalpy correction
+    s_freq_cutoff: float = 100.0                # entropy cutoff (cm⁻¹)
+    h_freq_cutoff: float = 100.0                # enthalpy cutoff (cm⁻¹)
+    temperature: float = 298.15                 # K
+    concentration: Optional[float] = None       # mol/L; None → gas-phase 1 atm
+    freq_scale_factor: Optional[float] = None   # None → auto-lookup harm_fac
+    zpe_scale_factor: Optional[float] = None    # None → auto-lookup zpe_fac
+    solv: Optional[str] = None                  # solvent name for free-space corr
+    spc: Optional[str] = None                   # 'link' or filename suffix
+    invert: Optional[float] = None              # imag → real cutoff (cm⁻¹)
+    symm: bool = False                          # pymsym symmetry-number correction
+    mm_freq_scale_factor: Optional[float] = None
+    inertia: str = "global"
+
+    def _to_calc_bbe_kwargs(self):
+        """Map ThermoOptions fields onto the calc_bbe constructor's
+        (older, less consistent) parameter names. Resolves
+        concentration to the gas-phase 1 atm value when not supplied,
+        so calc_bbe never receives None for `conc`."""
+        conc = self.concentration
+        if conc is None:
+            # Inline the gas-phase reference to avoid a constants import here.
+            ATMOS_kPa = 101.325
+            R_J_per_K_per_mol = 8.3144621
+            conc = ATMOS_kPa / (R_J_per_K_per_mol * self.temperature)
+        return {
+            "QS": self.QS, "QH": self.QH,
+            "cutoff": self.s_freq_cutoff,
+            "H_FREQ_CUTOFF": self.h_freq_cutoff,
+            "temp": self.temperature,
+            "conc": conc,
+            "scale_fac": self.freq_scale_factor,
+            "solv": self.solv,
+            "spc": self.spc, "invert": self.invert,
+            "symm": self.symm,
+            "mm_freq_scale_factor": self.mm_freq_scale_factor,
+            "inertia": self.inertia,
+            "zpe_scale_fac": self.zpe_scale_factor,
+        }
+
+
 class calc_bbe:
     """
     Compute "black box" entropy and enthalpy values along with all
@@ -478,7 +533,7 @@ class calc_bbe:
     """
     def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
                  invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None,
-                 zpe_scale_fac=None):
+                 zpe_scale_fac=None, _from_options=False):
         """
         Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
 
@@ -506,6 +561,20 @@ class calc_bbe:
             - If required frequency/ZPE/rotational data are missing or unparsable, thermal quantities remain unset or zeroed
               according to the module's behavior.
         """
+        # The 15-arg constructor is deprecated in v5.0+; new code should use
+        # `calc_bbe.from_options(qcdata_or_path, ThermoOptions(...))` or, at
+        # the highest level, `goodvibes.compute_thermo(...)`. Internal
+        # callers (compute_thermo, the parallel worker) set
+        # `_from_options=True` to suppress the warning.
+        if not _from_options:
+            warnings.warn(
+                "Calling calc_bbe(file, QS, QH, ...) directly is deprecated. "
+                "Use calc_bbe.from_options(qcdata_or_path, ThermoOptions(...)) "
+                "or goodvibes.compute_thermo(path, ...) instead. The legacy "
+                "constructor will be removed in v6.0.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # 1. Parse all data from file (program-agnostic), or use provided cache
         if qcdata is None:
             qcdata = parse_qcdata(file)
@@ -698,6 +767,74 @@ class calc_bbe:
         self.frequency_wn = frequency_wn
         self.im_frequency_wn = im_frequency_wn
         self.linear_warning = linear_warning
+
+    @classmethod
+    def from_options(cls, qcdata_or_path, options):
+        """Construct a `calc_bbe` from a `ThermoOptions` bundle.
+
+        Recommended v5.0+ entry point — replaces the legacy 15-argument
+        positional constructor (which still works but emits a
+        `DeprecationWarning`). Accepts either a parsed `QCData`
+        instance (skips re-parsing) or a filesystem path (parses
+        internally, like the old constructor).
+
+        When `options.freq_scale_factor` and/or `options.zpe_scale_factor`
+        are `None`, this method auto-looks them up from the file's
+        level of theory via the Truhlar database (mirroring the CLI's
+        behavior). Pass explicit floats to skip the lookup.
+        """
+        if isinstance(qcdata_or_path, str):
+            file = qcdata_or_path
+            qcdata = None
+        else:
+            qcdata = qcdata_or_path
+            file = qcdata.file
+        # Resolve scale factors. Three cases, matching the documented
+        # CLI semantics:
+        #   neither set      → auto-lookup harm_fac (freq) and zpe_fac
+        #                      (zpe) from the level of theory
+        #   freq set, zpe None → zpe inherits freq (v3.x back-compat:
+        #                        --vscal X scales everything by X)
+        #   freq None, zpe set → freq auto-lookup, zpe explicit
+        #   both set         → use as-is
+        if options.freq_scale_factor is None or options.zpe_scale_factor is None:
+            from dataclasses import replace
+            harm = options.freq_scale_factor
+            zpe = options.zpe_scale_factor
+            if harm is None and zpe is None:
+                from .io import read_initial
+                from .vib_scale_factors import canonicalize_level, scaling_data_dict
+                entry = None
+                try:
+                    lot = read_initial(file)[0]
+                    if lot and lot != "none":
+                        entry = scaling_data_dict.get(canonicalize_level(lot))
+                except (IOError, OSError):
+                    pass
+                harm = entry.harm_fac if entry is not None else 1.0
+                zpe = entry.zpe_fac if entry is not None else 1.0
+            elif harm is not None and zpe is None:
+                # --vscal alone: ZPE inherits (matches v3.x and v4.x.0
+                # behaviour where vscal was the single scale factor).
+                zpe = harm
+            elif harm is None and zpe is not None:
+                from .io import read_initial
+                from .vib_scale_factors import canonicalize_level, scaling_data_dict
+                entry = None
+                try:
+                    lot = read_initial(file)[0]
+                    if lot and lot != "none":
+                        entry = scaling_data_dict.get(canonicalize_level(lot))
+                except (IOError, OSError):
+                    pass
+                harm = entry.harm_fac if entry is not None else 1.0
+            options = replace(options, freq_scale_factor=harm, zpe_scale_factor=zpe)
+        return cls(
+            file,
+            qcdata=qcdata,
+            _from_options=True,
+            **options._to_calc_bbe_kwargs(),
+        )
 
     # Get external symmetry number and point group using pymsym, if available, for symmetry corrections to entropy
     def ex_sym(self, file):

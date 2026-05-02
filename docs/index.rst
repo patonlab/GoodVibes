@@ -51,6 +51,13 @@ GoodVibes User Documentation
 
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Migration:
+
+   source/migration_v5
+
+
+.. toctree::
    :maxdepth: 3
    :caption: Module reference:
 

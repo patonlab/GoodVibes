@@ -23,7 +23,7 @@ from typing import Any, List, Optional, Sequence
 
 from .constants import ATMOS, GAS_CONSTANT
 from .io import parse_qcdata, read_initial
-from .thermo import calc_bbe
+from .thermo import ThermoOptions, calc_bbe
 from .utils import display_name
 from .vib_scale_factors import canonicalize_level, scaling_data_dict
 
@@ -131,32 +131,28 @@ def compute_thermo(
     if concentration is None:
         concentration = ATMOS / (GAS_CONSTANT * temperature)
 
-    # Auto-lookup mirroring the CLI behaviour. The Truhlar database
-    # gives separate scale factors for ZPE and harmonic-frequency
-    # partition functions; honor that when the user doesn't override.
-    lot = None
-    if freq_scale_factor is None or zpe_scale_factor is None:
-        if path is not None:
-            lot = read_initial(path)[0]
-        entry = None
-        if lot and lot != "none":
-            entry = scaling_data_dict.get(canonicalize_level(lot))
-        if freq_scale_factor is None:
-            freq_scale_factor = entry.harm_fac if entry is not None else 1.0
-        if zpe_scale_factor is None and entry is not None:
-            zpe_scale_factor = entry.zpe_fac
-        # When the LOT isn't in the DB, leave zpe_scale_factor=None so
-        # calc_bbe falls back to freq_scale_factor (= 1.0 in that case).
-
-    bbe = calc_bbe(
-        path, QS, QH,
-        s_freq_cutoff, h_freq_cutoff,
-        temperature, concentration,
-        freq_scale_factor, solv, spc, invert,
-        symm, mm_freq_scale_factor, inertia,
-        qcdata=qcdata,
-        zpe_scale_fac=zpe_scale_factor,
+    options = ThermoOptions(
+        QS=QS, QH=QH,
+        s_freq_cutoff=s_freq_cutoff, h_freq_cutoff=h_freq_cutoff,
+        temperature=temperature, concentration=concentration,
+        freq_scale_factor=freq_scale_factor,
+        zpe_scale_factor=zpe_scale_factor,
+        solv=solv, spc=spc, invert=invert,
+        symm=symm, mm_freq_scale_factor=mm_freq_scale_factor,
+        inertia=inertia,
     )
+    # from_options does the Truhlar-DB auto-lookup when freq/zpe scale
+    # factors are None; we just need the level-of-theory string for the
+    # result's `level_of_theory` field.
+    lot = None
+    if path is not None:
+        try:
+            scanned = read_initial(path)[0]
+            if scanned and scanned != "none":
+                lot = scanned
+        except (IOError, OSError):
+            pass
+    bbe = calc_bbe.from_options(qcdata if qcdata is not None else path, options)
     return bbe_to_result(bbe, path, level_of_theory=lot)
 
 

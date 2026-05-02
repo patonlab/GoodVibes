@@ -17,9 +17,11 @@ from .api import (
     to_dataframe,
 )
 from .constants import __version__
+from .thermo import ThermoOptions
 
 __all__ = [
     "ThermoResult",
+    "ThermoOptions",
     "bbe_to_result",
     "compute_thermo",
     "compute_batch",
