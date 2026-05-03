@@ -125,6 +125,47 @@ Add `--json results.json` and the file gets two top-level blocks,
 populations, ΔΔG, ee (when N=2), and the source files for every
 species. Schema is `0.4`.
 
+**Strip plot**
+
+To visualize where the selectivity comes from — lowest-TS gap vs
+conformer mixing — write a per-species ΔG strip plot:
+
+```bash
+goodvibes DA_*.out \
+  --label exo='*_exo_*' --label endo='*_endo_*' \
+  --strip-plot selectivity.png
+```
+
+The image shows one column per species, scattered conformer ΔG
+values (relative to the global lowest), with horizontal bars at the
+lowest conformer (orange solid) and the Boltzmann-weighted mean
+(blue dashed). When the dashed and solid bars sit on top of each
+other for a species, that species is dominated by its lowest
+conformer; when they're far apart, conformer mixing is contributing.
+
+In Python:
+
+```python
+import matplotlib.pyplot as plt
+from goodvibes import compute_batch
+from goodvibes.selectivity import (
+    compute_selectivity, parse_label_args, assign_files_to_labels,
+)
+from goodvibes.plot import plot_selectivity_strip
+
+results = compute_batch(glob.glob("DA_*.out"))
+thermo = {r.file: r.qh_gibbs_free_energy for r in results}
+labels = parse_label_args(["exo=*_exo_*", "endo=*_endo_*"])
+files_per_label = assign_files_to_labels(list(thermo), labels)
+sel = compute_selectivity(thermo, files_per_label, 298.15)
+
+ax = plot_selectivity_strip(sel, thermo)
+plt.savefig("selectivity.png", dpi=200, bbox_inches="tight")
+```
+
+matplotlib is in the optional `[plot]` extras (or `[full]`) — install
+with `pip install goodvibes[plot]`.
+
 **Migration from `--ee`**
 
 ```bash

@@ -110,6 +110,10 @@ def parse_arguments():
                         help="Write per-file thermochemistry to PATH as Parquet (same "
                              "columns as --csv). Requires pandas + a Parquet engine "
                              "(pyarrow); install with `pip install goodvibes[full]`.")
+    parser.add_argument("--strip-plot", dest="strip_plot_path", default=None, metavar="PATH",
+                        help="Save a per-species ΔG strip plot to PATH (PNG/PDF/SVG by "
+                             "extension). Requires --label or --selectivity to define "
+                             "buckets; matplotlib via `pip install goodvibes[plot]`.")
     parser.add_argument("--jobs", dest="jobs", type=int, default=1, metavar="N",
                         help="Parse and compute thermochemistry in parallel across N "
                              "worker processes (default 1, sequential). 0 = use all "
@@ -703,6 +707,22 @@ def main():
                 log.info(f"\n   ✔ Parquet written to {options.parquet_path}")
         except ImportError as exc:
             fatal(str(exc))
+
+    # Selectivity strip plot — needs a SelectivityResult and a
+    # {file: qh_g} lookup. matplotlib via `goodvibes[plot]`.
+    if options.strip_plot_path:
+        if selectivity_results is None or not selectivity_results:
+            fatal("--strip-plot requires --label or --selectivity to define species buckets.")
+        try:
+            from .plot import plot_selectivity_strip
+        except ImportError as exc:
+            fatal(str(exc))
+        # Use the single-T (or first-T-in-scan) selectivity result.
+        sel = selectivity_results[0]
+        thermo_lookup = {f: bbe.qh_gibbs_free_energy for f, bbe in thermo_data.items()}
+        ax = plot_selectivity_strip(sel, thermo_lookup)
+        ax.figure.savefig(options.strip_plot_path, dpi=200, bbox_inches="tight")
+        log.info(f"\n   ✔ Strip plot written to {options.strip_plot_path}")
 
     # Perform checks for consistent options
     if options.check:
