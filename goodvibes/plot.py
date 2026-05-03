@@ -232,10 +232,16 @@ def plot_pes(
     if ax is None:
         _, ax = plt.subplots(figsize=(max(5, 0.9 * n_points + 1), 4))
 
-    # Resolve the per-pathway color cycle.
+    # Resolve the per-pathway color cycle. Default for a single pathway
+    # is black (matches the legacy --graph plot's clean look); multiple
+    # pathways fall back to matplotlib's color cycle so they're
+    # distinguishable when overlaid.
     if colors is None:
-        cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])
-        colors_resolved = [cycle[i % len(cycle)] for i in range(len(pathways))]
+        if len(pathways) == 1:
+            colors_resolved = ["k"]
+        else:
+            cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])
+            colors_resolved = [cycle[i % len(cycle)] for i in range(len(pathways))]
     else:
         if len(colors) < len(pathways):
             raise ValueError(
@@ -244,7 +250,11 @@ def plot_pes(
         colors_resolved = list(colors)
 
     xs = list(range(n_points))
-    bar_half = 0.3
+    # Bar half-width 0.15 + bar/connector linewidth 1.5 mirror the legacy
+    # --graph reaction-profile plot (graph_reaction_profile in pes.py).
+    bar_half = 0.15
+    bar_lw = 1.5
+    connector_lw = 1.0
     Path = mpath.Path
 
     # Draw each pathway as: hlines at each level + curved/linear
@@ -256,7 +266,7 @@ def plot_pes(
         # Step bars at each level.
         for i in range(n_points):
             ax.hlines(qhg[i], xs[i] - bar_half, xs[i] + bar_half,
-                      colors=color, linewidth=2.5,
+                      colors=color, linewidth=bar_lw,
                       label=path.name if i == 0 else None,
                       zorder=3)
             if label_points:
@@ -270,16 +280,18 @@ def plot_pes(
             y0, y1 = qhg[i], qhg[i + 1]
             if connector_style == "bezier":
                 # Cubic Bezier with horizontal handles — smooth S-curve.
+                # Geometry mirrors graph_reaction_profile in pes.py:
+                # midpoint x with horizontal control handles at y0 / y1.
                 xm = (x0 + x1) / 2
                 patch = mpatches.PathPatch(
                     Path([(x0, y0), (xm, y0), (xm, y1), (x1, y1)],
                          [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
-                    fc="none", color=color, linewidth=1.0, zorder=2,
+                    fc="none", color=color, linewidth=connector_lw, zorder=2,
                 )
                 ax.add_patch(patch)
             else:
                 ax.plot([x0, x1], [y0, y1], color=color,
-                        linewidth=1.0, zorder=2)
+                        linewidth=connector_lw, zorder=2)
 
     # Optional per-conformer scatter (single-pathway only — the spread
     # is per-pathway; for multi-pathway choose one via `pathway_index`).
@@ -317,12 +329,18 @@ def plot_pes(
     ax.set_xticks(xs)
     ax.set_xticklabels([p.label for p in pathways[0].points],
                        rotation=15, ha="right", fontsize="small")
-    ax.set_ylabel(f"Δqh-G ({pes_options.units})")
+    ax.set_ylabel(rf"$\Delta$qh-G ({pes_options.units})")
     if title is None:
         names = ", ".join(p.name for p in pathways)
         title = f"{names}  (T = {T:g} K)"
     ax.set_title(title)
-    ax.grid(axis="y", linestyle=":", alpha=0.4)
+    # Minor ticks + a mirrored y-axis on the right. Mirrors the legacy
+    # --graph styling (minorticks_on + tick_params(labelright=True,
+    # right=True)). Suppress minor ticks on the x-axis since x is
+    # categorical (one tick per point).
+    ax.minorticks_on()
+    ax.tick_params(axis='x', which='minor', bottom=False, top=False)
+    ax.tick_params(axis='y', which='both', labelright=True, right=True)
     if len(pathways) > 1:
         ax.legend(loc="best", fontsize="small")
     return ax
