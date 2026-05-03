@@ -228,6 +228,189 @@ def test_pes_plot_y_label_uses_units():
 
 
 # ---------------------------------------------------------------------------
+# plot_pes — multi-pathway / connector style / colors (v5.0 phase 2)
+# ---------------------------------------------------------------------------
+
+def _two_pathway_pes_result():
+    """Build a 3-point × 2-pathway PESResult from synthetic stubs.
+
+    Pathways share the same point names ('A', 'TS', 'B') but the TS
+    differs between R and S — exactly the use case for multi-pathway
+    overlay (selectivity reaction profiles)."""
+    from types import SimpleNamespace
+    from goodvibes.pes_loader import PESSpec, build_pes_result
+    from goodvibes.pes_model import PESOptions
+
+    def stub(g):
+        return SimpleNamespace(
+            scf_energy=g - 0.001, zpe=0.005,
+            enthalpy=g + 0.005, qh_enthalpy=g + 0.005,
+            entropy=1.6e-5, qh_entropy=1.6e-5,
+            gibbs_free_energy=g, qh_gibbs_free_energy=g,
+            sp_energy=None,
+        )
+    td = {
+        "a.log": stub(-100.000),
+        "ts_r.log": stub(-99.965),
+        "ts_s.log": stub(-99.960),
+        "b.log": stub(-100.050),
+    }
+    spec = PESSpec(
+        pathways={
+            "R": ["A", "TS_R", "B"],
+            "S": ["A", "TS_S", "B"],
+        },
+        species={
+            "A": "a", "TS_R": "ts_r", "TS_S": "ts_s", "B": "b",
+        },
+        options=PESOptions(units="kcal/mol", decimals=1, gconf=False, QH=False),
+    )
+    return build_pes_result(spec, td, temperatures=[298.15])
+
+
+def test_pes_plot_multipath_overlays_all_pathways():
+    """pathway_index=None (default) → both pathways on one axes,
+    distinct colors, with a legend."""
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result)
+    # Each pathway adds 3 hlines (one per point); 2 pathways → 6.
+    from matplotlib.collections import LineCollection
+    line_colls = [c for c in ax.collections if isinstance(c, LineCollection)]
+    assert len(line_colls) == 6
+    # Legend was added because there's >1 pathway.
+    assert ax.get_legend() is not None
+    legend_labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert legend_labels == ["R", "S"]
+    plt.close(ax.figure)
+
+
+def test_pes_plot_multipath_distinct_colors():
+    """Default cycle gives distinct colors per pathway."""
+    from matplotlib.collections import LineCollection
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result)
+    line_colls = [c for c in ax.collections if isinstance(c, LineCollection)]
+    cols_per_path = [tuple(c.get_color()[0]) for c in line_colls]
+    # First three (path R) share a color; last three (path S) share another.
+    assert cols_per_path[0] == cols_per_path[1] == cols_per_path[2]
+    assert cols_per_path[3] == cols_per_path[4] == cols_per_path[5]
+    assert cols_per_path[0] != cols_per_path[3]
+    plt.close(ax.figure)
+
+
+def test_pes_plot_explicit_colors_used_in_order():
+    """Custom `colors=` kwarg overrides the default cycle in order."""
+    from matplotlib.collections import LineCollection
+    from matplotlib.colors import to_rgba
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result, colors=["red", "green"])
+    line_colls = [c for c in ax.collections if isinstance(c, LineCollection)]
+    assert tuple(line_colls[0].get_color()[0]) == to_rgba("red")
+    assert tuple(line_colls[3].get_color()[0]) == to_rgba("green")
+    plt.close(ax.figure)
+
+
+def test_pes_plot_too_few_colors_raises():
+    result = _two_pathway_pes_result()
+    with pytest.raises(ValueError, match="at least 2 colors"):
+        gv_plot.plot_pes(result, colors=["red"])
+
+
+def test_pes_plot_pathway_index_int_picks_one():
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result, pathway_index=1)    # just S
+    from matplotlib.collections import LineCollection
+    line_colls = [c for c in ax.collections if isinstance(c, LineCollection)]
+    assert len(line_colls) == 3                       # one pathway × 3 points
+    # Legend is suppressed for single pathway.
+    assert ax.get_legend() is None
+    plt.close(ax.figure)
+
+
+def test_pes_plot_pathway_index_list_picks_subset():
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result, pathway_index=[0])   # just R via list form
+    from matplotlib.collections import LineCollection
+    line_colls = [c for c in ax.collections if isinstance(c, LineCollection)]
+    assert len(line_colls) == 3
+    plt.close(ax.figure)
+
+
+def test_pes_plot_bezier_default_emits_path_patches():
+    """Bezier connectors are PathPatches; linear connectors are Line2D."""
+    from matplotlib.patches import PathPatch
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result)                     # default = bezier
+    bezier_patches = [p for p in ax.patches if isinstance(p, PathPatch)]
+    # 2 pathways × (3 points - 1) = 4 connectors.
+    assert len(bezier_patches) == 4
+    plt.close(ax.figure)
+
+
+def test_pes_plot_linear_connectors():
+    from matplotlib.patches import PathPatch
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result, connector_style="linear")
+    # No PathPatches with linear connectors.
+    bezier_patches = [p for p in ax.patches if isinstance(p, PathPatch)]
+    assert bezier_patches == []
+    # But Line2D objects for the connectors.
+    line2ds = [ln for ln in ax.lines]
+    assert len(line2ds) >= 4
+    plt.close(ax.figure)
+
+
+def test_pes_plot_invalid_connector_raises():
+    result = _two_pathway_pes_result()
+    with pytest.raises(ValueError, match="bezier"):
+        gv_plot.plot_pes(result, connector_style="curve")
+
+
+def test_pes_plot_label_points_annotates_levels():
+    """label_points=True adds annotation text for each step level."""
+    result = _two_pathway_pes_result()
+    ax = gv_plot.plot_pes(result, label_points=True)
+    # 2 pathways × 3 points = 6 annotations.
+    assert len(ax.texts) >= 6
+    plt.close(ax.figure)
+
+
+def test_pes_plot_show_conformers_with_multipath_raises():
+    """show_conformers=True needs a single pathway choice."""
+    result = _two_pathway_pes_result()
+    with pytest.raises(ValueError, match="single"):
+        gv_plot.plot_pes(result, show_conformers=True, thermo_lookup={})
+
+
+def test_pes_plot_uneven_pathway_lengths_raises():
+    """Mixing pathways of different point counts on one axes is
+    rejected — would need separate axes per pathway (deferred)."""
+    from types import SimpleNamespace
+    from goodvibes.pes_loader import PESSpec, build_pes_result
+    from goodvibes.pes_model import PESOptions
+    def stub(g):
+        return SimpleNamespace(
+            scf_energy=g - 0.001, zpe=0.005,
+            enthalpy=g + 0.005, qh_enthalpy=g + 0.005,
+            entropy=1.6e-5, qh_entropy=1.6e-5,
+            gibbs_free_energy=g, qh_gibbs_free_energy=g,
+            sp_energy=None,
+        )
+    td = {f"x{i}.log": stub(-100.0 - i * 0.001) for i in range(4)}
+    spec = PESSpec(
+        pathways={
+            "short": ["A", "B"],
+            "long": ["A", "B", "C", "D"],
+        },
+        species={"A": "x0", "B": "x1", "C": "x2", "D": "x3"},
+        options=PESOptions(),
+    )
+    result = build_pes_result(spec, td, temperatures=[298.15])
+    with pytest.raises(ValueError, match="same number of points"):
+        gv_plot.plot_pes(result)
+
+
+# ---------------------------------------------------------------------------
 # Stubs lock in the v5.1 API
 # ---------------------------------------------------------------------------
 

@@ -249,13 +249,46 @@ goodvibes *.log --pes azabor_PES_v2.yaml --spc sp_tzpop \
                 --pes-plot pes.png
 ```
 
-Saves a clean step-plot of the pathway's qh-G profile (one column
-per point, horizontal bar at each level, light connectors). matplotlib
-via `pip install goodvibes[plot]`.
+Saves a step-plot of the pathway's qh-G profile (one column per
+point, horizontal bar at each level, smooth bezier connectors).
+matplotlib via `pip install goodvibes[plot]`.
 
-The legacy `--graph FILE.yaml` flag is still supported and produces a
-busier diagram with bezier connectors, jitter overlays, and
-YAML-driven styling. `--pes-plot` is the new, lighter v5.0 path.
+If your PES YAML defines multiple pathways (e.g. an R-side and an
+S-side TS sharing reactants and products), `--pes-plot` overlays
+them on the same axes by default — different colors from the
+matplotlib cycle, with a legend and shared x-axis. Pathways must
+have the same number of points to be comparable.
+
+For full control over colors, single-pathway selection, point
+annotations, or per-conformer scatter, drop down to the API:
+
+```python
+from goodvibes.pes_loader import load_pes
+from goodvibes.plot import plot_pes
+import matplotlib.pyplot as plt
+
+pes = load_pes("R_vs_S.yaml", thermo_data)        # 2-pathway YAML
+ax = plot_pes(
+    pes,
+    colors=["#26a6a4", "#e76f51"],     # custom per-pathway palette
+    connector_style="bezier",          # or "linear"
+    label_points=True,                 # annotate ΔqhG at each level
+)
+plt.savefig("R_vs_S.png", dpi=200, bbox_inches="tight")
+
+# Or pick one pathway and overlay individual conformer dots:
+ax = plot_pes(
+    pes, pathway_index=0,
+    show_conformers=True,
+    thermo_lookup={f: bbe.qh_gibbs_free_energy
+                   for f, bbe in thermo_data.items()},
+)
+```
+
+The legacy `--graph FILE.yaml` flag is still supported and reads
+styling (dpi, color, title, legend, gridlines, ylim, ...) from a
+YAML's `--- # FORMAT` block. It will be deprecated in v5.1 once
+`--pes-plot` covers the remaining gaps.
 
 ---
 

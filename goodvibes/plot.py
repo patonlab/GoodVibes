@@ -181,93 +181,181 @@ def plot_pes(
     pes_result: Any,
     *,
     ax=None,
+    pathway_index: Optional[Union[int, Sequence[int]]] = None,
+    connector_style: str = "bezier",
+    colors: Optional[Sequence[str]] = None,
     show_conformers: bool = False,
     thermo_lookup: Optional[Union[Mapping[str, float], Callable[[str], float]]] = None,
     title: Optional[str] = None,
-    pathway_index: int = 0,
+    label_points: bool = False,
 ):
-    """Plot one pathway from a `PESResult` as a reaction profile.
+    """Plot one or more pathways from a `PESResult` as a reaction profile.
 
-    Renders the relative qh-G of each point as a step plot. With
-    `show_conformers=True`, individual conformers are also scattered
-    around each step (requires `thermo_lookup` to read per-conformer
-    qh-G values).
+    Multi-pathway YAMLs (e.g. comparing R vs S transition states across
+    a shared set of points) are overlaid on the same axes by default,
+    each pathway in its own color from matplotlib's color cycle.
 
     Parameters:
         pes_result: a `PESResult` from `goodvibes.pes_loader.load_pes`.
-        ax: optional matplotlib Axes.
+        ax: optional matplotlib Axes; new figure if None.
+        pathway_index: which pathway(s) to draw.
+            None (default) → all pathways overlaid.
+            int → just that pathway.
+            list of ints → that subset.
+        connector_style: 'bezier' (default; smooth curved jumps between
+            steps, like the legacy --graph plot) or 'linear' (straight
+            line between step ends).
+        colors: per-pathway colors (sequence of matplotlib color specs:
+            names, hex, rgb tuples). Falls back to the default color
+            cycle when None.
         show_conformers: scatter individual conformer ΔG around each
-            step. Useful for showing the spread within a step relative
-            to the Boltzmann-averaged value the line connects.
+            step (single-pathway only when used; for multi-pathway
+            select one via `pathway_index=N`).
         thermo_lookup: required when `show_conformers=True`; maps each
             conformer file path → qh_gibbs_free_energy (Hartree).
-        title: figure title; defaults to the pathway name + units.
-        pathway_index: which pathway in the result to draw (0-based).
-            Multi-pathway plots will get separate calls.
+        title: figure title; defaults to the pathway names + temperature.
+        label_points: annotate each point's ΔqhG value above its
+            horizontal bar.
 
     Returns:
-        The matplotlib Axes the profile was drawn on.
+        The matplotlib Axes the profile(s) were drawn on.
     """
     plt = _import_matplotlib()
+    import matplotlib.path as mpath
+    import matplotlib.patches as mpatches
 
-    pathway = pes_result.pathways[pathway_index]
+    if connector_style not in ("bezier", "linear"):
+        raise ValueError(
+            f"connector_style must be 'bezier' or 'linear', got {connector_style!r}"
+        )
+
+    # Resolve which pathways to draw.
+    if pathway_index is None:
+        indices = list(range(len(pes_result.pathways)))
+    elif isinstance(pathway_index, int):
+        indices = [pathway_index]
+    else:
+        indices = list(pathway_index)
+    if not indices:
+        raise ValueError("plot_pes: no pathways to draw")
+    pathways = [pes_result.pathways[i] for i in indices]
+
+    # All chosen pathways must share the same number of points so the
+    # x-axis matches; mixed lengths would need a separate axes per
+    # pathway (legacy --graph supports this; deferred to v5.1).
+    n_points_per_path = {len(p.points) for p in pathways}
+    if len(n_points_per_path) > 1:
+        raise ValueError(
+            "plot_pes: all selected pathways must have the same number "
+            "of points; got "
+            + ", ".join(f"{p.name}={len(p.points)}" for p in pathways)
+        )
+    n_points = pathways[0].points.__len__()
+
     pes_options = pes_result.options
     T = pes_result.temperatures[0] if pes_result.temperatures else 298.15
     units_factor = pes_options.to_user_units(1.0)
-
-    rels = pathway.relative(
-        T,
-        gconf=pes_options.gconf,
-        QH=pes_options.QH,
+    rollup_kw = dict(
+        gconf=pes_options.gconf, QH=pes_options.QH,
         lowest_only=pes_options.lowest_only,
     )
-    qhg = [r.qh_gibbs * units_factor for r in rels]
 
     if ax is None:
-        _, ax = plt.subplots(figsize=(max(5, 0.9 * len(pathway.points) + 1), 4))
+        _, ax = plt.subplots(figsize=(max(5, 0.9 * n_points + 1), 4))
 
-    xs = list(range(len(pathway.points)))
-    # Step plot — flat line at each point's level, vertical jumps between.
-    for i in range(len(xs)):
-        ax.hlines(qhg[i], xs[i] - 0.3, xs[i] + 0.3, colors="C0", linewidth=2.5)
-    for i in range(len(xs) - 1):
-        ax.plot([xs[i] + 0.3, xs[i + 1] - 0.3], [qhg[i], qhg[i + 1]],
-                color="C0", linewidth=1.0)
+    # Resolve the per-pathway color cycle.
+    if colors is None:
+        cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])
+        colors_resolved = [cycle[i % len(cycle)] for i in range(len(pathways))]
+    else:
+        if len(colors) < len(pathways):
+            raise ValueError(
+                f"plot_pes: need at least {len(pathways)} colors, got {len(colors)}"
+            )
+        colors_resolved = list(colors)
 
+    xs = list(range(n_points))
+    bar_half = 0.3
+    Path = mpath.Path
+
+    # Draw each pathway as: hlines at each level + curved/linear
+    # connectors between consecutive levels.
+    for path, color in zip(pathways, colors_resolved):
+        rels = path.relative(T, **rollup_kw)
+        qhg = [r.qh_gibbs * units_factor for r in rels]
+
+        # Step bars at each level.
+        for i in range(n_points):
+            ax.hlines(qhg[i], xs[i] - bar_half, xs[i] + bar_half,
+                      colors=color, linewidth=2.5,
+                      label=path.name if i == 0 else None,
+                      zorder=3)
+            if label_points:
+                ax.annotate(f"{qhg[i]:.1f}", (xs[i], qhg[i]),
+                            xytext=(0, 6), textcoords="offset points",
+                            ha="center", fontsize="x-small", color=color)
+
+        # Connectors between consecutive levels.
+        for i in range(n_points - 1):
+            x0, x1 = xs[i] + bar_half, xs[i + 1] - bar_half
+            y0, y1 = qhg[i], qhg[i + 1]
+            if connector_style == "bezier":
+                # Cubic Bezier with horizontal handles — smooth S-curve.
+                xm = (x0 + x1) / 2
+                patch = mpatches.PathPatch(
+                    Path([(x0, y0), (xm, y0), (xm, y1), (x1, y1)],
+                         [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
+                    fc="none", color=color, linewidth=1.0, zorder=2,
+                )
+                ax.add_patch(patch)
+            else:
+                ax.plot([x0, x1], [y0, y1], color=color,
+                        linewidth=1.0, zorder=2)
+
+    # Optional per-conformer scatter (single-pathway only — the spread
+    # is per-pathway; for multi-pathway choose one via `pathway_index`).
     if show_conformers:
         if thermo_lookup is None:
             raise ValueError(
                 "plot_pes(show_conformers=True) requires thermo_lookup "
                 "(a {file: qh_g_in_Hartree} mapping or callable)."
             )
+        if len(pathways) > 1:
+            raise ValueError(
+                "plot_pes(show_conformers=True) requires a single "
+                "pathway; pass `pathway_index=N` to pick one."
+            )
+        path = pathways[0]
         if isinstance(thermo_lookup, Mapping):
             _lookup = thermo_lookup.__getitem__
         else:
             _lookup = thermo_lookup
-        zero_th = pathway.zero.thermo(
-            T, gconf=pes_options.gconf, QH=pes_options.QH,
-            lowest_only=pes_options.lowest_only,
-        )
-        zero_qhg = zero_th.qh_gibbs
+        zero_qhg = path.zero.thermo(T, **rollup_kw).qh_gibbs
         import random
         rng = random.Random(0)
-        for i, point in enumerate(pathway.points):
+        for i, point in enumerate(path.points):
             for _coeff, cset in point.species:
                 if cset.is_single:
                     continue
                 for bbe in cset.bbes:
                     rel = (bbe.qh_gibbs_free_energy - zero_qhg) * units_factor
                     x = xs[i] + (rng.random() - 0.5) * 0.3
-                    ax.scatter([x], [rel], alpha=0.4, s=18, color="black", zorder=2)
+                    ax.scatter([x], [rel], alpha=0.4, s=18,
+                               color="black", zorder=4)
 
+    # x-axis: point labels from the first pathway (all share the same
+    # length; labels may differ across pathways, so we just take one).
     ax.set_xticks(xs)
-    ax.set_xticklabels([p.label for p in pathway.points],
+    ax.set_xticklabels([p.label for p in pathways[0].points],
                        rotation=15, ha="right", fontsize="small")
     ax.set_ylabel(f"Δqh-G ({pes_options.units})")
     if title is None:
-        title = f"{pathway.name}  (T = {T:g} K)"
+        names = ", ".join(p.name for p in pathways)
+        title = f"{names}  (T = {T:g} K)"
     ax.set_title(title)
     ax.grid(axis="y", linestyle=":", alpha=0.4)
+    if len(pathways) > 1:
+        ax.legend(loc="best", fontsize="small")
     return ax
 
 
