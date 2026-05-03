@@ -592,9 +592,18 @@ def _build_results_table(options) -> "Table":
     if options.symm or options.pg:
         table.add_column("Point Group", min_width=13, justify="right")
     if options.imag_freq is True:
-        table.add_column("im freq", min_width=9, justify="right")
+        table.add_column("im freq", min_width=8, justify="right")
+    if _selectivity_active(options):
+        table.add_column("Grel (kcal/mol)", min_width=8, justify="right")
 
     return table
+
+
+def _selectivity_active(options):
+    """True when any selectivity flag is on (--label / --selectivity / --ee)."""
+    return bool(getattr(options, 'labels', None)
+                or getattr(options, 'selectivity_spec', None)
+                or getattr(options, 'ee', None))
 
 
 def print_results(thermo_data, options, media_conc=None,
@@ -659,6 +668,20 @@ def print_results(thermo_data, options, media_conc=None,
     # Default dup_list if not passed by caller
     if dup_list is None:
         dup_list = []
+
+    # Reference qh-G for the optional Grel column (selectivity mode only).
+    min_qhg = None
+    if _selectivity_active(options):
+        dup_files = {dup[0] for dup in dup_list}
+        candidates = [
+            thermo_data[f].qh_gibbs_free_energy
+            for f in files
+            if f not in dup_files
+            and hasattr(thermo_data[f], "gibbs_free_energy")
+            and not getattr(thermo_data[f], "linear_warning", False)
+        ]
+        if candidates:
+            min_qhg = min(candidates)
 
     for file in files:
         duplicate = False
@@ -738,6 +761,9 @@ def print_results(thermo_data, options, media_conc=None,
                     row.append(freq_str)
                 else:
                     row.append("")
+            if min_qhg is not None:
+                grel = (bbe.qh_gibbs_free_energy - min_qhg) * 627.509541
+                row.append(f"{grel:.3f}")
 
             table.add_row(*row)
 
