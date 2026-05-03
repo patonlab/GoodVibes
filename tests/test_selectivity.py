@@ -490,12 +490,12 @@ def test_cli_label_two_species(tmp_path):
     assert 'Lowest conformer only' in res.stdout
     assert res.stdout.count('Species') >= 2          # one Species header per table
     assert res.stdout.count('Ratio exo:endo') >= 2
-    assert res.stdout.count('ee =') >= 2
-    assert res.stdout.count('ΔΔG‡') >= 2
+    assert res.stdout.count('excess =') >= 2
+    assert res.stdout.count('ΔΔG =') >= 2
 
 
 def test_cli_label_n_way_no_ee_line(tmp_path):
-    """N=4 selectivity prints ratio but no ee or ΔΔG‡ summary."""
+    """N=4 selectivity prints ratio but no excess or ΔΔG summary."""
     res = _run_cli(_all_files() + [
         '--label', 'exo_12=*_exo_12*',
         '--label', 'endo_12=*_endo_12*',
@@ -507,7 +507,7 @@ def test_cli_label_n_way_no_ee_line(tmp_path):
     sel_idx = res.stdout.rfind('Ratio exo_12:endo_12:exo_14:endo_14')
     assert sel_idx > 0
     summary_line = res.stdout[sel_idx: sel_idx + 200]
-    assert 'ee =' not in summary_line
+    assert 'excess =' not in summary_line
 
 
 def test_cli_label_unknown_arg_format_fails(tmp_path):

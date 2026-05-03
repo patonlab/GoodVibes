@@ -91,14 +91,14 @@ Selectivity, Boltzmann-averaged (gibbs, T = 298.15 K)
        exo           3             2.56            2.156
 ★      endo          4            97.44            0.000
 
-Ratio exo:endo = 3:97   Major: endo   ee = 94.88%   ΔΔG‡ = 2.16 kcal/mol
+Ratio exo:endo = 3:97   Major: endo   excess = 94.88%   ΔΔG = 2.16 kcal/mol
 
 Selectivity, Lowest conformer only (gibbs, T = 298.15 K)
        Species   Files   Population (%)   ΔΔG (kcal/mol)
        exo           1             1.84            2.355
 ★      endo          1            98.16            0.000
 
-Ratio exo:endo = 2:98   Major: endo   ee = 96.31%   ΔΔG‡ = 2.36 kcal/mol
+Ratio exo:endo = 2:98   Major: endo   excess = 96.31%   ΔΔG = 2.36 kcal/mol
 ```
 
 The two tables answer different questions: the Boltzmann row shows the
@@ -115,7 +115,7 @@ goodvibes DA_*.out \
   --label exo_14='*_exo_14*'   --label endo_14='*_endo_14*'
 ```
 
-For N > 2 the summary line drops `ee` and `ΔΔG‡` (those are 2-bucket
+For N > 2 the summary line drops `excess` and `ΔΔG` (those are 2-bucket
 concepts) and just reports the ratio — `Ratio exo_12:endo_12:exo_14:endo_14 = 2:97:0:0`.
 
 **JSON output**
@@ -136,12 +136,10 @@ goodvibes DA_*.out \
   --strip-plot selectivity.png
 ```
 
-The image shows one column per species, scattered conformer ΔG
-values (relative to the global lowest), with horizontal bars at the
-lowest conformer (orange solid) and the Boltzmann-weighted mean
-(blue dashed). When the dashed and solid bars sit on top of each
-other for a species, that species is dominated by its lowest
-conformer; when they're far apart, conformer mixing is contributing.
+The image shows one column per species with scattered conformer
+ΔG values (relative to the global lowest). A tight cluster near the
+bottom of a column means that species is dominated by its lowest
+conformer; a wide spread means conformer mixing is contributing.
 
 In Python:
 

@@ -146,20 +146,20 @@ def _print_selectivity_single(result, method=""):
 
     _print_rich_table(table)
 
-    # Summary line: ratio (always); ee + ΔΔG‡ for N=2.
+    # Summary line: ratio (always); excess + ΔΔG for N=2.
     n = len(result.labels)
     ratio_str = _format_ratio(result.populations, result.labels)
     pieces = [f"Ratio {':'.join(result.labels)} = {ratio_str}"]
     pieces.append(f"Major: {result.preferred}")
     if n == 2 and result.ee is not None:
-        pieces.append(f"ee = {result.ee:.2f}%")
+        pieces.append(f"excess = {result.ee:.2f}%")
     if n == 2 and result.ddG is not None:
-        pieces.append(f"ΔΔG‡ = {result.ddG * HA_TO_KCAL:.2f} kcal/mol")
+        pieces.append(f"ΔΔG = {result.ddG * HA_TO_KCAL:.2f} kcal/mol")
     log.info("\n   " + "   ".join(pieces) + "\n")
 
 
 def _print_selectivity_scan(results, method=""):
-    """One row per temperature: ee/ΔΔG‡ for N=2, populations only for N>2."""
+    """One row per temperature: excess/ΔΔG for N=2, populations only for N>2."""
     HA_TO_KCAL = 627.509541
     labels = results[0].labels
     n = len(labels)
@@ -179,8 +179,8 @@ def _print_selectivity_scan(results, method=""):
     for label in labels:
         table.add_column(f"{label} (%)", justify="right")
     if n == 2:
-        table.add_column("ee (%)", justify="right")
-        table.add_column("ΔΔG‡ (kcal/mol)", justify="right")
+        table.add_column("excess (%)", justify="right")
+        table.add_column("ΔΔG (kcal/mol)", justify="right")
     table.add_column("Major", justify="center")
 
     for r in results:
