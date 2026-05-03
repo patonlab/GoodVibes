@@ -28,8 +28,8 @@ from goodvibes.selectivity import (
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Diels–Alder exo/endo × 1,2- vs 1,4- TS set; one (DA_exo_14_ii) errored
-# during the original calculation and is filtered by the orchestrator.
+# Diels–Alder exo/endo × 1,2- vs 1,4- TS set: 8 files total
+# (4 exo + 4 endo, or equivalently 2 per regio × stereo combination).
 SEL_DIR = os.path.join(ROOT_DIR, 'goodvibes', 'examples', 'selectivity')
 
 
@@ -470,9 +470,8 @@ def _run_cli(args, cwd):
 
 
 def _all_files():
-    """Diels–Alder exo/endo × 1,2- vs 1,4- fixture set. The orchestrator
-    drops DA_exo_14_ii.out (Error termination) automatically, so the
-    contributing set is 7 files: 3 exo + 4 endo."""
+    """Diels–Alder exo/endo × 1,2- vs 1,4- fixture set: 8 files
+    (4 exo + 4 endo)."""
     import glob
     return sorted(glob.glob(os.path.join(SEL_DIR, 'DA_*.out')))
 

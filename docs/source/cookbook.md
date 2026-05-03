@@ -88,7 +88,7 @@ goodvibes DA_*.out --label exo='*_exo_*' --label endo='*_endo_*'
 ```text
 Selectivity, Boltzmann-averaged (gibbs, T = 298.15 K)
        Species   Files   Population (%)   ΔΔG (kcal/mol)
-       exo           3             2.56            2.156
+       exo           4             2.56            2.156
 ★      endo          4            97.44            0.000
 
 Ratio exo:endo = 3:97   Major: endo   excess = 94.88%   ΔΔG = 2.16 kcal/mol
