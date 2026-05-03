@@ -239,7 +239,7 @@ on the dir name is ignored.
 Run it from the directory above the per-species subdirectories:
 
 ```bash
-cd goodvibes/examples/pes_saparated
+cd goodvibes/examples/pes_separated
 goodvibes */*log --spc tzpop --pes azabor_PES.yaml
 ```
 
