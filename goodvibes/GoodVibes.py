@@ -743,6 +743,22 @@ def main():
         ax.figure.savefig(options.pes_plot_path, dpi=200, bbox_inches="tight")
         log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}")
 
+    # Legacy --graph FILE.yaml: the busier matplotlib reaction profile
+    # (bezier connectors, jitter overlays, YAML-driven styling). The
+    # styling YAML can be the same file as --pes — both blocks
+    # (`--- # PES` and `--- # FORMAT`) coexist. Wired here in main()
+    # because v4.2's single-T path doesn't call print_pes_results,
+    # which is where this used to live.
+    if options.graph is not None:
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            fatal("--graph requires matplotlib. Install with `pip install goodvibes[plot]`.")
+        from .pes import get_pes, graph_reaction_profile
+        graph_data = get_pes(options.graph, thermo_data,
+                             options.temperature, options.gconf, options.QH)
+        graph_reaction_profile(graph_data, options, plt)
+
     # Perform checks for consistent options
     if options.check:
         check_files(thermo_data, options, level_of_theory)

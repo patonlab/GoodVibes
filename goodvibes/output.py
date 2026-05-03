@@ -1154,21 +1154,7 @@ def print_pes_results(thermo_data, options, dup_list,
             log.info('\no {:<40} {:13.2f} {:>13} {:>13} {:>13} {:13.2f}'.format('', ee, er, ratio, preference,
                                                                                  dd_free_energy))
             log.info("\n" + selec_stars + "\n")
-    # Graph reaction profiles
-    if options.graph is not None:
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            log.info("\n\n   Warning! matplotlib module is not installed, reaction profile will not be graphed.")
-            log.info("\n   To install matplotlib, run the following commands: \n\t   python -m pip install -U pip" +
-                      "\n\t   python -m pip install -U matplotlib\n\n")
-        for key in thermo_data:
-            if not hasattr(thermo_data[key], "qh_gibbs_free_energy"):
-                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
-                sys.exit(pes_error)
-            if not hasattr(thermo_data[key], "sp_energy") and options.spc is not None:
-                pes_error = "\nWarning! Could not find thermodynamic data for " + key + "\n"
-                sys.exit(pes_error)
-
-        graph_data = get_pes(options.graph, thermo_data, options.temperature, options.gconf, options.QH)
-        graph_reaction_profile(graph_data, options, plt)
+    # --graph rendering moved up to GoodVibes.main() in v5.0 so it
+    # fires in single-T mode too (v4.2's print_pes_tables doesn't go
+    # through this function). The legacy T-interval path still calls
+    # print_pes_results, but main() handles the graph either way.

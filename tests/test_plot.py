@@ -340,3 +340,40 @@ def test_cli_pes_plot_without_pes_fails(tmp_path):
     )
     assert res.returncode != 0
     assert "--pes" in (res.stdout + res.stderr) or "pathway" in (res.stdout + res.stderr).lower()
+
+
+def test_cli_graph_writes_legacy_image(tmp_path):
+    """`--graph FILE.yaml` (legacy busier reaction profile) writes
+    Rxn_profile_<stem>.png to the cwd when the FORMAT block has dpi.
+    Regression test for two v4.x bugs:
+      1. v4.2's PES rewrite moved single-T off print_pes_results, so
+         --graph silently did nothing in the common case.
+      2. Pre-existing: split('.')[0] on a full path produced an
+         absolute-path savefile name that didn't exist.
+    """
+    import subprocess
+    import sys
+
+    pes_dir = os.path.join(REPO_ROOT, "goodvibes", "examples", "pes")
+    yaml = os.path.join(pes_dir, "azabor_PES.yaml")        # has dpi:400 in FORMAT
+    if not os.path.exists(yaml):
+        pytest.skip("azabor PES fixture missing")
+    fixtures = sorted(
+        os.path.join(pes_dir, f)
+        for f in os.listdir(pes_dir)
+        if f.endswith(".log") and "_sp_tzpop." not in f
+    )
+
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", *fixtures,
+         "--spc", "sp_tzpop", "--pes", yaml, "--graph", yaml,
+         "--output", "graph_smoke"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT, "MPLBACKEND": "Agg"},
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    expected = tmp_path / "Rxn_profile_azabor_PES.png"
+    assert expected.exists(), (
+        "--graph was supposed to write Rxn_profile_azabor_PES.png in cwd"
+    )
+    assert expected.stat().st_size > 1000

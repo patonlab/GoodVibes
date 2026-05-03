@@ -12,6 +12,7 @@ This shim ships through the v4.x line. v5.1 removes `get_pes` entirely
 in favor of the structured API (item 12 / Sub-plan B in ROADMAP.md).
 """
 import logging
+import os.path
 
 from .pes_loader import load_pes
 
@@ -392,5 +393,10 @@ def graph_reaction_profile(graph_data, options, plt):
     if legend:
         plt.legend()
     if dpi is not None:
-        plt.savefig('Rxn_profile_' + options.graph.split('.')[0] + '.png', dpi=dpi)
+        # `options.graph` may be a full path (e.g. when --graph is the
+        # PES file in another directory); strip to the basename's stem
+        # so the saved image lands in the cwd instead of an absolute
+        # path that mostly doesn't exist (Rxn_profile_/Users/.../foo.png).
+        stem = os.path.splitext(os.path.basename(options.graph))[0]
+        plt.savefig('Rxn_profile_' + stem + '.png', dpi=dpi)
     plt.show()
