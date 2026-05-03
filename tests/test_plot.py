@@ -291,3 +291,52 @@ def test_cli_strip_plot_without_labels_fails(tmp_path):
     )
     assert res.returncode != 0
     assert "label" in (res.stdout + res.stderr).lower() or "selectivity" in (res.stdout + res.stderr).lower()
+
+
+def test_cli_pes_plot_writes_image(tmp_path):
+    """`goodvibes ... --pes pathway.yaml --pes-plot out.png` writes a real image."""
+    import subprocess
+    import sys
+
+    pes_dir = os.path.join(REPO_ROOT, "goodvibes", "examples", "pes")
+    yaml = os.path.join(pes_dir, "azabor_PES_v2.yaml")
+    if not os.path.exists(yaml):
+        pytest.skip("azabor PES fixture missing")
+
+    fixtures = sorted(
+        os.path.join(pes_dir, f)
+        for f in os.listdir(pes_dir)
+        if f.endswith(".log") and "_sp_tzpop." not in f
+    )
+    out = tmp_path / "pes.png"
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", *fixtures,
+         "--spc", "sp_tzpop", "--pes", yaml,
+         "--pes-plot", str(out), "--output", "pes_plot_smoke"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT},
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    assert out.exists()
+    assert out.stat().st_size > 1000
+
+
+def test_cli_pes_plot_without_pes_fails(tmp_path):
+    """`--pes-plot` without `--pes` is a usage error."""
+    import subprocess
+    import sys
+
+    g16_dir = os.path.join(REPO_ROOT, "tests", "g16")
+    fixture = os.path.join(g16_dir, "01a_water_hf_freq.log")
+    if not os.path.exists(fixture):
+        pytest.skip("g16 fixture missing")
+
+    out = tmp_path / "pes.png"
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", fixture,
+         "--pes-plot", str(out), "--output", "no_pes"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT},
+    )
+    assert res.returncode != 0
+    assert "--pes" in (res.stdout + res.stderr) or "pathway" in (res.stdout + res.stderr).lower()

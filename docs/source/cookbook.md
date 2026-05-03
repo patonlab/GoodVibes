@@ -85,7 +85,7 @@ cd goodvibes/examples/selectivity
 goodvibes DA_*.out --label exo='*_exo_*' --label endo='*_endo_*'
 ```
 
-```
+```text
 Selectivity, Boltzmann-averaged (gibbs, T = 298.15 K)
        Species   Files   Population (%)   ΔΔG (kcal/mol)
        exo           3             2.56            2.156
@@ -231,16 +231,31 @@ qh-G conformer + Boltzmann adjustment + the −R Σ pᵢ ln pᵢ mixing
 entropy. Two flags change that:
 
 | Mode | Flag | What it does |
-|---|---|---|
+| --- | --- | --- |
 | gconf (default) | — | lowest + adjustment + mixing entropy |
 | pure Boltzmann | `--nogconf` | Boltzmann-weighted average, no mixing entropy |
 | lowest only | `--lowest-only` | use each species' single lowest qh-G conformer |
 
 The mode tag appears in the table title:
 
-```
+```text
 RXN: Ph  (kcal/mol)  at T = 298.15 K, p = 1 atm — lowest conformer per species
 ```
+
+**Reaction-profile diagram**
+
+```bash
+goodvibes *.log --pes azabor_PES_v2.yaml --spc sp_tzpop \
+                --pes-plot pes.png
+```
+
+Saves a clean step-plot of the pathway's qh-G profile (one column
+per point, horizontal bar at each level, light connectors). matplotlib
+via `pip install goodvibes[plot]`.
+
+The legacy `--graph FILE.yaml` flag is still supported and produces a
+busier diagram with bezier connectors, jitter overlays, and
+YAML-driven styling. `--pes-plot` is the new, lighter v5.0 path.
 
 ---
 

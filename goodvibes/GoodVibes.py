@@ -114,6 +114,11 @@ def parse_arguments():
                         help="Save a per-species ΔG strip plot to PATH (PNG/PDF/SVG by "
                              "extension). Requires --label or --selectivity to define "
                              "buckets; matplotlib via `pip install goodvibes[plot]`.")
+    parser.add_argument("--pes-plot", dest="pes_plot_path", default=None, metavar="PATH",
+                        help="Save a clean reaction-profile diagram to PATH (PNG/PDF/SVG "
+                             "by extension). Requires --pes; uses goodvibes.plot.plot_pes "
+                             "(simpler than the legacy --graph FILE.yaml, no styling YAML "
+                             "needed). matplotlib via `pip install goodvibes[plot]`.")
     parser.add_argument("--jobs", dest="jobs", type=int, default=1, metavar="N",
                         help="Parse and compute thermochemistry in parallel across N "
                              "worker processes (default 1, sequential). 0 = use all "
@@ -723,6 +728,20 @@ def main():
         ax = plot_selectivity_strip(sel, thermo_lookup)
         ax.figure.savefig(options.strip_plot_path, dpi=200, bbox_inches="tight")
         log.info(f"\n   ✔ Strip plot written to {options.strip_plot_path}")
+
+    # PES profile diagram — clean v5.0 plot driven by PESResult.
+    # Reuses the pes_result that was built earlier for the Rich
+    # tables / JSON in single-T mode. matplotlib via `goodvibes[plot]`.
+    if options.pes_plot_path:
+        if pes_result is None:
+            fatal("--pes-plot requires --pes (a reaction pathway YAML) to define the profile.")
+        try:
+            from .plot import plot_pes
+        except ImportError as exc:
+            fatal(str(exc))
+        ax = plot_pes(pes_result)
+        ax.figure.savefig(options.pes_plot_path, dpi=200, bbox_inches="tight")
+        log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}")
 
     # Perform checks for consistent options
     if options.check:
