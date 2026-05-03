@@ -69,6 +69,21 @@ class QCData:
     # Frequency scaling factor applied by QC program (ORCA only; 1.0 means unscaled)
     applied_freq_scale_factor: float = 1.0
 
+    # Single-point-correction (SPC) cache. Populated by calc_bbe when --spc
+    # is used so the SPC file isn't re-parsed on subsequent --import runs.
+    # `sp_suffix` is the --spc value that produced the cached numbers; on
+    # a re-run with the same suffix the cache is reused, on a different
+    # suffix it's bypassed and refreshed. `sp_file` is the resolved
+    # absolute path of the SPC output (diagnostic only).
+    sp_energy: Optional[float] = None
+    sp_version_program: str = ''
+    sp_solvation_model: str = ''
+    sp_charge: Optional[int] = None
+    sp_empirical_dispersion: str = ''
+    sp_multiplicity: Optional[int] = None
+    sp_suffix: str = ''
+    sp_file: str = ''
+
 
 # Cache version for JSON serialization format
 CACHE_VERSION = 1

@@ -148,6 +148,30 @@ frequency scale factor falls back to 1.0 unless you pass `--vscal` /
 `--zpe-vscal` explicitly. Auto-restoring scale factors from the
 cached `options` block is a planned follow-up.
 
+### SPC results are cached too
+
+When you `--export` a run that used `--spc SUFFIX`, the parsed
+single-point energy (and the SPC's solvation, charge, dispersion,
+multiplicity, version-program metadata) is now written into the
+`qcdata` block alongside the parent's parse output. On a subsequent
+`--import FILE --spc SUFFIX` run with the same suffix, the SPC file
+isn't touched — the cached numbers drive the thermo. This means you
+can move or delete the SPC outputs after exporting, and re-runs still
+work:
+
+```bash
+# First pass: parse + persist.
+goodvibes job.log --spc TZ --export job.json
+
+# Later: SPC files can be archived; --import is enough.
+goodvibes --import job.json --spc TZ
+```
+
+The cache is suffix-aware: if you re-run with `--spc QZ` (a different
+suffix), GoodVibes re-resolves the SPC file from disk and refreshes
+the cached numbers. Cache entries that don't match the current `--spc`
+value are bypassed transparently.
+
 ## JSON output schema is now stable (v1.0)
 
 The JSON written by `--json` / `--export` was a preview through v4.x

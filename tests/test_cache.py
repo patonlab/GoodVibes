@@ -198,3 +198,122 @@ def test_calc_bbe_cache_only_no_file_on_disk(tmp_path):
                           0.0408740470708, 1.0, None, None, None)
     assert bbe.enthalpy == bbe_direct.enthalpy
     assert bbe.gibbs_free_energy == bbe_direct.gibbs_free_energy
+
+
+# --- SPC caching: --spc results live on QCData so --import skips the SPC re-parse ---
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ETHANE = os.path.join(REPO_ROOT, "goodvibes", "examples", "ethane.out")
+ETHANE_TZ = os.path.join(REPO_ROOT, "goodvibes", "examples", "ethane_TZ.out")
+
+
+def test_spc_parse_populates_qcdata_sp_fields():
+    """When --spc is used, the parsed SPC numbers are written back onto
+    the QCData container so a subsequent qcdata_to_dict round-trip
+    carries them through."""
+    qcdata = parse_qcdata(ETHANE)
+    assert qcdata.sp_energy is None         # untouched before calc_bbe
+    bbe = calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+                   0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    # calc_bbe parsed the SPC and persisted the result into qcdata.
+    assert qcdata.sp_energy == bbe.sp_energy
+    assert qcdata.sp_suffix == 'TZ'
+    assert qcdata.sp_file.endswith('ethane_TZ.out')
+    # The cached SPC energy is the higher-level number, not the parent SCF.
+    assert qcdata.sp_energy != qcdata.scf_energy
+
+
+def test_spc_cache_hit_skips_disk_lookup(monkeypatch):
+    """A second calc_bbe call with the same --spc reuses the cached values
+    on QCData and never calls find_spc_file()."""
+    # Prime the cache via a real first parse.
+    qcdata = parse_qcdata(ETHANE)
+    calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+            0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    cached_sp = qcdata.sp_energy
+    assert cached_sp is not None
+
+    # Now block disk SPC lookups; the second call must succeed entirely
+    # off the cache.
+    import goodvibes.thermo as gv_thermo
+    calls = {"n": 0}
+    def boom(*a, **kw):
+        calls["n"] += 1
+        raise AssertionError("find_spc_file should not be called on cache hit")
+    monkeypatch.setattr(gv_thermo, 'find_spc_file', boom)
+
+    bbe2 = calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+                    0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    assert calls["n"] == 0
+    assert bbe2.sp_energy == cached_sp
+
+
+def test_spc_cache_miss_on_different_suffix_refreshes(monkeypatch):
+    """If the user passes a --spc suffix that doesn't match the cached
+    sp_suffix, the cache is bypassed and the SPC file is re-resolved
+    from disk; on a successful re-parse the cache is updated."""
+    qcdata = parse_qcdata(ETHANE)
+    # Prime cache with a fake suffix that doesn't match the real fixture.
+    qcdata.sp_energy = -42.0
+    qcdata.sp_suffix = 'OTHER'
+    qcdata.sp_file = '/nope/elsewhere.out'
+
+    calls = {"n": 0}
+    real_find = __import__('goodvibes.io', fromlist=['find_spc_file']).find_spc_file
+    def counting(*a, **kw):
+        calls["n"] += 1
+        return real_find(*a, **kw)
+    import goodvibes.thermo as gv_thermo
+    monkeypatch.setattr(gv_thermo, 'find_spc_file', counting)
+
+    bbe = calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+                   0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    assert calls["n"] == 1                  # disk lookup did fire
+    assert bbe.sp_energy != -42.0           # stale value not used
+    # Cache refreshed with the new suffix.
+    assert qcdata.sp_suffix == 'TZ'
+    assert qcdata.sp_energy == bbe.sp_energy
+
+
+def test_spc_roundtrip_through_json(tmp_path):
+    """Full round-trip: parse + --spc, qcdata_to_dict, JSON, dict_to_qcdata —
+    sp_* fields all survive."""
+    qcdata = parse_qcdata(ETHANE)
+    calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+            0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    sp_before = qcdata.sp_energy
+
+    d = qcdata_to_dict(qcdata)
+    restored = dict_to_qcdata(json.loads(json.dumps(d)))
+
+    assert restored.sp_energy == sp_before
+    assert restored.sp_suffix == 'TZ'
+    assert restored.sp_file == qcdata.sp_file
+    assert restored.sp_version_program == qcdata.sp_version_program
+
+
+def test_spc_import_skips_reparse_when_files_gone(tmp_path):
+    """End-to-end: cache an SPC parse, then run again without the SPC
+    file present on disk — the cached sp_energy still drives the
+    thermo. This is the headline workflow that motivated this feature."""
+    # First pass: parse parent + SPC, capture qcdata.
+    qcdata = parse_qcdata(ETHANE)
+    bbe1 = calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+                    0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    sp1 = bbe1.sp_energy
+    assert sp1 is not None and sp1 != '!'
+
+    # Second pass: copy the parent file into a tmpdir but NOT the SPC
+    # file; rerun --spc TZ pointing at the tmpdir copy. Without the
+    # cache this would be sp_energy = '!'; with the cache it succeeds.
+    import shutil
+    parent_copy = tmp_path / "ethane.out"
+    shutil.copy(ETHANE, parent_copy)
+    # Re-target qcdata.file at the tmpdir parent so find_spc_file would
+    # search the (SPC-less) tmpdir if the cache check failed.
+    qcdata.file = str(parent_copy)
+
+    bbe2 = calc_bbe(str(parent_copy), 'grimme', False, 100.0, 100.0, 298.15,
+                    0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+    assert bbe2.sp_energy == sp1
+    assert bbe2.gibbs_free_energy == bbe1.gibbs_free_energy

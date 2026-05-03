@@ -614,22 +614,51 @@ class calc_bbe:
             fract_modelsys = qcdata.fract_modelsys if qcdata.fract_modelsys else []
             scale_fac = [scale_fac, mm_freq_scale_factor]
 
-        # 4. Read any single point energies if requested
+        # 4. Read any single point energies if requested.
+        #
+        # SPC cache: when --spc was used in a previous run that produced
+        # the QCData we're now reading from, the parsed SPC numbers are
+        # carried on qcdata.sp_*. Reuse them when the suffix matches so
+        # `--import` doesn't re-parse the SPC file from disk.
         if spc and spc != 'link':
-            name, _ = os.path.splitext(file)
-            sp_file = find_spc_file(name, spc)
-            if sp_file is None:
-                self.sp_energy = '!'
+            cached_sp_hit = (
+                qcdata is not None
+                and qcdata.sp_energy is not None
+                and qcdata.sp_suffix == spc
+            )
+            if cached_sp_hit:
+                self.sp_energy = qcdata.sp_energy
+                self.sp_version_program = qcdata.sp_version_program
+                self.sp_solvation_model = qcdata.sp_solvation_model
+                self.sp_charge = qcdata.sp_charge
+                self.sp_empirical_dispersion = qcdata.sp_empirical_dispersion
+                self.sp_multiplicity = qcdata.sp_multiplicity
             else:
-                try:
-                    (self.sp_energy, _,
-                     self.sp_version_program, self.sp_solvation_model,
-                     _, self.sp_charge,
-                     self.sp_empirical_dispersion,
-                     self.sp_multiplicity) = parse_data(sp_file)
-                    self.cpu = _sp_cpu(sp_file)
-                except ValueError:
+                name, _ = os.path.splitext(file)
+                sp_file = find_spc_file(name, spc)
+                if sp_file is None:
                     self.sp_energy = '!'
+                else:
+                    try:
+                        (self.sp_energy, _,
+                         self.sp_version_program, self.sp_solvation_model,
+                         _, self.sp_charge,
+                         self.sp_empirical_dispersion,
+                         self.sp_multiplicity) = parse_data(sp_file)
+                        self.cpu = _sp_cpu(sp_file)
+                        # Persist into qcdata so a subsequent --export
+                        # captures the SPC alongside the parent parse.
+                        if qcdata is not None:
+                            qcdata.sp_energy = self.sp_energy
+                            qcdata.sp_version_program = self.sp_version_program
+                            qcdata.sp_solvation_model = self.sp_solvation_model
+                            qcdata.sp_charge = self.sp_charge
+                            qcdata.sp_empirical_dispersion = self.sp_empirical_dispersion
+                            qcdata.sp_multiplicity = self.sp_multiplicity
+                            qcdata.sp_suffix = spc
+                            qcdata.sp_file = os.path.abspath(sp_file)
+                    except ValueError:
+                        self.sp_energy = '!'
         elif qcdata is not None and not os.path.exists(file):
             # Cache-only mode: derive sp_* fields from cached QCData
             self.sp_energy = qcdata.scf_energy
