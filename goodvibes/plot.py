@@ -274,14 +274,19 @@ def plot_pes(
                             xytext=(0, 6), textcoords="offset points",
                             ha="center", fontsize="x-small", color=color)
 
-        # Connectors between consecutive levels.
+        # Connectors between consecutive levels. Endpoints are the
+        # *point centers*, not the bar edges — so the curve passes
+        # under each horizontal bar and the bar (drawn on top via
+        # zorder=3) appears as a small flat plateau on a continuous
+        # underlying line. This mirrors graph_reaction_profile in
+        # pes.py and is the "S-curve that smoothly transitions through
+        # the levels" look the legacy --graph plot has.
         for i in range(n_points - 1):
-            x0, x1 = xs[i] + bar_half, xs[i + 1] - bar_half
+            x0, x1 = xs[i], xs[i + 1]
             y0, y1 = qhg[i], qhg[i + 1]
             if connector_style == "bezier":
-                # Cubic Bezier with horizontal handles — smooth S-curve.
-                # Geometry mirrors graph_reaction_profile in pes.py:
-                # midpoint x with horizontal control handles at y0 / y1.
+                # Cubic Bezier with horizontal handles, control points
+                # at the midpoint x and y0 / y1.
                 xm = (x0 + x1) / 2
                 patch = mpatches.PathPatch(
                     Path([(x0, y0), (xm, y0), (xm, y1), (x1, y1)],
@@ -329,7 +334,7 @@ def plot_pes(
     ax.set_xticks(xs)
     ax.set_xticklabels([p.label for p in pathways[0].points],
                        rotation=15, ha="right", fontsize="small")
-    ax.set_ylabel(rf"$\Delta$qh-G ({pes_options.units})")
+    ax.set_ylabel(rf"$G_{{rel}}$ ({pes_options.units})")
     if title is None:
         names = ", ".join(p.name for p in pathways)
         title = f"{names}  (T = {T:g} K)"
