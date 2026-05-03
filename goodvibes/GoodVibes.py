@@ -38,150 +38,168 @@ def parse_arguments():
     parser = ArgumentParser(
         prog="goodvibes",
         description="Compute quasi-harmonic thermochemical corrections from quantum chemistry output files.")
-    parser.add_argument("--bav", dest='inertia', default="global", type=str, choices=['global', 'conf'],
-                        help="Moment of inertia for free-rotor entropy: 'global' uses Bav = 10e-44 kg m^2 "
-                             "for all molecules, 'conf' computes from rotational constants per file "
-                             "(default: global)")
-    parser.add_argument("--boltz", dest="boltz", default=None, nargs='?', const='gibbs',
-                        type=str, choices=['energy', 'gibbs'], metavar="KEY",
-                        help="Print Boltzmann-weighted populations ('energy' for SCF, 'gibbs' for quasi-harmonic G; "
-                             "default when flag used: gibbs)")
-    parser.add_argument("--check", dest="check", action="store_true", default=False,
-                        help="Verify all files use the same program, level of theory, and solvation model; "
-                             "also flag potential duplicates")
-    parser.add_argument("-c", "--conc", dest="conc", default=None, type=float, metavar="CONC",
-                        help="Concentration in mol/L for solution-phase entropy; gas phase (1 atm) if not set")
-    parser.add_argument("--cpu", dest="cputime", action="store_true", default=False,
-                        help="Print total CPU time from output files")
-    parser.add_argument("--custom_ext", type=str, default='', metavar="exts",
-                        help="Additional file extensions to accept, comma-separated "
-                             "(e.g. '.qfi,.gaussian'); also settable via GOODVIBES_CUSTOM_EXT env var")
-    parser.add_argument("--dedup", dest="duplicate", action="store_true", default=False,
-                        help="Remove duplicate structures based on energy, rotational constants, and stoichiometry")
-    parser.add_argument("--e_cutoff", dest="e_cutoff", default=0.05, type=float, metavar="KCAL",
-                        help="Energy cutoff for duplicate detection in kcal/mol (default: 0.05)")
-    parser.add_argument("--ro_cutoff", dest="ro_cutoff", default=0.01, type=float, metavar="FRAC",
-                        help="Rotational constant cutoff for duplicate detection as a fraction (default: 0.01 = 1%%)")
-    parser.add_argument("--rmsd_cutoff", dest="rmsd_cutoff", default=None, type=float, metavar="ANGS",
-                        help="RMSD cutoff for duplicate detection in Angstrom (default: off; 0.125 matches CREST)")
-    parser.add_argument("--ee", dest="ee", default=None, type=str, metavar="patterns",
-                        help="DEPRECATED — use --label/--selectivity. Compute 2-species "
-                             "selectivity from a colon-delimited glob pair (e.g. '*_R*:*_S*'). "
-                             "Will be removed in v5.0.")
-    parser.add_argument("--label", dest="labels", default=None, action='append', metavar="NAME=PATTERN",
-                        help="Repeatable: assign files matching fnmatch PATTERN to species NAME "
-                             "for selectivity analysis. Two or more species supported "
-                             "(N=2: ee + ΔΔG‡; N>2: populations only). Example: "
-                             "--label R='*P_R_*' --label S='*P_S_*'.")
-    parser.add_argument("--selectivity", dest="selectivity_spec", default=None, metavar="FILE.yaml",
-                        help="YAML spec for selectivity analysis. Top-level key 'labels' "
-                             "maps species -> fnmatch pattern, or 'files' maps species -> "
-                             "explicit list of files. Use instead of --label for many "
-                             "species or shareable specs.")
-    parser.add_argument("--exclude", dest="exclude", default=None, type=str, metavar="PATTERN",
-                        help="Glob pattern to exclude files from the analysis (e.g. '*_TZ.out')")
-    parser.add_argument("--sort", dest="sort", default=None, nargs='?', const='gibbs',
-                        type=str, choices=['energy', 'gibbs'], metavar="KEY",
-                        help="Sort output by energy ('energy' for SCF, 'gibbs' for quasi-harmonic G; default when flag used: gibbs)")
-    parser.add_argument("-f", "--tau", dest="freq_cutoff", default=100, type=float, metavar="FREQ_CUTOFF",
-                        help="Frequency cut-off for both entropy and enthalpy in cm-1 (default: 100)")
-    parser.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
-                        help="Frequency cut-off for enthalpy only in cm-1; overrides -f for H (default: 100)")
-    parser.add_argument("--freespace", dest="freespace", default=None, type=str, metavar="SOLVENT",
-                        help="Apply free-space correction for the given solvent (e.g. H2O, toluene, DMF, "
-                             "AcOH, chloroform)")
-    parser.add_argument("--fs", dest="S_freq_cutoff", default=100.0, type=float, metavar="S_FREQ_CUTOFF",
-                        help="Frequency cut-off for entropy only in cm-1; overrides -f for S (default: 100)")
-    parser.add_argument("--graph", dest='graph', default=None, metavar="file",
-                        help="Graph a reaction profile from free energies; provide the PES YAML file")
-    parser.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
-                        help="Print imaginary frequencies for each structure")
-    parser.add_argument("--invert", dest="invert", nargs='?', const=True, default=None, type=float,
-                        help="Invert small imaginary frequencies (> -50 cm-1) to positive values; "
-                             "optionally provide a custom threshold in cm-1")
-    parser.add_argument("--json", dest="json_path", default=None, metavar="PATH",
-                        help="Write structured results to PATH as JSON (every parsed and computed "
-                             "field per file plus the run options). Schema is preview/v0.1.")
-    parser.add_argument("--csv", dest="csv_path", default=None, metavar="PATH",
-                        help="Write per-file thermochemistry to PATH as CSV (one row per "
-                             "structure; columns mirror ThermoResult). Requires pandas; "
-                             "install with `pip install goodvibes[full]`.")
-    parser.add_argument("--parquet", dest="parquet_path", default=None, metavar="PATH",
-                        help="Write per-file thermochemistry to PATH as Parquet (same "
-                             "columns as --csv). Requires pandas + a Parquet engine "
-                             "(pyarrow); install with `pip install goodvibes[full]`.")
-    parser.add_argument("--strip-plot", dest="strip_plot_path", default=None, metavar="PATH",
-                        help="Save a per-species ΔG strip plot to PATH (PNG/PDF/SVG by "
-                             "extension). Requires --label or --selectivity to define "
-                             "buckets; matplotlib via `pip install goodvibes[plot]`.")
-    parser.add_argument("--pes-plot", dest="pes_plot_path", default=None, metavar="PATH",
-                        help="Save a clean reaction-profile diagram to PATH (PNG/PDF/SVG "
-                             "by extension). Requires --pes; uses goodvibes.plot.plot_pes "
-                             "(simpler than the legacy --graph FILE.yaml, no styling YAML "
-                             "needed). matplotlib via `pip install goodvibes[plot]`.")
-    parser.add_argument("--jobs", dest="jobs", type=int, default=1, metavar="N",
-                        help="Parse and compute thermochemistry in parallel across N "
-                             "worker processes (default 1, sequential). 0 = use all "
-                             "available CPU cores.")
-    parser.add_argument("--media", dest="media", default=None, metavar="solvent",
-                        help="Apply standard-state concentration correction for the given solvent "
-                             "(e.g. H2O corrects to 55.34 M)")
-    parser.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
-                        help="Disable the Gconf correction for multi-conformer ensembles (enabled by default)")
-    parser.add_argument("--lowest-only", dest="lowest_only", action="store_true", default=False,
-                        help="PES tables: use only each species' lowest qh-G conformer "
-                             "(overrides --nogconf and the default Gconf correction)")
-    parser.add_argument("--output", dest="output", default="output", metavar="name",
-                        help="Base name for the output file, written as GoodVibes_OUTPUT.dat (default: output)")
-    parser.add_argument("--pes", dest="pes", default=None, metavar="file",
-                        help="YAML file defining a reaction pathway for tabulating relative energies")
-    parser.add_argument("-q", dest="Q", action="store_true", default=False,
-                        help="Apply both quasi-harmonic entropy (Grimme mRRHO) and enthalpy (Head-Gordon) corrections")
-    parser.add_argument("--qh", dest="QH", action="store_true", default=False,
-                        help="Apply Head-Gordon quasi-harmonic enthalpy correction")
-    parser.add_argument("--qs", dest="QS", default="grimme", type=str.lower, metavar="QS",
-                        choices=('grimme', 'truhlar'),
-                        help="Quasi-harmonic entropy method: 'grimme' for mRRHO free-rotor interpolation, "
-                             "'truhlar' for frequency raising (default: grimme)")
-    parser.add_argument("--spc", dest="spc", type=str, default=None, metavar="suffix",
-                        help="Single-point correction suffix: reads energy from FILE_SPC.ext "
-                             "(e.g. --spc TZ reads from FILE_TZ.log)")
-    parser.add_argument("--symm", dest='symm', action="store_true", default=False,
-                        help="Apply external symmetry correction to entropy using point-group detection (pymsym)")
-    parser.add_argument("--pg", dest='pg', action="store_true", default=False,
-                        help="Display point group from output file (no entropy correction applied)")
-    parser.add_argument("--temp", dest="temperature", default=298.15, type=float, metavar="TEMP",
-                        help="Temperature in Kelvin (default: 298.15)")
-    parser.add_argument("--ti", dest="temperature_interval", default=None, metavar="TI",
-                        help="Temperature interval as START,END,STEP in Kelvin (e.g. '300,1000,100')")
-    parser.add_argument("-v", "--vscal", dest="freq_scale_factor", default=None, type=float, metavar="SCALE_FACTOR",
-                        help="Vibrational frequency scaling factor for the partition-function frequencies "
-                             "(H_vib, S_vib); auto-detected from level of theory via Truhlar's harm_fac if "
-                             "not set, falls back to 1.0")
-    parser.add_argument("--zpe-vscal", dest="zpe_scale_factor", default=None, type=float, metavar="ZPE_SCALE_FACTOR",
-                        help="Separate scaling factor for the zero-point energy (ZPE); auto-detected from "
-                             "level of theory via Truhlar's zpe_fac if not set. If --vscal is set but "
-                             "--zpe-vscal is not, ZPE inherits --vscal (back-compat).")
-    parser.add_argument("--vmm", dest="mm_freq_scale_factor", default=None, type=float, metavar="MM_SCALE_FACTOR",
-                        help="Frequency scaling factor for the MM region in ONIOM calculations")
-    parser.add_argument("--xyz", dest="xyz", action="store_true", default=False,
-                        help="Write optimized Cartesian coordinates to a .xyz file")
-    parser.add_argument("--export", dest="export_path", default=None, type=str, metavar="PATH",
-                        help="Write the unified v1.0 JSON payload to PATH "
-                             "(per-file QCData + thermo + run options + selectivity / pes "
-                             "blocks). Identical to --json. The same file can be re-loaded "
-                             "via --import to skip parsing on a follow-up run.")
-    parser.add_argument("--import", dest="import_path", default=None, type=str, metavar="PATH",
-                        help="Read pre-parsed data from a v1.0 JSON file (or a legacy "
-                             "--cache-save envelope) instead of re-parsing the input "
-                             "QC outputs. Useful for fast re-analysis at a different "
-                             "temperature/concentration without re-reading large outputs.")
-    parser.add_argument("--cache-save", dest="cache_save", default=None, type=str, metavar="FILE",
-                        help="(deprecated, use --export instead) Save parsed data to a JSON file.")
-    parser.add_argument("--cache-read", dest="cache_read", default=None, type=str, metavar="FILE",
-                        help="(deprecated, use --import instead) Read pre-parsed data from a JSON file.")
-    parser.add_argument("--dp", dest="dp", default=6, type=int, metavar="DP",
-                        help="Number of decimal places for energy values in output (default: 6)")
+
+    state = parser.add_argument_group("Temperature & state")
+    state.add_argument("--temp", dest="temperature", default=298.15, type=float, metavar="TEMP",
+                       help="Temperature in Kelvin (default: 298.15)")
+    state.add_argument("--ti", dest="temperature_interval", default=None, metavar="TI",
+                       help="Temperature interval as START,END,STEP in Kelvin (e.g. '300,1000,100')")
+    state.add_argument("-c", "--conc", dest="conc", default=None, type=float, metavar="CONC",
+                       help="Concentration in mol/L for solution-phase entropy; gas phase (1 atm) if not set")
+    state.add_argument("--media", dest="media", default=None, metavar="solvent",
+                       help="Apply standard-state concentration correction for the given solvent "
+                            "(e.g. H2O corrects to 55.34 M)")
+    state.add_argument("--freespace", dest="freespace", default=None, type=str, metavar="SOLVENT",
+                       help="Apply free-space correction for the given solvent (e.g. H2O, toluene, DMF, "
+                            "AcOH, chloroform)")
+
+    qh = parser.add_argument_group("Quasi-harmonic corrections")
+    qh.add_argument("-q", dest="Q", action="store_true", default=False,
+                    help="Apply both quasi-harmonic entropy (Grimme mRRHO) and enthalpy (Head-Gordon) corrections")
+    qh.add_argument("--qh", dest="QH", action="store_true", default=False,
+                    help="Apply Head-Gordon quasi-harmonic enthalpy correction")
+    qh.add_argument("--qs", dest="QS", default="grimme", type=str.lower, metavar="QS",
+                    choices=('grimme', 'truhlar'),
+                    help="Quasi-harmonic entropy method: 'grimme' for mRRHO free-rotor interpolation, "
+                         "'truhlar' for frequency raising (default: grimme)")
+    qh.add_argument("-f", "--tau", dest="freq_cutoff", default=100, type=float, metavar="FREQ_CUTOFF",
+                    help="Frequency cut-off for both entropy and enthalpy in cm-1 (default: 100)")
+    qh.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
+                    help="Frequency cut-off for enthalpy only in cm-1; overrides -f for H (default: 100)")
+    qh.add_argument("--fs", dest="S_freq_cutoff", default=100.0, type=float, metavar="S_FREQ_CUTOFF",
+                    help="Frequency cut-off for entropy only in cm-1; overrides -f for S (default: 100)")
+    qh.add_argument("--bav", dest='inertia', default="global", type=str, choices=['global', 'conf'],
+                    help="Moment of inertia for free-rotor entropy: 'global' uses Bav = 10e-44 kg m^2 "
+                         "for all molecules, 'conf' computes from rotational constants per file "
+                         "(default: global)")
+
+    freq = parser.add_argument_group("Frequency handling")
+    freq.add_argument("-v", "--vscal", dest="freq_scale_factor", default=None, type=float, metavar="SCALE_FACTOR",
+                      help="Vibrational frequency scaling factor for the partition-function frequencies "
+                           "(H_vib, S_vib); auto-detected from level of theory via Truhlar's harm_fac if "
+                           "not set, falls back to 1.0")
+    freq.add_argument("--zpe-vscal", dest="zpe_scale_factor", default=None, type=float, metavar="ZPE_SCALE_FACTOR",
+                      help="Separate scaling factor for the zero-point energy (ZPE); auto-detected from "
+                           "level of theory via Truhlar's zpe_fac if not set. If --vscal is set but "
+                           "--zpe-vscal is not, ZPE inherits --vscal (back-compat).")
+    freq.add_argument("--vmm", dest="mm_freq_scale_factor", default=None, type=float, metavar="MM_SCALE_FACTOR",
+                      help="Frequency scaling factor for the MM region in ONIOM calculations")
+    freq.add_argument("--invert", dest="invert", nargs='?', const=True, default=None, type=float,
+                      help="Invert small imaginary frequencies (> -50 cm-1) to positive values; "
+                           "optionally provide a custom threshold in cm-1")
+    freq.add_argument("--imag", dest="imag_freq", action="store_true", default=False,
+                      help="Print imaginary frequencies for each structure")
+
+    sym = parser.add_argument_group("Symmetry")
+    sym.add_argument("--symm", dest='symm', action="store_true", default=False,
+                     help="Apply external symmetry correction to entropy using point-group detection (pymsym)")
+    sym.add_argument("--pg", dest='pg', action="store_true", default=False,
+                     help="Display point group from output file (no entropy correction applied)")
+
+    sort_grp = parser.add_argument_group("Sorting & deduplication")
+    sort_grp.add_argument("--sort", dest="sort", default=None, nargs='?', const='gibbs',
+                          type=str, choices=['energy', 'gibbs'], metavar="KEY",
+                          help="Sort output by energy ('energy' for SCF, 'gibbs' for quasi-harmonic G; default when flag used: gibbs)")
+    sort_grp.add_argument("--boltz", dest="boltz", default=None, nargs='?', const='gibbs',
+                          type=str, choices=['energy', 'gibbs'], metavar="KEY",
+                          help="Print Boltzmann-weighted populations ('energy' for SCF, 'gibbs' for quasi-harmonic G; "
+                               "default when flag used: gibbs)")
+    sort_grp.add_argument("--dedup", dest="duplicate", action="store_true", default=False,
+                          help="Remove duplicate structures based on energy, rotational constants, and stoichiometry")
+    sort_grp.add_argument("--e_cutoff", dest="e_cutoff", default=0.05, type=float, metavar="KCAL",
+                          help="Energy cutoff for duplicate detection in kcal/mol (default: 0.05)")
+    sort_grp.add_argument("--ro_cutoff", dest="ro_cutoff", default=0.01, type=float, metavar="FRAC",
+                          help="Rotational constant cutoff for duplicate detection as a fraction (default: 0.01 = 1%%)")
+    sort_grp.add_argument("--rmsd_cutoff", dest="rmsd_cutoff", default=None, type=float, metavar="ANGS",
+                          help="RMSD cutoff for duplicate detection in Angstrom (default: off; 0.125 matches CREST)")
+
+    sel = parser.add_argument_group("Selectivity & PES")
+    sel.add_argument("--label", dest="labels", default=None, action='append', metavar="NAME=PATTERN",
+                     help="Repeatable: assign files matching fnmatch PATTERN to species NAME "
+                          "for selectivity analysis. Two or more species supported "
+                          "(N=2: excess + ΔΔG; N>2: populations only). Example: "
+                          "--label R='*P_R_*' --label S='*P_S_*'.")
+    sel.add_argument("--selectivity", dest="selectivity_spec", default=None, metavar="FILE.yaml",
+                     help="YAML spec for selectivity analysis. Top-level key 'labels' "
+                          "maps species -> fnmatch pattern, or 'files' maps species -> "
+                          "explicit list of files. Use instead of --label for many "
+                          "species or shareable specs.")
+    sel.add_argument("--ee", dest="ee", default=None, type=str, metavar="patterns",
+                     help="DEPRECATED — use --label/--selectivity. Compute 2-species "
+                          "selectivity from a colon-delimited glob pair (e.g. '*_R*:*_S*'). "
+                          "Will be removed in v5.0.")
+    sel.add_argument("--pes", dest="pes", default=None, metavar="file",
+                     help="YAML file defining a reaction pathway for tabulating relative energies")
+    sel.add_argument("--graph", dest='graph', default=None, metavar="file",
+                     help="Graph a reaction profile from free energies; provide the PES YAML file")
+    sel.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
+                     help="Disable the Gconf correction for multi-conformer ensembles (enabled by default)")
+    sel.add_argument("--lowest-only", dest="lowest_only", action="store_true", default=False,
+                     help="PES tables: use only each species' lowest qh-G conformer "
+                          "(overrides --nogconf and the default Gconf correction)")
+
+    inp = parser.add_argument_group("Input")
+    inp.add_argument("--custom_ext", type=str, default='', metavar="exts",
+                     help="Additional file extensions to accept, comma-separated "
+                          "(e.g. '.qfi,.gaussian'); also settable via GOODVIBES_CUSTOM_EXT env var")
+    inp.add_argument("--exclude", dest="exclude", default=None, type=str, metavar="PATTERN",
+                     help="Glob pattern to exclude files from the analysis (e.g. '*_TZ.out')")
+    inp.add_argument("--spc", dest="spc", type=str, default=None, metavar="suffix",
+                     help="Single-point correction suffix: reads energy from FILE_SPC.ext "
+                          "(e.g. --spc TZ reads from FILE_TZ.log)")
+    inp.add_argument("--import", dest="import_path", default=None, type=str, metavar="PATH",
+                     help="Read pre-parsed data from a v1.0 JSON file (or a legacy "
+                          "--cache-save envelope) instead of re-parsing the input "
+                          "QC outputs. Useful for fast re-analysis at a different "
+                          "temperature/concentration without re-reading large outputs.")
+    inp.add_argument("--cache-read", dest="cache_read", default=None, type=str, metavar="FILE",
+                     help="(deprecated, use --import instead) Read pre-parsed data from a JSON file.")
+
+    out = parser.add_argument_group("Output & reports")
+    out.add_argument("--output", dest="output", default="output", metavar="name",
+                     help="Base name for the output file, written as GoodVibes_OUTPUT.dat (default: output)")
+    out.add_argument("--dp", dest="dp", default=6, type=int, metavar="DP",
+                     help="Number of decimal places for energy values in output (default: 6)")
+    out.add_argument("--json", dest="json_path", default=None, metavar="PATH",
+                     help="Write structured results to PATH as JSON (every parsed and computed "
+                          "field per file plus the run options). Schema is preview/v0.1.")
+    out.add_argument("--csv", dest="csv_path", default=None, metavar="PATH",
+                     help="Write per-file thermochemistry to PATH as CSV (one row per "
+                          "structure; columns mirror ThermoResult). Requires pandas; "
+                          "install with `pip install goodvibes[full]`.")
+    out.add_argument("--parquet", dest="parquet_path", default=None, metavar="PATH",
+                     help="Write per-file thermochemistry to PATH as Parquet (same "
+                          "columns as --csv). Requires pandas + a Parquet engine "
+                          "(pyarrow); install with `pip install goodvibes[full]`.")
+    out.add_argument("--xyz", dest="xyz", action="store_true", default=False,
+                     help="Write optimized Cartesian coordinates to a .xyz file")
+    out.add_argument("--strip-plot", dest="strip_plot_path", default=None, metavar="PATH",
+                     help="Save a per-species ΔG strip plot to PATH (PNG/PDF/SVG by "
+                          "extension). Requires --label or --selectivity to define "
+                          "buckets; matplotlib via `pip install goodvibes[plot]`.")
+    out.add_argument("--pes-plot", dest="pes_plot_path", default=None, metavar="PATH",
+                     help="Save a clean reaction-profile diagram to PATH (PNG/PDF/SVG "
+                          "by extension). Requires --pes; uses goodvibes.plot.plot_pes "
+                          "(simpler than the legacy --graph FILE.yaml, no styling YAML "
+                          "needed). matplotlib via `pip install goodvibes[plot]`.")
+    out.add_argument("--export", dest="export_path", default=None, type=str, metavar="PATH",
+                     help="Write the unified v1.0 JSON payload to PATH "
+                          "(per-file QCData + thermo + run options + selectivity / pes "
+                          "blocks). Identical to --json. The same file can be re-loaded "
+                          "via --import to skip parsing on a follow-up run.")
+    out.add_argument("--cache-save", dest="cache_save", default=None, type=str, metavar="FILE",
+                     help="(deprecated, use --export instead) Save parsed data to a JSON file.")
+    out.add_argument("--cpu", dest="cputime", action="store_true", default=False,
+                     help="Print total CPU time from output files")
+    out.add_argument("--check", dest="check", action="store_true", default=False,
+                     help="Verify all files use the same program, level of theory, and solvation model; "
+                          "also flag potential duplicates")
+
+    perf = parser.add_argument_group("Performance")
+    perf.add_argument("--jobs", dest="jobs", type=int, default=1, metavar="N",
+                      help="Parse and compute thermochemistry in parallel across N "
+                           "worker processes (default 1, sequential). 0 = use all "
+                           "available CPU cores.")
     # Parse Arguments
     (options, args) = parser.parse_known_args()
 
@@ -727,7 +745,7 @@ def main():
         thermo_lookup = {f: bbe.qh_gibbs_free_energy for f, bbe in thermo_data.items()}
         ax = plot_selectivity_strip(sel, thermo_lookup)
         ax.figure.savefig(options.strip_plot_path, dpi=200, bbox_inches="tight")
-        log.info(f"\n   ✔ Strip plot written to {options.strip_plot_path}")
+        log.info(f"\n   ✔ Strip plot written to {options.strip_plot_path}\n")
 
     # PES profile diagram — clean v5.0 plot driven by PESResult.
     # Reuses the pes_result that was built earlier for the Rich
@@ -741,7 +759,7 @@ def main():
             fatal(str(exc))
         ax = plot_pes(pes_result)
         ax.figure.savefig(options.pes_plot_path, dpi=200, bbox_inches="tight")
-        log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}")
+        log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}\n")
 
     # Legacy --graph FILE.yaml: the busier matplotlib reaction profile
     # (bezier connectors, jitter overlays, YAML-driven styling). The
