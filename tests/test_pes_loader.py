@@ -90,6 +90,61 @@ def test_resolve_no_match_returns_empty():
     assert resolve_pattern("nonexistent", td) == []
 
 
+# ---------------------------------------------------------------------------
+# Directory-based pattern resolution (`@dir:` prefix)
+# ---------------------------------------------------------------------------
+
+def test_resolve_dir_pattern_matches_parent_dir_basename():
+    """`@dir:X` matches keys whose parent dir's basename is X."""
+    td = _td(
+        ("R1-An/conf_1.log", -100.0),
+        ("R1-An/conf_2.log", -100.5),
+        ("THF/thf.log", -50.0),
+        ("AmTS/ts1.log", -75.0),
+    )
+    assert resolve_pattern("@dir:R1-An", td) == [
+        "R1-An/conf_1.log", "R1-An/conf_2.log",
+    ]
+    assert resolve_pattern("@dir:THF", td) == ["THF/thf.log"]
+
+
+def test_resolve_dir_pattern_supports_glob():
+    """fnmatch globs apply to dir names too — `@dir:TS_*` matches any
+    parent dir whose basename starts with `TS_`."""
+    td = _td(
+        ("TS_R/a.log", -100.0),
+        ("TS_S/b.log", -99.0),
+        ("Reactant/c.log", -200.0),
+    )
+    matches = resolve_pattern("@dir:TS_*", td)
+    assert matches == ["TS_R/a.log", "TS_S/b.log"]
+
+
+def test_resolve_dir_pattern_does_not_match_descendant_dirs():
+    """`@dir:X` is a parent-dir match, not an ancestor match. A file at
+    `outer/X/inner/foo.log` has parent `inner`, not `X`, so it doesn't
+    match `@dir:X` — this prevents ambiguity in nested layouts."""
+    td = _td(
+        ("X/foo.log", -100.0),
+        ("outer/X/inner/foo.log", -101.0),
+    )
+    assert resolve_pattern("@dir:X", td) == ["X/foo.log"]
+
+
+def test_resolve_dir_no_parent_excluded():
+    """A bare filename (no parent dir) doesn't match any @dir: pattern."""
+    td = _td(
+        ("flat.log", -50.0),
+        ("sub/in_sub.log", -100.0),
+    )
+    assert resolve_pattern("@dir:sub", td) == ["sub/in_sub.log"]
+    assert resolve_pattern("@dir:flat", td) == []
+
+
+def test_resolve_dir_empty_thermo_data():
+    assert resolve_pattern("@dir:any", {}) == []
+
+
 def test_resolve_preserves_thermo_data_order():
     """Thermo_data is dict-ordered; resolve preserves that."""
     td = _td(
@@ -224,3 +279,78 @@ def test_build_passes_temperatures_through():
     spec = PESSpec(pathways={"rxn": ["A"]}, species={"A": "a"})
     result = build_pes_result(spec, td, temperatures=[273.15, 298.15, 373.15])
     assert result.temperatures == [273.15, 298.15, 373.15]
+
+
+# ---------------------------------------------------------------------------
+# Directory-based species spec — full stack (YAML parser → builder)
+# ---------------------------------------------------------------------------
+
+def test_build_pes_result_with_dir_spec_resolves_subdirs():
+    """When the YAML uses `{dir: "X"}`, build_pes_result should pick up
+    every thermo_data key whose parent directory's basename is `X`."""
+    td = _td(
+        ("R/r1.log", -100.0), ("R/r2.log", -100.5),    # → species R
+        ("P/p1.log", -200.0),                          # → species P
+        ("noise/x.log", -50.0),                        # ignored (no species)
+    )
+    spec = PESSpec(
+        pathways={"rxn": ["R", "P"]},
+        species={"R": "@dir:R", "P": "@dir:P"},
+    )
+    result = build_pes_result(spec, td)
+    pathway = result.pathways[0]
+    point_R, point_P = pathway.points
+    cset_R = point_R.species[0][1]
+    cset_P = point_P.species[0][1]
+    assert cset_R.files == ["R/r1.log", "R/r2.log"]
+    assert cset_P.files == ["P/p1.log"]
+
+
+def test_build_pes_result_dir_spec_via_yaml():
+    """Same scenario, but driving through the YAML parser to ensure
+    `{dir: "X"}` round-trips through to the resolver."""
+    from goodvibes.pes_yaml import parse_yaml
+    td = _td(
+        ("R/r1.log", -100.0),
+        ("P/p1.log", -200.0),
+    )
+    text = """
+pathways:
+  rxn: ["R", "P"]
+species:
+  R: {dir: "R"}
+  P: {dir: "P"}
+"""
+    spec = parse_yaml(text)
+    result = build_pes_result(spec, td)
+    pathway = result.pathways[0]
+    cset_R = pathway.points[0].species[0][1]
+    cset_P = pathway.points[1].species[0][1]
+    assert cset_R.files == ["R/r1.log"]
+    assert cset_P.files == ["P/p1.log"]
+
+
+def test_build_pes_result_combined_files_and_dir_via_yaml():
+    """A species spec with both `files:` and `dir:` takes the union of
+    matches (de-duplicated, original-order preserved)."""
+    from goodvibes.pes_yaml import parse_yaml
+    td = _td(
+        ("explicit.log", -100.0),    # file-glob match
+        ("X/in_dir.log", -101.0),    # dir match
+        ("X/explicit.log", -102.0),  # would match both — should appear once
+    )
+    text = """
+pathways:
+  rxn: ["A"]
+species:
+  A:
+    files: ["explicit.log"]
+    dir: "X"
+"""
+    spec = parse_yaml(text)
+    result = build_pes_result(spec, td)
+    cset_A = result.pathways[0].points[0].species[0][1]
+    # `explicit.log` (file pattern) hits both top-level and X/explicit.log;
+    # `dir: X` adds X/in_dir.log; the `dir:` X/explicit.log entry is
+    # de-duped by _resolve_species.
+    assert cset_A.files == ["explicit.log", "X/explicit.log", "X/in_dir.log"]

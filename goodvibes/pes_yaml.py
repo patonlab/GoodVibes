@@ -95,33 +95,87 @@ def _parse_species(raw) -> Dict[str, Union[str, List[str]]]:
     return species
 
 
+#: Internal prefix used to encode a "match this directory" pattern in the
+#: same `Union[str, List[str]]` value space as file globs. Users never see
+#: it — they write `{dir: "X"}` in YAML and the loader translates.
+_DIR_PREFIX = "@dir:"
+
+
 def _extract_files(name: str, entry) -> Union[str, List[str]]:
     """A species entry can be:
-        {files: "glob"}
+        {files: "glob"}                      # match by filename stem (default)
         {files: ["a.log", "b.log", ...]}
-        "glob"            # shorthand: bare string
-        ["a.log", ...]     # shorthand: bare list
+        {dir: "subdir"}                      # match files whose parent dir basename matches
+        {dirs: ["sub_a", "sub_b", ...]}      # multiple directories
+        {files: [...], dir: "X"}             # combined: union of both rules
+        "glob"                                # shorthand: bare string (file pattern)
+        ["a.log", ...]                       # shorthand: bare list (file patterns)
+
+    Directory entries can themselves be fnmatch globs (e.g. `dir: "TS_*"`).
+    A trailing "/*" or "/**" on a directory name is dropped automatically
+    so users can write either `dir: "X"` or `dir: "X/*"`.
     """
     if isinstance(entry, str):
         return entry
     if isinstance(entry, list):
         return [str(x) for x in entry]
     if isinstance(entry, dict):
-        if "files" not in entry:
-            raise ValueError(f"species {name!r}: missing required `files:` key")
-        files = entry["files"]
-        if isinstance(files, str):
-            return files
-        if isinstance(files, list):
-            return [str(x) for x in files]
-        raise ValueError(
-            f"species {name!r}: `files:` must be a string or list, "
-            f"got {type(files).__name__}"
-        )
+        if "files" not in entry and "dir" not in entry and "dirs" not in entry:
+            raise ValueError(
+                f"species {name!r}: needs at least one of `files:`, `dir:`, "
+                "or `dirs:`"
+            )
+        out: List[str] = []
+        if "files" in entry:
+            files = entry["files"]
+            if isinstance(files, str):
+                out.append(files)
+            elif isinstance(files, list):
+                out.extend(str(x) for x in files)
+            else:
+                raise ValueError(
+                    f"species {name!r}: `files:` must be a string or list, "
+                    f"got {type(files).__name__}"
+                )
+        if "dir" in entry:
+            d = entry["dir"]
+            if not isinstance(d, str):
+                raise ValueError(
+                    f"species {name!r}: `dir:` must be a string, "
+                    f"got {type(d).__name__}"
+                )
+            out.append(_DIR_PREFIX + _normalize_dir(d))
+        if "dirs" in entry:
+            dirs = entry["dirs"]
+            if not isinstance(dirs, list):
+                raise ValueError(
+                    f"species {name!r}: `dirs:` must be a list of strings, "
+                    f"got {type(dirs).__name__}"
+                )
+            for d in dirs:
+                if not isinstance(d, str):
+                    raise ValueError(
+                        f"species {name!r}: `dirs:` entries must be strings, "
+                        f"got {type(d).__name__}"
+                    )
+                out.append(_DIR_PREFIX + _normalize_dir(d))
+        # Single string vs list — preserve old single-string shape for
+        # back-compat with external code that introspects PESSpec.species.
+        return out[0] if len(out) == 1 else out
     raise ValueError(
         f"species {name!r}: entry must be a string, list, or mapping, "
         f"got {type(entry).__name__}"
     )
+
+
+def _normalize_dir(d: str) -> str:
+    """Strip trailing slashes / globs so `dir: "X/"` / `dir: "X/*"` /
+    `dir: "X/**"` all normalize to `"X"`."""
+    d = d.strip().rstrip("/")
+    for tail in ("/**", "/*"):
+        if d.endswith(tail):
+            d = d[: -len(tail)]
+    return d
 
 
 def _parse_zero(raw, pathways: Dict[str, List[str]]) -> Dict[str, str]:

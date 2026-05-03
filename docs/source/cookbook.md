@@ -217,6 +217,36 @@ Stoichiometric example: a bimolecular reaction would write a point
 as `"2*A + B"`. Each species' `files:` is a glob (single string) or
 explicit list (`[a.log, b.log]`).
 
+**Assigning species by directory.** When each species lives in its
+own subdirectory, use `dir:` (single) or `dirs:` (list) instead of
+file globs:
+
+```yaml
+species:
+  R1-An:      {dir: "R1-An"}
+  Aza-Phos:   {dir: "Aza-Phos"}
+  AmTS:      {dir: "AmTS"}
+  # combine if a species has both subdir conformers and a separate
+  # explicit file:
+  THF:        {files: "thf_extra.log", dir: "THF"}
+```
+
+`dir:` matches files whose immediate parent directory's basename
+equals the value (or matches it as an fnmatch glob — `dir: "TS_*"`
+catches every `TS_R/`, `TS_S/`, ...). Trailing `/`, `/*` or `/**`
+on the dir name is ignored.
+
+Run it from the directory above the per-species subdirectories:
+
+```bash
+cd goodvibes/examples/pes_saparated
+goodvibes */*log --spc tzpop --pes azabor_PES.yaml
+```
+
+The shell `*/*log` glob hands GoodVibes relative paths like
+`R1-An/r1-li-3thf-c1.log` — the `dir: "R1-An"` rule sees `R1-An`
+as the parent dir basename and assigns the file there.
+
 Run it:
 
 ```bash

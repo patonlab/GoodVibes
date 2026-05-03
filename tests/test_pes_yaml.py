@@ -77,7 +77,84 @@ pathways:
 species:
   A: {description: "no files key"}
 """
-    with pytest.raises(ValueError, match="files"):
+    with pytest.raises(ValueError, match=r"files.*dir.*dirs"):
+        parse_yaml(text)
+
+
+# ---------------------------------------------------------------------------
+# Directory-based species spec ({dir: "X"} / {dirs: [...]})
+# ---------------------------------------------------------------------------
+
+def test_species_dir_encoded_with_prefix():
+    """`{dir: "X"}` is encoded as `@dir:X` in the PESSpec so the
+    downstream resolver can dispatch on the prefix."""
+    text = """
+pathways:
+  R: ["A"]
+species:
+  A: {dir: "subdir_a"}
+"""
+    spec = parse_yaml(text)
+    assert spec.species == {"A": "@dir:subdir_a"}
+
+
+def test_species_dirs_list_encoded():
+    text = """
+pathways:
+  R: ["A"]
+species:
+  A: {dirs: ["d1", "d2"]}
+"""
+    spec = parse_yaml(text)
+    assert spec.species == {"A": ["@dir:d1", "@dir:d2"]}
+
+
+def test_species_dir_normalizes_trailing_glob():
+    """`dir: "X/"`, `dir: "X/*"`, `dir: "X/**"` all normalize to `X`."""
+    for raw, expected in [("X", "X"), ("X/", "X"), ("X/*", "X"), ("X/**", "X")]:
+        text = f"""
+pathways:
+  R: ["A"]
+species:
+  A: {{dir: "{raw}"}}
+"""
+        spec = parse_yaml(text)
+        assert spec.species == {"A": f"@dir:{expected}"}
+
+
+def test_species_combined_files_and_dir():
+    """A species can list both `files:` and `dir:` — the resolver takes the union."""
+    text = """
+pathways:
+  R: ["A"]
+species:
+  A:
+    files: ["explicit.log"]
+    dir: "subdir_a"
+"""
+    spec = parse_yaml(text)
+    assert spec.species == {"A": ["explicit.log", "@dir:subdir_a"]}
+
+
+def test_species_dir_not_string_raises():
+    text = """
+pathways:
+  R: ["A"]
+species:
+  A: {dir: 42}
+"""
+    with pytest.raises(ValueError, match=r"`dir:` must be a string"):
+        parse_yaml(text)
+
+
+def test_species_dirs_not_list_raises():
+    text = """
+pathways:
+  R: ["A"]
+species:
+  A: {dirs: "not-a-list"}
+"""
+    with pytest.raises(ValueError, match=r"`dirs:` must be a list"):
         parse_yaml(text)
 
 

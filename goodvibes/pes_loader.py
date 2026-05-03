@@ -84,6 +84,12 @@ def _stem(path: str) -> str:
     return os.path.splitext(os.path.basename(path))[0]
 
 
+def _parent_dir(path: str) -> str:
+    """Basename of the parent directory. 'A/B/c.log' -> 'B'; 'c.log' -> ''."""
+    parent = os.path.dirname(path)
+    return os.path.basename(parent) if parent else ""
+
+
 def _strip_ext(pattern: str) -> str:
     """Drop a trailing .log/.out so patterns can be written either way."""
     for ext in (".log", ".out"):
@@ -92,17 +98,44 @@ def _strip_ext(pattern: str) -> str:
     return pattern
 
 
-def resolve_pattern(pattern: str, thermo_data: dict) -> List[str]:
-    """Resolve a file pattern against the keys of `thermo_data`.
+#: Internal sentinel echoed from pes_yaml._DIR_PREFIX. Kept duplicated
+#: rather than imported to avoid a circular import at module load.
+_DIR_PREFIX = "@dir:"
 
-    Patterns are matched against the basename (sans extension) of each key.
-    A pattern with no glob characters must equal the stem exactly. A glob
-    pattern uses `fnmatch`. Returns the matched thermo_data keys in their
-    original (insertion) order.
+
+def resolve_pattern(pattern: str, thermo_data: dict) -> List[str]:
+    """Resolve a species pattern against the keys of `thermo_data`.
+
+    Two pattern flavors:
+
+    * **File patterns** (default) — matched against the basename of each
+      key with the file extension stripped. Supports fnmatch globs;
+      a pattern with no glob characters must equal the stem exactly.
+
+    * **Directory patterns** — strings prefixed with `@dir:` (set
+      automatically by the YAML loader when the user writes
+      `{dir: "X"}` / `{dirs: [...]}`). Matched against the basename of
+      each key's *parent directory*. Supports fnmatch globs.
+
+    Returns the matched thermo_data keys in their original (insertion)
+    order.
     """
+    if pattern.startswith(_DIR_PREFIX):
+        dir_pat = pattern[len(_DIR_PREFIX):].strip()
+        has_glob = any(c in dir_pat for c in "*?[")
+        matches: List[str] = []
+        for key in thermo_data:
+            parent = _parent_dir(key)
+            if has_glob:
+                if fnmatch.fnmatch(parent, dir_pat):
+                    matches.append(key)
+            elif parent == dir_pat:
+                matches.append(key)
+        return matches
+
     pat = _strip_ext(pattern.strip())
     has_glob = any(c in pat for c in "*?[")
-    matches: List[str] = []
+    matches = []
     for key in thermo_data:
         stem = _stem(key)
         if has_glob:
