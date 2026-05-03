@@ -112,8 +112,19 @@ def load_label_yaml(path):
 def assign_files_to_labels(files, label_patterns):
     """Group file paths by fnmatch against each label's pattern.
 
-    Patterns are compared against the basename of each file; a file matches
-    at most one label (first match in label-spec order wins).
+    Each pattern is tested against TWO candidates per file, in order:
+
+    1. the file's basename (e.g. ``DA_exo_12_i.out``) — matches when
+       species are encoded in the filename, the v4.x default.
+    2. the basename of the file's immediate parent directory
+       (e.g. ``exo``) — matches when species are organized into
+       per-species subdirectories.
+
+    A file is assigned to the **first label** whose pattern matches
+    either candidate. So a layout like ``exo/DA_*.out`` ``endo/DA_*.out``
+    works with ``--label exo=exo --label endo=endo`` (parent-dir
+    match), and the original ``--label exo='*_exo_*'`` (basename
+    match) keeps working unchanged.
 
     Parameters:
         files (Iterable[str]): file paths to species.
@@ -125,8 +136,10 @@ def assign_files_to_labels(files, label_patterns):
     speciess = {label: [] for label in label_patterns}
     for file in files:
         base = os.path.basename(file)
+        parent = os.path.basename(os.path.dirname(file))
         for label, pattern in label_patterns.items():
-            if fnmatch.fnmatch(base, pattern):
+            if (fnmatch.fnmatch(base, pattern)
+                    or (parent and fnmatch.fnmatch(parent, pattern))):
                 speciess[label].append(file)
                 break
     return speciess

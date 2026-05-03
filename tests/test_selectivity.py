@@ -111,13 +111,74 @@ def test_assign_files_unmatched_dropped():
     assert out == {'R': ['/x/P_R_a.log'], 'S': []}
 
 
-def test_assign_files_uses_basename_only():
-    """A pattern matches the basename, not the full path. So a pattern of
-    'tests/*.log' would NOT match '/abs/tests/foo.log' — only 'foo.log' is
-    compared."""
+def test_assign_files_uses_basename_or_parent_dir():
+    """A pattern matches either the basename or the immediate parent
+    dir's basename — so a pattern of 'tests/*.log' would NOT match
+    '/abs/tests/foo.log' (full-path matching is never done), but the
+    basename 'foo.log' does match the literal pattern 'foo.log'."""
     files = ['/abs/tests/foo.log']
     out = assign_files_to_labels(files, {'A': 'foo.log'})
     assert out == {'A': ['/abs/tests/foo.log']}
+
+
+def test_assign_files_matches_parent_dir_basename():
+    """When species are organized into per-species subdirectories,
+    `--label exo=exo*` matches files whose immediate parent dir matches
+    the pattern — even if the file's basename doesn't. This is the
+    typical CREST/conformer-search layout."""
+    files = [
+        'exo/DA_endo_lookalike.out',   # parent matches, basename doesn't
+        'exo/DA_other.out',
+        'endo/DA_thing.out',
+        'something_else/x.out',
+    ]
+    out = assign_files_to_labels(files, {'exo': 'exo*', 'endo': 'endo*'})
+    assert out == {
+        'exo': ['exo/DA_endo_lookalike.out', 'exo/DA_other.out'],
+        'endo': ['endo/DA_thing.out'],
+    }
+
+
+def test_assign_files_basename_takes_precedence_within_label():
+    """If both the basename and the parent dir match different labels,
+    the first label in spec order still wins (existing tiebreak)."""
+    files = ['endo/exo_thing.out']     # basename hits exo, parent hits endo
+    # Order matters: exo listed first → exo wins.
+    out = assign_files_to_labels(files, {'exo': 'exo*', 'endo': 'endo*'})
+    assert out == {'exo': ['endo/exo_thing.out'], 'endo': []}
+    # Reversed order → endo wins.
+    out = assign_files_to_labels(files, {'endo': 'endo*', 'exo': 'exo*'})
+    assert out == {'endo': ['endo/exo_thing.out'], 'exo': []}
+
+
+def test_assign_files_mixed_flat_and_subdirs():
+    """A run with some files at the top level and others in
+    per-species subdirs handles both with the same patterns."""
+    files = [
+        'DA_exo_flat.out',          # top-level, basename match
+        'exo/DA_x.out',             # subdir match
+        'endo/DA_y.out',
+        'DA_endo_flat.out',
+    ]
+    out = assign_files_to_labels(files, {'exo': 'exo*', 'endo': 'endo*'})
+    # Top-level files: 'exo*' matches 'DA_exo_flat.out'? fnmatch sees
+    # leading 'DA_', so the pattern fails. Files matched only by
+    # parent-dir.
+    assert 'exo/DA_x.out' in out['exo']
+    assert 'endo/DA_y.out' in out['endo']
+    # Looser pattern catches both flat AND subdir layouts:
+    out2 = assign_files_to_labels(
+        files, {'exo': '*exo*', 'endo': '*endo*'},
+    )
+    assert sorted(out2['exo']) == ['DA_exo_flat.out', 'exo/DA_x.out']
+    assert sorted(out2['endo']) == ['DA_endo_flat.out', 'endo/DA_y.out']
+
+
+def test_assign_files_no_parent_dir_skipped():
+    """A bare-filename input (no parent dir) only attempts basename match."""
+    files = ['exo_only.out']
+    out = assign_files_to_labels(files, {'A': 'exo*'})
+    assert out == {'A': ['exo_only.out']}
 
 
 # ---------------------------------------------------------------------------

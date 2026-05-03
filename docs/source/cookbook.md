@@ -118,6 +118,37 @@ goodvibes DA_*.out \
 For N > 2 the summary line drops `excess` and `ΔΔG` (those are 2-bucket
 concepts) and just reports the ratio — `Ratio exo_12:endo_12:exo_14:endo_14 = 2:97:0:0`.
 
+**Per-species subdirectories**
+
+If your conformers are organized into one directory per species,
+`--label` patterns are matched against the immediate parent
+directory's basename in addition to the file's basename. So a
+layout like
+
+```text
+selectivity_separated/
+  exo/
+    DA_exo_12_i.out
+    DA_exo_12_ii.out
+    ...
+  endo/
+    DA_endo_12_i.out
+    ...
+```
+
+works with the directory names as labels:
+
+```bash
+cd selectivity_separated
+goodvibes */*out --label exo='exo*' --label endo='endo*'
+```
+
+The shell expands `*/*out` to relative paths like `exo/DA_exo_12_i.out`,
+and the `'exo*'` pattern matches the parent dir `exo`. The same
+patterns also keep working on flat layouts (where the species is
+encoded in the filename), so you don't need to know in advance
+which layout your data uses.
+
 **JSON output**
 
 Add `--json results.json` and the file gets two top-level blocks,
