@@ -28,7 +28,7 @@ Plus several in-flight features that are partially detected
 | 1 | CBS/Gn composite method detection (CBS-QB3, CBS-4M, G3, G3B3) | Deferred — needs Gaussian fixtures | — |
 | 2 | `--media` / `--freespace` integration tests + clear errors when solvent is unknown | ✅ Done | [`04e2b63`](../../commit/04e2b63) |
 | 3 | Test coverage gaps: sort, validation modules | ✅ Done | [`f88abfa`](../../commit/f88abfa) |
-| 3a | Test coverage gaps: selectivity, PES modules | Deferred — both modules slated for redesign first | — |
+| 3a | Test coverage gaps: selectivity, PES modules | ✅ Done — coverage shipped with the redesigns (selectivity ≈87%, pes_loader 100%, pes_model 96%, pes_yaml 90%, pes_legacy 95%) | — |
 | 4 | `--json OUTPUT.json` preview (schema v0.1 → v0.3) | ✅ Done | [`6e6187f`](../../commit/6e6187f) |
 | Sub-plan A | **Selectivity redesign**: N-way labels, structured `SelectivityResult`, dual Boltzmann + lowest-conformer output, JSON v0.3 | ✅ Done | [`5fb8176`](../../commit/5fb8176) |
 

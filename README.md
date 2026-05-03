@@ -22,7 +22,7 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 - Structured JSON output (`--json`) for downstream pipelines
 - Symmetry-corrected entropy via pymsym point-group detection
 - Solvent standard-state concentration and free-space corrections
-- JSON caching for fast re-analysis (`--cache-save` / `--cache-read`)
+- Skip re-parsing across runs with `--export` / `--import` (v1.0 unified JSON; legacy `--cache-save` / `--cache-read` retained as deprecated aliases)
 - Duplicate structure detection (`--dedup`) and energy-sorted output (`--sort`)
 - Supports Gaussian, ORCA, NWChem, QChem, xTB, and ASE output files
 
@@ -230,7 +230,8 @@ o  TS                           4.72      -0.46          3.53     -15.85     -16
 ##### Example 10: Stereoselectivity and Boltzmann populations
 
 ```bash
-goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --boltz --ee "*_R*:*_S*"
+goodvibes examples/gconf_ee_boltz/Aminoxylation_TS1_R.log examples/gconf_ee_boltz/Aminoxylation_TS2_S.log \
+          --boltz --label R='*_R*' --label S='*_S*'
 
    Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)  Boltz
    *******************************************************************************************************************
@@ -238,11 +239,15 @@ o  Aminoxylation_TS1_R   -879.405138   0.295352   -879.091374   0.063746   0.061
 o  Aminoxylation_TS2_S   -879.404445   0.295301   -879.090562   0.064366   0.061891   -879.154928   -879.152453  0.395
    *******************************************************************************************************************
 
-   Selectivity            Excess (%)     Ratio (%)         Ratio     Major Iso           ddG
-   *****************************************************************************************
-o                              20.98         60:40         1.5:1             R          0.25
-   *****************************************************************************************
+   Selectivity, Boltzmann-averaged (gibbs, T = 298.15 K)
+       Species   Files   Population (%)   ΔΔG (kcal/mol)
+   ★   R             1            60.50            0.000
+       S             1            39.50            0.249
+
+   Ratio R:S = 60:40   Major: R   excess = 20.98%   ΔΔG = 0.25 kcal/mol
 ```
+
+`--label NAME=PATTERN` is repeatable and supports any number of buckets (N=2 reports `excess` + `ΔΔG`; N>2 reports the ratio only). The legacy `--ee "*_R*:*_S*"` flag still works with a `DeprecationWarning` and will be removed in a future release.
 
 #### CLI Reference
 
@@ -259,8 +264,10 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--temp TEMP` | Temperature in Kelvin | 298.15 |
 | `--ti START,END,STEP` | Temperature interval scan | -- |
 | `--conc CONC` | Concentration in mol/L (solution-phase entropy) | gas phase |
-| `-v SCALE` | Vibrational frequency scaling factor | auto |
+| `-v SCALE` | Vibrational frequency scaling factor (partition-function H/S) | auto |
+| `--zpe-vscal SCALE` | Separate scaling factor for ZPE (Truhlar `zpe_fac`) | auto |
 | `--spc SUFFIX` | Single-point energy correction (suffix or `link`) | -- |
+| `--jobs N` | Parse and compute in parallel across N worker processes (`0` = all cores) | 1 |
 | `--symm` | Apply symmetry correction to entropy (pymsym) | off |
 | `--boltz` | Print Boltzmann-weighted populations | off |
 | `--label NAME=PATTERN` | N-way selectivity bucket (repeatable, fnmatch on basenames) | -- |
@@ -268,7 +275,13 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--ee PATTERNS` | (deprecated) Two-species selectivity, e.g. `"*_R*:*_S*"` — use `--label` | -- |
 | `--pes FILE` | YAML-defined reaction pathway analysis (legacy + true YAML auto-detected) | -- |
 | `--lowest-only` | PES tables: use only each species' lowest qh-G conformer | off |
-| `--json PATH` | Write structured results (schema v1.0: thermo, selectivity, pes blocks) | -- |
+| `--json PATH` | Write structured results (schema v1.0: qcdata + thermo + selectivity + pes blocks) | -- |
+| `--export PATH` | Synonym for `--json`; same v1.0 payload, intended for `--import` re-use | -- |
+| `--import PATH` | Read pre-parsed data from a v1.0 JSON file (or legacy cache envelope) instead of re-parsing | -- |
+| `--csv PATH` | Write per-file thermochemistry to a CSV file (requires pandas; `goodvibes[full]`) | -- |
+| `--parquet PATH` | Write per-file thermochemistry to a Parquet file (requires pyarrow; `goodvibes[full]`) | -- |
+| `--strip-plot PATH` | Save a per-species ΔG strip plot (requires `--label`/`--selectivity`; `goodvibes[plot]`) | -- |
+| `--pes-plot PATH` | Save a reaction-profile plot (requires `--pes`; `goodvibes[plot]`) | -- |
 | `--media SOLVENT` | Solvent standard-state concentration correction | -- |
 | `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
 | `--invert [THRESH]` | Invert small imaginary frequencies to positive values | off |
@@ -276,8 +289,8 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--sort [energy\|gibbs]` | Sort output by energy | -- |
 | `--dedup` | Remove duplicate structures | off |
 | `--dp N` | Decimal places for energy output | 6 |
-| `--cache-save FILE` | Save parsed data to JSON cache | -- |
-| `--cache-read FILE` | Read parsed data from JSON cache | -- |
+| `--cache-save FILE` | (deprecated) alias for `--export`; still accepted, prefer `--export` | -- |
+| `--cache-read FILE` | (deprecated) alias for `--import`; still accepted, prefer `--import` | -- |
 | `--custom_ext EXTS` | Additional file extensions (comma-separated) | -- |
 | `--exclude PATTERN` | Glob pattern to exclude files | -- |
 | `--check` | Verify consistency across input files | off |
