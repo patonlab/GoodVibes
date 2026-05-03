@@ -49,20 +49,14 @@ def plot_selectivity_strip(
     *,
     ax=None,
     units: str = "kcal/mol",
-    show_boltz_mean: bool = True,
-    show_lowest: bool = True,
     title: Optional[str] = None,
     jitter: float = 0.04,
     seed: int = 0,
 ):
     """Per-species strip plot of conformer ΔG values.
 
-    Visualizes how much of the apparent selectivity is driven by the
-    lowest conformer of each species vs. conformer mixing across the
-    full ensemble. Each species is one column; conformer ΔG values
-    (relative to the lowest across all species) are dots; the
-    Boltzmann-weighted mean and the lowest-conformer ΔG are drawn as
-    horizontal bars per species.
+    Each species is one column; conformer ΔG values (relative to the
+    lowest across all species) are scattered as dots.
 
     Parameters:
         selectivity: a `SelectivityResult` (from
@@ -73,9 +67,6 @@ def plot_selectivity_strip(
             returns the same. Used to read the per-conformer ΔG.
         ax: optional matplotlib Axes. New figure created if None.
         units: 'kcal/mol' (default) or 'kJ/mol'.
-        show_boltz_mean: draw a horizontal bar at each species'
-            Boltzmann-weighted mean ΔG.
-        show_lowest: draw a horizontal bar at each species' lowest ΔG.
         title: figure title; auto-generated from the result's
             temperature and key when None.
         jitter: horizontal spread of conformer dots within each
@@ -85,7 +76,6 @@ def plot_selectivity_strip(
     Returns:
         The matplotlib Axes the strip plot was drawn on.
     """
-    import math
     import random
 
     plt = _import_matplotlib()
@@ -121,55 +111,34 @@ def plot_selectivity_strip(
         for label, gs in per_species.items()
     }
 
+    n_labels = len(selectivity.labels)
     if ax is None:
-        _, ax = plt.subplots(figsize=(max(4, 1.2 * len(selectivity.labels) + 1.5), 4))
+        # Compact aspect: ~0.8" per species column with a small base
+        # margin for the y-axis tick labels. Override by passing
+        # `ax=` from your own `plt.subplots(figsize=...)` if you want
+        # a different shape.
+        _, ax = plt.subplots(figsize=(max(3.0, 0.8 * n_labels + 1.4), 4))
 
     rng = random.Random(seed)
-    bar_half = 0.25
 
     for x, label in enumerate(selectivity.labels):
         rels = rel_per_species[label]
         if not rels:
             continue
-        # Jittered scatter
         xs = [x + (rng.random() - 0.5) * 2 * jitter for _ in rels]
         ax.scatter(xs, rels, alpha=0.6, edgecolor="black", linewidth=0.5)
-        # Lowest-conformer marker
-        if show_lowest:
-            lowest = min(rels)
-            ax.hlines(lowest, x - bar_half, x + bar_half,
-                      colors="C1", linewidth=2.0, zorder=3,
-                      label="lowest" if x == 0 else None)
-        # Boltzmann mean marker — derived from populations to avoid
-        # re-deriving the math here.
-        if show_boltz_mean:
-            T = selectivity.temperature
-            # Boltzmann weights inferred from populations (scaled by RT).
-            # populations[label] is the fraction *of total* in that label,
-            # so within-species we need to recompute. Use the conformers
-            # themselves: w_i ∝ exp(-ΔG_i / RT), normalised within species.
-            RT_kcal = 8.3144621 * T / 1000.0 / 4.184
-            if units == "kJ/mol":
-                RT = 8.3144621 * T / 1000.0
-            else:
-                RT = RT_kcal
-            ws = [math.exp(-r / RT) for r in rels]
-            norm = sum(ws)
-            if norm > 0:
-                mean = sum(r * w / norm for r, w in zip(rels, ws))
-                ax.hlines(mean, x - bar_half, x + bar_half,
-                          colors="C0", linewidth=2.0, linestyle="--", zorder=3,
-                          label="Boltzmann mean" if x == 0 else None)
 
-    ax.set_xticks(range(len(selectivity.labels)))
+    ax.set_xticks(range(n_labels))
     ax.set_xticklabels(selectivity.labels)
-    ax.set_ylabel(f"ΔG ({units})")
+    # Tighten the x-axis to the column footprint so dots don't float
+    # in oversized whitespace; matplotlib's default autoscale pads
+    # noticeably for small-N scatter.
+    ax.set_xlim(-0.5, n_labels - 0.5)
+    ax.set_ylabel(rf"$G_\mathrm{{rel}}$ ({units})")
     if title is None:
         title = (f"Selectivity strip ({selectivity.key}, "
                  f"T = {selectivity.temperature:.2f} K)")
     ax.set_title(title)
-    if show_boltz_mean or show_lowest:
-        ax.legend(loc="best", fontsize="small")
     return ax
 
 
