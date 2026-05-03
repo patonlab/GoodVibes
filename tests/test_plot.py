@@ -86,8 +86,7 @@ def test_strip_plot_xticks_match_label_order():
 
 def test_strip_plot_scatter_count_matches_files():
     """Total scatter points across all species must equal the total
-    file count. ax.collections also includes the LineCollections from
-    the lowest/Boltzmann horizontal bars; filter to PathCollections."""
+    file count."""
     from matplotlib.collections import PathCollection
     sel = _stub_selectivity()
     ax = gv_plot.plot_selectivity_strip(sel, _thermo_dict())
@@ -99,16 +98,12 @@ def test_strip_plot_scatter_count_matches_files():
     plt.close(ax.figure)
 
 
-def test_strip_plot_overlays_optional():
-    """show_boltz_mean and show_lowest gate the horizontal-bar overlays
-    (per-species LineCollection on the axes)."""
-    sel = _stub_selectivity()
-    ax = gv_plot.plot_selectivity_strip(
-        sel, _thermo_dict(),
-        show_boltz_mean=False, show_lowest=False,
-    )
-    # When both overlays are off, no LineCollection should be present.
+def test_strip_plot_no_horizontal_bars():
+    """The strip plot is dots only — no per-species lowest or
+    Boltzmann-mean horizontal bars."""
     from matplotlib.collections import LineCollection
+    sel = _stub_selectivity()
+    ax = gv_plot.plot_selectivity_strip(sel, _thermo_dict())
     line_colls = [c for c in ax.collections if isinstance(c, LineCollection)]
     assert line_colls == []
     plt.close(ax.figure)
