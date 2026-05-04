@@ -25,7 +25,7 @@ Plus several in-flight features that are partially detected
 
 | # | Item | Status | Commit |
 | --- | --- | --- | --- |
-| 1 | CBS/Gn composite method detection (CBS-QB3, CBS-4M, G3, G3B3) | Deferred — needs Gaussian fixtures | — |
+| 1 | CBS/Gn composite method detection (CBS-QB3, CBS-4M, G3, G3B3) | Out of scope — niche use case relative to the v5.x rewrite priorities; revisit only on user request with sample fixtures attached | — |
 | 2 | `--media` / `--freespace` integration tests + clear errors when solvent is unknown | ✅ Done | [`04e2b63`](../../commit/04e2b63) |
 | 3 | Test coverage gaps: sort, validation modules | ✅ Done | [`f88abfa`](../../commit/f88abfa) |
 | 3a | Test coverage gaps: selectivity, PES modules | ✅ Done — coverage shipped with the redesigns (selectivity ≈87%, pes_loader 100%, pes_model 96%, pes_yaml 90%, pes_legacy 95%) | — |
@@ -44,6 +44,7 @@ Plus several in-flight features that are partially detected
 | Sub-plan B | **PES rewrite**: 3-layer data model (`ConformerSet`/`Point`/`Pathway`), true-YAML input alongside legacy parser, stoichiometry support, Rich tables, JSON v0.4 `pes` block, `--lowest-only` flag. Plot deferred to v5.0. | ✅ Done — [`03549d1`](../../commit/03549d1) |
 | Docs | **Refresh Read the Docs** for v4.1 + v4.2: bumped Sphinx config to v4.0, swapped deprecated `sphinxcontrib-napoleon` / `recommonmark` → `sphinx.ext.napoleon` / `myst-parser`, added a dedicated `api_guide.md` page (kwargs API, batch/parallel, DataFrame/CSV, what's-new) and a `cookbook.md` page with five v4.x recipes, expanded module reference to all 17 modules, added `.readthedocs.yaml`. Stays on Sphinx; the mkdocs migration is reserved for v5.0. | ✅ Done |
 | Follow-up A | **Separate ZPE vs harmonic frequency scaling factors**. The Truhlar database (Alecu et al., JCTC 2010) stores `zpe_fac` and `harm_fac` as distinct per-LOT values. Auto-detection now reads both: `harm_fac` for the partition-function frequencies (`calc_vibrational_energy`, `calc_rrho_entropy`) and `zpe_fac` for ZPE (`calc_zeropoint_energy`). New `--zpe-vscal` CLI flag and `zpe_scale_factor` API kwarg for explicit override. When `--vscal` alone is set, ZPE inherits it (back-compat for users with pinned scripts). Pre-refactor v3.x used `zpe_fac` uniformly; v4.x.0 used `harm_fac` uniformly — the new behavior matches Truhlar's intent and is the right default going forward. | ✅ Done |
+| 7 | ~~Wigner tunneling correction~~ (κ_W for TS rates) | Out of scope — covered better by Eyring rate-constant tooling (e.g. `kinisot`); GoodVibes stays focused on partition-function thermochemistry |
 
 **Sequencing.** Item 5 was the keystone — unblocked the structured
 DataFrame/CSV work in 6. Item 8 is independent. Docs refresh sits
