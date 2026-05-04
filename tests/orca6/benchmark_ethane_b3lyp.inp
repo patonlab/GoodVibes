@@ -1,0 +1,16 @@
+# Benchmark fixture for tests/test_benchmark_entropy.py
+# Anchored on Pracht & Grimme, Chem. Sci. 2021, 12, 6551-6568 (msRRHO).
+# NIST WebBook S°(g, 298.15 K, 1 bar): 229.16 J mol⁻¹ K⁻¹
+# Internal C-C torsion makes this a non-trivial msRRHO test (paper Fig. 3).
+! B3LYP D3BJ def2-TZVP Opt Freq TightSCF
+%freq Temp 298.15 end
+* xyz 0 1
+C   0.000000   0.000000   0.762500
+C   0.000000   0.000000  -0.762500
+H   1.018500   0.000000   1.157000
+H  -0.509250   0.882000   1.157000
+H  -0.509250  -0.882000   1.157000
+H  -1.018500   0.000000  -1.157000
+H   0.509250   0.882000  -1.157000
+H   0.509250  -0.882000  -1.157000
+*
