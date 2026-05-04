@@ -69,6 +69,43 @@ roadmap.
 
 ---
 
+## v5.1 — Ecosystem & polish (1–2 months, backwards-compatible)
+
+Builds on v5.0's structural rework (Ensemble, ThermoOptions, structured
+outputs) and turns those foundations outward toward two concrete
+user-facing wins — ingesting the dominant conformer-search tool's output
+natively and generating paper-ready supporting information — while
+clearing v4.x deprecation debt and finishing the v5.0 visualization stubs.
+
+| # | Item | Status |
+| --- | --- | --- |
+| 16 | **Native CREST / CENSO ensemble import**: parse `crest_conformers.xyz` / `crest_rotamers.xyz` / `censo.json` into a list[`QCData`] (or directly an `Ensemble` once item 11 lands). New parser entry points `parse_crest_ensemble(path)` / `parse_censo(path)` in `io.py`; format auto-detected by file basename. Closes the gap to the standard CREST → CENSO → thermo workflow without per-conformer-file scripting. Composes with `--jobs N` for parallel parsing. New fixtures under `tests/crest/` and `tests/censo/`. | Pending |
+| 17 | **Auto-SI generator**: new `goodvibes/report.py` + `--si PATH` CLI flag. Emits a markdown SI bundle: methods paragraph filled from detected program/version/functional/basis/solvent/dispersion/scaling factor, BibTeX entries for cited methods (Grimme qRRHO, Truhlar QH, Truhlar scaling factor, Head-Gordon enthalpy, dispersion correction, solvent model), per-structure coordinates + thermo table, and the literal GoodVibes invocation used. Hand-curated `references.bib` ships with the package; pandoc-convertible to LaTeX/Word downstream. | Pending |
+| Cleanup | **v4.x deprecation removals**: drop the legacy line-based PES parser (`pes_legacy.py`); drop `--ee` (legacy two-bucket selectivity); drop `--cache-save` / `--cache-read` aliases; drop the 15-positional-arg `calc_bbe(...)` form deprecated in v5.0. CLI emits clear errors pointing at the v5.x replacements. | Pending |
+| Plot | **Visualization completions**: implement the v5.0 stubs `plot_boltzmann_histogram` (per-structure population strip/bar) and `plot_temperature_scan` (qh-G(T) line plot from `--ti` data). New `--boltz-plot PATH` and `--ti-plot PATH` CLI flags. | Pending |
+
+**Sequencing.** Item 16 depends on v5.0 item 11 (Ensemble container) — block
+on that. Item 17 is independent and can land any time. Cleanup and Plot are
+mechanical follow-ups.
+
+**Open design questions** (resolve before implementation):
+
+- *CREST / CENSO ingest*: CREST's `crest_conformers.xyz` is geometry+energy
+  only (no Hessian). Decide whether the import path requires paired thermo
+  files or whether `Ensemble` should accept "geometry-only" entries and skip
+  them in qh-G aggregation. CENSO has multiple parts (part0..part4); pick a
+  default for which energy block is canonical for thermo work.
+- *Auto-SI*: ship markdown only at v5.1 (cheapest, pandoc-convertible) and
+  defer a native LaTeX writer to v5.2 unless demand is clear. Confirm scope
+  of methods-paragraph templating — GoodVibes-specific (qh, scaling,
+  dispersion) vs. full computational protocol (program, basis, solvation).
+- *Companion-package boundary*: KIE / isotope-substitution thermo lives in
+  the companion **kinisot** package. v5.1 should add a documented
+  `Ensemble` serialization format that kinisot can consume rather than
+  absorbing those features here.
+
+---
+
 ## Cross-cutting concerns
 
 - **Backwards compat.** CLI + `.dat` output identical across v4.x. v5.0
