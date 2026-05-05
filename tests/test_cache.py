@@ -348,3 +348,61 @@ def test_find_spc_file_prefers_log_over_out(tmp_path):
     (tmp_path / "job_TZ.log").write_text("")
     (tmp_path / "job_TZ.out").write_text("")
     assert find_spc_file(str(tmp_path / "job"), "TZ") == str(tmp_path / "job_TZ.log")
+
+
+# --- --spc CPU accounting ---
+
+def test_spc_cpu_does_not_overwrite_parent_cpu():
+    """When --spc is used, the parent CPU stays on bbe.cpu and the SPC
+    CPU lands on bbe.sp_cpu. print_cpu_time then sums both. Regression
+    for a bug where assigning the SPC CPU to bbe.cpu silently dropped
+    the parent's CPU from the TOTAL CPU line."""
+    qcdata = parse_qcdata(ETHANE)
+    parent_cpu = list(qcdata.cpu)            # captured before calc_bbe
+
+    bbe = calc_bbe(ETHANE, 'grimme', False, 100.0, 100.0, 298.15,
+                   0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
+
+    assert bbe.cpu == parent_cpu             # parent CPU preserved
+    assert bbe.sp_cpu is not None            # SPC CPU captured separately
+    assert bbe.sp_cpu != parent_cpu          # and is distinct from the parent
+
+
+def test_sp_cpu_sums_multistep_gaussian():
+    """Gaussian linked SPC jobs (opt+SP, composite methods, etc.) emit one
+    `Job cpu time` line per step. sp_cpu() must SUM them, matching the
+    main parser's behavior. Regression for a bug where sp_cpu() returned
+    only the LAST line, silently dropping the bulk of the CPU time on
+    multi-step SPC files. Uses 02_ethane_opt_freq_T398_P2.log which has
+    two Job-cpu-time lines (18.4 s + 26.5 s = 44.9 s)."""
+    from goodvibes.io import sp_cpu, parse_qcdata
+    from conftest import g16path
+    multistep = g16path('02_ethane_opt_freq_T398_P2.log')
+
+    cpu = sp_cpu(multistep)
+    # The main parser sums all Job-cpu-time lines into qcdata.cpu; sp_cpu
+    # must produce the same sum so --spc CPU totals match the standalone
+    # parse.
+    qcdata_cpu = parse_qcdata(multistep).cpu
+    assert cpu == qcdata_cpu
+
+    # And concretely: 18.4 s + 26.5 s = 44.9 s = 44900 ms (the parser
+    # encodes seconds as msecs with the secs slot at 0).
+    assert cpu == [0, 0, 0, 0, 44900]
+
+
+def test_sp_cpu_applies_orca_nprocs_scaling():
+    """ORCA prints wall time only (TOTAL RUN TIME); the main parser
+    scales by parallel-MPI process count to estimate effective CPU.
+    sp_cpu() must apply the same scaling so --spc totals match the
+    standalone parse. Regression for a bug where sp_cpu()'s ORCA branch
+    returned raw wall time, dropping a factor of nprocs (e.g. 8x for an
+    8-core run, which silently turned 3 days of effective CPU into
+    9 hours on the --spc path)."""
+    from goodvibes.io import sp_cpu, parse_qcdata
+    from conftest import orca_path
+    parallel = orca_path('16_o2_superoxide_anion.out')
+
+    qcdata = parse_qcdata(parallel)
+    assert qcdata.nprocs > 1                       # the fixture must be parallel
+    assert sp_cpu(parallel) == qcdata.cpu          # sp_cpu must include nprocs scaling

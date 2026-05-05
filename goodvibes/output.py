@@ -4,9 +4,9 @@ import logging
 import math
 import os.path
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from .utils import display_name, add_time, get_console_stdout, get_console_dat
+from .utils import display_name, get_console_stdout, get_console_dat
 from .selectivity import get_selectivity
 from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__
 from .io import qcdata_to_dict
@@ -506,24 +506,31 @@ def print_cpu_time(thermo_data, exclude=None):
         exclude (str, optional): Glob pattern; files matching this pattern are omitted from the summed total.
     """
     from fnmatch import fnmatch
-    total_cpu_time, add_days = datetime(100, 1, 1, 0, 0, 0, 0), 0
+
+    def _to_timedelta(cpu):
+        d, h, m, s, ms = cpu
+        return timedelta(days=d, hours=h, minutes=m, seconds=s, microseconds=ms * 1000)
+
+    total = timedelta()
     has_orca_scaled = False
     for file, bbe in thermo_data.items():
         if exclude and fnmatch(file, exclude):
             continue
         if hasattr(bbe, "cpu") and bbe.cpu is not None:
-            total_cpu_time = add_time(total_cpu_time, bbe.cpu)
+            total += _to_timedelta(bbe.cpu)
         if hasattr(bbe, "sp_cpu") and bbe.sp_cpu is not None:
-            total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
-        if total_cpu_time.month > 1:
-            add_days += 31
+            total += _to_timedelta(bbe.sp_cpu)
         # Detect ORCA wall-time-scaled-by-nprocs entries via QCData.
         qc = getattr(bbe, "xyz", None)
         if qc is not None and getattr(qc, "program", None) == "Orca" and getattr(qc, "nprocs", 1) > 1:
             has_orca_scaled = True
-    log.info(f'   {"TOTAL CPU":<13} {total_cpu_time.day + add_days - 1:>2} {"days":>4} '
-              f'{total_cpu_time.hour:>2} {"hrs":>3} {total_cpu_time.minute:>2} {"mins":>4} '
-              f'{total_cpu_time.second:>2} {"secs":>4}')
+    total_secs = int(total.total_seconds())
+    days, rem = divmod(total_secs, 86400)
+    hrs, rem = divmod(rem, 3600)
+    mins, secs = divmod(rem, 60)
+    log.info(f'   {"TOTAL CPU":<13} {days:>2} {"days":>4} '
+              f'{hrs:>2} {"hrs":>3} {mins:>2} {"mins":>4} '
+              f'{secs:>2} {"secs":>4}')
     if has_orca_scaled:
         log.info("\n   † ORCA wall-time × nprocs counted as CPU time (ORCA does not "
                  "report a summed CPU time).\n")
@@ -656,8 +663,6 @@ def print_results(thermo_data, options, media_conc=None,
                 log.info("\n\n   The following frequencies were made positive and used in calculations: " +
                           str(inverted_freqs[i]) + " from " + file)
 
-    total_cpu_time, add_days = datetime(100, 1, 1, 00, 00, 00, 00), 0
-
     # Build the Rich table
     table = _build_results_table(options)
     if table is None:
@@ -694,14 +699,6 @@ def print_results(thermo_data, options, media_conc=None,
                     break
         if not duplicate:
             bbe = thermo_data[file]
-            if options.cputime:
-                if hasattr(bbe, "cpu") and bbe.cpu is not None:
-                    total_cpu_time = add_time(total_cpu_time, bbe.cpu)
-                if hasattr(bbe, "sp_cpu") and bbe.sp_cpu is not None:
-                    total_cpu_time = add_time(total_cpu_time, bbe.sp_cpu)
-            if total_cpu_time.month > 1:
-                add_days += 31
-
             # Handle linear molecule warning separately (not a table row)
             if bbe.linear_warning:
                 log.info('\n   x {} — Caution! Potential invalid linear molecule calculation in Gaussian'.format(

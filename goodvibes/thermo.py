@@ -600,6 +600,7 @@ class calc_bbe:
         self.roconst = qcdata.roconst
         self.point_group = qcdata.point_group
         self.cpu = qcdata.cpu
+        self.sp_cpu = None
 
         molecular_mass = qcdata.molecular_mass
         symmno = qcdata.symmno
@@ -645,7 +646,7 @@ class calc_bbe:
                          _, self.sp_charge,
                          self.sp_empirical_dispersion,
                          self.sp_multiplicity) = parse_data(sp_file)
-                        self.cpu = _sp_cpu(sp_file)
+                        self.sp_cpu = _sp_cpu(sp_file)
                         # Persist into qcdata so a subsequent --export
                         # captures the SPC alongside the parent parse.
                         if qcdata is not None:

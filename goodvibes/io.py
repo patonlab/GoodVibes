@@ -675,80 +675,24 @@ def parse_data(file):
     return spe, program, version_program, solvation_model, file, charge, empirical_dispersion, multiplicity
 
 def sp_cpu(file):
-    """Read single-point output for cpu time."""
-    program, data, cpu = None, [], None
+    """Read single-point output for CPU time.
 
-    if os.path.exists(os.path.splitext(file)[0] + '.log'):
-        with open(os.path.splitext(file)[0] + '.log', encoding='utf-8', errors='replace') as f:
-            data = f.readlines()
-    elif os.path.exists(os.path.splitext(file)[0] + '.out'):
-        with open(os.path.splitext(file)[0] + '.out', encoding='utf-8', errors='replace') as f:
-            data = f.readlines()
-    else:
-        raise ValueError("File {} does not exist".format(file))
-
-    for line in data:
-        if line.find("Gaussian") > -1:
-            program = "Gaussian"
-            break
-        if line.find("* O   R   C   A *") > -1:
-            program = "Orca"
-            break
-        if line.find("NWChem") > -1:
-            program = "NWChem"
-            break
-        if "x T B" in line or "xtb version" in line:
-            program = "xtb"
-            break
-
-    seen_total_cpu = False
-    for line in data:
-        if program == "Gaussian":
-            if line.strip().find("Job cpu time") > -1:
-                days = int(line.split()[3])
-                hours = int(line.split()[5])
-                mins = int(line.split()[7])
-                secs = 0
-                msecs = int(float(line.split()[9]) * 1000.0)
-                cpu = [days, hours, mins, secs, msecs]
-        if program == "Orca":
-            if line.strip().find("TOTAL RUN TIME") > -1:
-                days = int(line.split()[3])
-                hours = int(line.split()[5])
-                mins = int(line.split()[7])
-                secs = int(line.split()[9])
-                msecs = float(line.split()[11])
-                cpu = [days, hours, mins, secs, msecs]
-        if program == "NWChem":
-            if line.strip().find("Total times") > -1:
-                days = 0
-                hours = 0
-                mins = 0
-                secs = float(line.split()[3][0:-1])
-                msecs = 0.0
-                cpu = [days, hours, mins, secs, msecs]
-        if program == "xtb":
-            stripped = line.strip()
-            if (not seen_total_cpu and 'cpu-time:' in stripped
-                    and stripped.startswith('*')):
-                parts = stripped.replace(',', ' ').split()
-                try:
-                    d_idx = parts.index('d')
-                    h_idx = parts.index('h')
-                    m_idx = parts.index('min')
-                    s_idx = parts.index('sec')
-                    days = int(parts[d_idx - 1])
-                    hours = int(parts[h_idx - 1])
-                    mins = int(parts[m_idx - 1])
-                    secs_float = float(parts[s_idx - 1])
-                    secs = int(secs_float)
-                    msecs = int((secs_float - secs) * 1000)
-                    cpu = [days, hours, mins, secs, msecs]
-                    seen_total_cpu = True
-                except (ValueError, IndexError):
-                    pass
-
-    return cpu
+    Delegates to ``parse_qcdata(file).cpu`` so the SPC CPU is identical
+    to what a standalone parse of the same file would report. This
+    guarantees that ``goodvibes <parents> --spc <suffix>`` totals
+    correctly reflect the SPC files' CPU — including program-specific
+    accumulation (Gaussian sums multi-step ``Job cpu time`` lines) and
+    nprocs scaling (ORCA reports wall time only; the parser scales by
+    parallel-MPI process count to estimate effective CPU).
+    """
+    candidates = [
+        os.path.splitext(file)[0] + '.log',
+        os.path.splitext(file)[0] + '.out',
+    ]
+    for cand in candidates:
+        if os.path.exists(cand):
+            return parse_qcdata(cand).cpu
+    raise ValueError("File {} does not exist".format(file))
 
 
 

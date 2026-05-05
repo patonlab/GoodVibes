@@ -390,6 +390,42 @@ def test_print_cpu_time_orca_scaled_footnote(gv_logging, caplog):
     assert "ORCA wall-time × nprocs" in text
 
 
+def test_print_cpu_time_sums_parent_plus_spc(gv_logging, caplog):
+    """With --spc, the TOTAL CPU line must equal parent + SPC across all
+    files. Regression for a bug where the per-file `bbe.cpu` and
+    `bbe.sp_cpu` were aggregated through a datetime accumulator that
+    silently lost month rollovers when both adds happened in the same
+    iteration — causing 90+ days of CPU to display as 25 days."""
+    caplog.set_level(logging.INFO, logger="goodvibes")
+    # 100 files × (parent 1 day + SPC 1 hr) = 100 days, 4 hrs, 10 mins
+    # (SPC also contributes 10 mins via the stub's [0,0,10,0,0] sp_cpu)
+    thermo_data = {}
+    for i in range(100):
+        bbe = _stub_bbe()
+        bbe.cpu = [1, 0, 0, 0, 0]            # 1 day per parent
+        bbe.sp_cpu = [0, 1, 0, 0, 0]         # 1 hr per SPC
+        thermo_data[f"f{i}.log"] = bbe
+    print_cpu_time(thermo_data)
+    text = "\n".join(rec.message for rec in caplog.records)
+    # 100 days parent + 100 hrs SPC = 100 days + 4 days + 4 hrs = 104 days, 4 hrs.
+    assert "104 days" in text
+    assert " 4 hrs" in text
+
+
+def test_print_cpu_time_long_run_no_rollover_loss(gv_logging, caplog):
+    """A single very long parent CPU rolls over multiple month boundaries
+    cleanly. The previous datetime-based accumulator dropped extra
+    rollovers (only credited 31 days regardless of how far past the
+    month boundary it crossed)."""
+    caplog.set_level(logging.INFO, logger="goodvibes")
+    bbe = _stub_bbe()
+    bbe.cpu = [120, 0, 0, 0, 0]              # single 120-day entry
+    bbe.sp_cpu = None
+    print_cpu_time({"big.log": bbe})
+    text = "\n".join(rec.message for rec in caplog.records)
+    assert "120 days" in text
+
+
 # ---------------------------------------------------------------------------
 # print_results — main thermochemistry table
 # ---------------------------------------------------------------------------
