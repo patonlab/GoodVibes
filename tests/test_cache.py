@@ -317,3 +317,34 @@ def test_spc_import_skips_reparse_when_files_gone(tmp_path):
                     0.0408740470708, 1.0, None, spc='TZ', qcdata=qcdata)
     assert bbe2.sp_energy == sp1
     assert bbe2.gibbs_free_energy == bbe1.gibbs_free_energy
+
+
+# --- find_spc_file: exact-suffix matching ---
+
+def test_find_spc_file_requires_exact_suffix(tmp_path):
+    """--spc TZVP must match optimization_TZVP.log exactly. It must NOT
+    fall through to optimization_def2_TZVP.log via a wildcard. Users who
+    want the def2_TZVP file pass the full suffix."""
+    from goodvibes.io import find_spc_file
+    parent = tmp_path / "optimization.log"
+    parent.write_text("")
+    decoy = tmp_path / "optimization_def2_TZVP.log"
+    decoy.write_text("")
+
+    assert find_spc_file(str(tmp_path / "optimization"), "TZVP") is None
+
+    exact = tmp_path / "optimization_TZVP.log"
+    exact.write_text("")
+    assert find_spc_file(str(tmp_path / "optimization"), "TZVP") == str(exact)
+
+    # The full suffix correctly resolves the def2_TZVP file.
+    assert find_spc_file(str(tmp_path / "optimization"), "def2_TZVP") == str(decoy)
+
+
+def test_find_spc_file_prefers_log_over_out(tmp_path):
+    """When both .log and .out variants exist, .log wins (matches the
+    historical search order)."""
+    from goodvibes.io import find_spc_file
+    (tmp_path / "job_TZ.log").write_text("")
+    (tmp_path / "job_TZ.out").write_text("")
+    assert find_spc_file(str(tmp_path / "job"), "TZ") == str(tmp_path / "job_TZ.log")

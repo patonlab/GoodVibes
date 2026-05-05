@@ -305,10 +305,10 @@ def write_xyz(filepath, files, thermo_data):
 def find_spc_file(name, spc):
     """Locate the single-point-correction output paired with ``name``.
 
-    Pattern matched: ``{name}_*{spc}.{log,out}``.  The ``*`` allows extra
-    qualifiers (e.g. basis-set names) to sit between the underscore and the
-    user-supplied suffix, so ``--spc TZVP`` finds ``filename_def2_TZVP.log``
-    as well as the legacy exact form ``filename_TZVP.log``.
+    Pattern matched: ``{name}_{spc}.{log,out}`` — exact match. ``--spc TZVP``
+    finds ``filename_TZVP.log`` only; it will NOT match ``filename_def2_TZVP.log``.
+    To pair with a file like ``filename_def2_TZVP.log``, pass the full suffix
+    (``--spc def2_TZVP``).
 
     Parameters
     ----------
@@ -320,13 +320,12 @@ def find_spc_file(name, spc):
     Returns
     -------
     str or None
-        Path to the first matching file, or None if nothing matches.
+        Path to the matching file, or None if nothing matches.
     """
-    from glob import glob
     for ext in ('.log', '.out'):
-        matches = sorted(glob(f'{name}_*{spc}{ext}'))
-        if matches:
-            return matches[0]
+        candidate = f'{name}_{spc}{ext}'
+        if os.path.isfile(candidate):
+            return candidate
     return None
 
 

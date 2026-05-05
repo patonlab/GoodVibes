@@ -247,8 +247,9 @@ def parse_arguments():
             if options.spc is not None and options.spc != 'link':
                 name, _ = os.path.splitext(file)
                 if find_spc_file(name, options.spc) is None:
-                    sys.exit("\nError! No SPC calculation file matching '{0}_*{1}.(log|out)' found! "
-                             "Make sure files are named with the convention: 'filename_spc' or specify "
+                    sys.exit("\nError! No SPC calculation file '{0}_{1}.(log|out)' found! "
+                             "The --spc suffix must match the SPC filename exactly "
+                             "(e.g. --spc def2_TZVP for filename_def2_TZVP.log), or specify "
                              "link job.\nFor help, use option '-h'\n".format(name, options.spc))
 
     # Exclude files matching the --exclude glob pattern
