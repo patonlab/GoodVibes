@@ -66,6 +66,8 @@ def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,
             # Energy gate (cheap): reject the pair before computing ro_diff or RMSD.
             if not (hasattr(bbe_i, "scf_energy") and hasattr(bbe_j, "scf_energy")):
                 continue
+            if bbe_i.scf_energy is None or bbe_j.scf_energy is None:
+                continue
             if abs(bbe_i.scf_energy - bbe_j.scf_energy) >= e_cutoff_au:
                 continue
 

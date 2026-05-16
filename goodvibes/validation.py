@@ -10,6 +10,20 @@ from .io import parse_qcdata, read_initial, find_spc_file
 log = logging.getLogger('goodvibes')
 
 
+def _normalize_solvation(value):
+    """Return (sort_key, display) for a solvation_model field.
+
+    Gaussian non-gas-phase stores ``[sorted_key, display]``; every other
+    program (and Gaussian gas-phase, plus the empty default) stores a plain
+    string. Normalizes both shapes so comparisons and display use the right
+    value rather than indexing into a bare string.
+    """
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        return value[0], value[1]
+    s = value if value else 'gas phase'
+    return s, s
+
+
 def print_check_fails(check_attribute, file, attribute, option2=None):
     """
     Report groups of files that share differing attribute values.
@@ -33,7 +47,11 @@ def print_check_fails(check_attribute, file, attribute, option2=None):
     log.info("\n\n   Caution! Multiple {} found: ".format(attribute))
     for attr in unique_attr:
         if option2 is not None:
-            if float(attr[0]) < 0:
+            try:
+                negative = float(attr[0]) < 0
+            except (TypeError, ValueError):
+                negative = False
+            if negative:
                 log.info('\n       {} {}: '.format(attr[0], attr[1]))
             else:
                 log.info('\n        {} {}: '.format(attr[0], attr[1]))
@@ -144,16 +162,16 @@ def check_files(thermo_data, options, level_of_theory):
         print_check_fails(level_of_theory, file_check, "levels of theory")
 
     # Check for solvent models
-    solvent_check = [thermo_data[key].solvation_model[0] for key in thermo_data]
-    if all_same(solvent_check):
-        solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
+    solvation_pairs = [_normalize_solvation(thermo_data[key].solvation_model) for key in thermo_data]
+    sort_keys = [p[0] for p in solvation_pairs]
+    solvent_check = [p[1] for p in solvation_pairs]
+    if all_same(sort_keys):
         log.info("\no  Using {} in all calculations.".format(solvent_check[0]))
     else:
-        solvent_check = [thermo_data[key].solvation_model[1] for key in thermo_data]
         print_check_fails(solvent_check, file_check, "solvation models")
 
     # Check for -c 1 when solvent is added
-    if all_same(solvent_check):
+    if all_same(sort_keys):
         if solvent_check[0] == "gas phase" and options.conc is None:
             log.info("\no  Using a standard concentration of 1 atm for gas phase.")
         elif solvent_check[0] == "gas phase" and options.conc is not None:
@@ -164,9 +182,9 @@ def check_files(thermo_data, options, level_of_theory):
             log.info("\no  Using a standard concentration of 1 M for solvent phase.")
         elif solvent_check[0] != "gas phase" and options.conc is not None and str(options.conc) != str(1.0):
             log.info("\n   x Caution! Standard concentration is not 1 M for solvent phase (using {} M).".format(options.conc))
-    if not all_same(solvent_check) and "gas phase" in solvent_check:
+    if not all_same(sort_keys) and "gas phase" in solvent_check:
         log.info("\n   x Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.")
-    if not all_same(solvent_check) and "gas phase" not in solvent_check:
+    if not all_same(sort_keys) and "gas phase" not in solvent_check:
         log.info("\n   x Caution! Different solvents used, fix this issue and use option -c 1 for a standard concentration of 1 M.")
 
     # Check charge and multiplicity
@@ -270,7 +288,8 @@ def check_files(thermo_data, options, level_of_theory):
             log.info("\n   x Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
 
     # Check for empirical dispersion
-    dispersion_check = [thermo_data[key].empirical_dispersion for key in thermo_data]
+    dispersion_check = [thermo_data[key].empirical_dispersion or 'No empirical dispersion detected'
+                        for key in thermo_data]
     if all_same(dispersion_check):
         if dispersion_check[0] == 'No empirical dispersion detected':
             log.info("\n-  No empirical dispersion detected in any of the calculations.")
@@ -299,14 +318,13 @@ def check_files(thermo_data, options, level_of_theory):
             print_check_fails(version_check_spc, file_check, "programs or versions")
 
         # Check SPC solvation
-        solvent_check_spc = [thermo_data[key].sp_solvation_model for key in thermo_data]
-        if all_same(solvent_check_spc):
-            if isinstance(solvent_check_spc[0],list):
-                log.info("\no  Using " + solvent_check_spc[0][0] + " in all single-point corrections.")
-            else:
-                log.info("\no  Using " + solvent_check_spc[0] + " in all single-point corrections.")
+        spc_solv_pairs = [_normalize_solvation(thermo_data[key].sp_solvation_model) for key in thermo_data]
+        spc_sort_keys = [p[0] for p in spc_solv_pairs]
+        spc_solvent_check = [p[1] for p in spc_solv_pairs]
+        if all_same(spc_sort_keys):
+            log.info("\no  Using {} in all single-point corrections.".format(spc_solvent_check[0]))
         else:
-            print_check_fails(solvent_check_spc, file_check, "solvation models")
+            print_check_fails(spc_solvent_check, file_check, "solvation models")
 
         # Check SPC level of theory
         l_o_t_spc = [level_of_theory(name) for name in names_spc]
@@ -365,7 +383,8 @@ def check_files(thermo_data, options, level_of_theory):
             log.info("\n   x One or more geometries from single-point corrections are missing.")
 
         # Check for SPC dispersion models
-        dispersion_check_spc = [thermo_data[key].sp_empirical_dispersion for key in thermo_data]
+        dispersion_check_spc = [thermo_data[key].sp_empirical_dispersion or 'No empirical dispersion detected'
+                                for key in thermo_data]
         if all_same(dispersion_check_spc):
             if dispersion_check_spc[0] == 'No empirical dispersion detected':
                 log.info("\n-  No empirical dispersion detected in any of the calculations.")
