@@ -378,6 +378,40 @@ plotting libraries or downstream pipelines.
 
 ---
 
+## 6. Parse once, re-analyze many times
+
+QC outputs are slow to parse, especially for large conformer ensembles
+or composite-method SPCs. The unified v1.0 JSON payload (`--export`)
+captures every parsed field once; subsequent runs read it back via
+`--import` and skip the QC files entirely. Useful for re-running at a
+different temperature, concentration, frequency cutoff, or quasi-RRHO
+scheme without touching the original `.log`/`.out` files.
+
+```bash
+# First pass — parse + apply SPC + export the structured payload.
+goodvibes conformers/*.log --spc TZ --export thermo.json
+
+# Re-run at 350 K with the same files but no QC parsing. Re-pass --spc
+# to keep the cached SPC numbers driving G(T)_SPC; drop it for plain G.
+goodvibes --import thermo.json --spc TZ -t 350
+
+# Re-run with a stricter Truhlar low-frequency cutoff. Still no parsing.
+goodvibes --import thermo.json --spc TZ -f 150 --QH
+
+# Combine cached --spc with selectivity at a new temperature.
+goodvibes --import thermo.json --spc TZ -t 313.15 \
+          --label R='cat_R*' --label S='cat_S*'
+```
+
+`--export` writes the same payload as `--json`, so a single file covers
+both downstream pipelines and re-import. Once exported, the original
+`.log`/`.out` files can be archived, moved, or deleted — `--import`
+works with just the JSON. The `--spc` energies are cached on the QCData
+record, so re-passing `--spc <suffix>` reuses them without ever
+re-reading the SPC files.
+
+---
+
 ## See also
 
 - The full CLI flag table in the [main README](README.md).
