@@ -263,6 +263,32 @@ def _principal_moments_of_inertia(atom_types, cartesians):
     eigvals = np.sort(np.maximum(eigvals, 0.0))
     return total, eigvals
 
+def _fill_mass_and_rotemp_from_geometry(qcdata):
+    """Populate molecular_mass and rotational constants from geometry.
+
+    Fallback used when a QC program omits the THERMOCHEMISTRY block
+    (e.g. Gaussian freq-without-opt, ORCA --hess-only) — recomputes from
+    atom_types + cartesians via ATOMIC_MASSES so that downstream
+    translational/rotational entropy doesn't see mass=0 or rotemp=[0,0,0].
+    No-op when the parser already populated the fields.
+    """
+    if not (qcdata.atom_types and qcdata.cartesians):
+        return
+    needs_mass = qcdata.molecular_mass == 0.0
+    needs_rotemp = qcdata.rotemp == [0.0, 0.0, 0.0]
+    if not (needs_mass or needs_rotemp):
+        return
+    total_mass, eigvals = _principal_moments_of_inertia(
+        qcdata.atom_types, qcdata.cartesians)
+    if needs_mass:
+        qcdata.molecular_mass = total_mass
+    if needs_rotemp:
+        HC_OVER_KB = 1.4387768775  # K per cm⁻¹
+        roconst_cm = [16.857629 / I if I > 1e-3 else 0.0 for I in eigvals]
+        qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+        qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+
+
 def compute_connectivity(atom_types, cartesians, tolerance=0.2):
     """Compute molecular connectivity based on covalent radii."""
     connectivity = []
@@ -1392,6 +1418,8 @@ def parse_gaussian_thermo(file):
     if qcdata.atom_nums:
         qcdata.atom_types = [periodictable[n] for n in qcdata.atom_nums]
 
+    _fill_mass_and_rotemp_from_geometry(qcdata)
+
     return qcdata
 
 
@@ -1512,6 +1540,8 @@ def parse_nwchem_thermo(file):
     qcdata.im_frequency_wn = im_frequency_wn
     if qcdata.atom_nums:
         qcdata.atom_types = [periodictable[n] for n in qcdata.atom_nums]
+
+    _fill_mass_and_rotemp_from_geometry(qcdata)
 
     return qcdata
 
@@ -1791,6 +1821,8 @@ def parse_orca_thermo(file):
         qcdata.job_type = 'Freq'
     else:
         qcdata.job_type = 'SP'
+
+    _fill_mass_and_rotemp_from_geometry(qcdata)
 
     return qcdata
 
@@ -2081,18 +2113,8 @@ def parse_xtb_thermo(file):
 
     # Mass / rotational fallback: --hess-only runs print frequencies but skip
     # the THERMODYNAMIC block, so 'molecular mass / u' and 'rotational
-    # constants / cm⁻¹' are absent.  Recompute from the geometry we just
-    # loaded (B [cm⁻¹] = h/(8π²cI) ≈ 16.857629 / I[amu·Å²]).
-    if (qcdata.molecular_mass == 0.0 or qcdata.rotemp == [0.0, 0.0, 0.0]) \
-            and qcdata.atom_types and qcdata.cartesians:
-        total_mass, eigvals = _principal_moments_of_inertia(
-            qcdata.atom_types, qcdata.cartesians)
-        if qcdata.molecular_mass == 0.0:
-            qcdata.molecular_mass = total_mass
-        if qcdata.rotemp == [0.0, 0.0, 0.0]:
-            roconst_cm = [16.857629 / I if I > 1e-3 else 0.0 for I in eigvals]  # noqa: E741
-            qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
-            qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+    # constants / cm⁻¹' are absent.  Recompute from the geometry we just loaded.
+    _fill_mass_and_rotemp_from_geometry(qcdata)
 
     # Linear molecules: keep only physical rotational temperatures.  xtb
     # inverts a near-zero moment of inertia for the linear axis, producing
@@ -2413,6 +2435,8 @@ def parse_qchem_thermo(file):
         qcdata.job_type = 'Freq'
     else:
         qcdata.job_type = 'SP'
+
+    _fill_mass_and_rotemp_from_geometry(qcdata)
 
     return qcdata
 

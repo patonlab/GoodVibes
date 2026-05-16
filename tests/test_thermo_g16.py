@@ -923,3 +923,78 @@ def test_frequency_inversion_threshold():
     assert -50.0 in im_freqs
     assert 20.0 in freqs
     assert -20.0 in inverted
+
+
+# ===========================================================================
+# Geometry-derived mass / rotational fallback
+# (Gaussian freq-only jobs skip the "Molecular mass:" + "Rotational
+# temperatures" lines; the parser must recompute them from atom_types +
+# cartesians or downstream entropy crashes with math.log(0).)
+# ===========================================================================
+
+def _write_log_without_lines(src, dst, drop_substrings):
+    """Copy a Gaussian log to *dst* with any line containing any of
+    *drop_substrings* removed."""
+    with open(src, encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+    kept = [ln for ln in lines
+            if not any(s in ln for s in drop_substrings)]
+    with open(dst, 'w', encoding='utf-8') as f:
+        f.writelines(kept)
+
+
+def test_freq_only_missing_mass_falls_back_to_geometry(tmp_path):
+    """A Gaussian log that has frequencies but no 'Molecular mass:' /
+    'Rotational temperatures' lines (i.e. freq job without preceding opt)
+    should still produce thermochemistry: mass / rotemp recomputed from
+    the geometry."""
+    from goodvibes.io import parse_qcdata, ATOMIC_MASSES
+
+    src = g16path('02_ethane_opt_freq_T398_P2.log')
+    stripped = tmp_path / 'ethane_no_mass.log'
+    _write_log_without_lines(
+        src, stripped,
+        drop_substrings=['Molecular mass:', 'Rotational temperatures'],
+    )
+
+    q = parse_qcdata(str(stripped))
+    expected_mass = sum(ATOMIC_MASSES[a] for a in q.atom_types)
+    assert q.molecular_mass == pytest.approx(expected_mass, rel=1e-6)
+    # Three non-zero rotational temperatures for a non-linear C2H6.
+    assert all(t > 0.0 for t in q.rotemp)
+
+    # Downstream thermo should now compute without log(0) ValueError.
+    bbe = calc_bbe(str(stripped), 'grimme', False, 100.0, 100.0,
+                   T_DEFAULT, CONC_DEFAULT, 1.0, None, None, None, 0)
+    assert hasattr(bbe, 'gibbs_free_energy')
+    # Within ~0.5% of the un-stripped reference Gibbs free energy:
+    # mass recovered from ATOMIC_MASSES differs marginally from Gaussian's
+    # internal value, which shifts S_trans by ~kB/2 * ln(m_new/m_old).
+    ref = _calc('02_ethane_opt_freq_T398_P2.log')
+    assert bbe.gibbs_free_energy == pytest.approx(ref.gibbs_free_energy, rel=1e-4)
+
+
+def test_opt_only_still_skips_thermochemistry(tmp_path):
+    """A Gaussian opt-only log (no frequency block) must still skip the
+    thermo gate — `gibbs_free_energy` is not set, so the
+    `! No frequency information found:` warning fires downstream.
+    The mass/rotemp fallback fills geometry-derived values but those
+    are unused without ZPE."""
+    src = g16path('02_ethane_opt_freq_T398_P2.log')
+    stripped = tmp_path / 'ethane_opt_only.log'
+    # Drop the entire frequency + thermochem block. Gaussian's
+    # "Harmonic frequencies" header marks the start; we also strip the
+    # follow-on thermochemistry lines so no ZPE survives.
+    _write_log_without_lines(
+        src, stripped,
+        drop_substrings=[
+            'Frequencies --', 'Zero-point correction',
+            'Molecular mass:', 'Rotational temperatures',
+            'Harmonic frequencies',
+        ],
+    )
+
+    bbe = calc_bbe(str(stripped), 'grimme', False, 100.0, 100.0,
+                   T_DEFAULT, CONC_DEFAULT, 1.0, None, None, None, 0)
+    # No ZPE → thermo gate fails → no gibbs_free_energy attribute.
+    assert not hasattr(bbe, 'gibbs_free_energy')
