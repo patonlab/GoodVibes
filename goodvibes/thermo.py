@@ -74,6 +74,16 @@ def calc_rotational_energy(temperature, monatomic=False, linear=False):
     return energy
 
 
+def _coerce_scale_factor(freq_scale_factor, fract_modelsys):
+    # Coerce to Python float(s) so numpy.float32 inputs can't force float32
+    # arithmetic downstream, which under value-based scalar casting
+    # (NumPy < 2.0) silently underflows expressions like h / (8 π² ν c s)
+    # in calc_freerot_entropy to 0.0 and produces NaN entropies.
+    if fract_modelsys is not None:
+        return [float(x) for x in freq_scale_factor]
+    return float(freq_scale_factor)
+
+
 def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fract_modelsys=None):
     """
     Compute the vibrational energy (zero-point + thermal contributions) in joules per mole at a given temperature.
@@ -95,6 +105,7 @@ def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fr
             "Temperature must be positive for vibrational energy calculation."
         )
 
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
     if fract_modelsys is not None:
         s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
         freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
@@ -134,6 +145,7 @@ def calc_zeropoint_energy(frequency_wn, freq_scale_factor = 1.0, fract_modelsys 
     Returns:
         float: Vibrational zero-point energy (J/mol), computed as the sum over modes of 0.5 * h * nu.
     """
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
     if fract_modelsys is not None:
         s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
         freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
@@ -280,6 +292,7 @@ def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor = 1.0, fract_
     Returns:
         List of per-mode vibrational entropies in J/(mol*K).
     """
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
     if fract_modelsys is not None:
         s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
         freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
@@ -305,6 +318,7 @@ def calc_qRRHO_energy(temperature, frequency_wn, freq_scale_factor = 1.0):
     Returns:
         list[float]: Per-mode qRRHO vibrational energy terms in J/mol.
     """
+    freq_scale_factor = float(freq_scale_factor)
     factor = [PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor for freq in frequency_wn]
     energy = [0.5 * AVOGADRO_CONSTANT * entry + GAS_CONSTANT * temperature * entry / BOLTZMANN_CONSTANT
               / temperature * math.exp(-entry / BOLTZMANN_CONSTANT / temperature) /
@@ -348,6 +362,7 @@ def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_f
     Returns:
         list[float]: Per-mode free-rotor entropies in J/(mol·K).
     """
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
     if fract_modelsys is not None:
         s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
         freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
