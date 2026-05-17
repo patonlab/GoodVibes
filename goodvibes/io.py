@@ -503,6 +503,11 @@ def parse_data(file):
                 charge = int(line.strip().split()[-1])
             if "mult " in line.strip():
                 multiplicity = int(line.strip().split()[-1])
+            elif "Spin multiplicity:" in line:
+                try:
+                    multiplicity = int(line.split(":", 1)[1].strip().split()[0])
+                except (ValueError, IndexError):
+                    pass
         elif program == "xtb":
             stripped = line.strip()
             if 'xtb version' in stripped and not version_program:
@@ -1526,12 +1531,18 @@ def parse_nwchem_thermo(file):
         elif line.strip().startswith('Zero-Point'):
             qcdata.zero_point_corr = float(line.strip().split()[8])
 
-        # Multiplicity
+        # Multiplicity — match input-deck echo "mult <N>" or runtime
+        # "Spin multiplicity: <N>" (NWChem 7.x).
         elif 'mult ' in line.strip():
             try:
                 qcdata.multiplicity = int(line.split()[1])
             except (ValueError, IndexError):
                 qcdata.multiplicity = 1
+        elif 'Spin multiplicity:' in line:
+            try:
+                qcdata.multiplicity = int(line.split(":", 1)[1].strip().split()[0])
+            except (ValueError, IndexError):
+                pass
 
         # Coordinates: take the LAST "Output coordinates in angstroms" block
         elif 'Output coordinates in angstroms' in line:
