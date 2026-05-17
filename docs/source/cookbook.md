@@ -17,7 +17,13 @@ The lowest-friction path for notebooks and scripts. Replaces the older
 ```python
 from goodvibes import compute_thermo
 
-r = compute_thermo("ethane.log", QH=True, spc="TZ", temperature=313.15)
+r = compute_thermo(
+    "ethane.log",
+    QS="grimme",            # default — Grimme quasi-RRHO entropy
+    s_freq_cutoff=50,       # cm⁻¹ — soften modes below this
+    spc="TZ",
+    temperature=313.15,
+)
 
 print(f"qh-G(T) = {r.qh_gibbs_free_energy:.6f} Hartree")
 print(f"point group: {r.point_group}, σ = {r.symmno}")
@@ -395,8 +401,9 @@ goodvibes conformers/*.log --spc TZ --export thermo.json
 # to keep the cached SPC numbers driving G(T)_SPC; drop it for plain G.
 goodvibes --import thermo.json --spc TZ -t 350
 
-# Re-run with a stricter Truhlar low-frequency cutoff. Still no parsing.
-goodvibes --import thermo.json --spc TZ -f 150 --QH
+# Re-run with the Truhlar frequency-raising entropy scheme and a
+# stricter low-frequency cutoff. Still no parsing.
+goodvibes --import thermo.json --spc TZ --qs truhlar -f 150
 
 # Combine cached --spc with selectivity at a new temperature.
 goodvibes --import thermo.json --spc TZ -t 313.15 \

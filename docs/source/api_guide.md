@@ -53,7 +53,8 @@ class ThermoResult:
 ```python
 r = compute_thermo(
     "structure.log",
-    QH=True,                # apply Head–Gordon quasi-harmonic enthalpy
+    QS="grimme",            # default — Grimme quasi-RRHO entropy
+    s_freq_cutoff=50,       # cm⁻¹ — soften vibrational modes below this
     spc="TZ",               # use 'structure_TZ.log' for the single point
     temperature=313.15,     # K
     concentration=1.0,      # mol/L; defaults to gas-phase 1 atm
