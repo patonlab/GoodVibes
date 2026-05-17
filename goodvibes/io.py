@@ -1048,7 +1048,10 @@ def read_initial(file):
             solvation_model = "gas phase"
         else:
             start_scrf = keyword_line.strip().find('scrf') + 5
-            if keyword_line[start_scrf] == "(":
+            if start_scrf >= len(keyword_line):
+                # Bare `scrf` with no body — Gaussian defaults to PCM/water.
+                solvation_model = "scrf"
+            elif keyword_line[start_scrf] == "(":
                 end_scrf = keyword_line.find(")", start_scrf)
                 solvation_model = "scrf=" + keyword_line[start_scrf:end_scrf]
                 if solvation_model[-1] != ")":
@@ -1254,6 +1257,7 @@ def parse_gaussian_thermo(file):
     frequency_wn = []
     im_frequency_wn = []
     fract_modelsys = []
+    per_atom_masses = []  # Gaussian's per-atom masses (respects iso= keyword)
     freq_started = False  # True once we encounter the first "Frequencies --" in this link
     freq_done = False     # True once VPT2 "Recovering" marker is seen (guards against duplicates)
 
@@ -1361,7 +1365,20 @@ def parse_gaussian_thermo(file):
             except (ValueError, IndexError):
                 qcdata.multiplicity = int(line.split()[-1])
 
-        # Molecular mass
+        # Per-atom isotope masses Gaussian printed for this freq job. Captured
+        # so we can recompute high-precision rotational constants from the
+        # geometry — the "Rotational temperatures" block prints only 3 sig figs,
+        # which loses ~3 µHartree in G for heavy or floppy systems.
+        elif (line.strip().startswith('Atom')
+              and 'has atomic number' in line
+              and 'and mass' in line):
+            try:
+                per_atom_masses.append(float(line.split('and mass')[1].split()[0]))
+            except (ValueError, IndexError):
+                pass
+
+        # Molecular mass — also marks the end of one per-atom mass block, so
+        # subsequent thermo sections (rare; G4 composites) start fresh.
         elif line.strip().startswith('Molecular mass:'):
             qcdata.molecular_mass = float(line.strip().split()[2])
 
@@ -1417,6 +1434,37 @@ def parse_gaussian_thermo(file):
         qcdata.fract_modelsys = fract_modelsys
     if qcdata.atom_nums:
         qcdata.atom_types = [periodictable[n] for n in qcdata.atom_nums]
+
+    # High-precision rotational constants: Gaussian's "Rotational temperatures"
+    # printout is only 3 sig figs, which propagates ~3 µHartree of error into G
+    # via S_rot for systems with small θ_rot. Recompute MOI from the geometry
+    # using the per-atom masses Gaussian itself reported (this respects the
+    # iso= keyword), then derive roconst / rotemp at full double precision.
+    # G4 composites can print masses for several thermo sections; the final
+    # len(cartesians) entries always belong to the freq job we care about.
+    if (qcdata.cartesians
+            and len(per_atom_masses) >= len(qcdata.cartesians)
+            and not qcdata.linear_warning
+            and len(qcdata.rotemp) == 3):
+        masses = np.asarray(per_atom_masses[-len(qcdata.cartesians):], float)
+        coords = np.asarray(qcdata.cartesians, float)
+        total_mass = float(masses.sum())
+        com = (masses[:, None] * coords).sum(axis=0) / total_mass
+        r = coords - com
+        Ixx = float((masses * (r[:, 1] ** 2 + r[:, 2] ** 2)).sum())
+        Iyy = float((masses * (r[:, 0] ** 2 + r[:, 2] ** 2)).sum())
+        Izz = float((masses * (r[:, 0] ** 2 + r[:, 1] ** 2)).sum())
+        Ixy = float(-(masses * r[:, 0] * r[:, 1]).sum())
+        Ixz = float(-(masses * r[:, 0] * r[:, 2]).sum())
+        Iyz = float(-(masses * r[:, 1] * r[:, 2]).sum())
+        inertia = np.array([[Ixx, Ixy, Ixz], [Ixy, Iyy, Iyz], [Ixz, Iyz, Izz]])
+        eigvals = np.sort(np.maximum(np.linalg.eigvalsh(inertia), 0.0))
+        if all(I > 1e-3 for I in eigvals):
+            HC_OVER_KB = 1.4387768775  # K per cm⁻¹
+            roconst_cm = [16.857629 / I for I in eigvals]
+            qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+            qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+            qcdata.molecular_mass = total_mass
 
     _fill_mass_and_rotemp_from_geometry(qcdata)
 

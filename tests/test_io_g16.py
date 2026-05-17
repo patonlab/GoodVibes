@@ -178,6 +178,26 @@ def test_read_initial_solvation(filename, expected_contains):
     assert expected_contains in solvation_model.lower()
 
 
+def test_read_initial_bare_scrf_no_crash(tmp_path):
+    """A Gaussian route with bare `scrf` (no body) must not raise IndexError
+    when read_initial parses the keyword block. Gaussian defaults the bare
+    keyword to PCM/water."""
+    log = tmp_path / 'bare_scrf.log'
+    log.write_text(
+        ' Entering Gaussian System, Link 0=g16\n'
+        ' Gaussian 16:  ES64L-G16RevC.01 25-Dec-2019\n'
+        ' ----------------------------------------------------------------------\n'
+        ' # b3lyp/6-31g(d) opt freq scrf\n'
+        ' ----------------------------------------------------------------------\n'
+        '\n'
+        ' Charge =  0 Multiplicity = 1\n'
+        ' Normal termination of Gaussian 16.\n'
+    )
+    _, solvation_model, progress, _, _ = read_initial(str(log))
+    assert 'scrf' in solvation_model.lower()
+    assert progress == 'Normal'
+
+
 # ---------------------------------------------------------------------------
 # level_of_theory
 # ---------------------------------------------------------------------------
