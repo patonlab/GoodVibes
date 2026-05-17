@@ -69,8 +69,8 @@ def azabor_pes_result(azabor_thermo_data):
 GOLDEN_GCONF = [
     # (label,                      ΔG_qh,   ΔG,     ΔG_SPC)
     ("R1-An + Aza-Phos",            +0.000,  +0.000,  +0.000),
-    ("R1-Comp + THF",               -3.787,  -5.391,  -5.695),
-    ("AmTS + THF",                 +13.395, +12.348, +10.782),
+    ("R1-Comp + THF",               -3.787,  -5.392,  -5.695),
+    ("AmTS + THF",                 +13.395, +12.349, +10.782),
     ("Azir-Comp + THF",            -59.041, -60.408, -63.800),
     ("OpenTS + THF",               -39.467, -40.650, -42.064),
     ("Syn-P + THF",                -91.402, -92.642, -97.939),
@@ -79,17 +79,17 @@ GOLDEN_GCONF = [
 # Mode 2: --lowest-only — pick each species' lowest-qh-G conformer, no gconf.
 GOLDEN_LOWEST = [
     ("R1-An + Aza-Phos",            +0.000,  +0.000,  +0.000),
-    ("R1-Comp + THF",               -3.690,  -5.334,  -6.134),
+    ("R1-Comp + THF",               -3.690,  -5.335,  -6.134),
     ("AmTS + THF",                 +13.210, +12.285, +10.876),
     ("Azir-Comp + THF",            -58.919, -60.020, -64.253),
     ("OpenTS + THF",               -39.037, -39.746, -42.544),
-    ("Syn-P + THF",                -91.033, -91.691, -98.639),
+    ("Syn-P + THF",                -91.033, -91.692, -98.639),
 ]
 
 # Mode 3: --nogconf — pure Boltzmann-averaged across conformers.
 GOLDEN_NOGCONF_QH_GIBBS = [
     ("R1-An + Aza-Phos",            +0.000),
-    ("R1-Comp + THF",               -3.668),
+    ("R1-Comp + THF",               -3.669),
     ("AmTS + THF",                 +12.902),
     ("Azir-Comp + THF",            -59.061),
     ("OpenTS + THF",               -39.016),
