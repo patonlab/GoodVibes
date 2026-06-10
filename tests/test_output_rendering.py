@@ -13,7 +13,6 @@ heavier renderers (`print_results`, `_print_rich_table`,
 from __future__ import annotations
 
 import logging
-import os
 from types import SimpleNamespace
 
 import pytest

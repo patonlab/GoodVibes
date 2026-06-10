@@ -5,7 +5,7 @@ import os.path
 import sys
 import warnings
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 

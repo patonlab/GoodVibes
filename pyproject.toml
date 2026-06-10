@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["compchem", "thermochemistry", "gaussian", "vibrational-entropies", "temperature"]
 dependencies = [
-    "numpy",
+    "numpy<3",
     "pymsym",
     "rich>=13.0",
 ]
@@ -23,11 +23,10 @@ dependencies = [
 ase = ["ase>=3.22"]
 plot = ["matplotlib>=3.5"]
 full = ["ase>=3.22", "pyyaml", "pandas", "pyarrow", "matplotlib>=3.5"]
-test = ["pytest", "ase>=3.22", "pyyaml", "pandas", "matplotlib>=3.5"]
+test = ["pytest", "pytest-cov", "ase>=3.22", "pyyaml", "pandas", "pyarrow", "matplotlib>=3.5"]
 
 [project.urls]
 Homepage = "https://github.com/patonlab/goodvibes"
-Download = "https://github.com/patonlab/GoodVibes/archive/v4.2.0.zip"
 
 [project.scripts]
 goodvibes = "goodvibes.GoodVibes:main"
@@ -37,3 +36,12 @@ packages = ["goodvibes"]
 
 [tool.setuptools.package-data]
 goodvibes = ["scaling_factors.json", "solvents.json", "examples/**/*", "share/*"]
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+# Minimal, high-signal ruleset enforced in CI: Pyflakes (real bugs —
+# undefined names, unused imports/variables) plus syntax errors.
+# Style rules (E, W, I, UP) can be ratcheted up later.
+select = ["F", "E9"]

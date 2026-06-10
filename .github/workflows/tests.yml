@@ -7,6 +7,22 @@ on:
     branches: [master]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff (Pyflakes + syntax errors)
+        run: ruff check goodvibes/ tests/
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -26,5 +42,12 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test]"
 
-      - name: Run tests
-        run: pytest -v
+      - name: Run tests with coverage
+        run: pytest -v --cov=goodvibes --cov-report=term --cov-report=html
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/

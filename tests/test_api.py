@@ -95,7 +95,6 @@ def test_parity_with_calc_bbe_default_args():
     resolved values."""
     T = 298.15
     conc = ATMOS / (GAS_CONSTANT * T)
-    fac = scaling_data_dict[canonicalize_level("HF/6-31G(d)")].harm_fac
 
     api = compute_thermo(WATER_HF)
     entry = scaling_data_dict[canonicalize_level("HF/6-31G(d)")]
@@ -313,7 +312,7 @@ def test_to_dataframe_round_trip():
 
 
 def test_to_dataframe_values_match_results():
-    pd = pytest.importorskip("pandas")
+    pytest.importorskip("pandas")
     rs = compute_batch([WATER_HF])
     df = to_dataframe(rs)
     assert df.loc[0, "qh_gibbs_free_energy"] == rs[0].qh_gibbs_free_energy

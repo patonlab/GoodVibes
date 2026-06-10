@@ -22,10 +22,9 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
 from .constants import ATMOS, GAS_CONSTANT
-from .io import parse_qcdata, read_initial
+from .io import read_initial
 from .thermo import ThermoOptions, calc_bbe
 from .utils import display_name
-from .vib_scale_factors import canonicalize_level, scaling_data_dict
 
 
 @dataclass(frozen=True)

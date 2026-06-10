@@ -114,12 +114,20 @@ mechanical follow-ups.
   directory will diff `.dat` against checked-in goldens for the 20
   most-used flag combinations.
 - **Deprecation policy.** Anything deprecated in v4.2 is removed no
-  earlier than v5.1. CI runs `pytest -W error::DeprecationWarning`.
+  earlier than v5.1. (Goal: CI runs `pytest -W error::DeprecationWarning`;
+  not yet enabled — current CI runs plain pytest with coverage.)
 - **Docs.** mkdocs + mkdocstrings auto-API docs at v5.0. Cookbook section
   with notebook examples (CREST → `Ensemble` → Boltzmann G).
 - **Performance targets.** 1k conformers parsed in <30s on 8 cores;
   ensemble Boltzmann/dedup memory <200 MB at 10k conformers.
-- **CI.** Add Python 3.13 at v5.0 cut.
+- **CI.** Add Python 3.13 at v5.0 cut. Lint (ruff, Pyflakes + syntax
+  errors, blocking) and pytest coverage reporting added 2026-06.
+- **Code health.** `AUDIT.md` (2026-06) holds the full repository audit
+  and prioritized improvement plan: parse-failure diagnostics on QCData,
+  `sys.exit` → exception hierarchy in library modules, wheel slimming
+  (examples are ~74 MB of the published wheel), and decomposition of the
+  three monoliths (`calc_bbe.__init__`, `io.parse_data`, `main()`) ahead
+  of the item-11 Ensemble refactor.
 
 ---
 

@@ -269,6 +269,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--spc SUFFIX` | Single-point energy correction (suffix or `link`) | -- |
 | `--jobs N` | Parse and compute in parallel across N worker processes (`0` = all cores) | 1 |
 | `--symm` | Apply symmetry correction to entropy (pymsym) | off |
+| `--pg` | Display detected point group (no entropy correction applied) | off |
 | `--boltz` | Print Boltzmann-weighted populations | off |
 | `--label NAME=PATTERN` | N-way selectivity bucket (repeatable, fnmatch on basenames) | -- |
 | `--selectivity FILE.yaml` | Selectivity spec via YAML (alternative to `--label`) | -- |

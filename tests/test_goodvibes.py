@@ -4,7 +4,7 @@
 import pytest
 import math
 from goodvibes import GoodVibes as GV
-from goodvibes.constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU
+from goodvibes.constants import GAS_CONSTANT, J_TO_AU
 from conftest import datapath
 from goodvibes.media import solvents
 from goodvibes.vib_scale_factors import scaling_data_dict, scaling_refs

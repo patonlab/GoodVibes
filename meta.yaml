@@ -1,5 +1,5 @@
 {% set name = "goodvibes" %}
-{% set version = "4.2.0" %}
+{% set version = "4.3.0" %}
 
 package:
   name: "{{ name|lower }}"
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 6c7dfef22868f57762e910888e45daf96e2e9cc6cbb7cf299cc6a22cec37ee5c
+  sha256: 9b2a7b5201d9e5343ae351ed47e3c7efcf745e959e75ff5cc0a1d587b728da77
 
 build:
   number: 0
@@ -15,12 +15,13 @@ build:
 
 requirements:
   host:
-    - numpy
     - pip
     - python
   run:
-    - numpy
-    - python
+    - numpy <3
+    - pymsym
+    - rich >=13.0
+    - python >=3.9
 
 test:
   imports:
@@ -31,7 +32,7 @@ about:
   license: MIT
   license_family: MIT
   license_file: LICENSE.txt 
-  summary: Calculates quasi-harmonic free energies from Gaussian output files with temperature and haptic corrections
+  summary: Calculates quasi-harmonic free energies from frequency calculations with temperature and entropic corrections
   doc_url: 
   dev_url: 
 

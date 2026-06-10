@@ -131,7 +131,6 @@ def test_load_pes_yaml_no_deprecation_warning(azabor_pes_result):
 
 def test_legacy_yaml_emits_deprecation_warning(azabor_thermo_data):
     """The line-based azabor_PES.yaml must trip a DeprecationWarning."""
-    import warnings
     from goodvibes.pes_loader import load_pes
     with pytest.warns(DeprecationWarning, match="legacy line-based format"):
         load_pes(YAML_LEGACY, azabor_thermo_data, temperatures=[T_STD])
