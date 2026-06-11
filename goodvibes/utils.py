@@ -73,6 +73,9 @@ def setup_logging(filein, append):
             force_terminal=True,  # emit box-drawing chars even though file is not a TTY
             no_color=True,        # strip ANSI color codes
             highlight=False,      # don't auto-highlight tokens
+            width=200,            # match stdout console: Rich defaults non-TTY
+                                  # files to 80 cols and crops tables, dropping
+                                  # the rightmost columns (incl. qh-G) from .dat
         )
 
 

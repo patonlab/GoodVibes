@@ -122,12 +122,17 @@ mechanical follow-ups.
   ensemble Boltzmann/dedup memory <200 MB at 10k conformers.
 - **CI.** Add Python 3.13 at v5.0 cut. Lint (ruff, Pyflakes + syntax
   errors, blocking) and pytest coverage reporting added 2026-06.
-- **Code health.** `AUDIT.md` (2026-06) holds the full repository audit
-  and prioritized improvement plan: parse-failure diagnostics on QCData,
-  `sys.exit` → exception hierarchy in library modules, wheel slimming
-  (examples are ~74 MB of the published wheel), and decomposition of the
-  three monoliths (`calc_bbe.__init__`, `io.parse_data`, `main()`) ahead
-  of the item-11 Ensemble refactor.
+- **Code health.** `AUDIT.md` (2026-06, plus focused re-audit) holds the
+  full repository audit and prioritized improvement plan. Top open items:
+  parse-failure diagnostics on QCData (~45 silent fallback sites across
+  the six parsers), the silent SPC downgrade (missing/unparseable `--spc`
+  file yields a `'!'` sentinel and the correction is skipped without any
+  API-visible warning — thermo.py `except TypeError: pass`), wheel
+  slimming (verified: a 21.5 MB keep-set suffices; `pes/*.log` ≈256 MB is
+  referenced by no test), and decomposition of `calc_bbe.__init__` /
+  `io.parse_data` along their existing phase seams ahead of the item-11
+  Ensemble refactor. `sys.exit` cleanup is layering hygiene only — the
+  API path cannot currently reach those sites.
 
 ---
 
