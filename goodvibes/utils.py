@@ -75,7 +75,13 @@ def setup_logging(filein, append):
     logger.addHandler(console_handler)
 
     if Console is not None:
-        _console_stdout = Console(highlight=False, force_terminal=True, width=200)
+        # height MUST be set alongside width: Rich's Console.size only
+        # short-circuits to the explicit width when height is also given.
+        # With only width set, a dumb terminal (TERM=dumb, e.g. CircleCI)
+        # runs terminal detection, ignores width=200 and clamps to 80 cols,
+        # cropping the rightmost table columns (incl. qh-G).
+        _console_stdout = Console(highlight=False, force_terminal=True,
+                                  width=200, height=200)
 
     # .dat file: shared handle for both logging and Rich output
     dat_path = f'{filein}_{append}.dat'
@@ -96,6 +102,8 @@ def setup_logging(filein, append):
             width=200,            # match stdout console: Rich defaults non-TTY
                                   # files to 80 cols and crops tables, dropping
                                   # the rightmost columns (incl. qh-G) from .dat
+            height=200,           # required for width to be honored on dumb
+                                  # terminals (see _console_stdout above)
         )
 
 
