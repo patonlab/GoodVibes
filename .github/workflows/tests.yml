@@ -25,6 +25,12 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    # Run Python in UTF-8 mode everywhere so the test harness decodes the
+    # subprocess stdout (Rich tables, ✔, ΔΔG) consistently. Windows otherwise
+    # defaults stdio to cp1252; GoodVibes itself also self-reconfigures to
+    # UTF-8 at runtime so real users aren't reliant on this (issue #102).
+    env:
+      PYTHONUTF8: "1"
     strategy:
       fail-fast: false
       matrix:

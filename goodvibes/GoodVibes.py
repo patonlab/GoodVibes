@@ -489,6 +489,14 @@ def compute_thermochem(files, options, qcdata_cache=None):
 
 def main():
     """CLI entry point: parse arguments, compute thermochemistry, and print results."""
+    # Ensure stdout/stderr can encode GoodVibes' Unicode output before argparse
+    # may print help/usage (issue #102). setup_logging() repeats this for the
+    # normal path; doing it here also covers `goodvibes -h` and piped output on
+    # Windows, where stdio otherwise defaults to cp1252 and raises mid-print.
+    from .utils import _force_utf8
+    _force_utf8(sys.stdout)
+    _force_utf8(sys.stderr)
+
     options, files = parse_arguments()
 
     # Start logger
