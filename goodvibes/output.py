@@ -360,6 +360,8 @@ def _print_rich_table(table: "Table") -> None:
             force_terminal=console.is_terminal,
             color_system=console.color_system,
             width=console.width,
+            height=console.height,  # without height, this render console
+                                    # re-clamps width to 80 on dumb terminals
         ).print(table)
         text = buf.getvalue().rstrip("\n")
         lines = text.split("\n")
