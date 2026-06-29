@@ -30,6 +30,10 @@ from .output import (print_results, print_temperature_interval,
 
 log = logging.getLogger('goodvibes')
 
+# Above this many input files, the command echo collapses the file list to a
+# "<N files>" placeholder instead of listing every path.
+COMMAND_ECHO_FILE_LIMIT = 10
+
 
 def parse_arguments():
     """Parse command-line arguments and return (options, args)."""
@@ -218,22 +222,23 @@ def parse_arguments():
     elif options.invert is not None and options.invert > 0:
         options.invert = -1 * options.invert
 
-    # Build the command echo from the original CLI invocation.
-    # File-path positional args (often dozens of .log/.out files) are
-    # collapsed to a "<N files>" placeholder so the line stays readable.
+    # Build the command echo from the original CLI invocation so it can be
+    # logged to the .dat file (users copy/paste it to reproduce runs).
+    # File-path positional args are kept verbatim when there are only a few,
+    # but collapsed to a "<N files>" placeholder past a threshold so the line
+    # stays readable for runs over dozens of .log/.out files.
     file_args, flag_args = [], []
     for arg in sys.argv[1:]:
         if os.path.splitext(arg)[1].lower() in SUPPORTED_EXTENSIONS:
             file_args.append(arg)
         else:
             flag_args.append(arg)
-    file_summary = f'<{len(file_args)} file{"" if len(file_args) == 1 else "s"}>' if file_args else ''
-    parts = ['o  Requested: goodvibes']
-    if file_summary:
-        parts.append(file_summary)
-    parts.extend(flag_args)
-    command = ' '.join(parts)
-    print(command)
+    if len(file_args) > COMMAND_ECHO_FILE_LIMIT:
+        file_parts = [f'<{len(file_args)} files>']
+    else:
+        file_parts = file_args
+    parts = ['o  Requested: goodvibes', *file_parts, *flag_args]
+    options.command = ' '.join(parts)
 
     # Collect filenames from the unrecognized positional arguments
     files = []
@@ -491,6 +496,10 @@ def main():
     # Print banner
     log.info(gv_banner)
 
+    # Echo the command line into stdout *and* the .dat file so the run is
+    # self-documenting and reproducible (issue #103).
+    log.info(getattr(options, 'command', 'o  Requested: goodvibes'))
+
     # Fail fast on unknown solvent names — let the user fix the typo before we
     # parse a thousand files.
     if options.media is not None:
@@ -567,7 +576,6 @@ def main():
     if not files:
         sys.exit("\n!  Specify at least one output files on the command line ¯\\_(ツ)_/¯ \n")
 
-    # log.info('\n' + command + '\n')
     if options.temperature_interval is None:
         log.info(f"   Temperature = {options.temperature} Kelvin")
 
