@@ -1650,6 +1650,14 @@ def parse_orca_thermo(file):
     _has_freq_kw = False
     _orca_abort_line = -1
     _last_freq_line = -1
+    # Every "FINAL SINGLE POINT ENERGY" in the file (full precision), and
+    # the electronic energy ORCA itself reports inside its thermochemistry
+    # block. The latter is the energy H/G are built on; we use it to pick
+    # the right SCF energy so a linked single point printed *after* the
+    # frequencies doesn't silently replace the opt/freq-level energy
+    # (issue #101). Resolved after the loop.
+    _all_fspe = []
+    _thermo_elec_energy = None
 
     for i, line in enumerate(output):
         stripped = line.strip()
@@ -1694,9 +1702,25 @@ def parse_orca_thermo(file):
             qcdata.atom_types = atom_types_tmp
             qcdata.cartesians = cartesians_tmp
 
-        # SCF energy (last occurrence wins for linked jobs)
+        # SCF energy: collect every occurrence; the right one is chosen
+        # after the loop (see _resolve below). Don't commit to "last wins"
+        # here — a linked SPC after the freqs would clobber the freq-level
+        # energy that the thermochemistry is built on (issue #101).
         elif stripped.startswith('FINAL SINGLE POINT ENERGY'):
-            qcdata.scf_energy = float(stripped.split()[-1])
+            try:
+                _all_fspe.append(float(stripped.split()[-1]))
+            except (ValueError, IndexError):
+                pass
+
+        # Electronic energy as reported in ORCA's own thermochemistry
+        # block ("Electronic energy   ...   -123.45678901 Eh"). This is
+        # unambiguously the energy paired with the printed H and G, i.e.
+        # the opt/freq level, never a later single point.
+        elif stripped.startswith('Electronic energy') and '...' in stripped and stripped.endswith('Eh'):
+            try:
+                _thermo_elec_energy = float(stripped.split()[-2])
+            except (ValueError, IndexError):
+                pass
 
         # Collect input keywords for job type detection (handled after loop)
         elif '|' in line and '>' in stripped and '!' in stripped:
@@ -1809,6 +1833,22 @@ def parse_orca_thermo(file):
         # ORCA abort: optimization failed before freq calculation could run.
         if 'ORCA will abort' in stripped:
             _orca_abort_line = i
+
+    # Resolve the SCF energy (issue #101). When ORCA printed a
+    # thermochemistry block, its "Electronic energy" is the energy H/G are
+    # built on; choose the full-precision FINAL SINGLE POINT ENERGY that
+    # matches it. This keeps the opt/freq-level energy even when a linked
+    # single point is printed afterwards in the same file (the linked SPC
+    # is then applied only on explicit --spc link, which surfaces both the
+    # opt energy and the SPC energy). With no thermochemistry block (a
+    # single-point-only file), the last energy wins, as before.
+    if _thermo_elec_energy is not None and _all_fspe:
+        best = min(_all_fspe, key=lambda e: abs(e - _thermo_elec_energy))
+        qcdata.scf_energy = best if abs(best - _thermo_elec_energy) < 1e-3 else _thermo_elec_energy
+    elif _thermo_elec_energy is not None:
+        qcdata.scf_energy = _thermo_elec_energy
+    elif _all_fspe:
+        qcdata.scf_energy = _all_fspe[-1]
 
     # If the last abort comes after the last freq section (or there are no freqs),
     # any frequencies/ZPE present are from calc_hess, not the actual freq job — discard.

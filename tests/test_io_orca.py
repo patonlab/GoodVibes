@@ -237,6 +237,11 @@ def test_level_of_theory_orca(filename, expected_level):
     ('07_neon_atom_with_freq.out', -128.533272824265),
     ('08_alanine_C1_pcm_water.out', -323.378216039696),
     ('16_o2_superoxide_anion.out', -150.341130103125),
+    # Issue #101: a composite "Opt Freq" then higher-level single point in
+    # one file. scf_energy must be the opt/freq-level energy (the one ORCA's
+    # thermochemistry uses), NOT the trailing B2PLYP single point
+    # (-119.046732649048), which is applied only on explicit --spc link.
+    ('18_propane_linked_composite_dh.out', -119.037374949350),
     ('22_hcn_linear_freq_noraman.out', -93.414515903409),
     ('32_cyclohexane_tpss_meta_gga.out', -236.018821783392),
     ('44_ts_sn2_identity_chloride.out', -960.291216714078),
@@ -244,6 +249,60 @@ def test_level_of_theory_orca(filename, expected_level):
 def test_parse_orca_thermo_scf_energy(filename, expected_energy):
     qcdata = parse_orca_thermo(orca_path(filename))
     assert abs(qcdata.scf_energy - expected_energy) < 1e-8
+
+
+# ---------------------------------------------------------------------------
+# Issue #101: linked single-point energy must not silently replace the
+# opt/freq-level electronic energy.
+# ---------------------------------------------------------------------------
+
+def test_issue101_linked_spc_does_not_overwrite_opt_energy():
+    """A composite "! Opt Freq" + linked higher-level SP in one ORCA file.
+
+    The thermochemistry electronic energy (E) must be the opt/freq level
+    (B3LYP, -119.0373749), matching ORCA's own "Electronic energy" line —
+    not the trailing RI-B2PLYP single point (-119.0467326). The B2PLYP
+    energy is still discoverable via parse_data (so --spc link can apply
+    it), but it must not leak into the freq-level SCF energy.
+    """
+    f = orca_path('18_propane_linked_composite_dh.out')
+    B3LYP_OPT = -119.037374949350   # ORCA "Electronic energy ... Eh"
+    B2PLYP_SP = -119.046732649048   # trailing FINAL SINGLE POINT ENERGY
+
+    qcdata = parse_orca_thermo(f)
+    assert abs(qcdata.scf_energy - B3LYP_OPT) < 1e-8
+    assert abs(qcdata.scf_energy - B2PLYP_SP) > 1e-3   # NOT the SP
+
+    # parse_data (metadata path used for --spc link) still surfaces the
+    # trailing single point, so `--spc link` can apply it as a correction.
+    spe, program, *_ = parse_data(f)
+    assert program == "Orca"
+    assert abs(spe - B2PLYP_SP) < 1e-8
+
+
+def test_issue101_spc_link_separates_opt_and_sp_energies():
+    """With --spc link, E stays at the opt level and the linked SP is
+    applied: sp_energy is the B2PLYP value and the enthalpy is shifted by
+    exactly (E_SP - E_opt) relative to the uncorrected run."""
+    from goodvibes.thermo import calc_bbe
+    from goodvibes.constants import GAS_CONSTANT, ATMOS
+
+    f = orca_path('18_propane_linked_composite_dh.out')
+    conc = ATMOS / (GAS_CONSTANT * 298.15)
+
+    plain = calc_bbe(f, 'grimme', False, 100.0, 100.0, 298.15, conc,
+                     1.0, None, None, None, 0, inertia='conf')
+    linked = calc_bbe(f, 'grimme', False, 100.0, 100.0, 298.15, conc,
+                      1.0, None, 'link', None, 0, inertia='conf')
+
+    # E (opt/freq level) is identical in both runs.
+    assert abs(plain.scf_energy - linked.scf_energy) < 1e-10
+    assert abs(plain.scf_energy - (-119.037374949350)) < 1e-8
+    # The linked single point is captured separately...
+    assert abs(linked.sp_energy - (-119.046732649048)) < 1e-8
+    # ...and shifts H by exactly (E_SP - E_opt).
+    shift = (-119.046732649048) - (-119.037374949350)
+    assert abs((linked.enthalpy - plain.enthalpy) - shift) < 1e-7
 
 
 # ---------------------------------------------------------------------------

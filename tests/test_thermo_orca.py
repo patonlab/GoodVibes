@@ -96,7 +96,11 @@ def test_calc_bbe_orca_zpe_vs_orca(filename, expected_zpe, scale):
     ('10_formaldehyde_verbose_pop.out', -114.43460122, 1.0),
     ('15_methanol_qmqm2_xtb.out', -44.51671796, 1.0),
     ('16_o2_superoxide_anion.out', -150.33516104, 1.0),
-    ('18_propane_linked_composite_dh.out', -118.93882816, 1.0),
+    # Composite job (issue #101): GoodVibes now reports the B3LYP opt/freq
+    # electronic energy that ORCA's thermochemistry is built on, not the
+    # trailing RI-B2PLYP single point. This golden is ORCA's own printed
+    # "Total Enthalpy"; the linked SP is applied only with --spc link.
+    ('18_propane_linked_composite_dh.out', -118.92947046, 1.0),
     ('19_acetic_acid_smd_dmso.out', -228.99665302, 1.0),
     ('21_naphthalene_xtb2_semiempirical.out', -25.32342490, 1.0),
     ('22_hcn_linear_freq_noraman.out', -93.39441825, 1.0),
@@ -140,7 +144,7 @@ def test_calc_bbe_orca_enthalpy_vs_orca(filename, expected_enthalpy, scale):
     ('10_formaldehyde_verbose_pop.out', -114.45941587, 1.0),
     ('15_methanol_qmqm2_xtb.out', -44.54363334, 1.0),
     ('16_o2_superoxide_anion.out', -150.35827549, 1.0),
-    ('18_propane_linked_composite_dh.out', -118.96816065, 1.0),
+    ('18_propane_linked_composite_dh.out', -118.95880295, 1.0),  # issue #101: ORCA Final Gibbs (B3LYP level)
     ('19_acetic_acid_smd_dmso.out', -229.02899765, 1.0),
     ('21_naphthalene_xtb2_semiempirical.out', -25.36172065, 1.0),
     ('22_hcn_linear_freq_noraman.out', -93.41723879, 1.0),
