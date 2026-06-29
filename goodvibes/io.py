@@ -117,7 +117,7 @@ def save_cache(cache_dict, path):
         '_created': datetime.now().isoformat(),
         'entries': cache_dict,
     }
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(envelope, f, indent=2)
 
 
@@ -139,7 +139,7 @@ def load_cache(path):
     dict
         Mapping of {basename_key: QCData}.
     """
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     if 'schema_version' in data:
         # Unified v1.0+ payload — use each result's qcdata block.
@@ -316,7 +316,7 @@ def write_xyz(filepath, files, thermo_data):
         thermo_data (dict): file path → calc_bbe mapping.
     """
     from .utils import display_name
-    with open(filepath, 'w') as f:
+    with open(filepath, 'w', encoding='utf-8') as f:
         for file in files:
             bbe = thermo_data[file]
             f.write(f'{len(bbe.atom_types)}\n')

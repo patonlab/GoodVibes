@@ -15,6 +15,22 @@ _console_stdout: Optional["Console"] = None
 _console_dat: Optional["Console"] = None
 
 
+def _force_utf8(stream):
+    """Best-effort switch a text stream to UTF-8.
+
+    GoodVibes output contains Unicode (✔, box-drawing chars). On Windows the
+    console/file default to cp1252, which raises UnicodeEncodeError mid-run
+    (issue #102). Reconfigure to UTF-8 where possible; ``errors='replace'``
+    keeps any exotic glyph from ever crashing the program.
+    """
+    if stream is None:
+        return
+    try:
+        stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass  # not a reconfigurable TextIOWrapper (e.g. already wrapped/redirected)
+
+
 def all_same(items):
     """
     Determine whether every element of `items` equals the first element.
@@ -43,6 +59,10 @@ def setup_logging(filein, append):
     """
     global _console_stdout, _console_dat
 
+    # Ensure the console can encode GoodVibes' Unicode output (issue #102).
+    _force_utf8(sys.stdout)
+    _force_utf8(sys.stderr)
+
     logger = logging.getLogger('goodvibes')
     logger.setLevel(logging.DEBUG)
 
@@ -59,7 +79,7 @@ def setup_logging(filein, append):
 
     # .dat file: shared handle for both logging and Rich output
     dat_path = f'{filein}_{append}.dat'
-    dat_fp = open(dat_path, 'w')
+    dat_fp = open(dat_path, 'w', encoding='utf-8')
 
     # Use StreamHandler with the open file, not FileHandler (avoids double-open)
     datfile_handler = logging.StreamHandler(dat_fp)
