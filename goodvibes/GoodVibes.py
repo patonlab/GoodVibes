@@ -224,15 +224,17 @@ def parse_arguments():
 
     # Build the command echo from the original CLI invocation so it can be
     # logged to the .dat file (users copy/paste it to reproduce runs).
-    # File-path positional args are kept verbatim when there are only a few,
-    # but collapsed to a "<N files>" placeholder past a threshold so the line
-    # stays readable for runs over dozens of .log/.out files.
-    file_args, flag_args = [], []
-    for arg in sys.argv[1:]:
-        if os.path.splitext(arg)[1].lower() in SUPPORTED_EXTENSIONS:
-            file_args.append(arg)
-        else:
-            flag_args.append(arg)
+    # parse_known_args() has already consumed option *values* (e.g. the pattern
+    # for --exclude) into `options`, leaving only positional inputs in `args`;
+    # those — not a blind extension scan of sys.argv — are the true file
+    # arguments. Positionals are kept verbatim when there are only a few, but
+    # collapsed to a "<N files>" placeholder past a threshold so the line stays
+    # readable for runs over dozens of .log/.out files. Everything else in argv
+    # (flags and their values) is preserved in order so the echo stays
+    # copy/paste-able.
+    file_args = [a for a in args if os.path.splitext(a)[1].lower() in SUPPORTED_EXTENSIONS]
+    file_set = set(file_args)
+    flag_args = [a for a in sys.argv[1:] if a not in file_set]
     if len(file_args) > COMMAND_ECHO_FILE_LIMIT:
         file_parts = [f'<{len(file_args)} files>']
     else:
