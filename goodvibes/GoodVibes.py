@@ -385,7 +385,13 @@ def validate_and_configure(options, solvation_model):
 
     # Check if entropy symmetry correction should be applied
     if options.symm:
-        log.info('\n   ✔ Point groups and symmetry numbers auto-detected using pymsym: https://github.com/corinwagen/pymsym')
+        from .thermo import _HAS_PYMSYM
+        if _HAS_PYMSYM:
+            log.info('\n   ✔ Point groups and symmetry numbers auto-detected using pymsym: https://github.com/corinwagen/pymsym')
+        else:
+            log.warning('\n   ✗ --symm requested but pymsym is not installed/importable on this platform '
+                        '(e.g. no Windows wheels - see issue #102). Symmetry entropy corrections will be '
+                        'skipped; point groups parsed from the outputs (if any) are used instead.')
     else:
         log.info('\n   ✔ Point group symmetry parsed directly from outputs - caution if not provided or incorrect! Use --symm to auto-detect with pymsym')
 

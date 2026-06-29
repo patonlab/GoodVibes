@@ -24,10 +24,18 @@ jobs:
         run: ruff check goodvibes/ tests/
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
+        # Windows smoke job: catches the pymsym install-marker behavior and any
+        # path/encoding regressions (issue #102). pymsym has no Windows wheels,
+        # so the dependency marker skips it there and GoodVibes degrades gracefully.
+        include:
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +54,7 @@ jobs:
         run: pytest -v --cov=goodvibes --cov-report=term --cov-report=html
 
       - name: Upload coverage report
-        if: matrix.python-version == '3.12'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report

@@ -281,6 +281,17 @@ class TestMainDirect:
         text = self._dat(tmp_path)
         assert 'C2v' in text or 'Cs' in text or 'point group' in text.lower()
 
+    def test_symm_without_pymsym_degrades_gracefully(
+        self, monkeypatch, tmp_path, gv_logger_cleanup
+    ):
+        """--symm must not crash when pymsym is unavailable (issue #102)."""
+        import goodvibes.thermo as thermo
+        monkeypatch.setattr(thermo, '_HAS_PYMSYM', False)
+        # Should complete and still produce the normal thermochemistry table.
+        run_main(monkeypatch, tmp_path, [WATER, '--symm'])
+        text = self._dat(tmp_path)
+        assert '01a_water_hf_freq' in text
+
     def test_sort_by_gibbs(self, monkeypatch, tmp_path, gv_logger_cleanup):
         run_main(monkeypatch, tmp_path, [WATER, ETHANE, '--sort'])
         text = self._dat(tmp_path)
