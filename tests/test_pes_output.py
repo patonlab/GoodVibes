@@ -253,7 +253,6 @@ AZABOR_V2 = os.path.join(REPO_ROOT, "goodvibes", "examples", "pes", "azabor_PES_
 def test_azabor_v2_loads_with_no_warnings():
     """The new-style YAML must NOT emit a DeprecationWarning."""
     import warnings
-    from types import SimpleNamespace as NS
     from goodvibes.pes_loader import load_pes
 
     # Stub thermo_data: just enough conformer files to satisfy the globs.

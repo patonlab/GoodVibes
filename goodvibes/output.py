@@ -11,7 +11,7 @@ from .selectivity import get_selectivity
 from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__
 from .io import qcdata_to_dict
 
-from .pes import get_pes, graph_reaction_profile
+from .pes import get_pes
 from .thermo import calc_bbe
 from .media import solvents
 
