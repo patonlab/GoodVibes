@@ -131,7 +131,7 @@ def _read_boltz(path):
     math. Returns False if not set or the file can't be opened.
     """
     try:
-        with open(path) as f:
+        with open(path, encoding='utf-8', errors='replace') as f:
             for line in f:
                 stripped = line.strip()
                 if not stripped or stripped.startswith('#'):
@@ -199,7 +199,7 @@ def graph_reaction_profile(graph_data, options, plt):
         data[path] = g_data
 
     # Grab any additional formatting for graph
-    with open(options.graph) as f:
+    with open(options.graph, encoding='utf-8', errors='replace') as f:
         yaml = f.readlines()
     #defaults
     ylim, color, show_conf, show_gconf, show_title = None, None, True, False, True

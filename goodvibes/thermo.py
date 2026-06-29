@@ -11,6 +11,15 @@ import numpy as np
 
 from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
 
+# pymsym powers the optional --symm point-group / symmetry-number detection.
+# It is not available on all platforms (e.g. no Windows wheels — see issue #102),
+# so import it lazily and degrade gracefully when it is missing.
+try:
+    import pymsym  # noqa: F401
+    _HAS_PYMSYM = True
+except Exception:  # ImportError on missing wheel; other errors on broken installs
+    _HAS_PYMSYM = False
+
 # PHYSICAL CONSTANTS & UNITS
 GAS_CONSTANT = 8.3144621  # J / K / mol
 PLANCK_CONSTANT = 6.62606957e-34  # J * s
@@ -796,10 +805,19 @@ class calc_bbe:
 
             # Symmetry - entropy correction for molecular symmetry
             if symm:
-                sym_entropy_correction, pgroup = self.sym_correction(file.split('.')[0].replace('/', '_'))
-                self.point_group = pgroup
-                self.entropy += sym_entropy_correction
-                self.qh_entropy += sym_entropy_correction
+                if not _HAS_PYMSYM:
+                    warnings.warn(
+                        "pymsym is not installed/importable on this platform; skipping the "
+                        "--symm symmetry entropy correction. Point groups parsed from the "
+                        "output (if any) are used instead. Install pymsym to enable "
+                        "auto-detection (see https://github.com/corinwagen/pymsym).",
+                        RuntimeWarning,
+                    )
+                else:
+                    sym_entropy_correction, pgroup = self.sym_correction(file.split('.')[0].replace('/', '_'))
+                    self.point_group = pgroup
+                    self.entropy += sym_entropy_correction
+                    self.qh_entropy += sym_entropy_correction
 
             # Calculate Free Energy
             if QH:
@@ -893,15 +911,13 @@ class calc_bbe:
             tuple: (symmetry_number, point_group) where `symmetry_number` is an int and `point_group` is a string.
         
         Raises:
-            RuntimeError: If the `pymsym` package is not installed.
+            RuntimeError: If the `pymsym` package is not installed/importable.
         """
-        try:
-            import pymsym
-        except ImportError as e:
+        if not _HAS_PYMSYM:
             raise RuntimeError(
                 "pymsym is required for symmetry detection but is not installed. "
                 "Install it with: pip install pymsym"
-            ) from e
+            )
         atom_nums = np.array(self.xyz.atom_nums)
         positions = np.array(self.xyz.cartesians)
         pgroup = pymsym.get_point_group(atom_nums, positions)

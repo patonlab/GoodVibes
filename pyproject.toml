@@ -15,7 +15,10 @@ authors = [
 keywords = ["compchem", "thermochemistry", "gaussian", "vibrational-entropies", "temperature"]
 dependencies = [
     "numpy<3",
-    "pymsym",
+    # pymsym powers the optional --symm symmetry detection but has no Windows
+    # wheels (issue #102), so it is required only off-Windows. On Windows it can
+    # be installed manually; GoodVibes degrades gracefully when it is absent.
+    "pymsym; platform_system != 'Windows'",
     "rich>=13.0",
 ]
 

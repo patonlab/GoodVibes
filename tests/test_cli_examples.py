@@ -362,6 +362,11 @@ class TestExample8:
 
     @pytest.fixture(scope='class')
     def output(self):
+        # --symm needs pymsym for point groups + symmetry numbers. Where it is
+        # unavailable (e.g. no Windows wheels, issue #102) GoodVibes now degrades
+        # gracefully and exits 0 *without* the correction, so the expected
+        # symmetry-corrected values below no longer apply — skip instead.
+        pytest.importorskip('pymsym')
         cmd = [example(f) for f in self.FILES] + ['--symm']
         result = subprocess.run(
             [sys.executable, '-m', 'goodvibes'] + cmd,

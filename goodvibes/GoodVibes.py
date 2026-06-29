@@ -385,7 +385,13 @@ def validate_and_configure(options, solvation_model):
 
     # Check if entropy symmetry correction should be applied
     if options.symm:
-        log.info('\n   ✔ Point groups and symmetry numbers auto-detected using pymsym: https://github.com/corinwagen/pymsym')
+        from .thermo import _HAS_PYMSYM
+        if _HAS_PYMSYM:
+            log.info('\n   ✔ Point groups and symmetry numbers auto-detected using pymsym: https://github.com/corinwagen/pymsym')
+        else:
+            log.warning('\n   ✗ --symm requested but pymsym is not installed/importable on this platform '
+                        '(e.g. no Windows wheels - see issue #102). Symmetry entropy corrections will be '
+                        'skipped; point groups parsed from the outputs (if any) are used instead.')
     else:
         log.info('\n   ✔ Point group symmetry parsed directly from outputs - caution if not provided or incorrect! Use --symm to auto-detect with pymsym')
 
@@ -483,6 +489,14 @@ def compute_thermochem(files, options, qcdata_cache=None):
 
 def main():
     """CLI entry point: parse arguments, compute thermochemistry, and print results."""
+    # Ensure stdout/stderr can encode GoodVibes' Unicode output before argparse
+    # may print help/usage (issue #102). setup_logging() repeats this for the
+    # normal path; doing it here also covers `goodvibes -h` and piped output on
+    # Windows, where stdio otherwise defaults to cp1252 and raises mid-print.
+    from .utils import _force_utf8
+    _force_utf8(sys.stdout)
+    _force_utf8(sys.stderr)
+
     options, files = parse_arguments()
 
     # Start logger

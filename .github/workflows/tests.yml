@@ -24,10 +24,24 @@ jobs:
         run: ruff check goodvibes/ tests/
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    # Run Python in UTF-8 mode everywhere so the test harness decodes the
+    # subprocess stdout (Rich tables, ✔, ΔΔG) consistently. Windows otherwise
+    # defaults stdio to cp1252; GoodVibes itself also self-reconfigures to
+    # UTF-8 at runtime so real users aren't reliant on this (issue #102).
+    env:
+      PYTHONUTF8: "1"
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
+        # Windows smoke job: catches the pymsym install-marker behavior and any
+        # path/encoding regressions (issue #102). pymsym has no Windows wheels,
+        # so the dependency marker skips it there and GoodVibes degrades gracefully.
+        include:
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +60,7 @@ jobs:
         run: pytest -v --cov=goodvibes --cov-report=term --cov-report=html
 
       - name: Upload coverage report
-        if: matrix.python-version == '3.12'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
