@@ -233,8 +233,19 @@ def parse_arguments():
     # (flags and their values) is preserved in order so the echo stays
     # copy/paste-able.
     file_args = [a for a in args if os.path.splitext(a)[1].lower() in SUPPORTED_EXTENSIONS]
-    file_set = set(file_args)
-    flag_args = [a for a in sys.argv[1:] if a not in file_set]
+
+    # Remove positional file args from argv so they are not echoed twice. Do this
+    # by occurrence (right-to-left) so option values that happen to match a file
+    # name are less likely to be dropped.
+    from collections import Counter
+    to_remove = Counter(file_args)
+    flag_args = []
+    for tok in reversed(sys.argv[1:]):
+        if to_remove.get(tok, 0) > 0:
+            to_remove[tok] -= 1
+            continue
+        flag_args.append(tok)
+    flag_args.reverse()
     if len(file_args) > COMMAND_ECHO_FILE_LIMIT:
         file_parts = [f'<{len(file_args)} files>']
     else:
