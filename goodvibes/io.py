@@ -66,6 +66,12 @@ class QCData:
     atom_types: List[str] = field(default_factory=list)
     cartesians: List[List[float]] = field(default_factory=list)
 
+    # Per-atom masses in amu, as reported by the QC program for the freq job
+    # (respects isotope substitution, e.g. Gaussian's iso= keyword). Empty when
+    # the parser does not report them; consumers should fall back to
+    # ATOMIC_MASSES lookups by atom_types. Order matches cartesians.
+    per_atom_masses: List[float] = field(default_factory=list)
+
     # Frequency scaling factor applied by QC program (ORCA only; 1.0 means unscaled)
     applied_freq_scale_factor: float = 1.0
 
@@ -1447,6 +1453,8 @@ def parse_gaussian_thermo(file):
     # iso= keyword), then derive roconst / rotemp at full double precision.
     # G4 composites can print masses for several thermo sections; the final
     # len(cartesians) entries always belong to the freq job we care about.
+    if qcdata.cartesians and len(per_atom_masses) >= len(qcdata.cartesians):
+        qcdata.per_atom_masses = per_atom_masses[-len(qcdata.cartesians):]
     if (qcdata.cartesians
             and len(per_atom_masses) >= len(qcdata.cartesians)
             and not qcdata.linear_warning
@@ -2720,6 +2728,38 @@ def parse_ase_thermo(file):
     return qcdata
 
 
+def _detect_program(data):
+    """Detect the QC program from output file lines.
+
+    Scans the first ~80 lines (Q-Chem banner is past the SLURM preamble);
+    ASE extxyz is recognized by ``program=ase`` in the comment (2nd) line.
+
+    Parameters
+    ----------
+    data : list of str
+        Output file contents as lines.
+
+    Returns
+    -------
+    str
+        One of 'Gaussian', 'Orca', 'NWChem', 'xtb', 'QChem', 'ase', 'unknown'.
+    """
+    for line in data[:80]:
+        if 'Gaussian' in line:
+            return 'Gaussian'
+        if '* O   R   C   A *' in line:
+            return 'Orca'
+        if 'NWChem' in line:
+            return 'NWChem'
+        if 'x T B' in line or 'xtb version' in line:
+            return 'xtb'
+        if 'You are running Q-Chem' in line or 'Welcome to Q-Chem' in line:
+            return 'QChem'
+    if len(data) >= 2 and 'program=ase' in data[1]:
+        return 'ase'
+    return 'unknown'
+
+
 def parse_qcdata(file):
     """Parse any supported output file into a QCData object.
 
@@ -2744,27 +2784,7 @@ def parse_qcdata(file):
     if data is None:
         return QCData(file=file, program='unknown')
 
-    # Detect program from first ~80 lines (Q-Chem banner is past the SLURM preamble)
-    program = 'unknown'
-    for line in data[:80]:
-        if 'Gaussian' in line:
-            program = 'Gaussian'
-            break
-        if '* O   R   C   A *' in line:
-            program = 'Orca'
-            break
-        if 'NWChem' in line:
-            program = 'NWChem'
-            break
-        if 'x T B' in line or 'xtb version' in line:
-            program = 'xtb'
-            break
-        if 'You are running Q-Chem' in line or 'Welcome to Q-Chem' in line:
-            program = 'QChem'
-            break
-    # ASE extxyz: program=ase appears in the comment line (2nd line).
-    if program == 'unknown' and len(data) >= 2 and 'program=ase' in data[1]:
-        program = 'ase'
+    program = _detect_program(data)
 
     if program == 'Gaussian':
         return parse_gaussian_thermo(actual_file)
@@ -2780,3 +2800,219 @@ def parse_qcdata(file):
         return parse_ase_thermo(actual_file)
     else:
         return QCData(file=file, program='unknown')
+
+
+@dataclass(frozen=True)
+class HessianData:
+    """Cartesian Hessian and the masses needed to mass-weight it.
+
+    Produced by parse_hessian(). Units follow the QC programs' native
+    conventions: the Hessian is in Hartree/Bohr^2 and masses are in amu.
+    Row/column order is 3N Cartesian components (x1, y1, z1, x2, ...)
+    matching the atom order of the parsed geometry.
+    """
+    hessian: np.ndarray       # (3N, 3N) symmetric, Hartree/Bohr^2
+    masses: List[float]       # length N, amu (respects isotope substitution)
+    program: str              # 'Gaussian' or 'Orca'
+    source: str               # file the Hessian was actually read from
+
+
+def _parse_gaussian_hessian(data, file):
+    """Extract the Cartesian Hessian from a Gaussian frequency job.
+
+    Reads the lower-triangular force-constant matrix from the archive
+    (final "1\\1\\..." block, NImag section) written on normal termination
+    of a freq job, and the per-atom masses from the "has atomic number ...
+    and mass" lines (these respect the iso= keyword).
+
+    Parameters
+    ----------
+    data : list of str
+        Output file contents as lines.
+    file : str
+        Path (recorded as HessianData.source).
+
+    Returns
+    -------
+    HessianData
+    """
+    natoms = None
+    per_atom_masses = []
+    start = None
+    for i, line in enumerate(data):
+        s = line.strip()
+        if s.startswith('NAtoms='):
+            try:
+                natoms = int(s.split()[1])
+            except (ValueError, IndexError):
+                pass
+        elif (s.startswith('Atom') and 'has atomic number' in s
+                and 'and mass' in s):
+            try:
+                per_atom_masses.append(float(s.split('and mass')[1].split()[0]))
+            except (ValueError, IndexError):
+                pass
+        elif 'NImag' in line:
+            start = i
+    if start is None:
+        raise ValueError(
+            "No archive force-constant block (NImag) found in %s -- "
+            "the file must be a normally-terminated Gaussian freq job" % file)
+
+    # The archive is wrapped at 70 characters mid-token; concatenate the
+    # stripped lines up to the terminating '@'. Windows builds of Gaussian
+    # use '|' instead of '\' as the archive separator.
+    longline = ''
+    for line in data[start:]:
+        longline += line.strip()
+        if '@' in line:
+            break
+    if '\\' not in longline:
+        longline = longline.replace('|', '\\')
+    try:
+        forces = longline.split('NImag')[1].split('\\')[2].split(',')
+        tri = [float(x) for x in forces]
+    except (IndexError, ValueError):
+        raise ValueError("Could not parse archive force constants in %s" % file)
+
+    # Lower-triangle length L = dof*(dof+1)/2
+    dof = int((-1.0 + (1.0 + 8.0 * len(tri)) ** 0.5) / 2.0 + 0.5)
+    if dof * (dof + 1) // 2 != len(tri):
+        raise ValueError(
+            "Archive force-constant block in %s has %d elements, which is "
+            "not a triangular number" % (file, len(tri)))
+    if natoms is not None and dof != 3 * natoms:
+        raise ValueError(
+            "Archive Hessian dimension %d does not match NAtoms=%d in %s"
+            % (dof, natoms, file))
+
+    hessian = np.zeros((dof, dof))
+    idx = 0
+    for m in range(dof):
+        for n in range(m + 1):
+            hessian[m, n] = hessian[n, m] = tri[idx]
+            idx += 1
+
+    # G4-style composites print masses for several sections; the final
+    # N entries belong to the freq job (same convention as parse_gaussian_thermo)
+    n_atoms = dof // 3
+    masses = per_atom_masses[-n_atoms:] if len(per_atom_masses) >= n_atoms else []
+    return HessianData(hessian=hessian, masses=masses, program='Gaussian', source=file)
+
+
+def _parse_orca_hess(hess_path):
+    """Read an ORCA .hess file ($hessian and $atoms sections).
+
+    The $hessian section stores the full (3N, 3N) matrix in column blocks:
+    a header line of column indices followed by 3N rows of
+    "row_index value value ...". The $atoms section provides per-atom
+    masses (respecting mass overrides in the ORCA input).
+
+    Parameters
+    ----------
+    hess_path : str
+        Path to the .hess file.
+
+    Returns
+    -------
+    HessianData
+    """
+    with open(hess_path, encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+
+    hessian = None
+    masses = []
+    i = 0
+    while i < len(lines):
+        s = lines[i].strip()
+        if s == '$hessian':
+            dim = int(lines[i + 1].split()[0])
+            hessian = np.zeros((dim, dim))
+            j = i + 2
+            cols_done = 0
+            while cols_done < dim:
+                col_idx = [int(t) for t in lines[j].split()]
+                j += 1
+                for _ in range(dim):
+                    toks = lines[j].split()
+                    j += 1
+                    row = int(toks[0])
+                    for c, v in zip(col_idx, toks[1:]):
+                        hessian[row, c] = float(v)
+                cols_done += len(col_idx)
+            i = j
+        elif s == '$atoms':
+            nat = int(lines[i + 1].split()[0])
+            for k in range(nat):
+                masses.append(float(lines[i + 2 + k].split()[1]))
+            i = i + 2 + nat
+        else:
+            i += 1
+
+    if hessian is None:
+        raise ValueError("No $hessian section found in %s" % hess_path)
+    if masses and hessian.shape[0] != 3 * len(masses):
+        raise ValueError(
+            "$hessian dimension %d does not match %d atoms in %s"
+            % (hessian.shape[0], len(masses), hess_path))
+    # Guard against small numerical asymmetry
+    hessian = 0.5 * (hessian + hessian.T)
+    return HessianData(hessian=hessian, masses=masses, program='Orca', source=hess_path)
+
+
+def parse_hessian(file):
+    """Parse the Cartesian Hessian for a frequency job into HessianData.
+
+    Unlike parse_qcdata(), which extracts the program's printed frequencies,
+    this returns the raw second-derivative matrix -- needed by consumers that
+    re-mass-weight it, e.g. isotopologue analysis in Kinisot.
+
+    Supported sources:
+      * Gaussian: the archive force-constant block of a freq .log/.out.
+      * ORCA: the companion .hess file (same stub as the .out), or a .hess
+        path given directly.
+
+    Parameters
+    ----------
+    file : str
+        QC output file (.log/.out) or an ORCA .hess file.
+
+    Returns
+    -------
+    HessianData
+        hessian (Hartree/Bohr^2), masses (amu), program, source.
+
+    Raises
+    ------
+    FileNotFoundError, ValueError
+        If no file, no Hessian data, or an unsupported program.
+    """
+    stub, ext = os.path.splitext(file)
+    if ext == '.hess':
+        return _parse_orca_hess(file)
+
+    actual_file = None
+    for candidate in (stub + '.log', stub + '.out', file):
+        if os.path.exists(candidate):
+            actual_file = candidate
+            break
+    if actual_file is None:
+        raise FileNotFoundError("No output file found for %s" % file)
+
+    with open(actual_file, encoding='utf-8', errors='replace') as f:
+        data = f.readlines()
+    program = _detect_program(data)
+
+    if program == 'Gaussian':
+        return _parse_gaussian_hessian(data, actual_file)
+    if program == 'Orca':
+        hess_path = stub + '.hess'
+        if not os.path.exists(hess_path):
+            raise FileNotFoundError(
+                "ORCA stores the Hessian in a separate file: expected %s "
+                "alongside %s" % (hess_path, actual_file))
+        return _parse_orca_hess(hess_path)
+    raise ValueError(
+        "Hessian extraction is not supported for program %r (%s); "
+        "supported: Gaussian freq outputs and ORCA .hess files"
+        % (program, actual_file))
