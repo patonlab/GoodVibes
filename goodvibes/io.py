@@ -382,6 +382,9 @@ def parse_data(file):
     int: multiplicity of molecule or chemical system.
     """
     spe, program, data, version_program, solvation_model, keyword_line, a, charge, multiplicity = 'none', 'none', [], '', '', '', 0, None, None
+    # Default when no route section is present (e.g. a truncated Gaussian
+    # output); otherwise referenced-before-assignment at the return below.
+    empirical_dispersion = ''
 
     data = None
     stub = os.path.splitext(file)[0]
