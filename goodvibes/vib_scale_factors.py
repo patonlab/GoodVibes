@@ -67,12 +67,19 @@ FUNCTIONAL_ALIASES = {
 def canonicalize_level(level_basis):
     """
     Normalize a level/basis string to a canonical form suitable for dictionary lookup.
-    
+
+    The functional name has aliases resolved and case normalized. The basis
+    set is normalized for the two spelling variations seen across programs:
+    Pople star shorthand is expanded ("6-31+G**" == "6-31+G(d,p)",
+    "6-31G*" == "6-31G(d)") and hyphens are dropped ("def2-TZVP" ==
+    "def2TZVP", "ma-TZVP" == "maTZVP"). Database keys pass through the same
+    normalization, so lookups are insensitive to these variations.
+
     Parameters:
         level_basis (str): Level and optional basis separated by '/', e.g. "b3lyp/6-31g*".
-    
+
     Returns:
-        str: Canonicalized "FUNCTIONAL" or "FUNCTIONAL/BASIS" string where the functional name has been normalized (aliases resolved and case-normalized) and formatted for consistent lookup.
+        str: Canonicalized "FUNCTIONAL" or "FUNCTIONAL/BASIS" string.
     """
     s = level_basis.strip().upper()
     if '/' in s:
@@ -82,6 +89,11 @@ def canonicalize_level(level_basis):
         basis = None
     functional = FUNCTIONAL_ALIASES.get(functional, functional)
     if basis is not None:
+        if basis.endswith('**'):
+            basis = basis[:-2] + '(D,P)'
+        elif basis.endswith('*'):
+            basis = basis[:-1] + '(D)'
+        basis = basis.replace('-', '')
         return functional + '/' + basis
     return functional
 

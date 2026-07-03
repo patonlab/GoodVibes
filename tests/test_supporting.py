@@ -110,3 +110,24 @@ def test_water_properties():
     mw, density = solvents['h2o']
     assert abs(mw - 18.02) < 0.01
     assert abs(density - 0.998) < 0.002
+
+
+@pytest.mark.parametrize("variant, reference", [
+    # Pople star shorthand == explicit polarization functions
+    ("M062X/6-31+G**", "M062X/6-31+G(d,p)"),
+    ("B3LYP/6-31G*", "B3LYP/6-31G(d)"),
+    ("HF/6-31G**", "HF/6-31G(d,p)"),
+    # ORCA hyphenated basis names == database spelling
+    ("M06-2X/def2-TZVP", "M062X/def2TZVP"),
+    ("B3LYP/ma-TZVP", "B3LYP/maTZVP"),
+])
+def test_basis_spelling_variants(variant, reference):
+    """Star shorthand and basis hyphens canonicalize to the same key."""
+    assert canonicalize_level(variant) == canonicalize_level(reference)
+    assert canonicalize_level(variant) in scaling_data_dict
+
+
+def test_star_basis_lookup_value():
+    """6-31+G** finds the 6-31+G(d,p) scaling factor."""
+    entry = scaling_data_dict[canonicalize_level("M062X/6-31+G**")]
+    assert abs(float(entry.zpe_fac) - 0.968) < 0.001
