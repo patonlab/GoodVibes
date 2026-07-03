@@ -1,7 +1,7 @@
 """Constants and literature references for GoodVibes."""
 
 # VERSION NUMBER
-__version__ = "4.3.0"
+__version__ = "4.4.0"
 
 SUPPORTED_EXTENSIONS = set(('.out', '.log', '.extxyz'))
 
