@@ -6,6 +6,7 @@ import sys
 from .sort import deduplicate
 from .utils import all_same
 from .io import parse_qcdata, read_initial, find_spc_file
+from .io import level_of_theory as read_level_of_theory
 
 log = logging.getLogger('goodvibes')
 
@@ -326,12 +327,17 @@ def check_files(thermo_data, options, level_of_theory):
         else:
             print_check_fails(spc_solvent_check, file_check, "solvation models")
 
-        # Check SPC level of theory
-        l_o_t_spc = [level_of_theory(name) for name in names_spc]
-        if all_same(l_o_t_spc):
-            log.info("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
+        # Check SPC level of theory (the `level_of_theory` parameter holds the
+        # freq-level strings, so the SPC files are re-read via io.level_of_theory)
+        l_o_t_spc = [read_level_of_theory(name) for name in names_spc]
+        if len(names_spc) == len(files):
+            if all_same(l_o_t_spc):
+                log.info("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
+            else:
+                print_check_fails(l_o_t_spc, names_spc, "levels of theory")
         else:
-            print_check_fails(l_o_t_spc, file_check, "levels of theory")
+            log.info("\n   x One or more single-point correction files are missing; "
+                     "unable to check levels of theory.")
 
         # Check SPC charge and multiplicity
         charge_spc_check = [thermo_data[key].sp_charge for key in thermo_data]

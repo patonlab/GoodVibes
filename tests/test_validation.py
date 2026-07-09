@@ -21,8 +21,8 @@ from goodvibes.validation import (
     print_check_fails,
     check_files,
 )
-from goodvibes.thermo import calc_bbe
-from conftest import g16path
+from goodvibes.thermo import calc_bbe, ThermoOptions
+from conftest import g16path, datapath
 
 
 GAS_CONSTANT = 8.3144621
@@ -230,6 +230,33 @@ def test_check_files_runs_with_duplicate_option(caplog):
     with caplog.at_level(logging.INFO, logger='goodvibes'):
         check_files(data, _opts(duplicate=True), lots)
     assert 'No duplicates' in caplog.text
+
+
+def test_check_files_spc_reads_spc_level_of_theory(caplog):
+    """--check with --spc re-reads each SPC file's level of theory instead of
+    calling the level_of_theory list as a function (issue #111 regression)."""
+    path = datapath('ethane.out')
+    data = {path: calc_bbe.from_options(path, ThermoOptions(spc='TZ'))}
+    lots = ['B3LYP/6-31G(d)']
+    with caplog.at_level(logging.INFO, logger='goodvibes'):
+        check_files(data, _opts(spc='TZ'), lots)
+    text = caplog.text
+    assert 'Checks for single-point corrections' in text
+    # The SPC level of theory comes from ethane_TZ.out, not the freq file
+    assert 'Using B3LYP/6-311G(d,p) in all the single-point corrections' in text
+
+
+def test_check_files_spc_missing_file_reports_caution(caplog):
+    """--check with --spc reports missing SPC files instead of crashing with
+    an IndexError on an empty level-of-theory list."""
+    path = datapath('ethane.out')
+    data = {path: calc_bbe.from_options(path, ThermoOptions(spc='TZ'))}
+    lots = ['B3LYP/6-31G(d)']
+    with caplog.at_level(logging.INFO, logger='goodvibes'):
+        # No ethane_BOGUS.{log,out} exists, so no SPC files are found
+        check_files(data, _opts(spc='BOGUS'), lots)
+    text = caplog.text
+    assert 'unable to check levels of theory' in text
 
 
 def test_check_files_dispersion_homogeneous(caplog):
