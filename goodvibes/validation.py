@@ -330,10 +330,14 @@ def check_files(thermo_data, options, level_of_theory):
         # Check SPC level of theory (the `level_of_theory` parameter holds the
         # freq-level strings, so the SPC files are re-read via io.level_of_theory)
         l_o_t_spc = [read_level_of_theory(name) for name in names_spc]
-        if all_same(l_o_t_spc):
-            log.info("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
+        if len(names_spc) == len(files):
+            if all_same(l_o_t_spc):
+                log.info("\no  Using {} in all the single-point corrections.".format(l_o_t_spc[0]))
+            else:
+                print_check_fails(l_o_t_spc, names_spc, "levels of theory")
         else:
-            print_check_fails(l_o_t_spc, names_spc, "levels of theory")
+            log.info("\n   x One or more single-point correction files are missing; "
+                     "unable to check levels of theory.")
 
         # Check SPC charge and multiplicity
         charge_spc_check = [thermo_data[key].sp_charge for key in thermo_data]
