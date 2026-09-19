@@ -169,7 +169,7 @@ def test_calc_bbe_orca_gibbs_vs_orca(filename, expected_gibbs, scale):
     """Validate calc_bbe quasi-harmonic Gibbs free energy against ORCA's
     'Final Gibbs free energy' value (ORCA uses quasi-RRHO by default)."""
     bbe = _calc(filename, scale=scale)
-    assert abs(bbe.qh_gibbs_free_energy - expected_gibbs) < 5e-6
+    assert abs(bbe.qh_gibbs_free_energy - expected_gibbs) < 1e-6  # was 5e-6 before issue #113
 
 
 # ===========================================================================
@@ -222,7 +222,7 @@ def test_calc_bbe_orca_transition_states(filename, expected_zpe, expected_H,
     bbe = _calc(filename)
     assert abs(bbe.zpe - expected_zpe) < 5e-6
     assert abs(bbe.enthalpy - expected_H) < 5e-6
-    assert abs(bbe.qh_gibbs_free_energy - expected_G) < 5e-6
+    assert abs(bbe.qh_gibbs_free_energy - expected_G) < 1e-6  # was 5e-6 before issue #113
     assert len(bbe.im_frequency_wn) == 1
     assert all(f < 0 for f in bbe.im_frequency_wn)
 
@@ -236,7 +236,7 @@ def test_calc_bbe_orca_nonstandard_cutoff():
     bbe = _calc('01d_water_hf_freq_qhcutoff.out', s_freq_cutoff=200.0)
     assert abs(bbe.zpe - 0.02234428) < 5e-6
     assert abs(bbe.enthalpy - (-75.98299220)) < 5e-6
-    assert abs(bbe.qh_gibbs_free_energy - (-76.00440190)) < 5e-6
+    assert abs(bbe.qh_gibbs_free_energy - (-76.00440190)) < 1e-6  # was 5e-6 before issue #113
 
 
 # ===========================================================================
@@ -266,7 +266,7 @@ def test_calc_bbe_orca_nonstandard_temp_pressure(
                    inertia='conf')
     assert abs(bbe.zpe - 0.07424074) < 5e-6
     assert abs(bbe.enthalpy - expected_enthalpy) < 5e-6
-    assert abs(bbe.qh_gibbs_free_energy - expected_gibbs) < 5e-6
+    assert abs(bbe.qh_gibbs_free_energy - expected_gibbs) < 1e-6  # was 5e-6 before issue #113
 
 
 # ===========================================================================
