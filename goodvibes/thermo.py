@@ -627,7 +627,8 @@ class calc_bbe:
         self.sp_cpu = None
 
         molecular_mass = qcdata.molecular_mass
-        symmno = qcdata.symmno
+        symmno = qcdata.symmno or 1
+        self.symmno = symmno  # symmetry number actually used (updated by --symm below)
         linear_mol = 1 if qcdata.linear_mol else 0
         rotemp = qcdata.rotemp
         linear_warning = qcdata.linear_warning
@@ -814,8 +815,14 @@ class calc_bbe:
                         RuntimeWarning,
                     )
                 else:
-                    sym_entropy_correction, pgroup = self.sym_correction(file.split('.')[0].replace('/', '_'))
+                    sym_num, pgroup = self.ex_sym(file.split('.')[0].replace('/', '_'))
+                    # pymsym's symmetry number *replaces* whatever the output file provided (which
+                    # already entered the rotational entropy above), so only the ratio is applied:
+                    # no double counting when the file states the same sigma, and the reported
+                    # point_group / symmno are the ones actually used.
+                    sym_entropy_correction = (-GAS_CONSTANT * math.log(sym_num / symmno)) / J_TO_AU
                     self.point_group = pgroup
+                    self.symmno = sym_num
                     self.entropy += sym_entropy_correction
                     self.qh_entropy += sym_entropy_correction
 

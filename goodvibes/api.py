@@ -292,8 +292,10 @@ def bbe_to_result(
         frequency_wn=getattr(bbe, "frequency_wn", None) or None,
         im_frequency_wn=getattr(bbe, "im_frequency_wn", None) or None,
         inverted_freqs=getattr(bbe, "inverted_freqs", None) or None,
-        point_group=getattr(qc, "point_group", None) if qc else None,
-        symmno=getattr(qc, "symmno", None) if qc else None,
+        # calc_bbe carries the values actually used (pymsym's when --symm was on); the parsed
+        # qcdata is the fallback for the legacy 15-arg constructor path.
+        point_group=(getattr(bbe, "point_group", None) or (getattr(qc, "point_group", None) if qc else None)),
+        symmno=(getattr(bbe, "symmno", None) or (getattr(qc, "symmno", None) if qc else None)),
         linear_mol=bool(getattr(qc, "linear_mol", False)) if qc else False,
         multiplicity=getattr(qc, "multiplicity", None) if qc else None,
         job_type=getattr(qc, "job_type", None) if qc else None,
