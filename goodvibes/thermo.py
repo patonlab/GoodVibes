@@ -337,24 +337,34 @@ def calc_qRRHO_energy(temperature, frequency_wn, freq_scale_factor = 1.0):
 
 def calc_avg_moment_of_inertia(roconst):
     """
-    Compute the average moment of inertia from a sequence of rotational constants.
-    
+    Average moment of inertia (Grimme's Bav for the free-rotor interpolation, `--bav conf`)
+    from the rotational constants: the mean over the principal axes of I_i = h / (8 pi^2 B_i).
+
+    Averaging the moments (not the constants) is Grimme's definition and is what ORCA and xtb
+    use; for prolate tops (A >> B ~ C) the two averages differ by an order of magnitude.
+    Earlier versions returned h / <B>, i.e. without the 8 pi^2 and averaged over constants
+    (issue #113). The effect on qh-G is small (Bav only damps the lowest modes) but was
+    measurable against ORCA / xtb reference values (up to ~30 uEh).
+
     Parameters:
-        roconst (list[float]): Rotational constants in gigahertz (GHz).
-    
+        roconst (list[float]): Rotational constants in gigahertz (GHz). Zero entries (the
+            missing axis of a linear molecule) are ignored.
+
     Returns:
         float: Average moment of inertia in kilogram square meters (kg·m^2).
-    
+
     Raises:
-        ValueError: If `roconst` is empty or if the mean rotational constant is not greater than zero.
+        ValueError: If `roconst` is empty, contains a negative constant, or has no positive entry.
     """
     if not roconst:
         raise ValueError("roconst list cannot be empty")
-    av_roconst_ghz = sum(roconst) / len(roconst)  # GHz
-    if av_roconst_ghz <= 0:
+    if any(b < 0 for b in roconst):
+        raise ValueError("Rotational constants must be positive")
+    positive = [b for b in roconst if b > 0]
+    if not positive:
         raise ValueError("Average rotational constant must be positive")
-    av_roconst_hz = av_roconst_ghz * 1e9  # Hz
-    return PLANCK_CONSTANT / av_roconst_hz  # kg m^2
+    moments = [PLANCK_CONSTANT / (8 * math.pi ** 2 * b * 1e9) for b in positive]  # GHz -> Hz; kg m^2
+    return sum(moments) / len(moments)
 
 
 def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=None):

@@ -847,16 +847,46 @@ def test_calc_avg_moment_of_inertia_known_values():
     """Average moment of inertia from rotational constants."""
     roconst = [10.0, 20.0, 30.0]  # GHz
     result = calc_avg_moment_of_inertia(roconst)
-    avg_ghz = 20.0  # mean of 10, 20, 30
-    expected = PLANCK_CONSTANT / (avg_ghz * 1e9)
+    # mean of the principal moments I_i = h / (8 pi^2 B_i), not h / (8 pi^2 <B>)  (issue #113)
+    expected = sum(PLANCK_CONSTANT / (8 * math.pi ** 2 * b * 1e9) for b in roconst) / 3
     assert abs(result - expected) < 1e-50
 
 
 def test_calc_avg_moment_of_inertia_single():
     """Single rotational constant."""
     result = calc_avg_moment_of_inertia([5.0])
-    expected = PLANCK_CONSTANT / (5.0e9)
+    expected = PLANCK_CONSTANT / (8 * math.pi ** 2 * 5.0e9)
     assert abs(result - expected) < 1e-50
+
+
+def test_calc_avg_moment_of_inertia_matches_geometry():
+    """h / (8 pi^2 B) must reproduce the moment of inertia of a real molecule: each rotational
+    constant of allene gives back the principal moment computed from the coordinates
+    (issue #113: the 8 pi^2 was missing, making Bav ~79x too large)."""
+    import os
+
+    import numpy as np
+    from ase import Atoms
+
+    from goodvibes.io import parse_qcdata
+
+    allene = os.path.join(os.path.dirname(__file__), '..', 'goodvibes', 'examples', 'allene.out')
+    q = parse_qcdata(allene)
+    atoms = Atoms(numbers=q.atom_nums, positions=np.array(q.cartesians))
+    amu_a2 = 1.66053906660e-27 * 1e-20                       # amu A^2 -> kg m^2
+    principal = sorted(atoms.get_moments_of_inertia() * amu_a2)
+    from_b = sorted(calc_avg_moment_of_inertia([b]) for b in q.roconst)
+    for i_geom, i_b in zip(principal, from_b):
+        assert abs(i_b - i_geom) / i_geom < 2e-3
+    # and Bav is the mean of those moments (allene is a prolate top: A >> B = C)
+    bav = calc_avg_moment_of_inertia(q.roconst)
+    assert abs(bav - sum(principal) / 3) / bav < 2e-3
+
+
+def test_calc_avg_moment_of_inertia_linear_skips_zero_axis():
+    """A linear molecule has one vanishing rotational constant; it must be ignored, not averaged."""
+    two = calc_avg_moment_of_inertia([0.0, 44.3, 44.3])
+    assert abs(two - calc_avg_moment_of_inertia([44.3])) < 1e-50
 
 
 def test_calc_avg_moment_of_inertia_empty():
@@ -866,9 +896,11 @@ def test_calc_avg_moment_of_inertia_empty():
 
 
 def test_calc_avg_moment_of_inertia_zero():
-    """Zero average rotational constant raises ValueError."""
+    """A negative rotational constant raises ValueError; all-zero has no positive axis."""
     with pytest.raises(ValueError, match="positive"):
         calc_avg_moment_of_inertia([-5.0, 5.0])
+    with pytest.raises(ValueError, match="positive"):
+        calc_avg_moment_of_inertia([0.0, 0.0, 0.0])
 
 
 def test_calc_avg_moment_of_inertia_all_negative():

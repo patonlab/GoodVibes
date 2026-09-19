@@ -119,7 +119,7 @@ def test_calc_bbe_xtb_enthalpy(filename):
 @pytest.mark.parametrize("filename, expected_qhG", [
     ('01_water.out', -5.0680492800),
     ('02_ethane.out', -7.2835546086),
-    ('03_acetone.out', -13.4119703635),
+    ('03_acetone.out', -13.4119662318),
     ('08_alanine.out', -20.9693044572),
     ('09_caffeine.out', -42.0121514517),
     ('10_formaldehyde.out', -7.1710812398),
@@ -146,13 +146,14 @@ def test_calc_bbe_xtb_enthalpy(filename):
     ('38_n2o_linear.out', -9.8543861016),
     ('39_thiophene.out', -13.7799476000),
     ('40_dmso.out', -14.5725400249),
-    ('41_dmabn.out', -30.0406106872),
+    ('41_dmabn.out', -30.0406094709),
     ('04_benzene_radical_cation.out', -15.3000984439),
     ('05_methylene_triplet_carbene.out', -2.9398433702),
     ('14_o2_superoxide_anion.out', -8.1845024238),
     ('15_iron_complex_quintet.out', -33.8729856005),
 ])
 def test_calc_bbe_xtb_qh_gibbs_regression(filename, expected_qhG):
+    # 03_acetone / 41_dmabn regenerated after the Bav fix (issue #113): now within 8 uEh of xtb's own G
     bbe = _calc(filename)
     assert abs(bbe.qh_gibbs_free_energy - expected_qhG) < 1e-6
 
