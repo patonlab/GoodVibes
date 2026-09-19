@@ -347,12 +347,17 @@ class TestExample7:
 # Requires platform-specific C binaries; skip if unavailable.
 # ---------------------------------------------------------------------------
 class TestExample8:
-    """python -m goodvibes examples/allene.out ... --symm"""
+    """python -m goodvibes examples/allene.out ... --symm
+
+    --symm (pymsym) sets the symmetry number; when the Gaussian output already reports one
+    (allene: "Rotational symmetry number 4"), it must not be subtracted a second time, so
+    allene's T.S / G here equal Example 7's (no --symm). The other four outputs report
+    sigma = 1, so pymsym's correction is applied once. See tests/test_symm_fields.py."""
 
     EXPECTED = [
-        ('allene',    [-116.569605, 0.053913, -116.510916, 0.026309, 0.026312, -116.537225, -116.537228]),
+        ('allene',    [-116.569605, 0.053913, -116.510916, 0.027618, 0.027621, -116.538534, -116.538537]),
         ('benzene',   [-232.227201, 0.101377, -232.120521, 0.030396, 0.030398, -232.150917, -232.150919]),
-        ('ethane',    [ -79.830421, 0.075238,  -79.750770, 0.025831, 0.025833,  -79.776601,  -79.776603]),
+        ('ethane',    [-79.830421, 0.075238, -79.750770, 0.025831, 0.025833, -79.776601, -79.776603]),
         ('isobutane', [-158.458811, 0.132380, -158.319804, 0.033204, 0.033214, -158.353008, -158.353019]),
         ('neopentane',[-197.772980, 0.160311, -197.604824, 0.034606, 0.034620, -197.639430, -197.639444]),
     ]
