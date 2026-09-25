@@ -9,11 +9,62 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- The profile model (M1 of the direction plan):
+  - `ComputedEntry` (a parsed structure plus its `ThermoOptions`, evaluable
+    at any temperature and memoised) and `calc_bbe.options`, the resolved
+    options kept on every result built through `from_options` /
+    `compute_thermo`.
+  - `ConformerSet.from_results`, `entries`, `weight_by`, `vectors(T)` and
+    the public rollups `populations`, `ensemble_free_energy`, `s_conf`,
+    `rollup` and `dedup` (same gates and convention as `--dedup`). A set
+    built from real results re-evaluates its conformers at other
+    temperatures instead of reusing the base-temperature values.
+  - `Point.role` (`reactant | minimum | ts | product`) and `Point.display`;
+    `Edge` (`step | barrierless | none`) and `Pathway.edges` /
+    `with_edges` / `point`; `Pathway.levels(T, quantity)`. The PES Rich
+    table and JSON block now read `Pathway.relative` instead of forming
+    the differences themselves.
+  - `Series`: a quantity at a temperature, computed from the model or
+    declared (typed-in levels that are never re-evaluated, with their own
+    units); `PESResult.series`, `default_series`, `merged_order`,
+    `levels`, `pathway`, `order`; `merge_point_order`.
+  - `plot_profile`: every pathway on one merged x axis (pathways of
+    different lengths and branches that share a point line up by label);
+    several series on one axes (temperature overlay, ΔE with Δqh-G,
+    literature values as hollow markers) with linestyle per series and
+    colour per pathway; `layout="panels"`; TS labels above and minima
+    below the bar; barrierless edges dotted; returns a `ProfileAxes` with
+    the drawn levels, `annotate_barrier` and `save`. `plot_pes` is a thin
+    wrapper over it.
+  - `goodvibes.output.pes_tables`: the CLI's PES Rich tables as
+    `rich.table.Table` objects, usable without `setup_logging`.
+- `QCData.from_atoms` and `QCData.from_vibrations`: thermochemistry from an
+  ASE `Atoms`, an energy and a vibrational analysis with no output file
+  (MLIP workflows). Unit conversion (eV / Hartree / kcal/mol / kJ/mol;
+  cm⁻¹ / eV / meV), removal of the translational and rotational modes of a
+  3N Hessian, a noise threshold for small imaginary modes, imaginary-mode
+  count checks against the declared job type, pymsym symmetry detection,
+  isotopic or ASE masses. `compute_batch` accepts `QCData` objects.
+- `QCData.level_of_theory` (filled by the `.extxyz` parser and
+  `from_atoms`) drives the scale-factor lookup for file-free inputs and
+  `ThermoResult.level_of_theory`.
+- The most-abundant-isotope mass table now covers every element to
+  uranium (was H–Xe).
+- Everything above, plus `load_pes`, `QCData`, `ThermoOptions`,
+  `calc_bbe`, the quantity registry and `compute_selectivity`, is
+  importable from `goodvibes`.
 - `CHANGELOG.md`, `CITATION.cff`, `CONTRIBUTING.md`.
 - `--strict-spc`, `--dedup-global`, `--pes-plot-quantity` documented in the
   README option table.
 
 ### Changed
+- `plot_pes` no longer rejects pathways of different lengths (they share
+  the merged x axis) or `show_conformers=True` with several pathways
+  (dots are drawn per pathway in its colour).
+- `compute_thermo` leaves an unset `concentration` unresolved in the
+  stored `ThermoOptions` (it is still the gas-phase P/RT when evaluated),
+  so a result re-evaluated at another temperature gets that temperature's
+  standard state. The numbers of a single call are unchanged.
 - One removal version for everything deprecated in 4.x: **6.0** (`--ee`,
   `--cache-save`/`--cache-read`, the legacy `--- # PES` format, `--graph`,
   the 15-argument `calc_bbe` constructor). Messages and docs previously
@@ -61,6 +112,15 @@ every such change is listed under **Output changes**.
   frequency array as `0.0 cm-1`; it now writes `-|ν|`.
 
 ### Output changes
+- `--pes --ti`: the PES model is built for the scan, so the `--json` `pes`
+  block is now written (one entry per pathway per temperature; it was
+  absent) and `--pes-plot` works, overlaying the temperatures on one axes.
+  The printed per-temperature PES text is unchanged.
+- `--json` / `--export`: the `qcdata` block has a `level_of_theory` key
+  (empty for the Gaussian, ORCA, NWChem, Q-Chem and xTB parsers).
+- A `--pes` file whose species match no file, or whose pathway names an
+  undefined species, ends with a `✗ FATAL ERROR` line instead of a Python
+  traceback.
 - The `.dat` archive no longer contains terminal escape codes. PES table
   titles (italic) and column headers (bold) were written with ANSI styling
   on ordinary terminals since 4.2; on a dumb terminal (`TERM=dumb`, e.g.

@@ -317,44 +317,141 @@ goodvibes *.log --pes azabor_PES_v2.yaml --spc sp_tzpop \
 
 Saves a step-plot of the pathway's qh-G profile (one column per
 point, horizontal bar at each level, smooth bezier connectors).
-matplotlib via `pip install goodvibes[plot]`.
+matplotlib via `pip install goodvibes[plot]`. `--pes-plot-quantity E`
+(or `H`, `G`, `E+ZPE`, ...) draws another quantity; with `--ti` the
+scan temperatures are overlaid on one axes, one linestyle each.
 
 If your PES YAML defines multiple pathways (e.g. an R-side and an
 S-side TS sharing reactants and products), `--pes-plot` overlays
 them on the same axes by default — different colors from the
-matplotlib cycle, with a legend and shared x-axis. Pathways must
-have the same number of points to be comparable.
+matplotlib cycle, with a legend. The x axis is the merge of the
+pathways' point sequences, so pathways of different lengths, or
+branches that share a reactant, line up by point label.
 
-For full control over colors, single-pathway selection, point
-annotations, or per-conformer scatter, drop down to the API:
+For full control drop down to `plot_profile`, which returns a
+`ProfileAxes` holding the figure, the axes and the drawn levels (the
+same evaluation the tables use):
 
 ```python
-from goodvibes.pes_loader import load_pes
-from goodvibes.plot import plot_pes
-import matplotlib.pyplot as plt
+from goodvibes import load_pes, plot_profile, Series
 
 pes = load_pes("R_vs_S.yaml", thermo_data)        # 2-pathway YAML
-ax = plot_pes(
-    pes,
-    colors=["#26a6a4", "#e76f51"],     # custom per-pathway palette
-    connector_style="bezier",          # or "linear"
-    label_points=True,                 # annotate ΔqhG at each level
-)
-plt.savefig("R_vs_S.png", dpi=200, bbox_inches="tight")
 
-# Or pick one pathway and overlay individual conformer dots:
-ax = plot_pes(
-    pes, pathway_index=0,
-    show_conformers=True,
-    thermo_lookup={f: bbe.qh_gibbs_free_energy
-                   for f, bbe in thermo_data.items()},
-)
+# Two temperatures on one axes (linestyle per temperature; the species
+# are re-evaluated at each T from their parsed inputs).
+fig = plot_profile(pes, temperatures=[298.15, 373.15],
+                   colors={"R": "#26a6a4", "S": "#e76f51"},
+                   label_points=True)
+fig.annotate_barrier("R", "A", "TS_R")          # ΔΔ between two points
+fig.save("R_vs_S.svg", "R_vs_S.pdf")
+print(fig.levels["qh_gibbs@298.15K"]["R"])     # {point label: kcal/mol}
+
+# ΔE and Δqh-G on one axes; declared (literature) values as a third
+# series, drawn with hollow markers and converted to the figure's units.
+lit = Series.declared_from("lit", "lit. B3LYP (298 K)",
+                           {"R": {"A": 0.0, "TS_R": 18.4, "B": -12.1}},
+                           quantity="gibbs", temperature=298.15, units="kcal/mol")
+plot_profile(pes, series=[pes.default_series("E")[0],
+                          pes.default_series("qh_gibbs")[0], lit],
+             layout="panels", show_conformers=True).save("compare.png")
 ```
+
+Points carry a `role` (`reactant`, `minimum`, `ts`, `product`) and a
+`display` label; edges between points are `step` (default),
+`barrierless` (dotted connector) or `none`:
+
+```python
+path = pes.pathway("R")
+path.point("TS_R").role, path.point("TS_R").display = "ts", "TS_R‡"
+pes.pathways[0] = path.with_edges([("A", "TS_R"), ("TS_R", "B", "barrierless")])
+```
+
+The older `plot_pes(pes, ...)` keeps working as a thin wrapper that
+returns the matplotlib Axes.
 
 The legacy `--graph FILE.yaml` flag is still supported and reads
 styling (dpi, color, title, legend, gridlines, ylim, ...) from a
 YAML's `--- # FORMAT` block. It will be removed in v6.0 once
 `--pes-plot` covers the remaining gaps.
+
+**Building a profile without a PES file**
+
+`ConformerSet`, `Point`, `Pathway` and `PESResult` can be assembled
+directly from `compute_thermo` results, for example from an MLIP
+workflow that never writes an output file (next recipe):
+
+```python
+from goodvibes import ConformerSet, PESResult, PESOptions, Pathway, Point, plot_profile
+
+species = {name: ConformerSet.from_results(name, results)
+           for name, results in {"R": r_confs, "TS_R": ts_r_confs, "TS_S": ts_s_confs}.items()}
+pathways = [Pathway("R-path", [Point.from_label("R", species), Point.from_label("TS_R", species, role="ts")]),
+            Pathway("S-path", [Point.from_label("R", species), Point.from_label("TS_S", species, role="ts")])]
+pes = PESResult(pathways, PESOptions(units="kcal/mol"), temperatures=[298.15, 373.15])
+plot_profile(pes).save("profile.svg")
+
+# Ensemble properties of one species
+cs = species["TS_R"]
+cs.populations(298.15), cs.s_conf(298.15), cs.ensemble_free_energy(373.15)
+cs.dedup()                                    # same gates as --dedup
+```
+
+The Rich tables the CLI prints are available without its logging
+set-up: `goodvibes.output.pes_tables(pes)` returns one
+`rich.table.Table` per pathway.
+
+---
+
+## 4b. MLIP / ASE workflows without output files
+
+`QCData.from_atoms` and `QCData.from_vibrations` build the parsed
+record GoodVibes needs from an ASE `Atoms`, an energy and the
+vibrational analysis, so a MACE / ANI / xTB-in-ASE pipeline never has
+to write an `.extxyz` first:
+
+```python
+from ase.io import read
+from ase.vibrations import Vibrations
+from mace.calculators import mace_off
+from goodvibes import QCData, compute_thermo, ConformerSet
+
+calc = mace_off(model="medium")
+results = {}
+for label, pattern in {"R": "R_c*.xyz", "TS_R": "TS_R_c*.xyz", "TS_S": "TS_S_c*.xyz"}.items():
+    results[label] = []
+    for i, atoms in enumerate(read(pattern, index=":")):
+        atoms.calc = calc
+        vib = Vibrations(atoms, delta=0.01, name=f"vib_{label}_{i}"); vib.run()
+        qc = QCData.from_vibrations(atoms, vib.get_vibrations(), atoms.get_potential_energy(),
+                                    name=f"{label}_c{i}", method="MACE-OFF23",
+                                    job_type="TS" if label.startswith("TS") else "Freq")
+        results[label].append(compute_thermo(qcdata=qc, QS="grimme", temperature=298.15))
+
+species = {label: ConformerSet.from_results(label, rs) for label, rs in results.items()}
+```
+
+What the constructors do:
+
+- energies default to eV (`energy_units="hartree"`, `"kcal/mol"`,
+  `"kJ/mol"` otherwise), frequencies to cm⁻¹ (`"eV"`, `"meV"`); a
+  negative or complex frequency is an imaginary mode;
+- `from_vibrations` drops the 6 (5 for a linear molecule)
+  translational/rotational modes of a 3N finite-difference Hessian,
+  takes an imaginary mode smaller than 15 cm⁻¹ (`imag_threshold_cm1`)
+  as numerical noise (real at |ν|, with a `RuntimeWarning`) and warns
+  when a `job_type="TS"` structure does not have exactly one imaginary
+  mode or a minimum has any;
+- masses are the most-abundant-isotope values QC programs use
+  (`masses="atoms"` takes ASE's standard weights); the point group and
+  symmetry number come from pymsym when it is installed (`symm="auto"`),
+  or pass `symm=<int>`;
+- `method=` is recorded as `level_of_theory`; when it matches an entry
+  of the scaling-factor database the usual scale factors apply,
+  otherwise the frequencies are used unscaled (the right default for
+  an MLIP).
+
+`compute_batch` accepts `QCData` objects alongside paths, and
+`ThermoResult.name` / `program` are the `name=` given and `"ase"`.
 
 ---
 

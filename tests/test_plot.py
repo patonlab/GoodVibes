@@ -417,16 +417,17 @@ def test_pes_plot_label_points_annotates_levels():
     plt.close(ax.figure)
 
 
-def test_pes_plot_show_conformers_with_multipath_raises():
-    """show_conformers=True needs a single pathway choice."""
+def test_pes_plot_show_conformers_with_multipath_draws_per_pathway():
+    """Since 4.6 conformer dots are drawn for every pathway (in its own
+    colour); a multi-pathway result no longer needs pathway_index."""
     result = _two_pathway_pes_result()
-    with pytest.raises(ValueError, match="single"):
-        gv_plot.plot_pes(result, show_conformers=True, thermo_lookup={})
+    with pytest.warns(DeprecationWarning, match="thermo_lookup"):
+        ax = gv_plot.plot_pes(result, show_conformers=True, thermo_lookup={})
+    assert ax is not None            # single-conformer species: no dots, no error
+    plt.close(ax.figure)
 
 
-def test_pes_plot_uneven_pathway_lengths_raises():
-    """Mixing pathways of different point counts on one axes is
-    rejected — would need separate axes per pathway (deferred)."""
+def _uneven_pes_result():
     from types import SimpleNamespace
     from goodvibes.pes_loader import PESSpec, build_pes_result
     from goodvibes.pes_model import PESOptions
@@ -441,15 +442,22 @@ def test_pes_plot_uneven_pathway_lengths_raises():
     td = {f"x{i}.log": stub(-100.0 - i * 0.001) for i in range(4)}
     spec = PESSpec(
         pathways={
-            "short": ["A", "B"],
+            "short": ["A", "D"],
             "long": ["A", "B", "C", "D"],
         },
         species={"A": "x0", "B": "x1", "C": "x2", "D": "x3"},
         options=PESOptions(),
     )
-    result = build_pes_result(spec, td, temperatures=[298.15])
-    with pytest.raises(ValueError, match="same number of points"):
-        gv_plot.plot_pes(result)
+    return build_pes_result(spec, td, temperatures=[298.15])
+
+
+def test_pes_plot_uneven_pathway_lengths_share_a_merged_x_axis():
+    """Pathways of different lengths are aligned by point label on one
+    merged x axis (4.6); they used to be rejected."""
+    result = _uneven_pes_result()
+    ax = gv_plot.plot_pes(result)
+    assert [t.get_text() for t in ax.get_xticklabels()] == ["A", "B", "C", "D"]
+    plt.close(ax.figure)
 
 
 # ---------------------------------------------------------------------------

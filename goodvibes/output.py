@@ -231,50 +231,51 @@ _PES_JSON_QUANTITIES = ("electronic", "zpe", "enthalpy", "qh_enthalpy",
                         "entropy", "qh_entropy", "gibbs", "qh_gibbs", "spc")
 
 
-def _pes_to_json(result, temperature):
+def _pes_to_json(result, temperature=None):
     """Serialize a PESResult into the JSON `pes` block (payload schema 1.0).
 
-    Per-pathway, per-point: the original label, the species breakdown
-    (with coefficient and resolved files), and the relative thermo bundle
-    (Hartree internally, converted to user units in the `units` field).
+    One entry per pathway and temperature: the original label, the species
+    breakdown (with coefficient and resolved files), and the relative
+    thermo bundle (Hartree internally, converted to user units in the
+    `units` field). ``temperature`` restricts the block to that one
+    temperature; by default every temperature of the result is written
+    (``--ti --pes`` gives one entry per pathway per scan temperature).
     """
     if result is None or not result.pathways:
         return None
     pathways_out = []
     units_factor = result.options.to_user_units(1.0)   # Hartree → kcal/mol or kJ/mol
-    lowest_only = getattr(result.options, 'lowest_only', False)
-    rollup_kw = dict(gconf=result.options.gconf, QH=result.options.QH,
-                     lowest_only=lowest_only)
+    rollup_kw = result.options.rollup_kw
+    temperatures = [temperature] if temperature is not None else list(result.temperatures)
     for pathway in result.pathways:
-        zero_th = pathway.zero.thermo(temperature, **rollup_kw)
-        points_out = []
-        for point in pathway.points:
-            pt_th = point.thermo(temperature, **rollup_kw)
-            rel = pt_th - zero_th
-            points_out.append({
-                'label': point.label,
-                'species': [
-                    {
-                        'coefficient': coeff,
-                        'name': cset.name,
-                        'files': list(cset.files),
-                    }
-                    for coeff, cset in point.species
-                ],
-                'relative': {
-                    QUANTITIES[qid].json_key: (
-                        rel.get(qid, temperature) * units_factor
-                        if rel.get(qid, temperature) is not None else None)
-                    for qid in _PES_JSON_QUANTITIES
-                },
+        for T in temperatures:
+            rels = pathway.relative(T, **rollup_kw)
+            points_out = []
+            for point, rel in zip(pathway.points, rels):
+                points_out.append({
+                    'label': point.label,
+                    'species': [
+                        {
+                            'coefficient': coeff,
+                            'name': cset.name,
+                            'files': list(cset.files),
+                        }
+                        for coeff, cset in point.species
+                    ],
+                    'relative': {
+                        QUANTITIES[qid].json_key: (
+                            rel.get(qid, T) * units_factor
+                            if rel.get(qid, T) is not None else None)
+                        for qid in _PES_JSON_QUANTITIES
+                    },
+                })
+            pathways_out.append({
+                'name': pathway.name,
+                'temperature': T,
+                'units': result.options.units,
+                'zero_label': pathway.zero.label,
+                'points': points_out,
             })
-        pathways_out.append({
-            'name': pathway.name,
-            'temperature': temperature,
-            'units': result.options.units,
-            'zero_label': pathway.zero.label,
-            'points': points_out,
-        })
     return {'pathways': pathways_out}
 
 
@@ -321,7 +322,7 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
     sel_low_block = _selectivity_to_json(selectivity_lowest_results)
     if sel_low_block is not None:
         payload['selectivity_lowest'] = sel_low_block
-    pes_block = _pes_to_json(pes_result, getattr(options, 'temperature', 298.15))
+    pes_block = _pes_to_json(pes_result)
     if pes_block is not None:
         payload['pes'] = pes_block
     # default=str catches anything stringifiable that json doesn't natively
@@ -428,14 +429,17 @@ def _pes_column_spec(spc_used: bool, QH: bool):
     return cols
 
 
-def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
-    """Build a Rich Table for one Pathway at one temperature."""
-    spc_used = bool(getattr(options, 'spc', None))
-    cols = _pes_column_spec(spc_used, options.QH)
+def _build_pes_table(pathway, temperature, pes_options, conc=None) -> "Table":
+    """Build a Rich Table for one Pathway at one temperature.
+
+    ``pes_options`` (a PESOptions) decides the columns (spc_used, QH), the
+    rollup, the units and the decimals; ``conc`` is the user concentration
+    in mol/L for the title (None → "p = 1 atm").
+    """
+    cols = _pes_column_spec(bool(pes_options.spc_used), bool(pes_options.QH))
     # Concentration: when --conc isn't set the default is gas-phase 1 atm,
     # so report "p = 1 atm" rather than its numeric P/RT equivalent.
-    user_conc = getattr(options, 'conc', None)
-    state_str = f"c = {user_conc:.4g} mol/L" if user_conc else "p = 1 atm"
+    state_str = f"c = {conc:.4g} mol/L" if conc else "p = 1 atm"
     if getattr(pes_options, 'lowest_only', False):
         mode_str = " — lowest conformer per species"
     elif not pes_options.gconf:
@@ -454,15 +458,8 @@ def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
 
     units_factor = pes_options.to_user_units(1.0)
     fmt = f"{{:.{pes_options.decimals}f}}"
-    rollup_kw = dict(
-        gconf=pes_options.gconf,
-        QH=pes_options.QH,
-        lowest_only=getattr(pes_options, 'lowest_only', False),
-    )
-    zero_th = pathway.zero.thermo(temperature, **rollup_kw)
-    for point in pathway.points:
-        pt_th = point.thermo(temperature, **rollup_kw)
-        rel = pt_th - zero_th
+    rels = pathway.relative(temperature, **pes_options.rollup_kw)
+    for point, rel in zip(pathway.points, rels):
         row = ["", point.label]
         for _header, qid in cols:
             value = rel.get(qid, temperature)
@@ -472,6 +469,30 @@ def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
             row.append(fmt.format(value * units_factor))
         table.add_row(*row)
     return table
+
+
+def pes_tables(result, temperature=None, conc=None):
+    """Rich tables for a PESResult: one ``rich.table.Table`` per pathway.
+
+    Usable from a notebook or script without the CLI's logging set-up::
+
+        from rich import print
+        for table in pes_tables(result):
+            print(table)
+
+    Parameters:
+        result: PESResult (``goodvibes.load_pes`` or built by hand). Its
+            ``options`` decide units, decimals, rollup and columns; the
+            CLI syncs them with ``apply_cli_pes_options``.
+        temperature: K. Defaults to the result's first temperature.
+        conc: user concentration in mol/L for the title; None → 1 atm.
+    """
+    if Table is None:                              # pragma: no cover
+        raise ImportError("pes_tables requires the 'rich' package")
+    if temperature is None:
+        temperature = result.temperature
+    return [_build_pes_table(pathway, temperature, result.options, conc=conc)
+            for pathway in result.pathways]
 
 
 def apply_cli_pes_options(result, options):
@@ -515,8 +536,7 @@ def print_pes_tables(result, options, temperature=None):
         log.info("\n   Lowest conformer per species (no Boltzmann averaging, no gconf)")
     elif options.gconf:
         log.info("\n   Gconf correction applied to relative values")
-    for pathway in result.pathways:
-        table = _build_pes_table(pathway, options, temperature, result.options)
+    for table in pes_tables(result, temperature=temperature, conc=getattr(options, 'conc', None)):
         _print_rich_table(table)
 
 

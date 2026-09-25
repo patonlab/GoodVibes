@@ -487,6 +487,25 @@ class ThermoOptions:
         }
 
 
+def _scaling_entry(file, qcdata=None):
+    """Truhlar-database entry for the level of theory of `file`, or of
+    `qcdata.level_of_theory` when the input did not come from a file
+    (``QCData.from_atoms``); None when unknown."""
+    from .io import read_initial
+    from .vib_scale_factors import canonicalize_level, scaling_data_dict
+    lot = None
+    if file and os.path.exists(file):
+        try:
+            lot = read_initial(file)[0]
+        except (IOError, OSError):
+            lot = None
+    if (not lot or lot == "none") and qcdata is not None:
+        lot = getattr(qcdata, "level_of_theory", None)
+    if lot and lot != "none":
+        return scaling_data_dict.get(canonicalize_level(lot))
+    return None
+
+
 class calc_bbe:
     """
     Compute "black box" entropy and enthalpy values along with all
@@ -903,15 +922,7 @@ class calc_bbe:
             harm = options.freq_scale_factor
             zpe = options.zpe_scale_factor
             if harm is None and zpe is None:
-                from .io import read_initial
-                from .vib_scale_factors import canonicalize_level, scaling_data_dict
-                entry = None
-                try:
-                    lot = read_initial(file)[0]
-                    if lot and lot != "none":
-                        entry = scaling_data_dict.get(canonicalize_level(lot))
-                except (IOError, OSError):
-                    pass
+                entry = _scaling_entry(file, qcdata)
                 harm = entry.harm_fac if entry is not None else 1.0
                 zpe = entry.zpe_fac if entry is not None else 1.0
             elif harm is not None and zpe is None:
@@ -919,23 +930,20 @@ class calc_bbe:
                 # behaviour where vscal was the single scale factor).
                 zpe = harm
             elif harm is None and zpe is not None:
-                from .io import read_initial
-                from .vib_scale_factors import canonicalize_level, scaling_data_dict
-                entry = None
-                try:
-                    lot = read_initial(file)[0]
-                    if lot and lot != "none":
-                        entry = scaling_data_dict.get(canonicalize_level(lot))
-                except (IOError, OSError):
-                    pass
+                entry = _scaling_entry(file, qcdata)
                 harm = entry.harm_fac if entry is not None else 1.0
             options = replace(options, freq_scale_factor=harm, zpe_scale_factor=zpe)
-        return cls(
+        bbe = cls(
             file,
             qcdata=qcdata,
             _from_options=True,
             **options._to_calc_bbe_kwargs(),
         )
+        # The resolved options (scale factors filled in) travel with the
+        # result so the PES model can re-evaluate the same input at another
+        # temperature without touching the file again (ComputedEntry).
+        bbe.options = options
+        return bbe
 
     # Get external symmetry number and point group using pymsym, if available, for symmetry corrections to entropy
     def ex_sym(self, file):

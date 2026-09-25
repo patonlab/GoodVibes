@@ -27,9 +27,12 @@ class QCData:
     charge: Optional[int] = None
     multiplicity: int = 1
 
-    # Model chemistry metadata
+    # Model chemistry metadata. `level_of_theory` is filled by the ASE
+    # parser (extxyz key) and QCData.from_atoms (method=); the Gaussian /
+    # ORCA / ... parsers leave it empty and callers use io.level_of_theory().
     solvation_model: str = ''
     empirical_dispersion: str = ''
+    level_of_theory: str = ''
 
     # Molecular properties
     molecular_mass: float = 0.0
@@ -88,6 +91,230 @@ class QCData:
     sp_multiplicity: Optional[int] = None
     sp_suffix: str = ''
     sp_file: str = ''
+
+    # -- file-free construction (MLIP / ASE workflows) ----------------------
+
+    @classmethod
+    def from_atoms(cls, atoms, energy, *, frequencies=None, energy_units='eV',
+                   frequency_units='cm-1', name=None, method=None, charge=None,
+                   multiplicity=None, symm='auto', masses='isotopic', job_type=None,
+                   solvation_model='gas phase', empirical_dispersion='', linear_mol=None,
+                   zpe=None):
+        """Build a QCData from an ASE ``Atoms`` (or anything with
+        ``get_chemical_symbols()`` and ``get_positions()``), an electronic
+        energy and, optionally, vibrational frequencies; no file involved.
+
+        Parameters:
+            atoms: geometry; ``atoms.info`` may supply ``charge``,
+                ``multiplicity``, ``name`` and ``level_of_theory`` defaults.
+            energy: electronic energy in ``energy_units`` ('eV' default,
+                also 'hartree', 'kcal/mol', 'kJ/mol').
+            frequencies: vibrational wavenumbers in ``frequency_units``
+                ('cm-1' default; 'eV' / 'meV' are converted). A negative or
+                complex value is an imaginary mode. Translational and
+                rotational modes must already be removed (see
+                :meth:`from_vibrations`, which does that for an ASE
+                ``VibrationsData``).
+            name: display name (``ThermoResult.name``); default
+                ``atoms.info['name']`` or 'atoms'.
+            method: model chemistry label, e.g. 'MACE-OFF23' or
+                'B3LYP/6-31G(d)'. Stored as ``level_of_theory``; when it
+                matches an entry of the Truhlar scaling database the same
+                scale factors as for a file are applied, otherwise 1.0.
+            charge, multiplicity: default ``atoms.info`` values, else 0 / 1.
+            symm: 'auto' (default) detects the point group and symmetry
+                number with pymsym when it is installed, an int sets the
+                symmetry number directly, None leaves it at 1 (C1).
+            masses: 'isotopic' (most-abundant-isotope masses, the QC-program
+                convention), 'atoms' (``atoms.get_masses()``, standard
+                atomic weights) or a sequence of per-atom masses in amu.
+            job_type: 'Freq', 'TSFreq' ('TS'), 'SP'; inferred from the
+                frequencies when None (an imaginary mode → 'TSFreq').
+            linear_mol: force linearity; detected from the geometry when None.
+            zpe: zero-point energy in ``energy_units`` to record as parsed
+                metadata (GoodVibes recomputes the ZPE it reports from the
+                frequencies, as for every program).
+        """
+        from .constants import hartree_factor
+        symbols = list(atoms.get_chemical_symbols())
+        positions = [[float(x) for x in row] for row in atoms.get_positions()]
+        info = dict(getattr(atoms, 'info', {}) or {})
+        qc = cls(file=str(name or info.get('name') or 'atoms'), program='ase')
+        try:
+            import ase
+            qc.version_program = ase.__version__
+        except ImportError:                       # pragma: no cover - duck-typed atoms
+            qc.version_program = 'ase'
+        qc.scf_energy = float(energy) / hartree_factor(energy_units)
+        qc.charge = int(charge if charge is not None else info.get('charge', 0))
+        qc.multiplicity = int(multiplicity if multiplicity is not None else info.get('multiplicity', 1))
+        qc.level_of_theory = str(method if method is not None else info.get('level_of_theory', '') or '')
+        qc.solvation_model = str(solvation_model or '')
+        qc.empirical_dispersion = str(empirical_dispersion or '')
+        qc.atom_types = symbols
+        qc.atom_nums = [element_id(sym, num=True) for sym in symbols]
+        qc.cartesians = positions
+
+        # masses
+        if isinstance(masses, str):
+            if masses == 'isotopic':
+                mass_list = [ATOMIC_MASSES.get(sym, 0.0) for sym in symbols]
+                missing = [sym for sym, m in zip(symbols, mass_list) if m == 0.0]
+                if missing:
+                    raise ValueError(f"no isotopic mass for element(s) {sorted(set(missing))}; "
+                                     "pass masses='atoms' or an explicit list")
+            elif masses == 'atoms':
+                mass_list = [float(m) for m in atoms.get_masses()]
+            else:
+                raise ValueError(f"masses must be 'isotopic', 'atoms' or a sequence, got {masses!r}")
+        else:
+            mass_list = [float(m) for m in masses]
+            if len(mass_list) != len(symbols):
+                raise ValueError(f"masses has {len(mass_list)} entries for {len(symbols)} atoms")
+        qc.per_atom_masses = mass_list
+        qc.molecular_mass = float(sum(mass_list))
+        _fill_rotational_from_geometry(qc, mass_list, linear_mol=linear_mol)
+
+        # frequencies (signed wavenumbers; negative = imaginary)
+        if frequencies is not None:
+            factor = _wavenumber_factor(frequency_units)
+            for f in frequencies:
+                v = _signed_wavenumber(f) * factor
+                (qc.im_frequency_wn if v < 0 else qc.frequency_wn).append(v)
+        if zpe is not None:
+            qc.zero_point_corr = float(zpe) / hartree_factor(energy_units)
+        elif qc.frequency_wn:
+            from .constants import J_TO_AU
+            from .thermo import calc_zeropoint_energy
+            qc.zero_point_corr = calc_zeropoint_energy(qc.frequency_wn) / J_TO_AU
+
+        # symmetry
+        if symm == 'auto':
+            qc.symmno, qc.point_group = _detect_symmetry(qc.atom_nums, positions)
+        elif symm is None or symm is False:
+            qc.symmno, qc.point_group = 1, ''
+        else:
+            qc.symmno = int(symm)
+
+        # job type
+        if job_type is None:
+            if qc.im_frequency_wn:
+                job_type = 'TSFreq'
+            elif qc.frequency_wn:
+                job_type = 'Freq'
+            else:
+                job_type = 'SP'
+        job_type = str(job_type)
+        if job_type.upper() in ('TS', 'TSFREQ') and (qc.frequency_wn or qc.im_frequency_wn):
+            job_type = 'TSFreq'
+        qc.job_type = job_type
+        return qc
+
+    @classmethod
+    def from_vibrations(cls, atoms, vibdata, energy, *, energy_units='eV',
+                        drop_tr_modes=True, imag_threshold_cm1=-15.0, **kw):
+        """Build a QCData from an ASE vibrational analysis.
+
+        ``vibdata`` is an ``ase.vibrations.VibrationsData`` (or a
+        ``Vibrations`` object, or any sequence of wavenumbers in cm⁻¹;
+        complex or negative values are imaginary). The 3N modes of a
+        finite-difference Hessian include the 6 (5 for a linear molecule)
+        translations and rotations, which ``drop_tr_modes`` removes as the
+        modes of smallest magnitude. An imaginary mode smaller in magnitude
+        than ``|imag_threshold_cm1|`` is numerical noise on a slightly
+        rough (MLIP) surface and is taken as real at ``|ν|`` with a
+        ``RuntimeWarning``; larger ones stay imaginary. A ``RuntimeWarning``
+        also reports a transition state (``job_type='TS'``) without exactly
+        one imaginary mode, a minimum with any, or more than one imaginary
+        mode when no ``job_type`` was given. Other keywords go to
+        :meth:`from_atoms`.
+        """
+        import warnings
+        freqs = _vibration_wavenumbers(vibdata)
+        n_atoms = len(list(atoms.get_chemical_symbols()))
+        if drop_tr_modes and n_atoms > 1 and len(freqs) == 3 * n_atoms:
+            linear = kw.get('linear_mol')
+            if linear is None:
+                positions = [[float(x) for x in row] for row in atoms.get_positions()]
+                masses = [ATOMIC_MASSES.get(sym, 1.0) for sym in atoms.get_chemical_symbols()]
+                _m, eig = _principal_moments_of_inertia(list(atoms.get_chemical_symbols()), positions, masses)
+                linear = len([e for e in eig if e > 1e-3]) == 2
+            n_tr = 5 if linear else 6
+            by_size = sorted(range(len(freqs)), key=lambda i: abs(freqs[i]))
+            keep = sorted(by_size[n_tr:])
+            freqs = [freqs[i] for i in keep]
+        noise = [f for f in freqs if imag_threshold_cm1 <= f < 0]
+        if noise:
+            warnings.warn(
+                f"{kw.get('name') or 'atoms'}: {len(noise)} imaginary mode(s) smaller than "
+                f"{abs(imag_threshold_cm1):g} cm-1 ({', '.join(f'{f:.1f}' for f in noise)}) treated as "
+                "real (numerical noise)", RuntimeWarning, stacklevel=2)
+            freqs = [abs(f) if imag_threshold_cm1 <= f < 0 else f for f in freqs]
+        qc = cls.from_atoms(atoms, energy, frequencies=freqs, energy_units=energy_units,
+                            frequency_units='cm-1', **kw)
+        n_imag = len(qc.im_frequency_wn)
+        explicit = kw.get('job_type')
+        label = qc.file
+        is_ts = explicit is not None and 'TS' in str(explicit).upper()
+        if is_ts and n_imag != 1:
+            warnings.warn(f"{label}: transition state with {n_imag} imaginary modes (expected 1)",
+                          RuntimeWarning, stacklevel=2)
+        elif explicit is not None and not is_ts and n_imag > 0:
+            warnings.warn(f"{label}: minimum with {n_imag} imaginary mode(s)", RuntimeWarning, stacklevel=2)
+        elif explicit is None and n_imag > 1:
+            warnings.warn(f"{label}: {n_imag} imaginary modes; GoodVibes keeps only the most negative "
+                          "as the reaction coordinate under invert='auto'", RuntimeWarning, stacklevel=2)
+        return qc
+
+
+def _signed_wavenumber(f):
+    """GoodVibes' signed-float convention for one frequency.
+
+    ``ase.vibrations.Vibrations.get_frequencies()`` returns a complex array
+    in which an imaginary mode is ``0 + i|ν|``; it is written as ``-|ν|``
+    (negative = imaginary), and a real mode as its real part.
+    """
+    if isinstance(f, complex) or getattr(f, 'imag', 0) != 0:
+        c = complex(f)
+        return -abs(c.imag) if c.imag != 0 else c.real
+    return float(f)
+
+
+def _wavenumber_factor(units):
+    """cm⁻¹ per unit of ``units`` ('cm-1', 'eV', 'meV')."""
+    from .constants import EV_TO_WAVENUMBER
+    key = str(units).strip().lower().replace('^', '').replace(' ', '')
+    if key in ('cm-1', 'cm–1', '1/cm', 'cm', 'wavenumber', 'wavenumbers'):
+        return 1.0
+    if key == 'ev':
+        return EV_TO_WAVENUMBER
+    if key == 'mev':
+        return EV_TO_WAVENUMBER / 1000.0
+    raise ValueError(f"unknown frequency units {units!r}; expected 'cm-1', 'eV' or 'meV'")
+
+
+def _vibration_wavenumbers(vibdata):
+    """Signed wavenumbers (cm⁻¹) from an ASE VibrationsData / Vibrations
+    object or a plain sequence."""
+    if hasattr(vibdata, 'get_vibrations'):          # ase.vibrations.Vibrations
+        vibdata = vibdata.get_vibrations()
+    if hasattr(vibdata, 'get_frequencies'):         # ase.vibrations.VibrationsData
+        raw = vibdata.get_frequencies()
+    else:
+        raw = vibdata
+    return [_signed_wavenumber(f) for f in raw]
+
+
+def _detect_symmetry(atom_nums, positions):
+    """(symmetry number, point group) from pymsym, or (1, '') when it is
+    not installed or fails on this geometry."""
+    try:
+        import pymsym
+        nums = np.array(atom_nums)
+        pos = np.array(positions)
+        return int(pymsym.get_symmetry_number(nums, pos)), str(pymsym.get_point_group(nums, pos))
+    except Exception:
+        return 1, ''
 
 
 # Cache version for JSON serialization format
@@ -228,9 +455,9 @@ def element_id(massno, num=False):
         return "XX"
 
 
-# Standard atomic weights (IUPAC 2021), most common isotope where applicable.
-# Used by parse_ase_thermo when an extxyz fixture omits molecular_mass / rotational
-# constants and they must be computed from the geometry.
+# Mass of the most abundant isotope of each element (AME2020), the convention
+# QC programs use for thermochemistry. Used by parse_ase_thermo when an extxyz
+# file omits molecular_mass / rotational constants, and by QCData.from_atoms.
 ATOMIC_MASSES = {
     'H': 1.00782503207, 'He': 4.002602,
     'Li': 7.0160034366, 'Be': 9.012183065, 'B': 11.00930536, 'C': 12.0,
@@ -247,16 +474,30 @@ ATOMIC_MASSES = {
     'Rh': 102.905498, 'Pd': 105.9034804, 'Ag': 106.9050916, 'Cd': 113.90336509,
     'In': 114.903878776, 'Sn': 119.90220163, 'Sb': 120.903812, 'Te': 129.906222748,
     'I': 126.9044719, 'Xe': 131.9041550856,
+    'Cs': 132.905451961, 'Ba': 137.905247, 'La': 138.9063563, 'Ce': 139.9054431,
+    'Pr': 140.9076576, 'Nd': 141.9077290, 'Pm': 144.9127559, 'Sm': 151.9197397,
+    'Eu': 152.9212380, 'Gd': 157.9241123, 'Tb': 158.9253547, 'Dy': 163.9291819,
+    'Ho': 164.9303288, 'Er': 165.9302995, 'Tm': 168.9342179, 'Yb': 173.9388664,
+    'Lu': 174.9407752, 'Hf': 179.9465570, 'Ta': 180.9479958, 'W': 183.9509309,
+    'Re': 186.9557501, 'Os': 191.9614770, 'Ir': 192.9629216, 'Pt': 194.9647917,
+    'Au': 196.9665688, 'Hg': 201.9706434, 'Tl': 204.9744278, 'Pb': 207.9766525,
+    'Bi': 208.9803991, 'Po': 208.9824308, 'At': 209.9871479, 'Rn': 222.0175782,
+    'Fr': 223.0197360, 'Ra': 226.0254103, 'Ac': 227.0277523, 'Th': 232.0380558,
+    'Pa': 231.0358842, 'U': 238.0507884, 'Np': 237.0481736, 'Pu': 244.0642053,
 }
 
 
-def _principal_moments_of_inertia(atom_types, cartesians):
+def _principal_moments_of_inertia(atom_types, cartesians, masses=None):
     """Return (total_mass [amu], [I_a, I_b, I_c] in amu*Angstrom^2).
 
     Used as a fallback when an extxyz fixture omits molecular_mass / roconst /
-    rotemp; computes them from the geometry using ATOMIC_MASSES.
+    rotemp; computes them from the geometry using ATOMIC_MASSES (or the
+    per-atom ``masses`` given).
     """
-    masses = np.array([ATOMIC_MASSES.get(a, 0.0) for a in atom_types])
+    if masses is None:
+        masses = np.array([ATOMIC_MASSES.get(a, 0.0) for a in atom_types])
+    else:
+        masses = np.array(masses, dtype=float)
     coords = np.array(cartesians, dtype=float)
     total = float(masses.sum())
     if total <= 0.0 or len(coords) == 0:
@@ -273,6 +514,32 @@ def _principal_moments_of_inertia(atom_types, cartesians):
     eigvals = np.linalg.eigvalsh(inertia)
     eigvals = np.sort(np.maximum(eigvals, 0.0))
     return total, eigvals
+
+def _fill_rotational_from_geometry(qcdata, masses=None, linear_mol=None):
+    """Rotational constants (GHz) and temperatures (K) from the geometry.
+
+    Linearity is detected from the principal moments (two equal, one ~0)
+    unless ``linear_mol`` is given. The same arithmetic parse_ase_thermo
+    uses when an extxyz file carries no rotational data.
+    """
+    HC_OVER_KB = 1.4387768775  # K per cm⁻¹
+    if linear_mol is not None:
+        qcdata.linear_mol = bool(linear_mol)
+    if len(qcdata.atom_types) < 2:
+        return
+    _mass, eigvals = _principal_moments_of_inertia(qcdata.atom_types, qcdata.cartesians, masses)
+    nonzero = [e for e in eigvals if e > 1e-3]
+    if linear_mol is None and not qcdata.linear_mol and len(nonzero) == 2:
+        qcdata.linear_mol = True
+    if qcdata.linear_mol and nonzero:
+        B_cm = 16.857629 / nonzero[-1]  # cm⁻¹
+        qcdata.roconst = [B_cm * 29.9792458] * 3
+        qcdata.rotemp = [HC_OVER_KB * B_cm] * 3
+    elif len(nonzero) == 3:
+        roconst_cm = [16.857629 / I for I in nonzero]  # noqa: E741
+        qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
+        qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+
 
 def _fill_mass_and_rotemp_from_geometry(qcdata):
     """Populate molecular_mass and rotational constants from geometry.
@@ -2665,6 +2932,7 @@ def parse_ase_thermo(file):
                 qcdata.frequency_wn.append(v)
 
     # Optional model-chemistry metadata
+    qcdata.level_of_theory = info.get('level_of_theory', '')
     qcdata.solvation_model = info.get('solvation_model', '')
     qcdata.empirical_dispersion = info.get('empirical_dispersion', '')
     qcdata.point_group = info.get('point_group', '')
@@ -2724,20 +2992,7 @@ def parse_ase_thermo(file):
         except ValueError:
             pass
     if not any(qcdata.rotemp) and len(atom_types) >= 2:
-        _mass, eigvals = _principal_moments_of_inertia(atom_types, cartesians)
-        # Linear molecules: smallest principal moment is ~0.
-        nonzero = [e for e in eigvals if e > 1e-3]
-        if not qcdata.linear_mol and len(nonzero) == 2:
-            qcdata.linear_mol = True
-        if qcdata.linear_mol:
-            # Use the largest two equal moments; physics needs a single B.
-            B_cm = 16.857629 / nonzero[-1]  # cm⁻¹
-            qcdata.roconst = [B_cm * 29.9792458] * 3
-            qcdata.rotemp = [HC_OVER_KB * B_cm] * 3
-        elif len(nonzero) == 3:
-            roconst_cm = [16.857629 / I for I in nonzero]  # noqa: E741
-            qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
-            qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
+        _fill_rotational_from_geometry(qcdata)
 
     # `zpe` is optional (tests/ase/README.md): calc_bbe gates all
     # thermochemistry on zero_point_corr being set, so derive it from the

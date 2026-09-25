@@ -179,9 +179,8 @@ def test_build_pes_table_columns_no_spc_no_qh():
     """Without --spc and without --QH: 8 columns (marker + Species + 6 ΔX)."""
     result = _result_two_point()
     options = SimpleNamespace(spc=None, QH=False, gconf=False)
-    table = _build_pes_table(
-        result.pathways[0], options, 298.15, result.options
-    )
+    result.options.QH, result.options.spc_used = options.QH, bool(options.spc)
+    table = _build_pes_table(result.pathways[0], 298.15, result.options)
     # Marker + Species + ΔE, ΔZPE, ΔH, T·ΔS, T·Δqh-S, ΔG(T), Δqh-G(T) = 9
     assert len(table.columns) == 9
     headers = [c.header for c in table.columns]
@@ -193,9 +192,8 @@ def test_build_pes_table_columns_no_spc_no_qh():
 def test_build_pes_table_columns_with_qh():
     result = _result_two_point()
     options = SimpleNamespace(spc=None, QH=True, gconf=False)
-    table = _build_pes_table(
-        result.pathways[0], options, 298.15, result.options
-    )
+    result.options.QH, result.options.spc_used = options.QH, bool(options.spc)
+    table = _build_pes_table(result.pathways[0], 298.15, result.options)
     headers = [c.header for c in table.columns]
     assert "Δqh-H" in headers
 
@@ -203,9 +201,8 @@ def test_build_pes_table_columns_with_qh():
 def test_build_pes_table_columns_with_spc():
     result = _result_two_point(spc=True)
     options = SimpleNamespace(spc='tzpop', QH=False, gconf=False)
-    table = _build_pes_table(
-        result.pathways[0], options, 298.15, result.options
-    )
+    result.options.QH, result.options.spc_used = options.QH, bool(options.spc)
+    table = _build_pes_table(result.pathways[0], 298.15, result.options)
     headers = [c.header for c in table.columns]
     assert "ΔE_SPC" in headers
     assert "ΔE" in headers           # plain ΔE still shown alongside
@@ -215,9 +212,8 @@ def test_build_pes_table_row_count_matches_points():
     """One row per pathway point."""
     result = _result_two_point()
     options = SimpleNamespace(spc=None, QH=False, gconf=False)
-    table = _build_pes_table(
-        result.pathways[0], options, 298.15, result.options
-    )
+    result.options.QH, result.options.spc_used = options.QH, bool(options.spc)
+    table = _build_pes_table(result.pathways[0], 298.15, result.options)
     assert table.row_count == 2
 
 
@@ -228,10 +224,8 @@ def test_build_pes_table_renders_em_dash_for_none_sp():
     # spc_used signals "render the SPC column"; when sp_energy is None on
     # the bbes (e.g. user set --spc='link' but the file lacked SPC), the
     # builder should emit '—' rather than crash.
-    result.options.spc_used = True
-    table = _build_pes_table(
-        result.pathways[0], options, 298.15, result.options
-    )
+    result.options.QH, result.options.spc_used = options.QH, True
+    table = _build_pes_table(result.pathways[0], 298.15, result.options)
     # Render to a string and look for em-dash in the body.
     from io import StringIO
     from rich.console import Console

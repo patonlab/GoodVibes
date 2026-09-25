@@ -18,10 +18,10 @@ direct attribute reads not yet promoted to the result dataclass).
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
-from .constants import ATMOS, GAS_CONSTANT
 from .io import read_initial
 from .thermo import ThermoOptions, calc_bbe
 from .utils import display_name
@@ -136,8 +136,10 @@ def compute_thermo(
     """
     if path is None and qcdata is None:
         raise ValueError("compute_thermo requires either `path` or `qcdata`")
-    if concentration is None:
-        concentration = ATMOS / (GAS_CONSTANT * temperature)
+    # A None concentration stays None in the options: ThermoOptions resolves
+    # it to the gas-phase P/RT at whatever temperature the structure is
+    # evaluated at, so a ConformerSet built from this result re-evaluates
+    # correctly at other temperatures.
 
     options = ThermoOptions(
         QS=QS, QH=QH,
@@ -163,16 +165,24 @@ def compute_thermo(
     return bbe_to_result(bbe, path, level_of_theory=lot)
 
 
+def _compute_one(item: Any, **kwargs: Any) -> ThermoResult:
+    """compute_thermo for a path or a QCData (module-level so it pickles)."""
+    if isinstance(item, (str, os.PathLike)):
+        return compute_thermo(os.fspath(item), **kwargs)
+    return compute_thermo(qcdata=item, **kwargs)
+
+
 def compute_batch(
-    paths: Sequence[str],
+    paths: Sequence[Any],
     *,
     jobs: int = 1,
     **kwargs: Any,
 ) -> List[ThermoResult]:
-    """Compute thermochemistry for a list of files.
+    """Compute thermochemistry for a list of files or QCData objects.
 
     Parameters:
-        paths: list of QC output file paths.
+        paths: QC output file paths and/or parsed ``QCData`` instances
+            (e.g. from ``QCData.from_atoms`` in an MLIP workflow).
         jobs: parallelism level. ``1`` (default) is sequential — no
             process-pool overhead. ``> 1`` spawns that many worker
             processes via ``concurrent.futures.ProcessPoolExecutor``.
@@ -189,14 +199,13 @@ def compute_batch(
     if not paths:
         return []
     if jobs <= 0:
-        import os
         jobs = os.cpu_count() or 1
     if jobs == 1 or len(paths) == 1:
-        return [compute_thermo(p, **kwargs) for p in paths]
+        return [_compute_one(p, **kwargs) for p in paths]
 
     from concurrent.futures import ProcessPoolExecutor
     from functools import partial
-    fn = partial(compute_thermo, **kwargs)
+    fn = partial(_compute_one, **kwargs)
     with ProcessPoolExecutor(max_workers=jobs) as ex:
         return list(ex.map(fn, paths))
 
@@ -274,6 +283,11 @@ def bbe_to_result(
                 level_of_theory = lot
         except (IOError, OSError):
             pass
+
+    # A file-free QCData (QCData.from_atoms) or an extxyz carries its own
+    # model-chemistry label.
+    if level_of_theory is None and qc is not None:
+        level_of_theory = getattr(qc, "level_of_theory", None) or None
 
     # calc_bbe carries sentinels ('!' for a missing SPC file, a parser's
     # 'none' for an unparseable one); the result surface reports None.

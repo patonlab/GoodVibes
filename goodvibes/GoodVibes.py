@@ -10,7 +10,7 @@ from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_lev
 from .io import write_xyz, load_cache, save_cache, qcdata_to_dict, find_spc_file
 from .thermo import calc_bbe, get_free_space, FREESPACE_SOLVENTS, MissingSinglePointError
 from .media import solvents, compute_media_conc, lookup_solvent
-from .constants import (
+from .constants import (  # noqa: F401  (ATMOS / GAS_CONSTANT are read through this module by older scripts and tests)
     SUPPORTED_EXTENSIONS, GAS_CONSTANT, ATMOS,
     grimme_mRRHO_ref, grimme_msRRHO_ref, truhlar_ref, head_gordon_ref,
     gv_banner
@@ -514,7 +514,11 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'inertia': options.inertia,
         'strict_spc': getattr(options, 'strict_spc', False),
     }
-    default_conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
+    # None → gas phase, resolved to P/RT by ThermoOptions at whatever
+    # temperature the structure is evaluated at (the same number as before
+    # at the run temperature, and the right one when the PES model
+    # re-evaluates the entry for another temperature).
+    default_conc = options.conc if options.conc else None
     per_file_args = []
     for file in files:
         cached_qcdata = None
@@ -782,11 +786,13 @@ def main():
                 'Lowest conformer only': selectivity_lowest_results,
             })
 
-    # PES: build the v4.2 model once for single-T mode so we can pass it
-    # to the Rich table renderer, the JSON writer and --pes-plot. The CLI
-    # flags (--nogconf, --lowest-only, -q, --spc) are applied here, before
-    # any of those consumers read the model. T-interval mode still flows
-    # through the legacy print_pes_results below.
+    # PES: build the model once so the Rich table renderer, the JSON writer
+    # and --pes-plot all read the same evaluation. The CLI flags (--nogconf,
+    # --lowest-only, -q, --spc) are applied here, before any of those
+    # consumers read the model. With --ti the model carries every scan
+    # temperature (each species re-evaluates its parsed inputs at each T),
+    # which the JSON block and the plot use; the printed per-temperature
+    # PES text still flows through the legacy print_pes_results below.
     pes_result = None
     if options.pes:
         from .pes_loader import is_legacy_format
@@ -797,10 +803,16 @@ def main():
         if legacy_pes:
             log.info(f"\n   ! {options.pes} uses the legacy '--- # PES' text format, which is deprecated "
                      "and will be removed in v6.0; see the PES section of the documentation for the YAML form.")
-    if options.pes and options.temperature_interval is None:
+    if options.pes:
         from .pes_loader import load_pes
-        pes_result = load_pes(options.pes, thermo_data,
-                              temperatures=[options.temperature])
+        if options.temperature_interval is None:
+            pes_temperatures = [options.temperature]
+        else:
+            pes_temperatures = parse_temperature_interval(options.temperature_interval)
+        try:
+            pes_result = load_pes(options.pes, thermo_data, temperatures=pes_temperatures)
+        except (KeyError, ValueError) as exc:
+            fatal(f"\n   ✗ FATAL ERROR: --pes {options.pes}: {exc}")
         apply_cli_pes_options(pes_result, options)
 
     # Structured (JSON) output — v1.0 stable schema. Additive; runs
@@ -863,11 +875,17 @@ def main():
         if pes_result is None:
             fatal("--pes-plot requires --pes (a reaction pathway YAML) to define the profile.")
         try:
-            from .plot import plot_pes
+            from .plot import plot_profile
         except ImportError as exc:
             fatal(str(exc))
-        ax = plot_pes(pes_result, quantity=options.pes_plot_quantity)
-        ax.figure.savefig(options.pes_plot_path, dpi=200, bbox_inches="tight")
+        # One series per temperature: with --ti the scan is overlaid on one
+        # axes (linestyle per temperature), otherwise a single profile.
+        try:
+            profile = plot_profile(pes_result, quantity=options.pes_plot_quantity,
+                                   temperatures=pes_result.temperatures)
+        except (ImportError, ValueError) as exc:
+            fatal(f"\n   ✗ FATAL ERROR: --pes-plot: {exc}")
+        profile.save(options.pes_plot_path)
         log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}\n")
 
     # Legacy --graph FILE.yaml: the busier matplotlib reaction profile
