@@ -67,12 +67,12 @@ def parse_arguments():
                     choices=('grimme', 'truhlar'),
                     help="Quasi-harmonic entropy method: 'grimme' for mRRHO free-rotor interpolation, "
                          "'truhlar' for frequency raising (default: grimme)")
-    qh.add_argument("-f", "--tau", dest="freq_cutoff", default=100, type=float, metavar="FREQ_CUTOFF",
+    qh.add_argument("-f", "--tau", dest="freq_cutoff", default=100.0, type=float, metavar="FREQ_CUTOFF",
                     help="Frequency cut-off for both entropy and enthalpy in cm-1 (default: 100)")
-    qh.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
-                    help="Frequency cut-off for enthalpy only in cm-1; overrides -f for H (default: 100)")
-    qh.add_argument("--fs", dest="S_freq_cutoff", default=100.0, type=float, metavar="S_FREQ_CUTOFF",
-                    help="Frequency cut-off for entropy only in cm-1; overrides -f for S (default: 100)")
+    qh.add_argument("--fh", dest="H_freq_cutoff", default=None, type=float, metavar="H_FREQ_CUTOFF",
+                    help="Frequency cut-off for enthalpy only in cm-1; overrides -f for H (default: -f)")
+    qh.add_argument("--fs", dest="S_freq_cutoff", default=None, type=float, metavar="S_FREQ_CUTOFF",
+                    help="Frequency cut-off for entropy only in cm-1; overrides -f for S (default: -f)")
     qh.add_argument("--bav", dest='inertia', default="global", type=str, choices=['global', 'conf'],
                     help="Moment of inertia for free-rotor entropy: 'global' uses Bav = 10e-44 kg m^2 "
                          "for all molecules, 'conf' computes from rotational constants per file "
@@ -209,6 +209,11 @@ def parse_arguments():
     # If requested, turn on head-gordon enthalpy correction
     if options.Q:
         options.QH = True
+    # -f sets both cut-offs; an explicit --fs / --fh wins for its own quantity.
+    if options.S_freq_cutoff is None:
+        options.S_freq_cutoff = options.freq_cutoff
+    if options.H_freq_cutoff is None:
+        options.H_freq_cutoff = options.freq_cutoff
     # If user has specified different file extensions
     if options.custom_ext or os.environ.get('GOODVIBES_CUSTOM_EXT', ''):
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
@@ -359,10 +364,6 @@ def validate_and_configure(options, solvation_model):
     if any('smd' in i.lower() or 'cpcm' in i.lower() for i in solvation_model):
         log.info("\n   Caution! Implicit solvation (SMD/CPCM) detected. Enthalpic and entropic terms cannot be "
                   "safely separated. Use them at your own risk!")
-
-    if options.freq_cutoff != 100.0:
-        options.S_freq_cutoff = options.freq_cutoff
-        options.H_freq_cutoff = options.freq_cutoff
 
     # Summary of the quasi-harmonic treatment; print out the relevant reference
 
