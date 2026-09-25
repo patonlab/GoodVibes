@@ -354,17 +354,25 @@ def _print_rich_table(table: "Table") -> None:
     from rich.console import Console
     ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGK]")
 
-    def _render(console):
+    def _render(console, plain):
         buf = StringIO()
+        # The .dat copy is rendered as a plain (non-terminal, colourless)
+        # file: no escape codes ever, box-drawing characters kept. Mirroring
+        # the target console's terminal/colour settings, as is done for
+        # stdout, let Rich's default italic table title reach the archive as
+        # "\x1b[3m...\x1b[0m" on dumb terminals (TERM=dumb, e.g. CircleCI).
         Console(
             file=buf,
-            force_terminal=console.is_terminal,
-            color_system=console.color_system,
+            force_terminal=False if plain else console.is_terminal,
+            color_system=None if plain else console.color_system,
+            no_color=True if plain else None,
             width=console.width,
             height=console.height,  # without height, this render console
                                     # re-clamps width to 80 on dumb terminals
         ).print(table)
         text = buf.getvalue().rstrip("\n")
+        if plain:
+            text = ANSI_RE.sub("", text)
         lines = text.split("\n")
         # Drop trailing visually-blank lines (Rich SIMPLE-box padding).
         while lines and not ANSI_RE.sub("", lines[-1]).strip():
@@ -374,8 +382,8 @@ def _print_rich_table(table: "Table") -> None:
         # \n; the first \n closes that line, the second is the blank line.
         return "\n\n" + "\n".join(lines) + "\n"
 
-    for console in (get_console_stdout(), get_console_dat()):
-        console.file.write(_render(console))
+    for console, plain in ((get_console_stdout(), False), (get_console_dat(), True)):
+        console.file.write(_render(console, plain))
         console.file.flush()
 
     # Measure visible width via a plain render (no escape codes).

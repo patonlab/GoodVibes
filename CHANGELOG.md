@@ -61,6 +61,12 @@ every such change is listed under **Output changes**.
   frequency array as `0.0 cm-1`; it now writes `-|ν|`.
 
 ### Output changes
+- The `.dat` archive no longer contains terminal escape codes. PES table
+  titles (italic) and column headers (bold) were written with ANSI styling
+  on ordinary terminals since 4.2; on a dumb terminal (`TERM=dumb`, e.g.
+  CircleCI) they were plain, which is why the compatibility goldens passed
+  on GitHub Actions and failed on CircleCI. The `.dat` copy of every Rich
+  table is now rendered as a plain file on every terminal.
 - The CLI prints a `!` deprecation notice (stdout and `.dat`) when `--ee` or
   the legacy `--- # PES` text format is used. The Python
   `DeprecationWarning` for these was attributed to GoodVibes' own modules
