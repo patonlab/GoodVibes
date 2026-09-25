@@ -387,6 +387,30 @@ def find_spc_file(name, spc):
     return None
 
 
+def _orca_dispersion(lines):
+    """Empirical dispersion label for an ORCA output, from ORCA's own banner.
+
+    ORCA announces the correction it applies ("Your calculation utilizes the
+    atom-pairwise dispersion correction" followed by the damping scheme, or
+    "... the DFT-NL dispersion correction"). Returns
+    'No empirical dispersion detected' when no such banner is present.
+    """
+    disp = 'No empirical dispersion detected'
+    for line in lines:
+        s = line.strip()
+        if 'utilizes the atom-pairwise dispersion correction' in s:
+            disp = 'D3'
+        elif disp == 'D3' and 'Becke-Johnson damping scheme (D3BJ)' in s:
+            disp = 'D3BJ'
+        elif disp == 'D3' and 'zero-damping scheme (D30)' in s:
+            disp = 'D3 with zero damping'
+        elif 'utilizes the DFT-NL dispersion correction' in s:
+            disp = 'DFT-NL'
+        elif 'utilizes the' in s and 'D4' in s and 'dispersion correction' in s:
+            disp = 'D4'
+    return disp
+
+
 def parse_data(file):
     """
     Read computational chemistry output file.
@@ -703,27 +727,17 @@ def parse_data(file):
             if "Solvent:              " in line.strip():
                 keyword_line_3 = line.strip().split()[-1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
-        empirical_dispersion1 = 'No empirical dispersion detected'
-        empirical_dispersion2 = ''
-        empirical_dispersion3 = ''
-        for i, line in enumerate(data):
-            if keyword_line.strip().find('DFT DISPERSION CORRECTION') > -1:
-                empirical_dispersion1 = ''
-            if keyword_line.strip().find('DFTD3') > -1:
-                empirical_dispersion2 = "D3"
-            if keyword_line.strip().find('USING zero damping') > -1:
-                empirical_dispersion3 = ' with zero damping'
-        empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
+        empirical_dispersion = _orca_dispersion(data)
     if 'NWChem' in version_program.strip():
         empirical_dispersion1 = 'No empirical dispersion detected'
         empirical_dispersion2 = ''
         empirical_dispersion3 = ''
-        for i, line in enumerate(data):
-            if keyword_line.strip().find('Dispersion correction') > -1:
+        for line in data:
+            if 'Dispersion correction' in line:
                 empirical_dispersion1 = ''
-            if keyword_line.strip().find('disp vdw 3') > -1:
+            if 'disp vdw 3' in line:
                 empirical_dispersion2 = "D3"
-            if keyword_line.strip().find('disp vdw 4') > -1:
+            if 'disp vdw 4' in line:
                 empirical_dispersion2 = "D3BJ"
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
     if 'xtb' in version_program.strip():
@@ -1655,6 +1669,8 @@ def parse_orca_thermo(file):
 
     with open(file, encoding='utf-8', errors='replace') as f:
         output = f.readlines()
+
+    qcdata.empirical_dispersion = _orca_dispersion(output)
 
     frequency_wn = []
     im_frequency_wn = []
