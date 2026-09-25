@@ -134,7 +134,7 @@ def test_solvation_model_propagated(filename):
 
 def test_job_type_ts():
     q = parse_qcdata(ase_path('44_ts_sn2.extxyz'))
-    assert q.job_type == 'TS'
+    assert q.job_type == 'TSFreq'
 
 
 def test_job_type_freq_default():

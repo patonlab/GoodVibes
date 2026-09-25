@@ -2560,7 +2560,7 @@ def parse_qchem_thermo(file):
     has_freq = bool(qcdata.frequency_wn) or bool(qcdata.im_frequency_wn)
     has_geom_block = last_geom_header >= 0
     if qcdata.im_frequency_wn:
-        qcdata.job_type = 'TS'
+        qcdata.job_type = 'TSFreq'      # spelling shared with Gaussian/ORCA; invert='auto' keys on it
     elif has_geom_block and has_freq:
         qcdata.job_type = 'GSFreq'
     elif has_freq:
@@ -2750,7 +2750,10 @@ def parse_ase_thermo(file):
         from .thermo import calc_zeropoint_energy
         qcdata.zero_point_corr = calc_zeropoint_energy(qcdata.frequency_wn) / J_TO_AU
 
-    # Job type: explicit override, else infer from frequency presence/sign
+    # Job type: explicit override, else infer from frequency presence/sign.
+    # A transition state with frequencies is 'TSFreq', the spelling the
+    # Gaussian/ORCA parsers use and that invert='auto' keys on; a bare 'TS'
+    # (also accepted from the header) is normalised the same way.
     if 'job_type' in info:
         qcdata.job_type = info['job_type']
     else:
@@ -2760,6 +2763,8 @@ def parse_ase_thermo(file):
             qcdata.job_type = 'Freq'
         else:
             qcdata.job_type = 'SP'
+    if qcdata.job_type == 'TS' and (qcdata.frequency_wn or qcdata.im_frequency_wn):
+        qcdata.job_type = 'TSFreq'
 
     return qcdata
 

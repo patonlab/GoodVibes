@@ -29,8 +29,26 @@ every such change is listed under **Output changes**.
   `thermo_lookup` is no longer required (ignored with a DeprecationWarning).
 - `--ti` truncated temperatures and steps to integers.
 - The physical constants were defined in four places.
+- A requested single-point correction that could not be applied (missing or
+  unparseable `--spc` partner, `--spc link` without a link job, cache without
+  the SPC) silently left H and G at the frequency-level energy. It now warns
+  (`RuntimeWarning`, and a line in the `.dat`), `ThermoResult.spc_applied`
+  records the outcome, and `strict_spc=True` / `--strict-spc` makes it an
+  error (`MissingSinglePointError`).
+- `--dedup` compared structures across `--label` species and could merge an
+  R/S transition-state pair (its gates cannot tell enantiomers apart). It is
+  now scoped within each species; `--dedup-global` restores the old scope.
+- `invert='auto'` never kept the reaction coordinate of an ASE or Q-Chem
+  transition state: those parsers wrote `job_type='TS'` while the rule
+  tested for `'TSFreq'`. Both parsers now report `TSFreq` when frequencies
+  are present and the rule accepts either spelling.
+- `write_thermo_extxyz` wrote an imaginary mode from ASE's complex
+  frequency array as `0.0 cm-1`; it now writes `-|ν|`.
 
 ### Output changes
+- `--json` / `--export`: `thermo.job_type` for an ASE (`.extxyz`) or Q-Chem
+  transition state with frequencies is `TSFreq` (was `TS`), matching the
+  Gaussian and ORCA parsers.
 - `--ti` thermochemistry table: rows are now computed through
   `calc_bbe.from_options` with the same options as the single-temperature
   table, so `--symm` is honoured in the scan (it used to be dropped). Runs

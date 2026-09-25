@@ -417,7 +417,9 @@ def _apply_frequency_inversion(raw_freqs, raw_im_freqs, invert, job_type):
         if x < -1 * im_freq_cutoff:
             if invert is not None:
                 if invert == 'auto':
-                    if "TSFreq" in job_type:
+                    # any transition-state job type ('TSFreq', 'TS'): keep the
+                    # most negative mode as the reaction coordinate
+                    if "TS" in (job_type or ""):
                         if x == most_low_freq:
                             im_frequency_wn.append(x)
                         else:
