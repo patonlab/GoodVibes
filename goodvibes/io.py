@@ -2,7 +2,7 @@
 import json
 import os.path
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from typing import List, Optional
 
@@ -57,8 +57,7 @@ class QCData:
     # CPU-time estimate (wall × nprocs); 1 elsewhere.
     nprocs: int = 1
 
-    # ONIOM MM frequency scaling fractions (per-frequency, empty if not ONIOM)
-    fract_modelsys: List[float] = field(default_factory=list)
+    # True when the Gaussian output is an ONIOM (QM/MM) calculation
     has_oniom: bool = False
 
     # Molecular geometry
@@ -103,8 +102,14 @@ def qcdata_to_dict(qcdata):
 
 
 def dict_to_qcdata(d):
-    """Reconstruct a QCData instance from a dictionary."""
-    clean = {k: v for k, v in d.items() if not k.startswith('_')}
+    """Reconstruct a QCData instance from a dictionary.
+
+    Keys that are not QCData fields are ignored so that payloads written by
+    other GoodVibes versions (e.g. the retired ``fract_modelsys`` field)
+    still load.
+    """
+    known = {f.name for f in fields(QCData)}
+    clean = {k: v for k, v in d.items() if not k.startswith('_') and k in known}
     return QCData(**clean)
 
 
@@ -334,6 +339,27 @@ def write_xyz(filepath, files, thermo_data):
                 for atom, carts in zip(bbe.atom_types, bbe.cartesians):
                     f.write(f'{atom:>1}{carts[0]:13.6f}{carts[1]:13.6f}{carts[2]:13.6f}\n')
 
+def resolve_output_file(file, extensions=('.log', '.out', '.extxyz')):
+    """Return the on-disk path to parse for ``file``.
+
+    The path the caller actually gave is always preferred when it exists.
+    Only when it does not (e.g. an extension-less stem, or ``--spc`` twins
+    named by stem) are sibling files with the same stem and one of
+    ``extensions`` tried, in order. Returns ``None`` if nothing exists.
+
+    Earlier versions tried ``stem.log`` before the given path, so asking
+    for ``x.out`` silently parsed ``x.log`` when both were present.
+    """
+    if os.path.isfile(file):
+        return file
+    stub = os.path.splitext(file)[0]
+    for ext in extensions:
+        candidate = stub + ext
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def find_spc_file(name, spc):
     """Locate the single-point-correction output paired with ``name``.
 
@@ -359,6 +385,30 @@ def find_spc_file(name, spc):
         if os.path.isfile(candidate):
             return candidate
     return None
+
+
+def _orca_dispersion(lines):
+    """Empirical dispersion label for an ORCA output, from ORCA's own banner.
+
+    ORCA announces the correction it applies ("Your calculation utilizes the
+    atom-pairwise dispersion correction" followed by the damping scheme, or
+    "... the DFT-NL dispersion correction"). Returns
+    'No empirical dispersion detected' when no such banner is present.
+    """
+    disp = 'No empirical dispersion detected'
+    for line in lines:
+        s = line.strip()
+        if 'utilizes the atom-pairwise dispersion correction' in s:
+            disp = 'D3'
+        elif disp == 'D3' and 'Becke-Johnson damping scheme (D3BJ)' in s:
+            disp = 'D3BJ'
+        elif disp == 'D3' and 'zero-damping scheme (D30)' in s:
+            disp = 'D3 with zero damping'
+        elif 'utilizes the DFT-NL dispersion correction' in s:
+            disp = 'DFT-NL'
+        elif 'utilizes the' in s and 'D4' in s and 'dispersion correction' in s:
+            disp = 'D4'
+    return disp
 
 
 def parse_data(file):
@@ -387,15 +437,12 @@ def parse_data(file):
     empirical_dispersion = ''
 
     data = None
-    stub = os.path.splitext(file)[0]
-    possible_filenames = (stub + ".log", stub + ".out", stub + ".extxyz", file)
-    actual_file = file
-    for possible_filename in possible_filenames:
-        if os.path.exists(possible_filename):
-            actual_file = possible_filename
-            with open(possible_filename, encoding='utf-8', errors='replace') as f:
-                data = f.readlines()
-            break
+    actual_file = resolve_output_file(file)
+    if actual_file is not None:
+        with open(actual_file, encoding='utf-8', errors='replace') as f:
+            data = f.readlines()
+    else:
+        actual_file = file
 
     if data is None:
         raise ValueError("File {} does not exist".format(file))
@@ -680,27 +727,17 @@ def parse_data(file):
             if "Solvent:              " in line.strip():
                 keyword_line_3 = line.strip().split()[-1]
         solvation_model = keyword_line_1 + keyword_line_2 + keyword_line_3
-        empirical_dispersion1 = 'No empirical dispersion detected'
-        empirical_dispersion2 = ''
-        empirical_dispersion3 = ''
-        for i, line in enumerate(data):
-            if keyword_line.strip().find('DFT DISPERSION CORRECTION') > -1:
-                empirical_dispersion1 = ''
-            if keyword_line.strip().find('DFTD3') > -1:
-                empirical_dispersion2 = "D3"
-            if keyword_line.strip().find('USING zero damping') > -1:
-                empirical_dispersion3 = ' with zero damping'
-        empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
+        empirical_dispersion = _orca_dispersion(data)
     if 'NWChem' in version_program.strip():
         empirical_dispersion1 = 'No empirical dispersion detected'
         empirical_dispersion2 = ''
         empirical_dispersion3 = ''
-        for i, line in enumerate(data):
-            if keyword_line.strip().find('Dispersion correction') > -1:
+        for line in data:
+            if 'Dispersion correction' in line:
                 empirical_dispersion1 = ''
-            if keyword_line.strip().find('disp vdw 3') > -1:
+            if 'disp vdw 3' in line:
                 empirical_dispersion2 = "D3"
-            if keyword_line.strip().find('disp vdw 4') > -1:
+            if 'disp vdw 4' in line:
                 empirical_dispersion2 = "D3BJ"
         empirical_dispersion = empirical_dispersion1 + empirical_dispersion2 + empirical_dispersion3
     if 'xtb' in version_program.strip():
@@ -725,14 +762,10 @@ def sp_cpu(file):
     nprocs scaling (ORCA reports wall time only; the parser scales by
     parallel-MPI process count to estimate effective CPU).
     """
-    candidates = [
-        os.path.splitext(file)[0] + '.log',
-        os.path.splitext(file)[0] + '.out',
-    ]
-    for cand in candidates:
-        if os.path.exists(cand):
-            return parse_qcdata(cand).cpu
-    raise ValueError("File {} does not exist".format(file))
+    actual_file = resolve_output_file(file, extensions=('.log', '.out'))
+    if actual_file is None:
+        raise ValueError("File {} does not exist".format(file))
+    return parse_qcdata(actual_file).cpu
 
 
 
@@ -1270,7 +1303,6 @@ def parse_gaussian_thermo(file):
     link = 0
     frequency_wn = []
     im_frequency_wn = []
-    fract_modelsys = []
     per_atom_masses = []  # Gaussian's per-atom masses (respects iso= keyword)
     freq_started = False  # True once we encounter the first "Frequencies --" in this link
     freq_done = False     # True once VPT2 "Recovering" marker is seen (guards against duplicates)
@@ -1285,7 +1317,6 @@ def parse_gaussian_thermo(file):
             if link == freqloc:
                 frequency_wn = []
                 im_frequency_wn = []
-                fract_modelsys = []
                 freq_started = False
                 freq_done = False
 
@@ -1301,20 +1332,11 @@ def parse_gaussian_thermo(file):
         # Frequencies
         if not freq_done and line.strip().startswith('Frequencies -- '):
             freq_started = True
-            if is_oniom:
-                fract_line = g_output[i + 3]
             for j in range(2, 5):
                 try:
                     x = float(line.strip().split()[j])
                     if x > 0.0:
                         frequency_wn.append(x)
-                        if is_oniom:
-                            try:
-                                y = float(fract_line.strip().split()[j]) / 100.0
-                                y = float('{:.6f}'.format(y))
-                                fract_modelsys.append(y)
-                            except (IndexError, ValueError):
-                                fract_modelsys.append(1.0)
                     elif x < 0.0:
                         im_frequency_wn.append(x)
                 except IndexError:
@@ -1444,8 +1466,6 @@ def parse_gaussian_thermo(file):
 
     qcdata.frequency_wn = frequency_wn
     qcdata.im_frequency_wn = im_frequency_wn
-    if is_oniom:
-        qcdata.fract_modelsys = fract_modelsys
     if qcdata.atom_nums:
         qcdata.atom_types = [periodictable[n] for n in qcdata.atom_nums]
 
@@ -1649,6 +1669,8 @@ def parse_orca_thermo(file):
 
     with open(file, encoding='utf-8', errors='replace') as f:
         output = f.readlines()
+
+    qcdata.empirical_dispersion = _orca_dispersion(output)
 
     frequency_wn = []
     im_frequency_wn = []
@@ -2717,6 +2739,17 @@ def parse_ase_thermo(file):
             qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
             qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
 
+    # `zpe` is optional (tests/ase/README.md): calc_bbe gates all
+    # thermochemistry on zero_point_corr being set, so derive it from the
+    # frequencies when the key is absent (issue #114). The value is the
+    # unscaled harmonic ZPE; calc_bbe recomputes the scaled ZPE it reports
+    # from the frequencies for every program, so a supplied `zpe` is kept
+    # only as parsed metadata.
+    if qcdata.zero_point_corr is None and qcdata.frequency_wn:
+        from .constants import J_TO_AU
+        from .thermo import calc_zeropoint_energy
+        qcdata.zero_point_corr = calc_zeropoint_energy(qcdata.frequency_wn) / J_TO_AU
+
     # Job type: explicit override, else infer from frequency presence/sign
     if 'job_type' in info:
         qcdata.job_type = info['job_type']
@@ -2773,19 +2806,11 @@ def parse_qcdata(file):
     file : str
         Path to quantum chemistry output file.
     """
-    stub = os.path.splitext(file)[0]
-    possible_filenames = (stub + '.log', stub + '.out', stub + '.extxyz', file)
-    data = None
-    actual_file = file
-    for possible_filename in possible_filenames:
-        if os.path.exists(possible_filename):
-            actual_file = possible_filename
-            with open(possible_filename, encoding='utf-8', errors='replace') as f:
-                data = f.readlines()
-            break
-
-    if data is None:
+    actual_file = resolve_output_file(file)
+    if actual_file is None:
         return QCData(file=file, program='unknown')
+    with open(actual_file, encoding='utf-8', errors='replace') as f:
+        data = f.readlines()
 
     program = _detect_program(data)
 
@@ -2994,11 +3019,7 @@ def parse_hessian(file):
     if ext == '.hess':
         return _parse_orca_hess(file)
 
-    actual_file = None
-    for candidate in (stub + '.log', stub + '.out', file):
-        if os.path.exists(candidate):
-            actual_file = candidate
-            break
+    actual_file = resolve_output_file(file, extensions=('.log', '.out'))
     if actual_file is None:
         raise FileNotFoundError("No output file found for %s" % file)
 

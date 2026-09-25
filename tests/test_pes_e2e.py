@@ -212,7 +212,7 @@ def test_json_pes_block_matches_golden(azabor_pes_result, tmp_path):
         S_freq_cutoff=100.0, H_freq_cutoff=100.0,
         freq_scale_factor=1.0, media=None, freespace="none", spc="sp_tzpop",
         invert=False, symm=False, duplicate=False, boltz=False,
-        inertia="global", mm_freq_scale_factor=None,
+        inertia="global",
     )
     out = tmp_path / "azabor.json"
     write_json_results({}, options, str(out), pes_result=azabor_pes_result)

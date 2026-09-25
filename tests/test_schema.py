@@ -127,7 +127,7 @@ def test_write_json_results_emits_v1_payload(tmp_path):
         S_freq_cutoff=100.0, H_freq_cutoff=100.0,
         freq_scale_factor=1.0, media=None, freespace="none", spc=None,
         invert=False, symm=False, duplicate=False, boltz=False,
-        inertia="global", mm_freq_scale_factor=None,
+        inertia="global",
     )
     out = tmp_path / "out.json"
     write_json_results({}, options, str(out))

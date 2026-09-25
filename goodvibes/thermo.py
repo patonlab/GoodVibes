@@ -83,25 +83,22 @@ def calc_rotational_energy(temperature, monatomic=False, linear=False):
     return energy
 
 
-def _coerce_scale_factor(freq_scale_factor, fract_modelsys):
-    # Coerce to Python float(s) so numpy.float32 inputs can't force float32
+def _coerce_scale_factor(freq_scale_factor):
+    # Coerce to a Python float so numpy.float32 inputs can't force float32
     # arithmetic downstream, which under value-based scalar casting
     # (NumPy < 2.0) silently underflows expressions like h / (8 π² ν c s)
     # in calc_freerot_entropy to 0.0 and produces NaN entropies.
-    if fract_modelsys is not None:
-        return [float(x) for x in freq_scale_factor]
     return float(freq_scale_factor)
 
 
-def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fract_modelsys=None):
+def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0):
     """
     Compute the vibrational energy (zero-point + thermal contributions) in joules per mole at a given temperature.
     
     Parameters:
         temperature (float): Temperature in kelvin; must be greater than 0.
         frequency_wn (list[float]): Vibrational mode wavenumbers in cm^-1.
-        freq_scale_factor (float or list[float], optional): Frequency scaling factor. If ONIOM blending is used (fract_modelsys provided), supply [qm_scale, mm_scale]; otherwise a single scalar scale factor is applied to all modes.
-        fract_modelsys (list[float] or None, optional): Per-mode ONIOM fractions (values between 0 and 1). When provided, per-mode scale factors are computed by blending the two entries of `freq_scale_factor` according to these fractions. If None, no ONIOM blending is applied.
+        freq_scale_factor (float, optional): Frequency scaling factor applied to all modes.
     
     Returns:
         float: Total vibrational energy (J/mol), including zero-point energy and thermal excitations.
@@ -114,15 +111,9 @@ def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fr
             "Temperature must be positive for vibrational energy calculation."
         )
 
-    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
-    if fract_modelsys is not None:
-        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
-        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
-        factor = [(PLANCK_CONSTANT * f * SPEED_OF_LIGHT * s) / (BOLTZMANN_CONSTANT * temperature)
-                  for f, s in zip(frequency_wn, freq_scale_factor)]
-    else:
-        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) /
-                  (BOLTZMANN_CONSTANT * temperature) for freq in frequency_wn]
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor)
+    factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) /
+              (BOLTZMANN_CONSTANT * temperature) for freq in frequency_wn]
 
     # Error occurs if T is too low when performing math.exp
     for entry in factor:
@@ -138,31 +129,20 @@ def calc_vibrational_energy(temperature, frequency_wn, freq_scale_factor=1.0, fr
     return sum(energy)
 
 
-def calc_zeropoint_energy(frequency_wn, freq_scale_factor = 1.0, fract_modelsys = None):
+def calc_zeropoint_energy(frequency_wn, freq_scale_factor=1.0):
     """
     Compute the vibrational zero-point energy for a set of vibrational modes.
     
-    When `fract_modelsys` is provided, `freq_scale_factor` is expected to be a two-element sequence
-    `[qm_scale, mm_scale]`; per-mode scale factors are blended using the fractions in `fract_modelsys`.
-    
     Parameters:
         frequency_wn (list): Vibrational wavenumbers (cm^-1).
-        freq_scale_factor (float or sequence): Global scale factor or `[qm_scale, mm_scale]` for ONIOM blending.
-        fract_modelsys (list, optional): Per-mode fractions for ONIOM blending; if given, a per-mode
-            scale factor is computed by blending the two entries of `freq_scale_factor`.
+        freq_scale_factor (float): Global scale factor applied to all modes.
     
     Returns:
         float: Vibrational zero-point energy (J/mol), computed as the sum over modes of 0.5 * h * nu.
     """
-    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
-    if fract_modelsys is not None:
-        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
-        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
-        factor = [(PLANCK_CONSTANT * f * SPEED_OF_LIGHT * s) / (BOLTZMANN_CONSTANT)
-                  for f, s in zip(frequency_wn, freq_scale_factor)]
-    else:
-        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT)
-                  for freq in frequency_wn]
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor)
+    factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT)
+              for freq in frequency_wn]
     energy = [0.5 * entry * GAS_CONSTANT for entry in factor]
     return sum(energy)
 
@@ -286,30 +266,21 @@ def calc_rotational_entropy(temperature, rotemp, symmno=1, monatomic=False, line
     return GAS_CONSTANT * (math.log(qrot / symmno) + 1.5)
 
 
-def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor = 1.0, fract_modelsys=None):
+def calc_rrho_entropy(temperature, frequency_wn, freq_scale_factor=1.0):
     """
     Compute per-mode vibrational entropies using the rigid-rotor harmonic-oscillator (RRHO) model.
-    
-    Supports ONIOM-style blending of QM/MM scale factors when `fract_modelsys` is provided: in that case `freq_scale_factor` is expected to be a two-element iterable [qm_scale, mm_scale] and per-mode scale factors are blended by the fractions in `fract_modelsys`.
     
     Parameters:
         temperature (float): Temperature in kelvin.
         frequency_wn (iterable): Vibrational wavenumbers in cm⁻¹.
-        freq_scale_factor (float or iterable): Frequency scaling factor applied to each mode, or a two-element sequence [qm_scale, mm_scale] when using ONIOM blending.
-        fract_modelsys (iterable, optional): Per-mode fractions for ONIOM blending; when provided, per-mode scale = qm_scale*frac + mm_scale*(1-frac).
+        freq_scale_factor (float): Frequency scaling factor applied to each mode.
     
     Returns:
         List of per-mode vibrational entropies in J/(mol*K).
     """
-    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
-    if fract_modelsys is not None:
-        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
-        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
-        factor = [(PLANCK_CONSTANT * f * SPEED_OF_LIGHT * s) / (BOLTZMANN_CONSTANT * temperature)
-                  for f, s in zip(frequency_wn, freq_scale_factor)]
-    else:
-        factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
-                  for freq in frequency_wn]
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor)
+    factor = [(PLANCK_CONSTANT * freq * SPEED_OF_LIGHT * freq_scale_factor) / (BOLTZMANN_CONSTANT * temperature)
+              for freq in frequency_wn]
     entropy = [entry * GAS_CONSTANT / (math.exp(entry) - 1) - GAS_CONSTANT * math.log(1 - math.exp(-entry))
                for entry in factor]
     return entropy
@@ -367,7 +338,7 @@ def calc_avg_moment_of_inertia(roconst):
     return sum(moments) / len(moments)
 
 
-def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0, fract_modelsys=None):
+def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_factor=1.0):
     """
     Compute per-mode free-rotor vibrational entropies for a list of vibrational modes.
     
@@ -375,20 +346,13 @@ def calc_freerot_entropy(temperature, frequency_wn, bav=GRIMME_BAV, freq_scale_f
         temperature (float): Temperature in kelvin.
         frequency_wn (Sequence[float]): Vibrational frequencies in cm^-1.
         bav (float): Reference average moment of inertia in kg·m^2 (defaults to GRIMME_BAV).
-        freq_scale_factor (float or Sequence[float]): Frequency scale factor applied to modes. If ONIOM blending is used (fract_modelsys provided), this should be a two-item sequence [qm_scale, mm_scale].
-        fract_modelsys (Sequence[float] or None): Per-mode ONIOM fractions (values in [0,1]) to blend QM/MM scale factors; pass None to disable ONIOM blending.
+        freq_scale_factor (float): Frequency scale factor applied to all modes.
     
     Returns:
         list[float]: Per-mode free-rotor entropies in J/(mol·K).
     """
-    freq_scale_factor = _coerce_scale_factor(freq_scale_factor, fract_modelsys)
-    if fract_modelsys is not None:
-        s0, s1 = freq_scale_factor[0], freq_scale_factor[1]
-        freq_scale_factor = [s0 * fm + s1 * (1.0 - fm) for fm in fract_modelsys]
-        mu = [PLANCK_CONSTANT / (8 * math.pi ** 2 * f * SPEED_OF_LIGHT * s)
-              for f, s in zip(frequency_wn, freq_scale_factor)]
-    else:
-        mu = [PLANCK_CONSTANT / (8 * math.pi ** 2 * freq * SPEED_OF_LIGHT * freq_scale_factor) for freq in frequency_wn]
+    freq_scale_factor = _coerce_scale_factor(freq_scale_factor)
+    mu = [PLANCK_CONSTANT / (8 * math.pi ** 2 * freq * SPEED_OF_LIGHT * freq_scale_factor) for freq in frequency_wn]
     mu_primed = [entry * bav / (entry + bav) for entry in mu]
     factor = [8 * math.pi ** 3 * entry * BOLTZMANN_CONSTANT * temperature / PLANCK_CONSTANT ** 2 for entry in mu_primed]
     entropy = [(0.5 + math.log(entry ** 0.5)) * GAS_CONSTANT for entry in factor]
@@ -488,7 +452,6 @@ class ThermoOptions:
     spc: Optional[str] = None                   # 'link' or filename suffix
     invert: Optional[float] = None              # imag → real cutoff (cm⁻¹)
     symm: bool = False                          # pymsym symmetry-number correction
-    mm_freq_scale_factor: Optional[float] = None
     inertia: str = "global"
 
     def _to_calc_bbe_kwargs(self):
@@ -512,7 +475,6 @@ class ThermoOptions:
             "solv": self.solv,
             "spc": self.spc, "invert": self.invert,
             "symm": self.symm,
-            "mm_freq_scale_factor": self.mm_freq_scale_factor,
             "inertia": self.inertia,
             "zpe_scale_fac": self.zpe_scale_factor,
         }
@@ -566,7 +528,7 @@ class calc_bbe:
         linear_warning (bool): flag for linear molecules, may be missing a rotational constant.
     """
     def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
-                 invert=None, symm=False, mm_freq_scale_factor=None, inertia='global', qcdata=None,
+                 invert=None, symm=False, inertia='global', qcdata=None,
                  zpe_scale_fac=None, _from_options=False):
         """
         Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
@@ -579,12 +541,11 @@ class calc_bbe:
             H_FREQ_CUTOFF (float): Frequency cutoff (cm⁻¹) used for quasi-harmonic enthalpy damping.
             temp (float): Temperature in kelvin for all thermal calculations.
             conc (float or None): Concentration in mol/L used for translational entropy; None leaves behavior to defaults.
-            scale_fac (float or list or None): Frequency scaling factor (or list for ONIOM: [qm_scale, mm_scale]).
+            scale_fac (float or None): Frequency scaling factor applied to the partition-function frequencies.
             solv (str or None): Solvent identifier; if None or 'none', translational entropy is computed as ideal gas.
             spc (None, bool, or str): Single-point correction control. If not None and not 'link', a single-point file is sought/applied.
             invert (None, str, or numeric): Policy for handling imaginary frequencies; passed to _apply_frequency_inversion.
             symm (bool): If True, attempt a symmetry entropy correction via pymsym and add it to computed entropies.
-            mm_freq_scale_factor (float or None): MM frequency scale factor for ONIOM blending; when provided, enables ONIOM blending.
             inertia (str): 'global' to use the global GRIMME_BAV moment of inertia, otherwise attempt to derive from rotational constants.
             qcdata (QCData or None): Pre-parsed QC data object; when provided, parsing of file is skipped.
 
@@ -642,13 +603,6 @@ class calc_bbe:
         linear_mol = 1 if qcdata.linear_mol else 0
         rotemp = qcdata.rotemp
         linear_warning = qcdata.linear_warning
-
-        # ONIOM fract_modelsys setup
-        if mm_freq_scale_factor is None:
-            fract_modelsys = None
-        else:
-            fract_modelsys = qcdata.fract_modelsys if qcdata.fract_modelsys else []
-            scale_fac = [scale_fac, mm_freq_scale_factor]
 
         # 4. Read any single point energies if requested.
         #
@@ -717,9 +671,38 @@ class calc_bbe:
 
         self.inverted_freqs = inverted_freqs
 
-        # Skip the calculation if unable to parse the frequencies or zpe from the output file
-        if self.zero_point_corr is not None and rotemp and self.scf_energy is not None:
+        # Skip the calculation if unable to parse the frequencies or zpe from
+        # the output file. A single point has no frequencies and stays silent;
+        # frequencies with a missing prerequisite is an inconsistent parse and
+        # is reported rather than returning an all-None object (issue #114).
+        # QCData defaults rotemp to [0.0, 0.0, 0.0], so a truthiness test
+        # never catches missing rotational constants and the rotational
+        # entropy would divide by zero. A species with frequencies needs
+        # usable values (one for linear, three otherwise); atoms and single
+        # points never use them.
+        if frequency_wn:
+            if linear_mol == 1:
+                rotemp_ok = bool(rotemp) and rotemp[0] > 0.0
+            else:
+                rotemp_ok = len(rotemp) >= 3 and all(t > 0.0 for t in rotemp[:3])
+        else:
+            rotemp_ok = bool(rotemp)
+        missing = [name for name, ok in (
+            ('zero_point_corr', self.zero_point_corr is not None),
+            ('rotemp', rotemp_ok),
+            ('scf_energy', self.scf_energy is not None)) if not ok]
+        if missing and frequency_wn:
+            warnings.warn(
+                f"{file}: {len(frequency_wn)} frequencies parsed but thermochemistry "
+                f"skipped because {', '.join(missing)} could not be determined; "
+                "enthalpy/entropy/free energy are left as None.",
+                RuntimeWarning, stacklevel=2)
+        if not missing:
             cutoffs = [cutoff for freq in frequency_wn]
+            # A species with vibrational modes is not an atom. The old test,
+            # zero_point_corr == 0.0, misread a supplied zpe of 0.0 as
+            # "monatomic" and dropped the rotational terms (issue #114).
+            monatomic = len(frequency_wn) == 0
 
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
             u_trans = calc_translational_energy(temp)
@@ -737,19 +720,19 @@ class calc_bbe:
             # ZPE falls back to `scale_fac` (preserves v4.x.0 behavior).
             effective_zpe_scale = zpe_scale_fac if zpe_scale_fac is not None else scale_fac
             if len(frequency_wn) > 0:
-                zpe = calc_zeropoint_energy(frequency_wn, effective_zpe_scale, fract_modelsys)
-                u_rot = calc_rotational_energy(temp, monatomic=(self.zero_point_corr == 0.0), linear=(linear_mol == 1))
-                u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac, fract_modelsys)
+                zpe = calc_zeropoint_energy(frequency_wn, effective_zpe_scale)
+                u_rot = calc_rotational_energy(temp, monatomic=monatomic, linear=(linear_mol == 1))
+                u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac)
                 s_rot = calc_rotational_entropy(temp, rotemp,
                                                 symmno=symmno,
-                                                monatomic=(self.zero_point_corr == 0.0),
+                                                monatomic=monatomic,
                                                 linear=(linear_mol == 1))
 
                 # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency
-                Svib_rrho = calc_rrho_entropy(temp, frequency_wn, scale_fac, fract_modelsys)
+                Svib_rrho = calc_rrho_entropy(temp, frequency_wn, scale_fac)
 
                 if cutoff > 0.0:
-                    Svib_rrqho = calc_rrho_entropy(temp, cutoffs, scale_fac, fract_modelsys)
+                    Svib_rrqho = calc_rrho_entropy(temp, cutoffs, scale_fac)
                 if inertia != "global" and len(self.roconst) > 0 and any(x != 0.0 for x in self.roconst):
                     try:
                         bav = calc_avg_moment_of_inertia(self.roconst)
@@ -758,8 +741,7 @@ class calc_bbe:
                 else:
                     bav = GRIMME_BAV
                 Svib_free_rot = calc_freerot_entropy(
-                    temp, frequency_wn, bav,
-                    scale_fac, fract_modelsys)
+                    temp, frequency_wn, bav, scale_fac)
                 S_damp = calc_damp(frequency_wn, cutoff)
 
                 # check for qh

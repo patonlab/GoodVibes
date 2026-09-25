@@ -13,7 +13,7 @@ from .media import solvents, compute_media_conc, lookup_solvent
 from .constants import (
     SUPPORTED_EXTENSIONS, GAS_CONSTANT, ATMOS,
     grimme_mRRHO_ref, grimme_msRRHO_ref, truhlar_ref, head_gordon_ref,
-    oniom_scale_ref, gv_banner
+    gv_banner
 )
 import logging
 from .utils import all_same, setup_logging, fatal, natural_key
@@ -26,6 +26,7 @@ from .selectivity import (get_boltz, parse_label_args, load_label_yaml,
                             compute_selectivity_lowest_only_scan)
 from .output import (print_results, print_temperature_interval,
                       print_pes_results, print_cpu_time, write_json_results,
+                      apply_cli_pes_options,
                       print_selectivity_results)
 
 log = logging.getLogger('goodvibes')
@@ -66,12 +67,12 @@ def parse_arguments():
                     choices=('grimme', 'truhlar'),
                     help="Quasi-harmonic entropy method: 'grimme' for mRRHO free-rotor interpolation, "
                          "'truhlar' for frequency raising (default: grimme)")
-    qh.add_argument("-f", "--tau", dest="freq_cutoff", default=100, type=float, metavar="FREQ_CUTOFF",
+    qh.add_argument("-f", "--tau", dest="freq_cutoff", default=100.0, type=float, metavar="FREQ_CUTOFF",
                     help="Frequency cut-off for both entropy and enthalpy in cm-1 (default: 100)")
-    qh.add_argument("--fh", dest="H_freq_cutoff", default=100.0, type=float, metavar="H_FREQ_CUTOFF",
-                    help="Frequency cut-off for enthalpy only in cm-1; overrides -f for H (default: 100)")
-    qh.add_argument("--fs", dest="S_freq_cutoff", default=100.0, type=float, metavar="S_FREQ_CUTOFF",
-                    help="Frequency cut-off for entropy only in cm-1; overrides -f for S (default: 100)")
+    qh.add_argument("--fh", dest="H_freq_cutoff", default=None, type=float, metavar="H_FREQ_CUTOFF",
+                    help="Frequency cut-off for enthalpy only in cm-1; overrides -f for H (default: -f)")
+    qh.add_argument("--fs", dest="S_freq_cutoff", default=None, type=float, metavar="S_FREQ_CUTOFF",
+                    help="Frequency cut-off for entropy only in cm-1; overrides -f for S (default: -f)")
     qh.add_argument("--bav", dest='inertia', default="global", type=str, choices=['global', 'conf'],
                     help="Moment of inertia for free-rotor entropy: 'global' uses Bav = 10e-44 kg m^2 "
                          "for all molecules, 'conf' computes from rotational constants per file "
@@ -86,8 +87,6 @@ def parse_arguments():
                       help="Separate scaling factor for the zero-point energy (ZPE); auto-detected from "
                            "level of theory via Truhlar's zpe_fac if not set. If --vscal is set but "
                            "--zpe-vscal is not, ZPE inherits --vscal (back-compat).")
-    freq.add_argument("--vmm", dest="mm_freq_scale_factor", default=None, type=float, metavar="MM_SCALE_FACTOR",
-                      help="Frequency scaling factor for the MM region in ONIOM calculations")
     freq.add_argument("--invert", dest="invert", nargs='?', const=True, default=None, type=float,
                       help="Invert small imaginary frequencies (> -50 cm-1) to positive values; "
                            "optionally provide a custom threshold in cm-1")
@@ -207,9 +206,20 @@ def parse_arguments():
     # Parse Arguments
     (options, args) = parser.parse_known_args()
 
+    # Retired options: fail loudly rather than let parse_known_args drop them,
+    # so a script cannot appear to apply a setting that no longer exists.
+    for retired, note in (("--vmm", "ONIOM MM-region frequency scaling was removed in v4.5"),):
+        if any(a == retired or a.startswith(retired + "=") for a in args):
+            parser.error(f"{retired} is no longer supported: {note}.")
+
     # If requested, turn on head-gordon enthalpy correction
     if options.Q:
         options.QH = True
+    # -f sets both cut-offs; an explicit --fs / --fh wins for its own quantity.
+    if options.S_freq_cutoff is None:
+        options.S_freq_cutoff = options.freq_cutoff
+    if options.H_freq_cutoff is None:
+        options.H_freq_cutoff = options.freq_cutoff
     # If user has specified different file extensions
     if options.custom_ext or os.environ.get('GOODVIBES_CUSTOM_EXT', ''):
         custom_extensions = options.custom_ext.split(',') + os.environ.get('GOODVIBES_CUSTOM_EXT', '').split(',')
@@ -289,14 +299,11 @@ def resolve_scaling_factor(files, options, level_of_theory):
 
     Parameters:
         files (list): output file paths.
-        options (Namespace): parsed CLI options. Uses: freq_scale_factor, mm_freq_scale_factor, boltz, ee.
+        options (Namespace): parsed CLI options. Uses: freq_scale_factor, zpe_scale_factor, boltz, ee.
         level_of_theory (list): level of theory strings, one per file.
     """
     if options.freq_scale_factor is not None:
-        if 'ONIOM' not in level_of_theory[0]:
-            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {level_of_theory[0]} level of theory")
-        else:
-            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for QM region of {level_of_theory[0]}")
+        log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {level_of_theory[0]} level of theory")
     else:
         # Look for vibrational scaling factor automatically. Truhlar's
         # database provides separate harm_fac (for partition functions)
@@ -322,15 +329,6 @@ def resolve_scaling_factor(files, options, level_of_theory):
     # Exit program if a comparison of Boltzmann factors is requested and level of theory is not uniform across all files
     if not all_same(level_of_theory) and (options.boltz or options.ee is not None):
         sys.exit("\n\n   ✗ FATAL ERROR: Boltzmann factors require all species computed at the same level of theory\n")
-
-    # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
-    if options.mm_freq_scale_factor is not None:
-        if all_same(level_of_theory) and 'ONIOM' in level_of_theory[0]:
-            log.info(f"\n\n   User-defined vibrational scale factor {options.mm_freq_scale_factor} for MM region of {level_of_theory[0]}")
-            log.info("\n   {}".format(oniom_scale_ref))
-        else:
-            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
-                     " help use option '-h'\n")
 
     if options.freq_scale_factor is None:
         options.freq_scale_factor = 1.0  # If no scaling factor is found use 1.0
@@ -361,7 +359,7 @@ def warn_orca_prescaled(files):
 
 
 def validate_and_configure(options, solvation_model):
-    """Validate solvent, print QH/QS configuration, and return (symm_option, vmm_option)."""
+    """Validate solvent, print QH/QS configuration, and return the symmetry option."""
     # Checks to see whether the available free space of a requested solvent is defined
     if options.freespace is not None:
         freespace = get_free_space(options.freespace)
@@ -372,10 +370,6 @@ def validate_and_configure(options, solvation_model):
     if any('smd' in i.lower() or 'cpcm' in i.lower() for i in solvation_model):
         log.info("\n   Caution! Implicit solvation (SMD/CPCM) detected. Enthalpic and entropic terms cannot be "
                   "safely separated. Use them at your own risk!")
-
-    if options.freq_cutoff != 100.0:
-        options.S_freq_cutoff = options.freq_cutoff
-        options.H_freq_cutoff = options.freq_cutoff
 
     # Summary of the quasi-harmonic treatment; print out the relevant reference
 
@@ -438,7 +432,6 @@ def _calc_bbe_worker(args):
         solv=opts['freespace'],
         spc=opts['spc'], invert=opts['invert'],
         symm=opts['symm'],
-        mm_freq_scale_factor=opts['mm_freq_scale_factor'],
         inertia=opts['inertia'],
     )
     return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
@@ -455,7 +448,7 @@ def compute_thermochem(files, options, qcdata_cache=None):
         files (list): output file paths.
         options (Namespace): parsed CLI options. Uses: QS, QH, S_freq_cutoff,
             H_freq_cutoff, temperature, conc, freq_scale_factor, freespace,
-            spc, invert, symm, mm_freq_scale_factor, inertia, media, jobs.
+            spc, invert, symm, inertia, media, jobs.
         qcdata_cache (dict, optional): pre-parsed QCData keyed by basename.
 
     Returns:
@@ -474,7 +467,6 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'freespace': options.freespace,
         'spc': options.spc, 'invert': options.invert,
         'symm': options.symm,
-        'mm_freq_scale_factor': options.mm_freq_scale_factor,
         'inertia': options.inertia,
     }
     default_conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
@@ -722,13 +714,16 @@ def main():
             })
 
     # PES: build the v4.2 model once for single-T mode so we can pass it
-    # to both the Rich table renderer and the JSON writer. T-interval mode
-    # still flows through the legacy print_pes_results below.
+    # to the Rich table renderer, the JSON writer and --pes-plot. The CLI
+    # flags (--nogconf, --lowest-only, -q, --spc) are applied here, before
+    # any of those consumers read the model. T-interval mode still flows
+    # through the legacy print_pes_results below.
     pes_result = None
     if options.pes and options.temperature_interval is None:
         from .pes_loader import load_pes
         pes_result = load_pes(options.pes, thermo_data,
                               temperatures=[options.temperature])
+        apply_cli_pes_options(pes_result, options)
 
     # Structured (JSON) output — v1.0 stable schema. Additive; runs
     # alongside the .dat output.
@@ -817,9 +812,12 @@ def main():
     if options.check:
         check_files(thermo_data, options, level_of_theory)
 
-    # Variable temperature analysis
-    elif options.temperature_interval:
-        print_temperature_interval(thermo_data, options, media_conc=media_conc, qcdata_cache=qcdata_cache)
+    # Variable temperature analysis. Keep the returned per-temperature data:
+    # the legacy --pes path below needs it (it used to be discarded, which
+    # made `--pes --ti` crash with a TypeError on zip(*None)).
+    if options.temperature_interval:
+        interval_bbe_data, interval, file_list = print_temperature_interval(
+            thermo_data, options, media_conc=media_conc, qcdata_cache=qcdata_cache)
         if selectivity_results is not None:
             print_selectivity_results({
                 'Boltzmann-averaged': selectivity_results,

@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """Tests for parsing ORCA 6 output files using goodvibes.io."""
 
+import os
+
 import pytest
 from goodvibes.io import (parse_data, level_of_theory, read_initial,
                           parse_orca_thermo, parse_qcdata)
-from conftest import (orca_path, ORCA_FREQ_FILES, ORCA_TS_FILES,
+from conftest import (orca_path, orca5_path, ORCA_FREQ_FILES, ORCA_TS_FILES,
                       ORCA_SP_ONLY_FILES, ORCA_LINEAR_FILES)
 
 
@@ -452,3 +454,27 @@ def test_parse_qcdata_dispatches_orca(filename):
     qcdata = parse_qcdata(orca_path(filename))
     assert qcdata.program == 'Orca'
     assert qcdata.scf_energy is not None
+
+
+# ---------------------------------------------------------------------------
+# Empirical dispersion detection (regression: the ORCA branch of parse_data
+# tested the Gaussian-only keyword_line, and parse_orca_thermo never set the
+# field, so every ORCA file reported no dispersion).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('path, expected', [
+    (orca_path('30_phenol_smd_thf_pbe0_d3bj.out'), 'D3BJ'),
+    (orca5_path('10_formaldehyde_verbose_pop.out'), 'D3 with zero damping'),
+    (orca5_path('35_furan_wb97xv_functional.out'), 'DFT-NL'),
+    (orca_path('01a_water_hf_freq.out'), 'No empirical dispersion detected'),
+])
+def test_orca_empirical_dispersion(path, expected):
+    assert parse_qcdata(path).empirical_dispersion == expected
+    assert parse_data(path)[6] == expected
+
+
+def test_nwchem_empirical_dispersion():
+    nwchem = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          'goodvibes', 'examples', 'ethane_NWChem.out')
+    assert parse_data(nwchem)[6] == 'D3'
+    assert parse_qcdata(nwchem).empirical_dispersion == 'D3'

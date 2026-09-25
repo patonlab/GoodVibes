@@ -145,7 +145,7 @@ def test_write_json_includes_pes_block_when_pes_result_given(tmp_path):
         S_freq_cutoff=100.0, H_freq_cutoff=100.0,
         freq_scale_factor=1.0, media=None, freespace='none', spc=None,
         invert=False, symm=False, duplicate=False, boltz=False,
-        inertia='global', mm_freq_scale_factor=None,
+        inertia='global',
     )
     out = tmp_path / "out.json"
     # Empty thermo_data; we only care about the pes block.
@@ -163,7 +163,7 @@ def test_write_json_omits_pes_block_when_no_pes_result(tmp_path):
         S_freq_cutoff=100.0, H_freq_cutoff=100.0,
         freq_scale_factor=1.0, media=None, freespace='none', spc=None,
         invert=False, symm=False, duplicate=False, boltz=False,
-        inertia='global', mm_freq_scale_factor=None,
+        inertia='global',
     )
     out = tmp_path / "out.json"
     write_json_results({}, options, str(out))

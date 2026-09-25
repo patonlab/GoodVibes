@@ -1,158 +1,106 @@
 # Tests
 
-## Directory Structure
+Run the whole suite from the repository root (an editable install with the
+test extras is required: `pip install -e ".[test]"`):
 
-```text
-tests/
-├── conftest.py              # Shared fixtures, path helpers, categorized file lists
-├── test_goodvibes.py        # Legacy test suite (see note below)
-├── test_io_g16.py           # Gaussian 16 parsing tests (goodvibes.io)
-├── test_io_orca.py          # ORCA 6 parsing tests (goodvibes.io)
-├── test_thermo_g16.py       # Gaussian 16 thermochemistry tests (goodvibes.thermo)
-├── test_thermo_orca.py      # ORCA 6 thermochemistry tests (goodvibes.thermo)
-├── test_supporting.py       # vib_scale_factors and media module tests
-├── g16/                     # Gaussian 16 test data (62 .com inputs, 63 .log outputs)
-│   └── README.md            # File index with method, job type, and key features
-└── orca6/                   # ORCA 6 test data (63 .inp inputs, 64 .out outputs)
-    └── README.md            # File index with method, job type, and key features
+```bash
+pytest -q
 ```
 
-## Test Modules
+The suite is pure pytest; `conftest.py` holds the fixture-directory path
+helpers (`g16path`, `orca_path`, `orca5_path`, `xtb_path`, `ase_path`,
+`qchem_path`, `datapath`) and the categorised file lists (frequency jobs,
+transition states, single points, linear molecules, error cases) each
+parser's tests parametrise over.
 
-### `test_io_g16.py` — Gaussian 16 Parsing
+## Fixture data
 
-Tests `getoutData`, `parse_data`, `level_of_theory`, `read_initial`, and
-`gaussian_jobtype` from `goodvibes/io.py` against the G16 log files.
+Every parser is exercised against real program output checked in under
+`tests/<program>/`. Inputs (`.com`, `.inp`, `.qcin`) sit next to the outputs
+so a fixture can be regenerated.
 
-- **Atom extraction** — atom types and counts
-- **Frequency extraction** — mode counts (3N-6 nonlinear, 3N-5 linear)
-- **Cartesian coordinates** — shape and extraction
-- **Single-point detection** — SP-only files have no frequencies
-- **SCF energy** — parsed energy matches grep of log file
-- **Program detection** — identified as Gaussian
-- **Charge / multiplicity** — neutral, cation, anion, triplet, quintet
-- **Job progress** — Normal termination vs Incomplete vs Error
-- **Solvation model** — PCM, CPCM, SMD detection
-- **Level of theory** — method/basis string
-- **Job type classification** — SP, Freq, GSFreq, TSFreq
+| Directory | Program | Output files | Index |
+| --- | --- | --- | --- |
+| `g16/` | Gaussian 16 | 54 |`README.md` inside for the file index |
+| `orca5/` | ORCA 5 | 63 | |
+| `orca6/` | ORCA 6 | 71 |`README.md` inside for the file index |
+| `qchem6/` | Q-Chem 6 | 51 |`README.md` inside for the file index |
+| `xtb/` | xTB | 42 |`README.md` inside for the file index |
+| `ase/` | ASE extended XYZ | 6 |`README.md` inside for the file index |
 
-### `test_io_orca.py` — ORCA 6 Parsing
+The legacy `test_goodvibes.py` and the PES / selectivity end-to-end tests
+use the worked examples under `goodvibes/examples/` instead (those files are
+in the git repository but are not shipped in the wheel).
 
-Tests the subset of `goodvibes/io.py` functions that work with ORCA 6 output.
-`parse_data` and `read_initial` have independent ORCA parsing paths that work
-correctly. `getoutData` (cclib) and `level_of_theory` (Gaussian archive format)
-are marked `xfail` for ORCA 6.
+Across the fixture sets the files follow one numbering scheme: 01-43 are
+standard calculations (HF, DFT, MP2, CCSD, semi-empirical, TD-DFT, ONIOM,
+various solvation models), 44-50 are transition states, 51-60 are
+deliberate error cases (SCF failure, non-converged optimisation, bad
+charge/multiplicity, missing basis, memory, timeout, syntax) and 61 is an
+empty file.
 
-- **Energy, program, charge/multiplicity** — via `parse_data`
-- **Progress and solvation** — via `read_initial`
-- **getoutData** — xfail (cclib 1.7.2 incompatible with ORCA 6)
-- **level_of_theory** — xfail (relies on Gaussian archive section)
+## Test modules
 
-### `test_thermo_g16.py` — Gaussian 16 Thermochemistry
+776 tests at the time of writing. The first line of each module's
+docstring is reproduced here; regenerate this table rather than editing it
+by hand when modules are added.
 
-Tests `calc_bbe` and individual thermo functions from `goodvibes/thermo.py`.
+| Module | Tests | Covers |
+| --- | --- | --- |
+| `test_api.py` | 47 | Tests for the goodvibes.api façade (v4.2 item 5). |
+| `test_benchmark_entropy.py` | 1 | Benchmark: msRRHO entropies vs experimental NIST S°(298.15 K, 1 bar). |
+| `test_cache.py` | 21 | Tests for QCData JSON caching (serialization round-trip, precision, integration). |
+| `test_cli_errors.py` | 28 | M0 safety-net tests (AUDIT.md tasks 0.2, 0.3, 0.4). |
+| `test_cli_examples.py` | 35 | CLI integration tests derived from readme_cli_examples. |
+| `test_cutoff_flags.py` | 1 | -f sets both cut-offs; --fs / --fh override it for their own quantity. |
+| `test_file_resolution.py` | 4 | The path a caller passes must be the file that gets parsed. |
+| `test_goodvibes.py` | 10 | Legacy end-to-end tests on goodvibes/examples/ (pre-v4 suite). |
+| `test_hessian.py` | 10 | Tests for io.parse_hessian (Cartesian Hessian + per-atom mass extraction). |
+| `test_io_ase.py` | 17 | Tests for parsing ASE-driven calculations encoded as extxyz. |
+| `test_io_g16.py` | 22 | Tests for parsing Gaussian 16 output files using goodvibes.io. |
+| `test_io_orca.py` | 25 | Tests for parsing ORCA 6 output files using goodvibes.io. |
+| `test_io_qchem.py` | 22 | Tests for parsing Q-Chem 6 output files using goodvibes.io. |
+| `test_io_xtb.py` | 20 | Tests for parsing xtb output files using goodvibes.io. |
+| `test_issue_114_ase_zpe.py` | 6 | Regression tests for issue #114 (ASE extxyz ingest and the ZPE gate). |
+| `test_json_output.py` | 12 | Tests for the --json structured output flag. |
+| `test_media.py` | 15 | Tests for the --media / --freespace CLI flags and the goodvibes.media module. |
+| `test_modules.py` | 27 | Unit tests for extracted modules: utils, validation. |
+| `test_output_rendering.py` | 35 | Direct unit tests for goodvibes.output rendering helpers. |
+| `test_parse_data_truncated.py` | 1 | Regression test: parse_data on a Gaussian output with no route section. |
+| `test_pes_cli_options.py` | 3 | --nogconf / --lowest-only must reach every PES consumer. |
+| `test_pes_e2e.py` | 9 | End-to-end PES regression test against the azabor_PES_v2.yaml fixture. |
+| `test_pes_legacy.py` | 16 | Tests for goodvibes.pes_legacy — the line-based `--- # PES` format. |
+| `test_pes_loader.py` | 29 | Tests for goodvibes.pes_loader — pattern resolution + builder + dispatcher. |
+| `test_pes_model.py` | 36 | Tests for goodvibes.pes_model — pure data + arithmetic, no I/O. |
+| `test_pes_output.py` | 17 | Tests for the v4.2 PES output: Rich tables (`print_pes_tables`) and JSON v1.0 (`_pes_to_json` + `write_json_results`). |
+| `test_pes_temperature_interval.py` | 2 | `--pes` together with `--ti` must produce the legacy per-temperature PES tables instead of crashing. |
+| `test_pes_yaml.py` | 24 | Tests for goodvibes.pes_yaml — the proper YAML PES format. |
+| `test_plot.py` | 33 | Tests for goodvibes.plot — selectivity strip plots, PES profiles. |
+| `test_schema.py` | 14 | Tests for goodvibes.schema — version constants + payload validator. |
+| `test_selectivity.py` | 50 | Tests for the new --label / --selectivity API and the legacy --ee shim. |
+| `test_sort.py` | 30 | Tests for goodvibes.sort: kabsch_rmsd, deduplicate, sort_thermo. |
+| `test_supporting.py` | 13 | Tests for supporting modules: vib_scale_factors and media. |
+| `test_symm_fields.py` | 3 | --symm / symm=True: the detected point group and symmetry number must be reported, and pymsym's symmetry number must replace (not stack on) one already present in the output file. |
+| `test_thermo_ase.py` | 11 | Tests for thermochemistry calculations on ASE-driven extxyz fixtures. |
+| `test_thermo_g16.py` | 66 | Tests for thermochemistry calculations on Gaussian 16 output files. |
+| `test_thermo_orca.py` | 11 | Tests for thermochemistry calculations on ORCA 6 output files. |
+| `test_thermo_orca5.py` | 4 | Lightweight regression coverage for ORCA 5 output parsing and thermo. |
+| `test_thermo_qchem.py` | 19 | Tests for thermochemistry calculations on Q-Chem 6 output files. |
+| `test_thermo_xtb.py` | 5 | End-to-end thermochemistry tests on xtb output files. |
+| `test_validation.py` | 17 | Tests for goodvibes.validation: collect_and_validate_files, print_check_fails, and check_files (smoke). |
+| `test_vmm_removed.py` | 5 | The ONIOM MM-region frequency scaling feature (``--vmm`` / ``mm_freq_scale_factor`` / ``QCData.fract_modelsys``) was removed in v4.5. |
 
-**Ground-truth validation against Gaussian output:**
+## Tolerances
 
-Many tests compare `calc_bbe` results directly against values printed by
-Gaussian in the log file, providing end-to-end validation:
+Gaussian comparisons are exact to the precision Gaussian prints. ORCA
+thermochemistry comparisons use a 5e-6 Eh tolerance: ORCA prints enthalpy
+and Gibbs values to 8 decimals from a higher-precision internal value, so
+GoodVibes reproduces them to sub-microhartree but not always to 1e-6. ORCA
+tests pass `inertia='conf'` so the quasi-RRHO average moment of inertia is
+computed per conformer, matching ORCA, rather than Grimme's global value.
 
-- **ZPE vs Gaussian** — `calc_bbe` ZPE compared against the Gaussian
-  `Zero-point correction=` line across 49 files
-- **Enthalpy vs Gaussian** — `calc_bbe` enthalpy compared against
-  `Sum of electronic and thermal Enthalpies=` across 49 files
-- **Gibbs free energy vs Gaussian** — `calc_bbe` Gibbs energy compared against
-  `Sum of electronic and thermal Free Energies=` across 49 files
-- **Non-standard T/P** — ground-truth validation for files computed at
-  non-default temperature and pressure (e.g. T=398.15 K, P=2 atm)
-- **Non-standard scaling** — ground-truth validation for files computed with
-  `Freq=(Scale=0.95)`, including deuterium isotope substitution
+## Deprecation warnings
 
-**Quasi-harmonic method tests:**
-
-- **Grimme at 298.15 K** — full thermodynamic quantities (E, ZPE, H, TS, TqhS, G, qhG)
-- **Truhlar at 298.15 K** — same quantities with Truhlar quasi-harmonic entropy
-- **Head-Gordon QH enthalpy** — quasi-harmonic enthalpy correction (QH=True)
-
-**Parameterized feature tests:**
-
-- **Temperature variations** — sweep over 100–500 K
-- **Frequency scaling** — effect of scale factor on ZPE and G
-- **Transition states** — imaginary frequency count and sign
-- **Solvation files** — PCM/CPCM/SMD files run without error
-- **Linear molecules** — correct mode count (3N-5)
-- **Linked jobs** — frequency extraction from multi-step Gaussian jobs
-- **Single-point only** — no thermochemistry for SP files
-- **Error files** — graceful handling of malformed output
-
-**Unit tests for individual thermo functions:**
-
-- `calc_translational_energy` — E_trans = 3/2 RT
-- `calc_rotational_energy` — nonlinear (3/2 RT), linear (RT), atom (0)
-- `calc_electronic_entropy` — S_elec = R ln(multiplicity)
-- `calc_damp` — Grimme damping function behavior above, at, and below cutoff
-
-### `test_thermo_orca.py` — ORCA 6 Thermochemistry
-
-Native ORCA parsing now lives in `goodvibes/io.py` (no cclib dependency), and
-`calc_bbe` works end-to-end on ORCA 6 output. Ground-truth values are pulled
-from each file's thermochemistry section ("Zero point energy",
-"Total Enthalpy", "Final entropy term", "Final Gibbs free energy") and
-compared against `calc_bbe` to within 1e-6 Eh. ORCA's "Final Gibbs free
-energy" uses quasi-RRHO with a 100 cm⁻¹ reference frequency, matching
-GoodVibes' default; tests pass `inertia='conf'` so Bav is computed
-per conformer (matching ORCA) rather than using Grimme's global
-1e-44 kg·m².
-
-Coverage: ZPE / enthalpy / Gibbs / entropy validation across ~32 files,
-transition states, solvation files (PCM/CPCM/SMD), single-point only,
-error files, third-order saddle points, and aborted-opt cases where
-frequencies must be discarded.
-
-### `test_supporting.py` — Supporting Modules
-
-- **`vib_scale_factors`** — reference index bounds, dict lookup, hyphen stripping
-- **`media`** — common solvent entries exist, positive MW/density, water properties
-
-### `test_goodvibes.py` — Legacy Tests
-
-This file contains the original test suite and remains for direct comparison
-with earlier test results. It uses example files from `goodvibes/examples/`
-rather than the newer `tests/g16/` test data. Tests cover quasi-harmonic
-corrections (Grimme/Truhlar), temperature corrections, single-point
-corrections, scaling factor search, concentration corrections, media
-corrections, and potential energy surface analysis.
-
-## Known xfail Cases
-
-None at present — the suite is fully passing.
-
-The ORCA thermo comparisons use a 5e-6 Eh tolerance because ORCA prints
-enthalpy and Gibbs values to 8 decimal places and rounds an internal
-higher-precision value when emitting them. Running the same calculation in
-GoodVibes naturally produces sub-µEh differences that are below ORCA's
-own printed precision but exceeded a 1e-6 cutoff. Five tests previously
-classified under `XFAIL_SYMMETRY` / `XFAIL_ORCA_ENERGY` / `XFAIL_TS_LINKED`
-turned out to be in this same precision band, not real symmetry-number or
-energy-source mismatches; loosening the tolerance to 5e-6 (still well below
-chemical accuracy) resolved them.
-
-The previously-tracked Gaussian xfails (anharmonic VPT2 files 12 / 23, CCSD
-opt+freq file 40) were resolved earlier by the native parser rewrite — see
-commit `f2d32d5` ("Refactor GoodVibes v4.0").
-
-## Test Data
-
-The `g16/` and `orca6/` subdirectories contain synthetic Gaussian 16 and
-ORCA 6 output files covering:
-
-- **Files 01–43** — standard calculations (HF, DFT, MP2, CCSD, semi-empirical,
-  TD-DFT, ONIOM) with various basis sets, solvation models, and features
-- **Files 44–50** — transition states (SN2, Diels-Alder, H-abstraction, E2,
-  umbrella inversion, ring opening)
-- **Files 51–60** — deliberate error cases (SCF failure, opt non-convergence,
-  bad charge/multiplicity, missing basis, memory, timeout, syntax, linear bend,
-  basis linear dependency, missing blank line)
-- **File 61** — empty log file for edge-case testing
-
-See `g16/README.md` and `orca6/README.md` for the complete file index.
+The legacy 15-argument `calc_bbe(...)` constructor emits a
+`DeprecationWarning`; several older test modules still call it on purpose
+to pin its behaviour, so those warnings in the pytest summary are expected.

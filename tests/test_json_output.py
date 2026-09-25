@@ -51,7 +51,7 @@ class _Opts:
             'S_freq_cutoff': 100.0, 'H_freq_cutoff': 100.0,
             'freq_scale_factor': 1.0, 'media': None, 'freespace': None,
             'spc': None, 'invert': None, 'symm': False, 'duplicate': False,
-            'boltz': None, 'inertia': 'global', 'mm_freq_scale_factor': None,
+            'boltz': None, 'inertia': 'global',
         }
         defaults.update(kw)
         for k, v in defaults.items():
