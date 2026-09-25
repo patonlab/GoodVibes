@@ -26,6 +26,7 @@ from .selectivity import (get_boltz, parse_label_args, load_label_yaml,
                             compute_selectivity_lowest_only_scan)
 from .output import (print_results, print_temperature_interval,
                       print_pes_results, print_cpu_time, write_json_results,
+                      apply_cli_pes_options,
                       print_selectivity_results)
 
 log = logging.getLogger('goodvibes')
@@ -706,13 +707,16 @@ def main():
             })
 
     # PES: build the v4.2 model once for single-T mode so we can pass it
-    # to both the Rich table renderer and the JSON writer. T-interval mode
-    # still flows through the legacy print_pes_results below.
+    # to the Rich table renderer, the JSON writer and --pes-plot. The CLI
+    # flags (--nogconf, --lowest-only, -q, --spc) are applied here, before
+    # any of those consumers read the model. T-interval mode still flows
+    # through the legacy print_pes_results below.
     pes_result = None
     if options.pes and options.temperature_interval is None:
         from .pes_loader import load_pes
         pes_result = load_pes(options.pes, thermo_data,
                               temperatures=[options.temperature])
+        apply_cli_pes_options(pes_result, options)
 
     # Structured (JSON) output — v1.0 stable schema. Additive; runs
     # alongside the .dat output.

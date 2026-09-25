@@ -470,6 +470,29 @@ def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
     return table
 
 
+def apply_cli_pes_options(result, options):
+    """Sync run-time CLI flags into ``result.options``.
+
+    The PES file only carries presentation options (units, decimals);
+    ``--nogconf``, ``--lowest-only``, ``-q`` and ``--spc`` come from the
+    command line and must be applied to the model before *any* consumer
+    (Rich tables, JSON ``pes`` block, ``--pes-plot``) reads it. Call this
+    once right after ``load_pes``; it is idempotent.
+
+    Parameters:
+        result: PESResult instance (from goodvibes.pes_loader.load_pes).
+        options: argparse Namespace; reads .gconf, .QH, .spc, .lowest_only.
+
+    Returns:
+        The same ``result``, for chaining.
+    """
+    result.options.gconf = bool(getattr(options, 'gconf', True))
+    result.options.QH = bool(getattr(options, 'QH', False))
+    result.options.spc_used = bool(getattr(options, 'spc', None))
+    result.options.lowest_only = bool(getattr(options, 'lowest_only', False))
+    return result
+
+
 def print_pes_tables(result, options, temperature=None):
     """Render PES results as Rich tables (one per pathway).
 
@@ -483,12 +506,7 @@ def print_pes_tables(result, options, temperature=None):
         return
     if temperature is None:
         temperature = result.temperatures[0] if result.temperatures else 298.15
-    # Sync run-time flags into the model's options so the column spec and
-    # rollup math agree with what the user requested on the CLI.
-    result.options.gconf = bool(getattr(options, 'gconf', True))
-    result.options.QH = bool(getattr(options, 'QH', False))
-    result.options.spc_used = bool(getattr(options, 'spc', None))
-    result.options.lowest_only = bool(getattr(options, 'lowest_only', False))
+    apply_cli_pes_options(result, options)
     if result.options.lowest_only:
         log.info("\n   Lowest conformer per species (no Boltzmann averaging, no gconf)")
     elif options.gconf:
