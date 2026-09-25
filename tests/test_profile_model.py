@@ -151,6 +151,12 @@ def test_dedup_drops_a_duplicate_conformer():
     assert kept.dedup() is kept
 
 
+def test_conformerset_rejects_a_structure_without_thermochemistry():
+    sp_only = SimpleNamespace(scf_energy=-1.0)          # what calc_bbe holds for a single-point output
+    with pytest.raises(ValueError, match="no thermochemistry"):
+        ConformerSet("A", ["a_sp.log"], [sp_only])
+
+
 def test_from_results_rejects_empty():
     with pytest.raises(ValueError, match="no results"):
         ConformerSet.from_results("A", [])

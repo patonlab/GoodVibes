@@ -436,8 +436,9 @@ def plot_profile(
     for pi, path in enumerate(paths):
         axis = _axis_for(pi)
         color = colors_by_path[path.name]
-        for s in series_list:
+        for si, s in enumerate(series_list):
             ls = ls_by_series[s.id]
+            label_shift = 6 + 8 * si          # stack value labels when several series share a bar
             lv = levels[s.id][path.name]
             # bars
             for point in path.points:
@@ -455,7 +456,7 @@ def plot_profile(
                 if label_points:
                     above = point.is_ts
                     axis.annotate(f"{y:.{decimals}f}", (x, y),
-                                  xytext=(0, 6 if above else -6), textcoords="offset points",
+                                  xytext=(0, label_shift if above else -label_shift), textcoords="offset points",
                                   ha="center", va="bottom" if above else "top",
                                   fontsize="x-small", color=color)
             # connectors along the edges

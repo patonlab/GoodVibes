@@ -276,6 +276,11 @@ class ConformerSet:
             )
         if not self.bbes:
             raise ValueError(f"ConformerSet {self.name!r} has no conformers")
+        for f, b in zip(self.files, self.bbes):
+            if not hasattr(b, "qh_gibbs_free_energy"):
+                raise ValueError(
+                    f"ConformerSet {self.name!r}: {f} has no thermochemistry (no frequencies in the "
+                    "output; a single-point file cannot be a conformer)")
         if self.entries is None:
             built = [ComputedEntry.from_bbe(b, f) for f, b in zip(self.files, self.bbes)]
             self.entries = built if all(e is not None for e in built) else None  # type: ignore[assignment]
