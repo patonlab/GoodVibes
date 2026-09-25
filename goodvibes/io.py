@@ -2739,6 +2739,17 @@ def parse_ase_thermo(file):
             qcdata.roconst = [b * 29.9792458 for b in roconst_cm]
             qcdata.rotemp = [HC_OVER_KB * b for b in roconst_cm]
 
+    # `zpe` is optional (tests/ase/README.md): calc_bbe gates all
+    # thermochemistry on zero_point_corr being set, so derive it from the
+    # frequencies when the key is absent (issue #114). The value is the
+    # unscaled harmonic ZPE; calc_bbe recomputes the scaled ZPE it reports
+    # from the frequencies for every program, so a supplied `zpe` is kept
+    # only as parsed metadata.
+    if qcdata.zero_point_corr is None and qcdata.frequency_wn:
+        from .constants import J_TO_AU
+        from .thermo import calc_zeropoint_energy
+        qcdata.zero_point_corr = calc_zeropoint_energy(qcdata.frequency_wn) / J_TO_AU
+
     # Job type: explicit override, else infer from frequency presence/sign
     if 'job_type' in info:
         qcdata.job_type = info['job_type']

@@ -671,9 +671,26 @@ class calc_bbe:
 
         self.inverted_freqs = inverted_freqs
 
-        # Skip the calculation if unable to parse the frequencies or zpe from the output file
-        if self.zero_point_corr is not None and rotemp and self.scf_energy is not None:
+        # Skip the calculation if unable to parse the frequencies or zpe from
+        # the output file. A single point has no frequencies and stays silent;
+        # frequencies with a missing prerequisite is an inconsistent parse and
+        # is reported rather than returning an all-None object (issue #114).
+        missing = [name for name, ok in (
+            ('zero_point_corr', self.zero_point_corr is not None),
+            ('rotemp', bool(rotemp)),
+            ('scf_energy', self.scf_energy is not None)) if not ok]
+        if missing and frequency_wn:
+            warnings.warn(
+                f"{file}: {len(frequency_wn)} frequencies parsed but thermochemistry "
+                f"skipped because {', '.join(missing)} could not be determined; "
+                "enthalpy/entropy/free energy are left as None.",
+                RuntimeWarning, stacklevel=2)
+        if not missing:
             cutoffs = [cutoff for freq in frequency_wn]
+            # A species with vibrational modes is not an atom. The old test,
+            # zero_point_corr == 0.0, misread a supplied zpe of 0.0 as
+            # "monatomic" and dropped the rotational terms (issue #114).
+            monatomic = len(frequency_wn) == 0
 
             # Translational and electronic contributions to the energy and entropy do not depend on frequencies
             u_trans = calc_translational_energy(temp)
@@ -692,11 +709,11 @@ class calc_bbe:
             effective_zpe_scale = zpe_scale_fac if zpe_scale_fac is not None else scale_fac
             if len(frequency_wn) > 0:
                 zpe = calc_zeropoint_energy(frequency_wn, effective_zpe_scale)
-                u_rot = calc_rotational_energy(temp, monatomic=(self.zero_point_corr == 0.0), linear=(linear_mol == 1))
+                u_rot = calc_rotational_energy(temp, monatomic=monatomic, linear=(linear_mol == 1))
                 u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac)
                 s_rot = calc_rotational_entropy(temp, rotemp,
                                                 symmno=symmno,
-                                                monatomic=(self.zero_point_corr == 0.0),
+                                                monatomic=monatomic,
                                                 linear=(linear_mol == 1))
 
                 # Calculate harmonic entropy, free-rotor entropy and damping function for each frequency

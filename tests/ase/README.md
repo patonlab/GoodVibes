@@ -45,7 +45,7 @@ H 0.000000 -0.755453 -0.471161
 | `point_group`, `symmno` | Skip if you want pymsym (via `calc_bbe.ex_sym()`) to detect them. |
 | `linear_mol` | `T` / `F`. Inferred from inertia eigenvalues if omitted. |
 | `molecular_mass`, `roconst_cm`, `rotemp` | Override the geometry-derived defaults. |
-| `zpe` | Zero-point energy in Hartree. Recomputed from frequencies at thermo time if omitted. |
+| `zpe` | Zero-point energy in Hartree, kept as parsed metadata (`QCData.zero_point_corr`). Derived from the frequencies if omitted. The ZPE GoodVibes reports is always recomputed from the (scaled) frequencies, as for every other program, so this key never changes the thermochemistry. |
 | `solvation_model`, `empirical_dispersion` | Free-form metadata. |
 | `applied_freq_scale_factor` | If the source program already scaled the frequencies, GoodVibes un-scales before re-applying its own factor. |
 | `job_type` | `Freq`, `GSFreq`, `TS`, `SP`. Inferred from frequency presence/sign if omitted. |
