@@ -36,9 +36,16 @@ goodvibes = "goodvibes.GoodVibes:main"
 
 [tool.setuptools]
 packages = ["goodvibes"]
+# Ship only the files listed under package-data; never sweep in everything
+# an SCM plugin or a stale egg-info SOURCES.txt happens to list.
+include-package-data = false
 
 [tool.setuptools.package-data]
-goodvibes = ["scaling_factors.json", "solvents.json", "examples/**/*", "share/*"]
+# Only the data files the code reads at runtime. The example outputs under
+# goodvibes/examples/ (~280 MB, mostly the PES conformer set) stay in the git
+# repository for the README walkthrough and the test suite, but are not
+# shipped in the wheel/sdist: they made every install ~70 MB.
+goodvibes = ["scaling_factors.json", "solvents.json"]
 
 [tool.ruff]
 target-version = "py39"
