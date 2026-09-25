@@ -805,9 +805,12 @@ def main():
     if options.check:
         check_files(thermo_data, options, level_of_theory)
 
-    # Variable temperature analysis
-    elif options.temperature_interval:
-        print_temperature_interval(thermo_data, options, media_conc=media_conc, qcdata_cache=qcdata_cache)
+    # Variable temperature analysis. Keep the returned per-temperature data:
+    # the legacy --pes path below needs it (it used to be discarded, which
+    # made `--pes --ti` crash with a TypeError on zip(*None)).
+    if options.temperature_interval:
+        interval_bbe_data, interval, file_list = print_temperature_interval(
+            thermo_data, options, media_conc=media_conc, qcdata_cache=qcdata_cache)
         if selectivity_results is not None:
             print_selectivity_results({
                 'Boltzmann-averaged': selectivity_results,
