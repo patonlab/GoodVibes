@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 
 from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
 from .io import write_xyz, load_cache, save_cache, qcdata_to_dict, find_spc_file
-from .thermo import calc_bbe, get_free_space, FREESPACE_SOLVENTS
+from .thermo import calc_bbe, get_free_space, FREESPACE_SOLVENTS, MissingSinglePointError
 from .media import solvents, compute_media_conc, lookup_solvent
 from .constants import (
     SUPPORTED_EXTENSIONS, GAS_CONSTANT, ATMOS,
@@ -16,7 +16,7 @@ from .constants import (
     gv_banner
 )
 import logging
-from .utils import all_same, setup_logging, fatal, natural_key
+from .utils import all_same, setup_logging, fatal, natural_key, parse_temperature_interval, display_name
 from .validation import collect_and_validate_files, check_files, print_check_fails
 from .sort import deduplicate, sort_thermo
 from .selectivity import (get_boltz, parse_label_args, load_label_yaml,
@@ -108,7 +108,12 @@ def parse_arguments():
                           help="Print Boltzmann-weighted populations ('energy' for SCF, 'gibbs' for quasi-harmonic G; "
                                "default when flag used: gibbs)")
     sort_grp.add_argument("--dedup", dest="duplicate", action="store_true", default=False,
-                          help="Remove duplicate structures based on energy, rotational constants, and stoichiometry")
+                          help="Remove duplicate structures based on energy, rotational constants, and stoichiometry. "
+                               "With --label/--selectivity, structures are only compared within their own species "
+                               "so an R/S transition-state pair is never merged")
+    sort_grp.add_argument("--dedup-global", dest="dedup_global", action="store_true", default=False,
+                          help="With --dedup and --label/--selectivity, compare structures across species too "
+                               "(the pre-4.5 behaviour)")
     sort_grp.add_argument("--e_cutoff", dest="e_cutoff", default=0.05, type=float, metavar="KCAL",
                           help="Energy cutoff for duplicate detection in kcal/mol (default: 0.05)")
     sort_grp.add_argument("--ro_cutoff", dest="ro_cutoff", default=0.01, type=float, metavar="FRAC",
@@ -130,7 +135,7 @@ def parse_arguments():
     sel.add_argument("--ee", dest="ee", default=None, type=str, metavar="patterns",
                      help="DEPRECATED — use --label/--selectivity. Compute 2-species "
                           "selectivity from a colon-delimited glob pair (e.g. '*_R*:*_S*'). "
-                          "Will be removed in v5.0.")
+                          "Will be removed in v6.0.")
     sel.add_argument("--pes", dest="pes", default=None, metavar="file",
                      help="YAML file defining a reaction pathway for tabulating relative energies")
     sel.add_argument("--graph", dest='graph', default=None, metavar="file",
@@ -150,6 +155,9 @@ def parse_arguments():
     inp.add_argument("--spc", dest="spc", type=str, default=None, metavar="suffix",
                      help="Single-point correction suffix: reads energy from FILE_SPC.ext "
                           "(e.g. --spc TZ reads from FILE_TZ.log)")
+    inp.add_argument("--strict-spc", dest="strict_spc", action="store_true", default=False,
+                     help="With --spc, stop with an error when a single-point energy is missing or "
+                          "unparseable instead of warning and using the frequency-level energy")
     inp.add_argument("--import", dest="import_path", default=None, type=str, metavar="PATH",
                      help="Read pre-parsed data from a v1.0 JSON file (or a legacy "
                           "--cache-save envelope) instead of re-parsing the input "
@@ -180,6 +188,11 @@ def parse_arguments():
                      help="Save a per-species ΔG strip plot to PATH (PNG/PDF/SVG by "
                           "extension). Requires --label or --selectivity to define "
                           "buckets; matplotlib via `pip install goodvibes[plot]`.")
+    out.add_argument("--pes-plot-quantity", "--gtype", dest="pes_plot_quantity", default="qh_gibbs",
+                     metavar="QUANTITY",
+                     help="Quantity drawn by --pes-plot: qh_gibbs (default), gibbs, enthalpy, qh_enthalpy, "
+                          "electronic (E), e_zpe (E+ZPE), zpe, entropy, qh_entropy or spc. "
+                          "--gtype is the historical spelling of this option.")
     out.add_argument("--pes-plot", dest="pes_plot_path", default=None, metavar="PATH",
                      help="Save a clean reaction-profile diagram to PATH (PNG/PDF/SVG "
                           "by extension). Requires --pes; uses goodvibes.plot.plot_pes "
@@ -205,6 +218,13 @@ def parse_arguments():
                            "available CPU cores.")
     # Parse Arguments
     (options, args) = parser.parse_known_args()
+
+    # Validate the plotted quantity up front so a typo fails before any parsing.
+    from .quantities import resolve_quantity
+    try:
+        options.pes_plot_quantity = resolve_quantity(options.pes_plot_quantity).id
+    except ValueError as exc:
+        parser.error(f"--pes-plot-quantity: {exc}")
 
     # Retired options: fail loudly rather than let parse_known_args drop them,
     # so a script cannot appear to apply a setting that no longer exists.
@@ -433,8 +453,32 @@ def _calc_bbe_worker(args):
         spc=opts['spc'], invert=opts['invert'],
         symm=opts['symm'],
         inertia=opts['inertia'],
+        strict_spc=opts.get('strict_spc', False),
     )
     return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
+
+
+def _thermo_data_by_temperature(files, options, thermo_data, temperatures, qcdata_cache=None):
+    """{T: thermo_data recomputed at T} for a --ti scan.
+
+    Reuses the QCData each calc_bbe kept from its own parse so the files
+    are not read again; the base temperature's dict is reused as is.
+    """
+    import copy
+    cache = dict(qcdata_cache or {})
+    for file, bbe in thermo_data.items():
+        qc = getattr(bbe, 'qcdata', None)
+        if qc is not None:
+            cache.setdefault(os.path.splitext(os.path.basename(file))[0], qc)
+    by_T = {}
+    for T in temperatures:
+        if T == options.temperature:
+            by_T[T] = thermo_data
+            continue
+        opts_T = copy.copy(options)
+        opts_T.temperature = T
+        by_T[T] = compute_thermochem(files, opts_T, qcdata_cache=cache)
+    return by_T
 
 
 def compute_thermochem(files, options, qcdata_cache=None):
@@ -468,6 +512,7 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'spc': options.spc, 'invert': options.invert,
         'symm': options.symm,
         'inertia': options.inertia,
+        'strict_spc': getattr(options, 'strict_spc', False),
     }
     default_conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
     per_file_args = []
@@ -632,7 +677,14 @@ def main():
     validate_and_configure(options, solvation_model)
 
     # Compute thermochemistry for all files
-    thermo_data = compute_thermochem(files, options, qcdata_cache=qcdata_cache)
+    try:
+        thermo_data = compute_thermochem(files, options, qcdata_cache=qcdata_cache)
+    except MissingSinglePointError as exc:
+        fatal(f"\n   ✗ FATAL ERROR (--strict-spc): {exc}\n")
+    for file, bbe in thermo_data.items():
+        if getattr(bbe, 'spc_reason', None):
+            log.info(f"\n   ✗ Warning: {display_name(file)}: {bbe.spc_reason}; H and G use the "
+                     "frequency-level energy (use --strict-spc to make this an error)")
 
     # Media concentration for display in output (the per-file conc override is handled in compute_thermochem)
     media_conc = None
@@ -654,10 +706,29 @@ def main():
     if options.sort:
         thermo_data = sort_thermo(thermo_data, options.sort)
 
+    if options.ee is not None:
+        log.info("\n   ! --ee is deprecated and will be removed in v6.0; use --label NAME=PATTERN "
+                 "(repeatable) or --selectivity FILE.yaml instead.")
+
+    # Species grouping for --label / --selectivity; resolved before dedup so
+    # duplicate detection can be scoped within each species.
+    files_per_label = None
+    if label_patterns is not None:
+        files_per_label = assign_files_to_labels(list(thermo_data), label_patterns)
+    elif label_files is not None:
+        files_per_label = label_files
+
     # Deduplicate structures if requested (needed for both standard and PES output)
-    dup_list = deduplicate(thermo_data, e_cutoff=options.e_cutoff,
-                           ro_cutoff=options.ro_cutoff,
-                           rmsd_cutoff=options.rmsd_cutoff) if options.duplicate else []
+    dup_list = []
+    if options.duplicate:
+        groups = None
+        if files_per_label is not None and not options.dedup_global:
+            groups = files_per_label
+            log.info("\n   Duplicate detection is scoped within each labelled species "
+                     "(use --dedup-global to compare across species)")
+        dup_list = deduplicate(thermo_data, e_cutoff=options.e_cutoff,
+                               ro_cutoff=options.ro_cutoff,
+                               rmsd_cutoff=options.rmsd_cutoff, groups=groups)
 
     # Compute Boltzmann factors once (used by --boltz display and --ee selectivity)
     boltz_facs = None
@@ -671,11 +742,7 @@ def main():
     # conformers in each species, and lowest-conformer-only.
     selectivity_results = None
     selectivity_lowest_results = None
-    if label_patterns is not None or label_files is not None:
-        if label_patterns is not None:
-            files_per_label = assign_files_to_labels(list(thermo_data), label_patterns)
-        else:
-            files_per_label = label_files
+    if files_per_label is not None:
         sel_key = options.boltz if options.boltz else 'gibbs'
         try:
             if options.temperature_interval is None:
@@ -686,17 +753,19 @@ def main():
                     thermo_data, files_per_label, options.temperature,
                     dup_list=dup_list, key=sel_key)]
             else:
-                # Mirror print_temperature_interval's parsing of --ti.
-                ti = [float(x) for x in options.temperature_interval.split(',')]
-                if len(ti) == 2:
-                    ti.append((ti[1] - ti[0]) / 10.0)
-                temps = list(range(int(ti[0]), int(ti[1]) + 1, int(ti[2])))
+                # Free energies depend on T: recompute the thermochemistry at
+                # every temperature of the scan (from the already-parsed
+                # QCData, so nothing is re-read) instead of reusing the
+                # base-temperature G and only changing RT in the exponent.
+                temps = parse_temperature_interval(options.temperature_interval)
+                thermo_by_T = _thermo_data_by_temperature(files, options, thermo_data, temps,
+                                                          qcdata_cache=qcdata_cache)
                 selectivity_results = compute_selectivity_scan(
                     thermo_data, files_per_label, temps,
-                    dup_list=dup_list, key=sel_key)
+                    dup_list=dup_list, key=sel_key, thermo_by_temperature=thermo_by_T)
                 selectivity_lowest_results = compute_selectivity_lowest_only_scan(
                     thermo_data, files_per_label, temps,
-                    dup_list=dup_list, key=sel_key)
+                    dup_list=dup_list, key=sel_key, thermo_by_temperature=thermo_by_T)
         except ValueError as exc:
             fatal(f"\n   ✗ FATAL ERROR: {exc}")
 
@@ -719,6 +788,15 @@ def main():
     # any of those consumers read the model. T-interval mode still flows
     # through the legacy print_pes_results below.
     pes_result = None
+    if options.pes:
+        from .pes_loader import is_legacy_format
+        try:
+            legacy_pes = is_legacy_format(open(options.pes, encoding='utf-8', errors='replace').read())
+        except OSError as exc:
+            fatal(f"\n   ✗ FATAL ERROR: cannot read --pes file {options.pes}: {exc}")
+        if legacy_pes:
+            log.info(f"\n   ! {options.pes} uses the legacy '--- # PES' text format, which is deprecated "
+                     "and will be removed in v6.0; see the PES section of the documentation for the YAML form.")
     if options.pes and options.temperature_interval is None:
         from .pes_loader import load_pes
         pes_result = load_pes(options.pes, thermo_data,
@@ -788,7 +866,7 @@ def main():
             from .plot import plot_pes
         except ImportError as exc:
             fatal(str(exc))
-        ax = plot_pes(pes_result)
+        ax = plot_pes(pes_result, quantity=options.pes_plot_quantity)
         ax.figure.savefig(options.pes_plot_path, dpi=200, bbox_inches="tight")
         log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}\n")
 

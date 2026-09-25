@@ -19,9 +19,7 @@ from .pes_loader import load_pes
 log = logging.getLogger('goodvibes')
 
 # PHYSICAL CONSTANTS                                      UNITS
-GAS_CONSTANT = 8.3144621                                 # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0                    # UNIT CONVERSION
-KCAL_TO_AU = 627.509541                                  # UNIT CONVERSION
+from .constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU, hartree_factor  # noqa: F401
 
 
 class get_pes:
@@ -191,10 +189,7 @@ def graph_reaction_profile(graph_data, options, plt):
         for j, e_abs in enumerate(graph_data.e_abs[i]):
             species = graph_data.qhg_abs[i][j]
             relative = species - zero_val
-            if graph_data.units == 'kJ/mol':
-                formatted_g = J_TO_AU / 1000.0 * relative
-            else:
-                formatted_g = KCAL_TO_AU * relative  # Defaults to kcal/mol
+            formatted_g = hartree_factor(graph_data.units) * relative
             g_data.append(formatted_g)
         data[path] = g_data
 

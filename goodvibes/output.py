@@ -6,13 +6,14 @@ import os.path
 import sys
 from datetime import datetime, timedelta, timezone
 
-from .utils import display_name, get_console_stdout, get_console_dat
+from .utils import display_name, get_console_stdout, get_console_dat, parse_temperature_interval
 from .selectivity import get_selectivity
-from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__
+from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__, hartree_factor
+from .quantities import QUANTITIES
 from .io import qcdata_to_dict
 
 from .pes import get_pes
-from .thermo import calc_bbe
+from .thermo import calc_bbe, ThermoOptions
 from .media import solvents
 
 
@@ -105,7 +106,7 @@ def _format_ratio(populations, labels, scale=100):
 
 def _print_selectivity_single(result, method=""):
     """Per-species table + summary footer for a single SelectivityResult."""
-    HA_TO_KCAL = 627.509541
+    HA_TO_KCAL = KCAL_TO_AU
     suffix = f", {method}" if method else ""
     log.info(f"\n   Selectivity{suffix} ({result.key}, T = {result.temperature:.2f} K)")
 
@@ -128,7 +129,7 @@ def _print_selectivity_single(result, method=""):
     # ΔΔG = -RT ln(p / p_max); the major species is 0 by construction,
     # others are positive (less stable). Skip when p == 0 (printed as "—").
     ref_pop = max(result.populations.values())
-    rt_kcal = 8.3144621 * result.temperature / 1000.0 / 4.184  # kcal/mol
+    rt_kcal = GAS_CONSTANT * result.temperature / J_TO_AU * KCAL_TO_AU  # kcal/mol
     for label in result.labels:
         p = result.populations[label]
         n_files = len(result.files_per_label.get(label, []))
@@ -159,7 +160,7 @@ def _print_selectivity_single(result, method=""):
 
 def _print_selectivity_scan(results, method=""):
     """One row per temperature: excess/ΔΔG for N=2, populations only for N>2."""
-    HA_TO_KCAL = 627.509541
+    HA_TO_KCAL = KCAL_TO_AU
     labels = results[0].labels
     n = len(labels)
     suffix = f", {method}" if method else ""
@@ -224,8 +225,14 @@ def _selectivity_to_json(selectivity_results):
     }
 
 
+# Keys of the JSON ``relative`` block, in the order written since payload 1.0.
+# e_zpe joins at payload 1.1 (additive) together with a schema bump.
+_PES_JSON_QUANTITIES = ("electronic", "zpe", "enthalpy", "qh_enthalpy",
+                        "entropy", "qh_entropy", "gibbs", "qh_gibbs", "spc")
+
+
 def _pes_to_json(result, temperature):
-    """Serialize a PESResult into the v0.4 JSON `pes` block.
+    """Serialize a PESResult into the JSON `pes` block (payload schema 1.0).
 
     Per-pathway, per-point: the original label, the species breakdown
     (with coefficient and resolved files), and the relative thermo bundle
@@ -255,15 +262,10 @@ def _pes_to_json(result, temperature):
                     for coeff, cset in point.species
                 ],
                 'relative': {
-                    'scf': rel.scf_energy * units_factor,
-                    'zpe': rel.zpe * units_factor,
-                    'h': rel.enthalpy * units_factor,
-                    'qh_h': rel.qh_enthalpy * units_factor,
-                    'ts': temperature * rel.entropy * units_factor,
-                    'qh_ts': temperature * rel.qh_entropy * units_factor,
-                    'g': rel.gibbs * units_factor,
-                    'qh_g': rel.qh_gibbs * units_factor,
-                    'spc': (rel.sp_energy * units_factor) if rel.sp_energy is not None else None,
+                    QUANTITIES[qid].json_key: (
+                        rel.get(qid, temperature) * units_factor
+                        if rel.get(qid, temperature) is not None else None)
+                    for qid in _PES_JSON_QUANTITIES
                 },
             })
         pathways_out.append({
@@ -392,33 +394,29 @@ def _print_rich_table(table: "Table") -> None:
 # PES tables (v4.2 Rich renderer; see Sub-plan B in ROADMAP.md)
 # ---------------------------------------------------------------------------
 
-def _pes_column_spec(spc_used: bool, QH: bool):
-    """Column headers + which ThermoVector field each one reads.
+# Quantities shown in the PES table, in order. e_zpe is deliberately not a
+# column yet: adding one changes the .dat layout pinned by the compatibility
+# goldens, so it waits for the next major output revision.
+_PES_TABLE_QUANTITIES = ("spc", "electronic", "zpe", "enthalpy", "qh_enthalpy",
+                         "entropy", "qh_entropy", "gibbs", "qh_gibbs")
 
-    Returns a list of (header, field, scale_by_T) tuples.  `field` is the
-    attribute on a ThermoVector; `scale_by_T` indicates the column is T·S
-    rather than raw S/H/G (i.e. needs an extra multiplication at render).
-    Without --spc the energy/H/G columns use their plain names; with
-    --spc, H and G are SPC-substituted in calc_bbe so the labels are
-    annotated `_SPC` to signal that to the reader (the values themselves
-    are taken from the same fields).
+
+def _pes_column_spec(spc_used: bool, QH: bool):
+    """Column headers + which registry quantity each one reads.
+
+    Returns a list of (header, quantity_id) tuples drawn from
+    goodvibes.quantities. The ΔE_SPC column appears only with --spc; the
+    Δqh-H column only with -q/--qh. With --spc, H and G are SPC-substituted
+    in calc_bbe, so those headers carry an _SPC suffix.
     """
     cols = []
-    if spc_used:
-        cols.append(("ΔE_SPC", "sp_energy", False))
-    cols.append(("ΔE", "scf_energy", False))
-    cols.append(("ΔZPE", "zpe", False))
-    h_label = "ΔH_SPC" if spc_used else "ΔH"
-    cols.append((h_label, "enthalpy", False))
-    if QH:
-        qh_h_label = "Δqh-H_SPC" if spc_used else "Δqh-H"
-        cols.append((qh_h_label, "qh_enthalpy", False))
-    cols.append(("T·ΔS", "entropy", True))
-    cols.append(("T·Δqh-S", "qh_entropy", True))
-    g_label = "ΔG(T)_SPC" if spc_used else "ΔG(T)"
-    cols.append((g_label, "gibbs", False))
-    qhg_label = "Δqh-G(T)_SPC" if spc_used else "Δqh-G(T)"
-    cols.append((qhg_label, "qh_gibbs", False))
+    for qid in _PES_TABLE_QUANTITIES:
+        if qid == "spc" and not spc_used:
+            continue
+        if qid == "qh_enthalpy" and not QH:
+            continue
+        q = QUANTITIES[qid]
+        cols.append((q.spc_label(spc_used), q.id))
     return cols
 
 
@@ -443,7 +441,7 @@ def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
     table = Table(title=title, box=rich_box.SIMPLE, header_style="bold")
     table.add_column("", justify="left", no_wrap=True)        # leading marker (matches selectivity tables)
     table.add_column("Species", justify="left", no_wrap=True)
-    for header, _, _ in cols:
+    for header, _ in cols:
         table.add_column(header, justify="right")
 
     units_factor = pes_options.to_user_units(1.0)
@@ -458,13 +456,11 @@ def _build_pes_table(pathway, options, temperature, pes_options) -> "Table":
         pt_th = point.thermo(temperature, **rollup_kw)
         rel = pt_th - zero_th
         row = ["", point.label]
-        for _header, field, scale_by_T in cols:
-            value = getattr(rel, field)
+        for _header, qid in cols:
+            value = rel.get(qid, temperature)
             if value is None:
                 row.append("—")
                 continue
-            if scale_by_T:
-                value = temperature * value
             row.append(fmt.format(value * units_factor))
         table.add_row(*row)
     return table
@@ -778,7 +774,7 @@ def print_results(thermo_data, options, media_conc=None,
                 else:
                     row.append("")
             if min_qhg is not None:
-                grel = (bbe.qh_gibbs_free_energy - min_qhg) * 627.509541
+                grel = (bbe.qh_gibbs_free_energy - min_qhg) * KCAL_TO_AU
                 row.append(f"{grel:.3f}")
 
             table.add_row(*row)
@@ -807,7 +803,7 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
     Returns:
         tuple: (interval_bbe_data, interval, file_list)
             - interval_bbe_data (list[list]): Outer list indexed by file; each inner list contains the recomputed thermochemistry objects (one per temperature).
-            - interval (range): Python range object describing the temperatures iterated.
+            - interval (list[float]): the temperatures iterated (see utils.parse_temperature_interval).
             - file_list (list): List of file paths in the order processed.
     """
     files = list(thermo_data)
@@ -830,8 +826,7 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
     # If no temperature step was defined, divide the region into 10
     if len(temperature_interval) == 2:
         temperature_interval.append((temperature_interval[1] - temperature_interval[0]) / 10.0)
-    interval = range(int(temperature_interval[0]), int(temperature_interval[1] + 1),
-                     int(temperature_interval[2]))
+    interval = parse_temperature_interval(options.temperature_interval)
     log.info("\n   T init:  %.1f,  T final:  %.1f,  T interval: %.1f" % (
         temperature_interval[0], temperature_interval[1], temperature_interval[2]))
     if options.QH:
@@ -865,9 +860,21 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
             if qcdata_cache is not None:
                 key = os.path.splitext(os.path.basename(file))[0]
                 cached_qcdata = qcdata_cache.get(key)
-            bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
-                           conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                           inertia=options.inertia, qcdata=cached_qcdata)
+            # Same options as the single-temperature table (ZPE scale factor,
+            # --symm, ...), so the row at the base temperature agrees with it;
+            # the legacy positional constructor used here dropped both.
+            thermo_options = ThermoOptions(
+                QS=options.QS, QH=options.QH,
+                s_freq_cutoff=options.S_freq_cutoff, h_freq_cutoff=options.H_freq_cutoff,
+                temperature=temp, concentration=conc,
+                freq_scale_factor=options.freq_scale_factor,
+                zpe_scale_factor=getattr(options, 'zpe_scale_factor', None),
+                solv=options.freespace, spc=options.spc, invert=options.invert,
+                symm=getattr(options, 'symm', False), inertia=options.inertia,
+                strict_spc=getattr(options, 'strict_spc', False),
+            )
+            bbe = calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file,
+                                        thermo_options)
             interval_bbe_data[h].append(bbe)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
@@ -1017,10 +1024,7 @@ def print_pes_results(thermo_data, options, dup_list,
                                        temp * pes.s_abs[k][m], temp * pes.qs_abs[k][m], pes.g_abs[k][m],
                                        pes.qhg_abs[k][m]]
                         relative = [s - z for s, z in zip(species, zero_vals)]
-                        if pes.units == 'kJ/mol':
-                            formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
-                        else:
-                            formatted_list = [KCAL_TO_AU * x for x in relative]  # Defaults to kcal/mol
+                        formatted_list = [hartree_factor(pes.units) * x for x in relative]
                         log.info("\no  ")
                         if options.spc is None:
                             formatted_list = formatted_list[1:]
@@ -1130,10 +1134,7 @@ def print_pes_results(thermo_data, options, dup_list,
                                options.temperature * pes.s_abs[i][j], options.temperature * pes.qs_abs[i][j],
                                pes.g_abs[i][j], pes.qhg_abs[i][j]]
                 relative = [s - z for s, z in zip(species, zero_vals)]
-                if pes.units == 'kJ/mol':
-                    formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
-                else:
-                    formatted_list = [KCAL_TO_AU * x for x in relative]  # Defaults to kcal/mol
+                formatted_list = [hartree_factor(pes.units) * x for x in relative]
                 log.info("\no  ")
                 if options.spc is None:
                     formatted_list = formatted_list[1:]

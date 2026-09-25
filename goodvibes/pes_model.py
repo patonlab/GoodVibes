@@ -20,9 +20,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple
 
-GAS_CONSTANT = 8.3144621            # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0
-KCAL_TO_AU = 627.509541
+from .constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU, hartree_factor  # noqa: F401  (re-exported for callers)
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +91,28 @@ class ThermoVector:
         )
 
     __rmul__ = __mul__
+
+    def get(self, quantity, T: Optional[float] = None) -> Optional[float]:
+        """Value of a registry quantity in Hartree (see goodvibes.quantities).
+
+        Entropy quantities are returned as T·S and therefore need ``T``.
+        ``e_zpe`` is (sp_energy if present else scf_energy) + zpe, matching
+        the table convention that H and G are SPC-substituted when --spc
+        is used. Returns None where the underlying value is None (no SPC).
+        """
+        from .quantities import resolve_quantity
+        q = resolve_quantity(quantity)
+        if q.id == "e_zpe":
+            base = self.sp_energy if self.sp_energy is not None else self.scf_energy
+            return base + self.zpe
+        value = getattr(self, q.field)
+        if value is None:
+            return None
+        if q.scale_by_T:
+            if T is None:
+                raise ValueError(f"quantity {q.id!r} is T·S; a temperature is required")
+            return T * value
+        return value
 
     @classmethod
     def zero(cls, with_sp: bool = False) -> "ThermoVector":
@@ -357,7 +377,7 @@ class Pathway:
 
 @dataclass
 class PESOptions:
-    units: str = "kcal/mol"          # 'kcal/mol' or 'kJ/mol'
+    units: str = "kcal/mol"          # any of constants.SUPPORTED_UNITS ('kcal/mol', 'kJ/mol', 'eV', 'hartree')
     decimals: int = 2
     gconf: bool = True
     QH: bool = True
@@ -367,9 +387,7 @@ class PESOptions:
     def to_user_units(self, hartree: Optional[float]) -> Optional[float]:
         if hartree is None:
             return None
-        if self.units == "kJ/mol":
-            return J_TO_AU / 1000.0 * hartree
-        return KCAL_TO_AU * hartree   # default kcal/mol
+        return hartree_factor(self.units) * hartree
 
 
 @dataclass

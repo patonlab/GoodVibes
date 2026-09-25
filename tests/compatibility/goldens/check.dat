@@ -1,0 +1,50 @@
+      ________   ________   ________    _______   ________   ________   ________   ________   ________ 
+     ╱        ╲ ╱        ╲ ╱        ╲ _╱       ╲ ╱    ╱   ╲ ╱        ╲ ╱       ╱  ╱        ╲ ╱        ╲
+    ╱   G   __╱╱    O    ╱╱    O    ╱╱    D    ╱╱    V    ╱_╱   I   ╱ ╱    B   ╲ ╱    E    ╱╱    S   _╱
+   ╱       ╱ ╱╱         ╱╱         ╱╱         ╱ ╲        ╱╱         ╱╱         ╱╱        _╱╱- v<VERSION> ╱ 
+   ╲________╱ ╲________╱ ╲________╱ ╲________╱   ╲______╱ ╲________╱ ╲________╱ ╲________╱ ╲________╱
+
+   Citation: Luchini, G.; Alegre-Requena, J. V.; Funes-Ardoiz, I.; Paton, R. S. F1000Research, 2020, 9, 291.
+   DOI: 10.12688/f1000research.22758.1
+o  Requested: goodvibes <ROOT>/tests/g16/01a_water_hf_freq.log <ROOT>/tests/g16/02_ethane_opt_freq_T398_P2.log <ROOT>/tests/g16/30_phenol_smd_thf_pbe0_d3bj.log --check --output check   Temperature = 298.15 Kelvin   Pressure = 1 atm
+
+   Caution! Multiple levels of theory found: 
+   ✔ HF/6-31G(d): <ROOT>/tests/g16/01a_water_hf_freq.log
+   ✔ B3LYP/6-311+G(d,p): <ROOT>/tests/g16/02_ethane_opt_freq_T398_P2.log
+   ✔ PBE1PBE/6-311+G(d,p): <ROOT>/tests/g16/30_phenol_smd_thf_pbe0_d3bj.log
+   Caution! Implicit solvation (SMD/CPCM) detected. Enthalpic and entropic terms cannot be safely separated. Use them at your own risk!
+
+   ✔ Using mRRHO entropies with a frequency cut-off value (tau) of 100.0 cm-1
+     Grimme, S. Chem. Eur. J. 2012, 18, 9955-9964
+   ✔ Point group symmetry parsed directly from outputs - caution if not provided or incorrect! Use --symm to auto-detect with pymsym
+
+      Structure                               E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+o     01a_water_hf_freq              -76.010511   0.022391    -75.984342   0.021409   0.021409    -76.005752    -76.005752
+o     02_ethane_opt_freq_T398_P2     -79.856544   0.074312    -79.777802   0.025856   0.025858    -79.803658    -79.803660
+o     30_phenol_smd_thf_pbe0_d3bj   -307.215294   0.105021   -307.103825   0.035420   0.035427   -307.139246   -307.139253
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+   Checks for thermochemistry calculations (frequency calculations):
+   ********************************************************************************************************************************
+o  Using Gaussian 16 Revision C.01 in all calculations.
+
+   Caution! Multiple levels of theory found: 
+   ✔ HF/6-31G(d): <ROOT>/tests/g16/01a_water_hf_freq.log
+   ✔ B3LYP/6-311+G(d,p): <ROOT>/tests/g16/02_ethane_opt_freq_T398_P2.log
+   ✔ PBE1PBE/6-311+G(d,p): <ROOT>/tests/g16/30_phenol_smd_thf_pbe0_d3bj.log
+
+   Caution! Multiple solvation models found: 
+   ✔ gas phase: <ROOT>/tests/g16/01a_water_hf_freq.log, <ROOT>/tests/g16/02_ethane_opt_freq_T398_P2.log
+   ✔ scrf=(smd,solvent=thf): <ROOT>/tests/g16/30_phenol_smd_thf_pbe0_d3bj.log
+   x Caution! The right standard concentration cannot be determined because the calculations use a combination of gas and solvent phases.
+o  Using charge 0 and multiplicity 1 in all calculations.
+
+   Checking for duplicate structures. Applying: e_cutoff=0.05 kcal/mol, ro_cutoff=1.0%
+o  No duplicates or enantiomers found
+-  No linear molecules found.
+
+   Caution! Multiple dispersion models found: 
+   ✔ No empirical dispersion detected: <ROOT>/tests/g16/01a_water_hf_freq.log, <ROOT>/tests/g16/02_ethane_opt_freq_T398_P2.log
+   ✔ empiricaldispersion=(gd3bj): <ROOT>/tests/g16/30_phenol_smd_thf_pbe0_d3bj.log
+   ********************************************************************************************************************************

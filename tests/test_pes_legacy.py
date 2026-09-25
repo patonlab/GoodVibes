@@ -97,7 +97,7 @@ def test_parse_format_extras_preserved():
 
 
 def test_parse_format_invalid_units_raises():
-    text = MINIMAL + "\n--- # FORMAT\n    units: hartree\n"
+    text = MINIMAL + "\n--- # FORMAT\n    units: cal/mol\n"
     with pytest.raises(ValueError, match="kcal/mol"):
         parse_legacy(text)
 

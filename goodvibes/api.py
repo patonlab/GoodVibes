@@ -74,6 +74,11 @@ class ThermoResult:
     bbe: Any
     qcdata: Any
 
+    # True when a requested single-point correction was actually added to
+    # H and G; False when none was requested or (with a RuntimeWarning /
+    # MissingSinglePointError) when it could not be applied.
+    spc_applied: bool = False
+
     @property
     def has_thermo(self) -> bool:
         """True when calc_bbe found enough information to compute G(T).
@@ -98,6 +103,7 @@ def compute_thermo(
     invert: Optional[float] = None,
     symm: bool = False,
     inertia: str = "global",
+    strict_spc: bool = False,
 ) -> ThermoResult:
     """Compute thermochemistry for one QC output file.
 
@@ -123,6 +129,10 @@ def compute_thermo(
         spc                None, 'link', or filename suffix for SPC files
         invert             None, or threshold for converting small imag → real
         symm               apply pymsym symmetry-number correction
+        strict_spc         raise MissingSinglePointError when `spc` is set but
+                           the single-point energy is missing or unparseable
+                           (default: RuntimeWarning and the frequency-level
+                           energy is used)
     """
     if path is None and qcdata is None:
         raise ValueError("compute_thermo requires either `path` or `qcdata`")
@@ -136,7 +146,7 @@ def compute_thermo(
         freq_scale_factor=freq_scale_factor,
         zpe_scale_factor=zpe_scale_factor,
         solv=solv, spc=spc, invert=invert,
-        symm=symm, inertia=inertia,
+        symm=symm, inertia=inertia, strict_spc=strict_spc,
     )
     # from_options does the Truhlar-DB auto-lookup when freq/zpe scale
     # factors are None; we just need the level-of-theory string for the
@@ -265,8 +275,10 @@ def bbe_to_result(
         except (IOError, OSError):
             pass
 
+    # calc_bbe carries sentinels ('!' for a missing SPC file, a parser's
+    # 'none' for an unparseable one); the result surface reports None.
     sp = getattr(bbe, "sp_energy", None)
-    if sp == "!":
+    if not isinstance(sp, (int, float)):
         sp = None
 
     # calc_bbe leaves qh_enthalpy at 0.0 when CLI --QH is False; surface
@@ -298,6 +310,7 @@ def bbe_to_result(
         multiplicity=getattr(qc, "multiplicity", None) if qc else None,
         job_type=getattr(qc, "job_type", None) if qc else None,
         level_of_theory=level_of_theory,
+        spc_applied=bool(getattr(bbe, "spc_applied", False)),
         program=getattr(qc, "program", None) if qc else None,
         bbe=bbe,
         qcdata=qc,

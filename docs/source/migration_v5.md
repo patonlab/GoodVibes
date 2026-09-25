@@ -1,8 +1,11 @@
-# Migrating from v4.x to v5.0
+# Migrating to the v5-generation API
 
-GoodVibes v5.0 cleans up the programmatic surface that started landing
-in v4.2. The CLI and `.dat` output are unchanged — if you only use
-`goodvibes` from the shell, **no migration is needed**. This page is
+The programmatic surface described here (`ThermoOptions`,
+`calc_bbe.from_options`, `compute_thermo`, the schema 1.0 payload,
+`--export`/`--import`, `--parquet`) shipped incrementally in releases
+4.2 to 4.4; "v5" is the name of the API generation, not a release you
+have to wait for. The CLI and `.dat` output are unchanged — if you only
+use `goodvibes` from the shell, **no migration is needed**. This page is
 for users embedding GoodVibes in scripts, notebooks, or libraries.
 
 ## TL;DR
@@ -13,8 +16,10 @@ for users embedding GoodVibes in scripts, notebooks, or libraries.
 | Same, but you need the underlying `calc_bbe` instance | `calc_bbe.from_options(file_or_qcdata, ThermoOptions(...))` |
 | 15 positional args | One `ThermoOptions` dataclass |
 
-The legacy `calc_bbe(file, QS, QH, ...)` constructor still works in
-v5.0 but emits a `DeprecationWarning`. It will be removed in v6.0.
+The legacy `calc_bbe(file, QS, QH, ...)` constructor still works but
+emits a `DeprecationWarning`. It will be removed in v6.0, together with
+every other surface deprecated in 4.x (`--ee`, `--cache-save`/`--cache-read`,
+the legacy `--- # PES` text format, `--graph`).
 
 ## The high-level path: `compute_thermo`
 
@@ -129,7 +134,7 @@ print(r.level_of_theory)   # 'B3LYP/6-31G(d)' or None if unrecognised
 print(r.program)           # 'Gaussian', 'Orca', ...
 ```
 
-## CLI changes in v5.0
+## CLI changes (4.3 and later)
 
 Most flags are unchanged. Two cache flags are renamed:
 
@@ -206,15 +211,15 @@ results = compute_batch(glob.glob("*.log"))
 to_parquet(results, "thermo.parquet")
 ```
 
-## What's NOT changing in v5.0
+## What's NOT changing
 
 - Most CLI flags (`--vscal`, `--zpe-vscal`, `--csv`, `--jobs`,
   `--label`, `--selectivity`, etc.).
 - The `.dat` output format — back-compat goldens in
-  `tests/compatibility/` will guard the existing format.
+  `tests/compatibility/` (added in 4.5) guard the existing format; any
+  deliberate change is listed in `CHANGELOG.md`.
 - `pes.get_pes` and its parallel-list attributes (still works as a
-  back-compat shim around the v4.2 PES model; will be removed in v5.1
-  with a one-cycle deprecation window).
+  back-compat shim around the v4.2 PES model; will be removed in v6.0).
 
 ## When to actually migrate
 

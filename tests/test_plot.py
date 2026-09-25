@@ -119,7 +119,7 @@ def test_strip_plot_kj_mol_units_scales_y_label():
 def test_strip_plot_invalid_units_raises():
     sel = _stub_selectivity()
     with pytest.raises(ValueError, match="kcal/mol"):
-        gv_plot.plot_selectivity_strip(sel, _thermo_dict(), units="hartree")
+        gv_plot.plot_selectivity_strip(sel, _thermo_dict(), units="cal/mol")
 
 
 def test_strip_plot_callable_lookup():
@@ -209,10 +209,57 @@ def test_pes_plot_xticks_match_point_labels():
     plt.close(ax.figure)
 
 
-def test_pes_plot_show_conformers_requires_lookup():
+def _two_species_point_pes_result():
+    """Point 'A + B' where A has two conformers and B is a single species.
+
+    Regression fixture: the old show_conformers maths subtracted the
+    *point* zero from each conformer's absolute qh-G, so for a multi-species
+    point the dots were displaced by the other species' absolute energy.
+    """
+    from types import SimpleNamespace
+    from goodvibes.pes_loader import PESSpec, build_pes_result
+    from goodvibes.pes_model import PESOptions
+
+    def stub(g):
+        return SimpleNamespace(
+            scf_energy=g - 0.001, zpe=0.005, enthalpy=g + 0.005, qh_enthalpy=g + 0.005,
+            entropy=1.6e-5, qh_entropy=1.6e-5, gibbs_free_energy=g, qh_gibbs_free_energy=g,
+            sp_energy=None,
+        )
+    td = {"a1.log": stub(-100.000), "a2.log": stub(-99.998), "b.log": stub(-50.0), "c.log": stub(-149.990)}
+    spec = PESSpec(pathways={"rxn": ["A + B", "C"]},
+                   species={"A": ["a1", "a2"], "B": "b", "C": "c"},
+                   options=PESOptions(units="kcal/mol", decimals=2, gconf=True, QH=False))
+    return build_pes_result(spec, td, temperatures=[298.15])
+
+
+def test_pes_plot_show_conformers_no_longer_needs_lookup():
     result = _two_point_pes_result()
-    with pytest.raises(ValueError, match="thermo_lookup"):
-        gv_plot.plot_pes(result, show_conformers=True)
+    ax = gv_plot.plot_pes(result, show_conformers=True)   # single conformers: no dots, no error
+    assert ax is not None
+    with pytest.warns(DeprecationWarning, match="thermo_lookup"):
+        gv_plot.plot_pes(_two_point_pes_result(), show_conformers=True, thermo_lookup={})
+
+
+def test_pes_plot_show_conformers_dots_sit_around_the_level():
+    from goodvibes.constants import KCAL_TO_AU
+    from goodvibes.pes_model import _bbe_to_vector
+    result = _two_species_point_pes_result()
+    T = result.temperatures[0]
+    ax = gv_plot.plot_pes(result, show_conformers=True)
+    path = result.pathways[0]
+    kw = dict(gconf=True, QH=False, lowest_only=False)
+    rels = path.relative(T, **kw)
+    level_A_plus_B = rels[0].qh_gibbs * KCAL_TO_AU          # 0.0 by construction (zero = first point)
+    cset_A = path.points[0].species[0][1]
+    rollup_A = cset_A.gconf_corrected(T, QH=False).qh_gibbs
+    expected = sorted(level_A_plus_B + (_bbe_to_vector(b).qh_gibbs - rollup_A) * KCAL_TO_AU
+                      for b in cset_A.bbes)
+    from matplotlib.collections import PathCollection
+    dots = sorted(pc.get_offsets()[0][1] for pc in ax.collections if isinstance(pc, PathCollection))
+    assert dots == pytest.approx(expected, abs=1e-9)
+    # every dot is within a few kcal/mol of the level, never tens of thousands away
+    assert all(abs(d - level_A_plus_B) < 5.0 for d in dots)
 
 
 def test_pes_plot_y_label_uses_units():

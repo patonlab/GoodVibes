@@ -172,7 +172,7 @@ def test_molecular_mass_parsed():
 
 def test_job_type_ts():
     q = parse_qcdata(qchem_path('44_ts_sn2_identity_chloride.out'))
-    assert q.job_type == 'TS'
+    assert q.job_type == 'TSFreq'
 
 
 def test_job_type_sp_only():

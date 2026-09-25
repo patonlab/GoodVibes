@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Union
 
-from .constants import KCAL_TO_AU
+from .constants import canonical_units, hartree_factor
 
 
 def _import_matplotlib():
@@ -66,7 +66,7 @@ def plot_selectivity_strip(
             mapping (Hartree) or a callable that takes a path and
             returns the same. Used to read the per-conformer ΔG.
         ax: optional matplotlib Axes. New figure created if None.
-        units: 'kcal/mol' (default) or 'kJ/mol'.
+        units: 'kcal/mol' (default), 'kJ/mol', 'eV' or 'hartree'.
         title: figure title; auto-generated from the result's
             temperature and key when None.
         jitter: horizontal spread of conformer dots within each
@@ -80,14 +80,9 @@ def plot_selectivity_strip(
 
     plt = _import_matplotlib()
 
-    # Convert hartree → user units.
-    if units == "kJ/mol":
-        from .constants import J_TO_AU
-        scale = J_TO_AU / 1000.0
-    elif units == "kcal/mol":
-        scale = KCAL_TO_AU
-    else:
-        raise ValueError(f"units must be 'kcal/mol' or 'kJ/mol', got {units!r}")
+    # Convert hartree → user units (raises ValueError on an unknown unit).
+    units = canonical_units(units)
+    scale = hartree_factor(units)
 
     # Resolve thermo_lookup to a callable.
     if isinstance(thermo_lookup, Mapping):
@@ -146,6 +141,15 @@ def plot_selectivity_strip(
 # PES profile (clean rewrite consuming PESResult)
 # ---------------------------------------------------------------------------
 
+def _rollup_vector(cset, T, rollup_kw):
+    """The species-level ThermoVector Point.thermo uses for `cset`."""
+    if rollup_kw.get("lowest_only"):
+        return cset.lowest_conformer()
+    if rollup_kw.get("gconf", True):
+        return cset.gconf_corrected(T, QH=rollup_kw.get("QH", True))
+    return cset.boltzmann_weighted(T)
+
+
 def plot_pes(
     pes_result: Any,
     *,
@@ -157,6 +161,7 @@ def plot_pes(
     thermo_lookup: Optional[Union[Mapping[str, float], Callable[[str], float]]] = None,
     title: Optional[str] = None,
     label_points: bool = False,
+    quantity: str = "qh_gibbs",
 ):
     """Plot one or more pathways from a `PESResult` as a reaction profile.
 
@@ -180,18 +185,26 @@ def plot_pes(
         show_conformers: scatter individual conformer ΔG around each
             step (single-pathway only when used; for multi-pathway
             select one via `pathway_index=N`).
-        thermo_lookup: required when `show_conformers=True`; maps each
-            conformer file path → qh_gibbs_free_energy (Hartree).
+        thermo_lookup: deprecated and ignored (conformer values are read
+            from the PESResult); accepted for backwards compatibility.
         title: figure title; defaults to the pathway names + temperature.
-        label_points: annotate each point's ΔqhG value above its
-            horizontal bar.
+        label_points: annotate each point's value above its horizontal bar.
+        quantity: which relative quantity to draw, by registry id or alias
+            (see goodvibes.quantities): 'qh_gibbs' (default), 'gibbs',
+            'enthalpy', 'qh_enthalpy', 'electronic', 'e_zpe', 'zpe',
+            'entropy' / 'qh_entropy' (drawn as T·ΔS) or 'spc'. The y-label
+            follows the choice. This restores the --gtype capability of
+            the 2022 --graph plot (issue #57).
 
     Returns:
         The matplotlib Axes the profile(s) were drawn on.
     """
+    from .quantities import resolve_quantity
     plt = _import_matplotlib()
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
+
+    qty = resolve_quantity(quantity)
 
     if connector_style not in ("bezier", "linear"):
         raise ValueError(
@@ -261,7 +274,12 @@ def plot_pes(
     # connectors between consecutive levels.
     for path, color in zip(pathways, colors_resolved):
         rels = path.relative(T, **rollup_kw)
-        qhg = [r.qh_gibbs * units_factor for r in rels]
+        values = [r.get(qty.id, T) for r in rels]
+        if any(v is None for v in values):
+            raise ValueError(
+                f"plot_pes: quantity {qty.id!r} is not available for every point "
+                f"of pathway {path.name!r} (no single-point energy?)")
+        qhg = [v * units_factor for v in values]
 
         # Step bars at each level.
         for i in range(n_points):
@@ -300,33 +318,39 @@ def plot_pes(
 
     # Optional per-conformer scatter (single-pathway only — the spread
     # is per-pathway; for multi-pathway choose one via `pathway_index`).
+    # Each conformer is drawn at the point's level plus its offset from
+    # the species rollup in the plotted quantity, the same placement the
+    # legacy --graph plot uses, so dots for multi-species points sit
+    # around the drawn bar rather than tens of thousands of kcal/mol away.
     if show_conformers:
-        if thermo_lookup is None:
-            raise ValueError(
-                "plot_pes(show_conformers=True) requires thermo_lookup "
-                "(a {file: qh_g_in_Hartree} mapping or callable)."
-            )
+        if thermo_lookup is not None:
+            import warnings
+            warnings.warn(
+                "plot_pes: thermo_lookup is no longer needed for show_conformers "
+                "and is ignored; conformer values are read from the PESResult.",
+                DeprecationWarning, stacklevel=2)
         if len(pathways) > 1:
             raise ValueError(
                 "plot_pes(show_conformers=True) requires a single "
                 "pathway; pass `pathway_index=N` to pick one."
             )
+        from .pes_model import _bbe_to_vector
         path = pathways[0]
-        if isinstance(thermo_lookup, Mapping):
-            _lookup = thermo_lookup.__getitem__
-        else:
-            _lookup = thermo_lookup
-        zero_qhg = path.zero.thermo(T, **rollup_kw).qh_gibbs
+        levels = dict(zip(range(n_points), qhg))   # point index -> drawn level
         import random
         rng = random.Random(0)
         for i, point in enumerate(path.points):
             for _coeff, cset in point.species:
                 if cset.is_single:
                     continue
+                rollup = _rollup_vector(cset, T, rollup_kw).get(qty.id, T)
                 for bbe in cset.bbes:
-                    rel = (bbe.qh_gibbs_free_energy - zero_qhg) * units_factor
+                    conf = _bbe_to_vector(bbe).get(qty.id, T)
+                    if conf is None or rollup is None:
+                        continue
+                    y = levels[i] + (conf - rollup) * units_factor
                     x = xs[i] + (rng.random() - 0.5) * 0.3
-                    ax.scatter([x], [rel], alpha=0.4, s=18,
+                    ax.scatter([x], [y], alpha=0.4, s=18,
                                color="black", zorder=4)
 
     # x-axis: point labels from the first pathway (all share the same
@@ -334,7 +358,7 @@ def plot_pes(
     ax.set_xticks(xs)
     ax.set_xticklabels([p.label for p in pathways[0].points],
                        rotation=15, ha="right", fontsize="small")
-    ax.set_ylabel(rf"$G_{{rel}}$ ({pes_options.units})")
+    ax.set_ylabel(f"{qty.label} ({pes_options.units})")
     if title is None:
         names = ", ".join(p.name for p in pathways)
         title = f"{names}  (T = {T:g} K)"
