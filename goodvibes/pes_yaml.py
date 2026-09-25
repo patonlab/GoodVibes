@@ -29,6 +29,7 @@ from typing import Dict, List, Tuple, Union
 
 from .pes_legacy import _replace
 from .pes_loader import PESSpec
+from .constants import canonical_units
 from .pes_model import PESOptions
 
 
@@ -204,10 +205,10 @@ def _parse_format(raw) -> Tuple[PESOptions, Dict[str, str]]:
     for key, value in raw.items():
         key_lower = str(key).lower()
         if key_lower == "units":
-            if value not in ("kcal/mol", "kJ/mol"):
-                raise ValueError(
-                    f"format.units: expected 'kcal/mol' or 'kJ/mol', got {value!r}"
-                )
+            try:
+                value = canonical_units(value)
+            except ValueError as exc:
+                raise ValueError(f"format.units: {exc}") from None
             options = _replace(options, units=value)
         elif key_lower in ("decimals", "dec"):
             try:

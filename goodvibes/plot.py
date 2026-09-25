@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Union
 
-from .constants import KCAL_TO_AU
+from .constants import canonical_units, hartree_factor
 
 
 def _import_matplotlib():
@@ -66,7 +66,7 @@ def plot_selectivity_strip(
             mapping (Hartree) or a callable that takes a path and
             returns the same. Used to read the per-conformer ΔG.
         ax: optional matplotlib Axes. New figure created if None.
-        units: 'kcal/mol' (default) or 'kJ/mol'.
+        units: 'kcal/mol' (default), 'kJ/mol', 'eV' or 'hartree'.
         title: figure title; auto-generated from the result's
             temperature and key when None.
         jitter: horizontal spread of conformer dots within each
@@ -80,14 +80,9 @@ def plot_selectivity_strip(
 
     plt = _import_matplotlib()
 
-    # Convert hartree → user units.
-    if units == "kJ/mol":
-        from .constants import J_TO_AU
-        scale = J_TO_AU / 1000.0
-    elif units == "kcal/mol":
-        scale = KCAL_TO_AU
-    else:
-        raise ValueError(f"units must be 'kcal/mol' or 'kJ/mol', got {units!r}")
+    # Convert hartree → user units (raises ValueError on an unknown unit).
+    units = canonical_units(units)
+    scale = hartree_factor(units)
 
     # Resolve thermo_lookup to a callable.
     if isinstance(thermo_lookup, Mapping):

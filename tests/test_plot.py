@@ -119,7 +119,7 @@ def test_strip_plot_kj_mol_units_scales_y_label():
 def test_strip_plot_invalid_units_raises():
     sel = _stub_selectivity()
     with pytest.raises(ValueError, match="kcal/mol"):
-        gv_plot.plot_selectivity_strip(sel, _thermo_dict(), units="hartree")
+        gv_plot.plot_selectivity_strip(sel, _thermo_dict(), units="cal/mol")
 
 
 def test_strip_plot_callable_lookup():

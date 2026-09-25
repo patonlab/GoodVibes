@@ -20,9 +20,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple
 
-GAS_CONSTANT = 8.3144621            # J / K / mol
-J_TO_AU = 4.184 * 627.509541 * 1000.0
-KCAL_TO_AU = 627.509541
+from .constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU, hartree_factor  # noqa: F401  (re-exported for callers)
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +355,7 @@ class Pathway:
 
 @dataclass
 class PESOptions:
-    units: str = "kcal/mol"          # 'kcal/mol' or 'kJ/mol'
+    units: str = "kcal/mol"          # any of constants.SUPPORTED_UNITS ('kcal/mol', 'kJ/mol', 'eV', 'hartree')
     decimals: int = 2
     gconf: bool = True
     QH: bool = True
@@ -367,9 +365,7 @@ class PESOptions:
     def to_user_units(self, hartree: Optional[float]) -> Optional[float]:
         if hartree is None:
             return None
-        if self.units == "kJ/mol":
-            return J_TO_AU / 1000.0 * hartree
-        return KCAL_TO_AU * hartree   # default kcal/mol
+        return hartree_factor(self.units) * hartree
 
 
 @dataclass

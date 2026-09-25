@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from .utils import display_name, get_console_stdout, get_console_dat
 from .selectivity import get_selectivity
-from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__
+from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__, hartree_factor
 from .io import qcdata_to_dict
 
 from .pes import get_pes
@@ -105,7 +105,7 @@ def _format_ratio(populations, labels, scale=100):
 
 def _print_selectivity_single(result, method=""):
     """Per-species table + summary footer for a single SelectivityResult."""
-    HA_TO_KCAL = 627.509541
+    HA_TO_KCAL = KCAL_TO_AU
     suffix = f", {method}" if method else ""
     log.info(f"\n   Selectivity{suffix} ({result.key}, T = {result.temperature:.2f} K)")
 
@@ -128,7 +128,7 @@ def _print_selectivity_single(result, method=""):
     # ΔΔG = -RT ln(p / p_max); the major species is 0 by construction,
     # others are positive (less stable). Skip when p == 0 (printed as "—").
     ref_pop = max(result.populations.values())
-    rt_kcal = 8.3144621 * result.temperature / 1000.0 / 4.184  # kcal/mol
+    rt_kcal = GAS_CONSTANT * result.temperature / J_TO_AU * KCAL_TO_AU  # kcal/mol
     for label in result.labels:
         p = result.populations[label]
         n_files = len(result.files_per_label.get(label, []))
@@ -159,7 +159,7 @@ def _print_selectivity_single(result, method=""):
 
 def _print_selectivity_scan(results, method=""):
     """One row per temperature: excess/ΔΔG for N=2, populations only for N>2."""
-    HA_TO_KCAL = 627.509541
+    HA_TO_KCAL = KCAL_TO_AU
     labels = results[0].labels
     n = len(labels)
     suffix = f", {method}" if method else ""
@@ -778,7 +778,7 @@ def print_results(thermo_data, options, media_conc=None,
                 else:
                     row.append("")
             if min_qhg is not None:
-                grel = (bbe.qh_gibbs_free_energy - min_qhg) * 627.509541
+                grel = (bbe.qh_gibbs_free_energy - min_qhg) * KCAL_TO_AU
                 row.append(f"{grel:.3f}")
 
             table.add_row(*row)
@@ -1017,10 +1017,7 @@ def print_pes_results(thermo_data, options, dup_list,
                                        temp * pes.s_abs[k][m], temp * pes.qs_abs[k][m], pes.g_abs[k][m],
                                        pes.qhg_abs[k][m]]
                         relative = [s - z for s, z in zip(species, zero_vals)]
-                        if pes.units == 'kJ/mol':
-                            formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
-                        else:
-                            formatted_list = [KCAL_TO_AU * x for x in relative]  # Defaults to kcal/mol
+                        formatted_list = [hartree_factor(pes.units) * x for x in relative]
                         log.info("\no  ")
                         if options.spc is None:
                             formatted_list = formatted_list[1:]
@@ -1130,10 +1127,7 @@ def print_pes_results(thermo_data, options, dup_list,
                                options.temperature * pes.s_abs[i][j], options.temperature * pes.qs_abs[i][j],
                                pes.g_abs[i][j], pes.qhg_abs[i][j]]
                 relative = [s - z for s, z in zip(species, zero_vals)]
-                if pes.units == 'kJ/mol':
-                    formatted_list = [J_TO_AU / 1000.0 * x for x in relative]
-                else:
-                    formatted_list = [KCAL_TO_AU * x for x in relative]  # Defaults to kcal/mol
+                formatted_list = [hartree_factor(pes.units) * x for x in relative]
                 log.info("\no  ")
                 if options.spc is None:
                     formatted_list = formatted_list[1:]

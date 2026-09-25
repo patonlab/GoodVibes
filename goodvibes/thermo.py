@@ -9,6 +9,7 @@ from typing import Optional
 
 import numpy as np
 
+from .constants import ATMOS, GAS_CONSTANT, J_TO_AU
 from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
 
 # pymsym powers the optional --symm point-group / symmetry-number detection.
@@ -20,14 +21,12 @@ try:
 except Exception:  # ImportError on missing wheel; other errors on broken installs
     _HAS_PYMSYM = False
 
-# PHYSICAL CONSTANTS & UNITS
-GAS_CONSTANT = 8.3144621  # J / K / mol
+# PHYSICAL CONSTANTS & UNITS (the shared ones live in constants.py)
 PLANCK_CONSTANT = 6.62606957e-34  # J * s
 BOLTZMANN_CONSTANT = 1.3806488e-23  # J / K
 SPEED_OF_LIGHT = 2.99792458e10  # cm / s
 AVOGADRO_CONSTANT = 6.0221415e23  # 1 / mol
 AMU_to_KG = 1.66053886E-27  # UNIT CONVERSION
-J_TO_AU = 4.184 * 627.509541 * 1000.0  # UNIT CONVERSION
 GRIMME_BAV = 1.00e-44  # Default average moment of inertia (kg m^2) from Grimme
 
 # Solvents supported by --freespace (Shakhnovich & Whitesides free-volume model).
@@ -461,10 +460,7 @@ class ThermoOptions:
         so calc_bbe never receives None for `conc`."""
         conc = self.concentration
         if conc is None:
-            # Inline the gas-phase reference to avoid a constants import here.
-            ATMOS_kPa = 101.325
-            R_J_per_K_per_mol = 8.3144621
-            conc = ATMOS_kPa / (R_J_per_K_per_mol * self.temperature)
+            conc = ATMOS / (GAS_CONSTANT * self.temperature)
         return {
             "QS": self.QS, "QH": self.QH,
             "cutoff": self.s_freq_cutoff,

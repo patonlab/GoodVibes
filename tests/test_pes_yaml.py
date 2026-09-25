@@ -244,7 +244,7 @@ format:
 
 
 def test_format_invalid_units_raises():
-    text = MINIMAL + "\nformat:\n  units: hartree\n"
+    text = MINIMAL + "\nformat:\n  units: cal/mol\n"
     with pytest.raises(ValueError, match="kcal/mol"):
         parse_yaml(text)
 
