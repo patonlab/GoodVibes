@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 
 from .vib_scale_factors import scaling_data_dict, scaling_refs, canonicalize_level
 from .io import write_xyz, load_cache, save_cache, qcdata_to_dict, find_spc_file
-from .thermo import calc_bbe, get_free_space, FREESPACE_SOLVENTS
+from .thermo import calc_bbe, get_free_space, FREESPACE_SOLVENTS, MissingSinglePointError
 from .media import solvents, compute_media_conc, lookup_solvent
 from .constants import (
     SUPPORTED_EXTENSIONS, GAS_CONSTANT, ATMOS,
@@ -16,7 +16,7 @@ from .constants import (
     gv_banner
 )
 import logging
-from .utils import all_same, setup_logging, fatal, natural_key, parse_temperature_interval
+from .utils import all_same, setup_logging, fatal, natural_key, parse_temperature_interval, display_name
 from .validation import collect_and_validate_files, check_files, print_check_fails
 from .sort import deduplicate, sort_thermo
 from .selectivity import (get_boltz, parse_label_args, load_label_yaml,
@@ -150,6 +150,9 @@ def parse_arguments():
     inp.add_argument("--spc", dest="spc", type=str, default=None, metavar="suffix",
                      help="Single-point correction suffix: reads energy from FILE_SPC.ext "
                           "(e.g. --spc TZ reads from FILE_TZ.log)")
+    inp.add_argument("--strict-spc", dest="strict_spc", action="store_true", default=False,
+                     help="With --spc, stop with an error when a single-point energy is missing or "
+                          "unparseable instead of warning and using the frequency-level energy")
     inp.add_argument("--import", dest="import_path", default=None, type=str, metavar="PATH",
                      help="Read pre-parsed data from a v1.0 JSON file (or a legacy "
                           "--cache-save envelope) instead of re-parsing the input "
@@ -445,6 +448,7 @@ def _calc_bbe_worker(args):
         spc=opts['spc'], invert=opts['invert'],
         symm=opts['symm'],
         inertia=opts['inertia'],
+        strict_spc=opts.get('strict_spc', False),
     )
     return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
 
@@ -503,6 +507,7 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'spc': options.spc, 'invert': options.invert,
         'symm': options.symm,
         'inertia': options.inertia,
+        'strict_spc': getattr(options, 'strict_spc', False),
     }
     default_conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)
     per_file_args = []
@@ -667,7 +672,14 @@ def main():
     validate_and_configure(options, solvation_model)
 
     # Compute thermochemistry for all files
-    thermo_data = compute_thermochem(files, options, qcdata_cache=qcdata_cache)
+    try:
+        thermo_data = compute_thermochem(files, options, qcdata_cache=qcdata_cache)
+    except MissingSinglePointError as exc:
+        fatal(f"\n   ✗ FATAL ERROR (--strict-spc): {exc}\n")
+    for file, bbe in thermo_data.items():
+        if getattr(bbe, 'spc_reason', None):
+            log.info(f"\n   ✗ Warning: {display_name(file)}: {bbe.spc_reason}; H and G use the "
+                     "frequency-level energy (use --strict-spc to make this an error)")
 
     # Media concentration for display in output (the per-file conc override is handled in compute_thermochem)
     media_conc = None

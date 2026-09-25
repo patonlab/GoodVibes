@@ -10,6 +10,7 @@ from typing import Optional
 import numpy as np
 
 from .constants import ATMOS, GAS_CONSTANT, J_TO_AU
+from .utils import display_name
 from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
 
 # pymsym powers the optional --symm point-group / symmetry-number detection.
@@ -20,6 +21,12 @@ try:
     _HAS_PYMSYM = True
 except Exception:  # ImportError on missing wheel; other errors on broken installs
     _HAS_PYMSYM = False
+
+class MissingSinglePointError(ValueError):
+    """Raised under strict_spc when a requested single-point energy is
+    missing or unparseable instead of silently using the frequency-level
+    energy."""
+
 
 # PHYSICAL CONSTANTS & UNITS (the shared ones live in constants.py)
 PLANCK_CONSTANT = 6.62606957e-34  # J * s
@@ -452,6 +459,7 @@ class ThermoOptions:
     invert: Optional[float] = None              # imag → real cutoff (cm⁻¹)
     symm: bool = False                          # pymsym symmetry-number correction
     inertia: str = "global"
+    strict_spc: bool = False                    # raise (not warn) when an --spc energy is missing
 
     def _to_calc_bbe_kwargs(self):
         """Map ThermoOptions fields onto the calc_bbe constructor's
@@ -473,6 +481,7 @@ class ThermoOptions:
             "symm": self.symm,
             "inertia": self.inertia,
             "zpe_scale_fac": self.zpe_scale_factor,
+            "strict_spc": self.strict_spc,
         }
 
 
@@ -525,7 +534,7 @@ class calc_bbe:
     """
     def __init__(self, file, QS = "grimme", QH=False, cutoff=100.0, H_FREQ_CUTOFF=100.0, temp=298.15, conc=None, scale_fac=None, solv=None, spc=None,
                  invert=None, symm=False, inertia='global', qcdata=None,
-                 zpe_scale_fac=None, _from_options=False):
+                 zpe_scale_fac=None, strict_spc=False, _from_options=False):
         """
         Initialize a calc_bbe instance by parsing QC output (or using provided qcdata) and computing thermochemical quantities (enthalpy, entropy, Gibbs free energy, ZPE, frequency lists, and related intermediate values).
 
@@ -587,6 +596,8 @@ class calc_bbe:
         self.scf_energy = qcdata.scf_energy
         self.sp_energy = qcdata.scf_energy
         self.qcdata = qcdata  # parsed input, kept so callers can re-evaluate at another T
+        self.spc_applied = False   # True once a single-point correction has been added to H/G
+        self.spc_reason = None     # why it was not, when --spc was requested
         self.zero_point_corr = qcdata.zero_point_corr
         self.job_type = qcdata.job_type
         self.roconst = qcdata.roconst
@@ -781,13 +792,20 @@ class calc_bbe:
                 self.qh_enthalpy = self.scf_energy + (u_trans + u_rot + qh_u_vib + GAS_CONSTANT * temp) / J_TO_AU
             # Single point correction replaces energy from optimization with single point value
             if spc is not None:
-                try:
+                usable = isinstance(self.sp_energy, (int, float)) and self.scf_energy is not None
+                # 'link' with no --Link1-- single point in the output parses the
+                # file's own final energy as the "single point": a correction of
+                # exactly zero, which is the silent no-op worth reporting.
+                if usable and spc == 'link' and self.sp_energy == self.scf_energy:
+                    usable = False
+                if usable:
                     spc_correction = self.sp_energy - self.scf_energy
                     self.enthalpy += spc_correction
                     if QH:
                         self.qh_enthalpy += spc_correction
-                except TypeError:
-                    pass
+                    self.spc_applied = True
+                else:
+                    self._report_missing_spc(file, spc, strict_spc)
 
             self.zpe = zpe / J_TO_AU
             self.entropy = (s_trans + s_rot + h_s_vib + s_elec) / J_TO_AU
@@ -826,6 +844,28 @@ class calc_bbe:
         self.frequency_wn = frequency_wn
         self.im_frequency_wn = im_frequency_wn
         self.linear_warning = linear_warning
+
+    def _report_missing_spc(self, file, spc, strict):
+        """A single point was requested but could not be applied.
+
+        Until 4.5 this fell through `except TypeError: pass` and H and G
+        silently kept the frequency-level energy, which is exactly the
+        kind of downgrade that flips a predicted selectivity.
+        """
+        if spc == 'link':
+            what = ("no single-point link job was found in the output (the link energy "
+                    "equals the frequency-level energy)")
+        elif self.sp_energy == '!':
+            what = f"no single-point file with suffix {spc!r} was found"
+        else:
+            what = (f"no usable single-point energy in the file with suffix {spc!r} "
+                    f"(parsed {self.sp_energy!r})")
+        self.spc_reason = what
+        message = (f"{display_name(file)}: {what}; enthalpy and free energy use the "
+                   "frequency-level electronic energy instead")
+        if strict:
+            raise MissingSinglePointError(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
 
     @classmethod
     def from_options(cls, qcdata_or_path, options):

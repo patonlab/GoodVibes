@@ -871,6 +871,7 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
                 zpe_scale_factor=getattr(options, 'zpe_scale_factor', None),
                 solv=options.freespace, spc=options.spc, invert=options.invert,
                 symm=getattr(options, 'symm', False), inertia=options.inertia,
+                strict_spc=getattr(options, 'strict_spc', False),
             )
             bbe = calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file,
                                         thermo_options)
