@@ -586,6 +586,7 @@ class calc_bbe:
         self.multiplicity = qcdata.multiplicity
         self.scf_energy = qcdata.scf_energy
         self.sp_energy = qcdata.scf_energy
+        self.qcdata = qcdata  # parsed input, kept so callers can re-evaluate at another T
         self.zero_point_corr = qcdata.zero_point_corr
         self.job_type = qcdata.job_type
         self.roconst = qcdata.roconst

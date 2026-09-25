@@ -140,6 +140,46 @@ def add_time(tm, cpu):
     return fulldate
 
 
+def parse_temperature_interval(spec):
+    """Turn a ``--ti`` specification into the list of temperatures to scan.
+
+    ``spec`` is ``"start,end"`` or ``"start,end,step"`` (kelvin). With two
+    values the range is divided into ten steps. Values are floats: a step of
+    0.5 K or a start of 298.15 K is honoured rather than truncated to
+    integers (which used to turn ``--ti 200,201,0.5`` into a range() error and
+    ``--ti 298.15,398.15,50`` into 298, 348, 398). The end temperature is
+    included when it lies on the grid (within 1e-9 K).
+
+    Returns:
+        list[float]: temperatures in ascending order.
+
+    Raises:
+        ValueError: on a malformed spec, a non-positive step or end < start.
+    """
+    try:
+        values = [float(x) for x in str(spec).split(',')]
+    except ValueError:
+        raise ValueError(f"--ti expects 'start,end[,step]' in kelvin, got {spec!r}") from None
+    if len(values) == 2:
+        values.append((values[1] - values[0]) / 10.0)
+    if len(values) != 3:
+        raise ValueError(f"--ti expects 'start,end[,step]' in kelvin, got {spec!r}")
+    start, end, step = values
+    if end < start:
+        raise ValueError(f"--ti: end temperature {end} K is below start {start} K")
+    if step <= 0:
+        raise ValueError(f"--ti: temperature step must be positive, got {step}")
+    temps = []
+    n = 0
+    while True:
+        t = start + n * step
+        if t > end + 1e-9:
+            break
+        temps.append(round(t, 10))
+        n += 1
+    return temps
+
+
 def display_name(file):
     """
     Get the basename of a file path without its extension for display.

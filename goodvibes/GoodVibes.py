@@ -16,7 +16,7 @@ from .constants import (
     gv_banner
 )
 import logging
-from .utils import all_same, setup_logging, fatal, natural_key
+from .utils import all_same, setup_logging, fatal, natural_key, parse_temperature_interval
 from .validation import collect_and_validate_files, check_files, print_check_fails
 from .sort import deduplicate, sort_thermo
 from .selectivity import (get_boltz, parse_label_args, load_label_yaml,
@@ -449,6 +449,29 @@ def _calc_bbe_worker(args):
     return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
 
 
+def _thermo_data_by_temperature(files, options, thermo_data, temperatures, qcdata_cache=None):
+    """{T: thermo_data recomputed at T} for a --ti scan.
+
+    Reuses the QCData each calc_bbe kept from its own parse so the files
+    are not read again; the base temperature's dict is reused as is.
+    """
+    import copy
+    cache = dict(qcdata_cache or {})
+    for file, bbe in thermo_data.items():
+        qc = getattr(bbe, 'qcdata', None)
+        if qc is not None:
+            cache.setdefault(os.path.splitext(os.path.basename(file))[0], qc)
+    by_T = {}
+    for T in temperatures:
+        if T == options.temperature:
+            by_T[T] = thermo_data
+            continue
+        opts_T = copy.copy(options)
+        opts_T.temperature = T
+        by_T[T] = compute_thermochem(files, opts_T, qcdata_cache=cache)
+    return by_T
+
+
 def compute_thermochem(files, options, qcdata_cache=None):
     """Run calc_bbe for each file and collect results.
 
@@ -698,17 +721,19 @@ def main():
                     thermo_data, files_per_label, options.temperature,
                     dup_list=dup_list, key=sel_key)]
             else:
-                # Mirror print_temperature_interval's parsing of --ti.
-                ti = [float(x) for x in options.temperature_interval.split(',')]
-                if len(ti) == 2:
-                    ti.append((ti[1] - ti[0]) / 10.0)
-                temps = list(range(int(ti[0]), int(ti[1]) + 1, int(ti[2])))
+                # Free energies depend on T: recompute the thermochemistry at
+                # every temperature of the scan (from the already-parsed
+                # QCData, so nothing is re-read) instead of reusing the
+                # base-temperature G and only changing RT in the exponent.
+                temps = parse_temperature_interval(options.temperature_interval)
+                thermo_by_T = _thermo_data_by_temperature(files, options, thermo_data, temps,
+                                                          qcdata_cache=qcdata_cache)
                 selectivity_results = compute_selectivity_scan(
                     thermo_data, files_per_label, temps,
-                    dup_list=dup_list, key=sel_key)
+                    dup_list=dup_list, key=sel_key, thermo_by_temperature=thermo_by_T)
                 selectivity_lowest_results = compute_selectivity_lowest_only_scan(
                     thermo_data, files_per_label, temps,
-                    dup_list=dup_list, key=sel_key)
+                    dup_list=dup_list, key=sel_key, thermo_by_temperature=thermo_by_T)
         except ValueError as exc:
             fatal(f"\n   ✗ FATAL ERROR: {exc}")
 

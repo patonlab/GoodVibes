@@ -271,17 +271,31 @@ def compute_selectivity(thermo_data, files_per_label, temperature,
 
 
 def compute_selectivity_scan(thermo_data, files_per_label, temperatures,
-                             dup_list=None, key='gibbs'):
+                             dup_list=None, key='gibbs', thermo_by_temperature=None):
     """Compute a SelectivityResult at each temperature in `temperatures`.
 
-    Convenience wrapper that pairs naturally with --ti temperature
-    intervals; the species grouping is fixed across temperatures.
+    Pairs with --ti temperature intervals; the species grouping is fixed
+    across temperatures. Free energies are temperature dependent, so pass
+    ``thermo_by_temperature`` ({T: thermo_data recomputed at T}) to use the
+    correct G(T) at each point of the scan; the CLI does this. With only
+    ``thermo_data`` the same free energies are reused at every T and only
+    the Boltzmann factor's RT changes, which is what this function did
+    before 4.5 and is still the right thing when ``key='energy'``.
     """
     return [
-        compute_selectivity(thermo_data, files_per_label, T,
+        compute_selectivity(_thermo_at(thermo_data, thermo_by_temperature, T), files_per_label, T,
                             dup_list=dup_list, key=key)
         for T in temperatures
     ]
+
+
+def _thermo_at(thermo_data, thermo_by_temperature, T):
+    if thermo_by_temperature is None:
+        return thermo_data
+    try:
+        return thermo_by_temperature[T]
+    except KeyError:
+        raise KeyError(f"thermo_by_temperature has no entry for T = {T} K") from None
 
 
 def _lowest_per_label(thermo_data, files_per_label, dup_list, key):
@@ -328,12 +342,19 @@ def compute_selectivity_lowest_only(thermo_data, files_per_label, temperature,
 
 def compute_selectivity_lowest_only_scan(thermo_data, files_per_label,
                                            temperatures, dup_list=None,
-                                           key='gibbs'):
-    """Lowest-only selectivity at each temperature in `temperatures`."""
-    minimal = _lowest_per_label(thermo_data, files_per_label, dup_list, key)
-    return [compute_selectivity(thermo_data, minimal, T,
-                                  dup_list=dup_list, key=key)
-            for T in temperatures]
+                                           key='gibbs', thermo_by_temperature=None):
+    """Lowest-only selectivity at each temperature in `temperatures`.
+
+    The lowest conformer per species is chosen at each temperature from
+    that temperature's free energies when ``thermo_by_temperature`` is given
+    (see compute_selectivity_scan).
+    """
+    results = []
+    for T in temperatures:
+        td = _thermo_at(thermo_data, thermo_by_temperature, T)
+        minimal = _lowest_per_label(td, files_per_label, dup_list, key)
+        results.append(compute_selectivity(td, minimal, T, dup_list=dup_list, key=key))
+    return results
 
 
 # ---------------------------------------------------------------------------

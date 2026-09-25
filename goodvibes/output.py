@@ -6,14 +6,14 @@ import os.path
 import sys
 from datetime import datetime, timedelta, timezone
 
-from .utils import display_name, get_console_stdout, get_console_dat
+from .utils import display_name, get_console_stdout, get_console_dat, parse_temperature_interval
 from .selectivity import get_selectivity
 from .constants import GAS_CONSTANT, ATMOS, J_TO_AU, KCAL_TO_AU, __version__, hartree_factor
 from .quantities import QUANTITIES
 from .io import qcdata_to_dict
 
 from .pes import get_pes
-from .thermo import calc_bbe
+from .thermo import calc_bbe, ThermoOptions
 from .media import solvents
 
 
@@ -803,7 +803,7 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
     Returns:
         tuple: (interval_bbe_data, interval, file_list)
             - interval_bbe_data (list[list]): Outer list indexed by file; each inner list contains the recomputed thermochemistry objects (one per temperature).
-            - interval (range): Python range object describing the temperatures iterated.
+            - interval (list[float]): the temperatures iterated (see utils.parse_temperature_interval).
             - file_list (list): List of file paths in the order processed.
     """
     files = list(thermo_data)
@@ -826,8 +826,7 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
     # If no temperature step was defined, divide the region into 10
     if len(temperature_interval) == 2:
         temperature_interval.append((temperature_interval[1] - temperature_interval[0]) / 10.0)
-    interval = range(int(temperature_interval[0]), int(temperature_interval[1] + 1),
-                     int(temperature_interval[2]))
+    interval = parse_temperature_interval(options.temperature_interval)
     log.info("\n   T init:  %.1f,  T final:  %.1f,  T interval: %.1f" % (
         temperature_interval[0], temperature_interval[1], temperature_interval[2]))
     if options.QH:
@@ -861,9 +860,20 @@ def print_temperature_interval(thermo_data, options, media_conc=None, qcdata_cac
             if qcdata_cache is not None:
                 key = os.path.splitext(os.path.basename(file))[0]
                 cached_qcdata = qcdata_cache.get(key)
-            bbe = calc_bbe(file, options.QS, options.QH, options.S_freq_cutoff, options.H_freq_cutoff, temp,
-                           conc, options.freq_scale_factor, options.freespace, options.spc, options.invert,
-                           inertia=options.inertia, qcdata=cached_qcdata)
+            # Same options as the single-temperature table (ZPE scale factor,
+            # --symm, ...), so the row at the base temperature agrees with it;
+            # the legacy positional constructor used here dropped both.
+            thermo_options = ThermoOptions(
+                QS=options.QS, QH=options.QH,
+                s_freq_cutoff=options.S_freq_cutoff, h_freq_cutoff=options.H_freq_cutoff,
+                temperature=temp, concentration=conc,
+                freq_scale_factor=options.freq_scale_factor,
+                zpe_scale_factor=getattr(options, 'zpe_scale_factor', None),
+                solv=options.freespace, spc=options.spc, invert=options.invert,
+                symm=getattr(options, 'symm', False), inertia=options.inertia,
+            )
+            bbe = calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file,
+                                        thermo_options)
             interval_bbe_data[h].append(bbe)
             linear_warning.append(bbe.linear_warning)
             if linear_warning == [['Warning! Potential invalid calculation of linear molecule from Gaussian.']]:
