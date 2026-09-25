@@ -85,7 +85,7 @@ CASES = [
                             "--pes", f"{GCONF}/gconf_TS.yaml", "--nogconf"], True),
     ("pes_legacy_ti", [f"{GCONF}/aminox_cat_conf65_S.log", f"{GCONF}/aminox_subs_conf713.log",
                        f"{GCONF}/Aminoxylation_TS1_R.log", f"{GCONF}/Aminoxylation_TS2_S.log",
-                       "--pes", f"{GCONF}/gconf_TS.yaml", "--ti", "298,318,10"], False),
+                       "--pes", f"{GCONF}/gconf_TS.yaml", "--ti", "298,318,10"], True),
     ("graph_legacy", [f"{GCONF}/aminox_cat_conf65_S.log", f"{GCONF}/aminox_subs_conf713.log",
                       f"{GCONF}/Aminoxylation_TS1_R.log", f"{GCONF}/Aminoxylation_TS2_S.log",
                       "--pes", f"{GCONF}/gconf_TS.yaml", "--graph", f"{GCONF}/gconf_TS.yaml"], False),

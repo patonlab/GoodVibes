@@ -8,19 +8,7 @@ of ``write_thermo_extxyz`` need it. See tests/ase/README.md for the format spec.
 from __future__ import annotations
 
 
-def _signed_wavenumber(f):
-    """GoodVibes' signed-float convention for one frequency.
-
-    ``ase.vibrations.Vibrations.get_frequencies()`` returns a complex array
-    in which an imaginary mode is ``0 + i|ν|``. ``float()`` on such a value
-    silently discarded the imaginary part and wrote the mode as 0.0 cm⁻¹;
-    it is now written as ``-|ν|`` (negative = imaginary), and a real mode as
-    its real part.
-    """
-    if isinstance(f, complex) or getattr(f, 'imag', 0) != 0:
-        c = complex(f)
-        return -abs(c.imag) if c.imag != 0 else c.real
-    return float(f)
+from .io import _signed_wavenumber  # noqa: F401  (kept importable from here)
 
 
 def write_thermo_extxyz(

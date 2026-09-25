@@ -11,6 +11,7 @@ ATMOS = 101.325  # kPa; 1 atm
 KCAL_TO_AU = 627.509541  # kcal/mol per Hartree
 J_TO_AU = 4.184 * KCAL_TO_AU * 1000.0  # J/mol per Hartree
 HARTREE_TO_EV = 27.211386245988  # eV per Hartree (CODATA 2018)
+EV_TO_WAVENUMBER = 8065.543937  # cm⁻¹ per eV (CODATA 2018); ASE reports frequencies in both
 
 # Energy units accepted wherever a user chooses display units (PES tables,
 # plots, JSON). Keys are the canonical spellings; the aliases map onto them.

@@ -121,6 +121,10 @@ qc = parse_qcdata("structure.log")
 r = compute_thermo(qcdata=qc)
 ```
 
+A `QCData` can also be built without any file, from an ASE `Atoms`
+and a vibrational analysis (`QCData.from_atoms`,
+`QCData.from_vibrations`); see cookbook recipe 4b.
+
 ## What's new in v4.x at a glance
 
 - **v4.1 — Selectivity redesign.** N-way `--label NAME=PATTERN` (or
@@ -136,6 +140,15 @@ r = compute_thermo(qcdata=qc)
   sums (`2*A + B`); `--lowest-only` mode for "lowest qh-G conformer per
   species" PES tables.
 - **v4.2 — Programmatic API.** This page.
+- **v4.6 — Profile model.** `ConformerSet.from_results` with public
+  ensemble rollups (`populations`, `ensemble_free_energy`, `s_conf`,
+  `dedup`) that re-evaluate each structure at any temperature
+  (`ComputedEntry`); point roles and display labels; pathway edges;
+  `Series` (a quantity at a temperature, computed or declared);
+  `plot_profile` with a merged x axis, temperature / quantity /
+  literature overlays and `layout="panels"`; `QCData.from_atoms` /
+  `from_vibrations` for file-free ASE and MLIP inputs; every class
+  importable from `goodvibes`. See the cookbook, recipes 4 and 4b.
 - **v4.2 — `--jobs N` parallel parsing.** ~3× speedup at 8 cores.
 - **v4.2 — `--csv PATH`.** Per-structure DataFrame export.
 - **v4.2 — ORCA CPU-time scaling.** ORCA prints wall time only;

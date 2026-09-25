@@ -283,7 +283,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--csv PATH` | Write per-file thermochemistry to a CSV file (requires pandas; `goodvibes[full]`) | -- |
 | `--parquet PATH` | Write per-file thermochemistry to a Parquet file (requires pyarrow; `goodvibes[full]`) | -- |
 | `--strip-plot PATH` | Save a per-species ΔG strip plot (requires `--label`/`--selectivity`; `goodvibes[plot]`) | -- |
-| `--pes-plot PATH` | Save a reaction-profile plot (requires `--pes`; `goodvibes[plot]`) | -- |
+| `--pes-plot PATH` | Save a reaction-profile plot (requires `--pes`; `goodvibes[plot]`). With `--ti` the scan temperatures are overlaid on one axes | -- |
 | `--pes-plot-quantity Q` | Quantity drawn by `--pes-plot`: `qh_gibbs`, `gibbs`, `enthalpy`, `qh_enthalpy`, `electronic` (E), `e_zpe`, `zpe`, `entropy`, `qh_entropy` or `spc` (`--gtype` is the historical spelling) | qh_gibbs |
 | `--media SOLVENT` | Solvent standard-state concentration correction | -- |
 | `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
@@ -314,7 +314,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 
 Optional:
 
-- **ase** >= 3.22 (`goodvibes[ase]`) -- only needed to *write* `.extxyz` inputs with `goodvibes.ase_helper`; parsing them needs no ase
+- **ase** >= 3.22 (`goodvibes[ase]`) -- only needed to *write* `.extxyz` inputs with `goodvibes.ase_helper` or to drive `QCData.from_atoms` / `from_vibrations` from your own ASE workflow; parsing `.extxyz` files needs no ase
 - **pyyaml** -- needed at runtime when reading new-style PES YAML or `--selectivity FILE.yaml`; included in the `test` extra
 
 Build requires setuptools >= 64. See `pyproject.toml` for details.

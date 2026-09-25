@@ -50,6 +50,13 @@ H 0.000000 -0.755453 -0.471161
 | `applied_freq_scale_factor` | If the source program already scaled the frequencies, GoodVibes un-scales before re-applying its own factor. |
 | `job_type` | `Freq`, `GSFreq`, `TS`, `SP`. Inferred from frequency presence/sign if omitted. |
 
+## Skipping the file altogether
+
+In your own ASE script, `goodvibes.QCData.from_atoms(atoms, energy,
+frequencies=...)` or `QCData.from_vibrations(atoms, vib.get_vibrations(),
+energy)` builds the same parsed record directly (see the cookbook, recipe
+4b); `compute_thermo(qcdata=qc)` then needs no file.
+
 ## Writing a fixture from Python
 
 The optional `goodvibes.ase_helper.write_thermo_extxyz` helper takes care of

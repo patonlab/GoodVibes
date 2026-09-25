@@ -234,7 +234,6 @@ def test_json_pes_block_matches_golden(azabor_pes_result, tmp_path):
 
 def test_print_pes_tables_renders_without_crashing(azabor_pes_result):
     """Smoke: build the Rich table and confirm it has the expected shape."""
-    from types import SimpleNamespace
     from goodvibes.output import _build_pes_table
 
     # Sync flags onto the model options (mirrors print_pes_tables).
@@ -242,10 +241,7 @@ def test_print_pes_tables_renders_without_crashing(azabor_pes_result):
     azabor_pes_result.options.QH = False
     azabor_pes_result.options.spc_used = True
 
-    options = SimpleNamespace(spc="sp_tzpop", QH=False, gconf=True, conc=None)
-    table = _build_pes_table(
-        azabor_pes_result.pathways[0], options, T_STD, azabor_pes_result.options,
-    )
+    table = _build_pes_table(azabor_pes_result.pathways[0], T_STD, azabor_pes_result.options)
     assert table.row_count == 6                   # one row per pathway point
     headers = [c.header for c in table.columns]
     assert "ΔE_SPC" in headers                    # SPC column appears
