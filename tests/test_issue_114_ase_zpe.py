@@ -98,3 +98,17 @@ def test_single_point_stays_silent():
         warnings.simplefilter('error', RuntimeWarning)
         bbe = compute_thermo(g16path('20_benzene_singlepoint.log'), freq_scale_factor=1.0, zpe_scale_factor=1.0)
     assert bbe.enthalpy is None
+
+
+@pytest.mark.parametrize('fixture, rotemp', [
+    ('01_water.extxyz', [0.0, 0.0, 0.0]),      # non-linear, default placeholder
+    ('01_water.extxyz', [39.5, 0.0, 13.7]),    # one axis missing
+    ('22_hcn_linear.extxyz', [0.0]),           # linear, first (only) value missing
+])
+def test_unusable_rotemp_with_frequencies_warns_instead_of_dividing_by_zero(fixture, rotemp):
+    q = parse_qcdata(ase_path(fixture))
+    q.rotemp = rotemp
+    opts = ThermoOptions(freq_scale_factor=1.0, zpe_scale_factor=1.0)
+    with pytest.warns(RuntimeWarning, match=r'frequencies parsed .* rotemp'):
+        bbe = calc_bbe.from_options(q, opts)
+    assert not hasattr(bbe, 'gibbs_free_energy')

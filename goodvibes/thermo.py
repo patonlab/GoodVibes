@@ -675,9 +675,21 @@ class calc_bbe:
         # the output file. A single point has no frequencies and stays silent;
         # frequencies with a missing prerequisite is an inconsistent parse and
         # is reported rather than returning an all-None object (issue #114).
+        # QCData defaults rotemp to [0.0, 0.0, 0.0], so a truthiness test
+        # never catches missing rotational constants and the rotational
+        # entropy would divide by zero. A species with frequencies needs
+        # usable values (one for linear, three otherwise); atoms and single
+        # points never use them.
+        if frequency_wn:
+            if linear_mol == 1:
+                rotemp_ok = bool(rotemp) and rotemp[0] > 0.0
+            else:
+                rotemp_ok = len(rotemp) >= 3 and all(t > 0.0 for t in rotemp[:3])
+        else:
+            rotemp_ok = bool(rotemp)
         missing = [name for name, ok in (
             ('zero_point_corr', self.zero_point_corr is not None),
-            ('rotemp', bool(rotemp)),
+            ('rotemp', rotemp_ok),
             ('scf_energy', self.scf_energy is not None)) if not ok]
         if missing and frequency_wn:
             warnings.warn(
