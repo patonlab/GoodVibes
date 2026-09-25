@@ -285,7 +285,6 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--xyz` | Write Cartesian coordinates to .xyz file | off |
 | `--imag` | Print imaginary frequencies | off |
 | `--output NAME` | Output file base name | output |
-| `--vmm SCALE` | Frequency scaling factor for ONIOM MM region | -- |
 | `--nogconf` | Disable Gconf correction in PES analysis | off |
 | `--graph FILE` | Graph a reaction profile from free energies | -- |
 

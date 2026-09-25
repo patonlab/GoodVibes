@@ -33,7 +33,6 @@ _JSON_OPTION_KEYS = (
     'QS', 'QH', 'freq_cutoff', 'S_freq_cutoff', 'H_freq_cutoff',
     'freq_scale_factor', 'media', 'freespace', 'spc',
     'invert', 'symm', 'duplicate', 'boltz', 'inertia',
-    'mm_freq_scale_factor',
 )
 
 # calc_bbe attributes whose names match exactly between the object and the

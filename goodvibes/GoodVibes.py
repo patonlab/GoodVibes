@@ -13,7 +13,7 @@ from .media import solvents, compute_media_conc, lookup_solvent
 from .constants import (
     SUPPORTED_EXTENSIONS, GAS_CONSTANT, ATMOS,
     grimme_mRRHO_ref, grimme_msRRHO_ref, truhlar_ref, head_gordon_ref,
-    oniom_scale_ref, gv_banner
+    gv_banner
 )
 import logging
 from .utils import all_same, setup_logging, fatal, natural_key
@@ -86,8 +86,6 @@ def parse_arguments():
                       help="Separate scaling factor for the zero-point energy (ZPE); auto-detected from "
                            "level of theory via Truhlar's zpe_fac if not set. If --vscal is set but "
                            "--zpe-vscal is not, ZPE inherits --vscal (back-compat).")
-    freq.add_argument("--vmm", dest="mm_freq_scale_factor", default=None, type=float, metavar="MM_SCALE_FACTOR",
-                      help="Frequency scaling factor for the MM region in ONIOM calculations")
     freq.add_argument("--invert", dest="invert", nargs='?', const=True, default=None, type=float,
                       help="Invert small imaginary frequencies (> -50 cm-1) to positive values; "
                            "optionally provide a custom threshold in cm-1")
@@ -289,14 +287,11 @@ def resolve_scaling_factor(files, options, level_of_theory):
 
     Parameters:
         files (list): output file paths.
-        options (Namespace): parsed CLI options. Uses: freq_scale_factor, mm_freq_scale_factor, boltz, ee.
+        options (Namespace): parsed CLI options. Uses: freq_scale_factor, zpe_scale_factor, boltz, ee.
         level_of_theory (list): level of theory strings, one per file.
     """
     if options.freq_scale_factor is not None:
-        if 'ONIOM' not in level_of_theory[0]:
-            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {level_of_theory[0]} level of theory")
-        else:
-            log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for QM region of {level_of_theory[0]}")
+        log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {level_of_theory[0]} level of theory")
     else:
         # Look for vibrational scaling factor automatically. Truhlar's
         # database provides separate harm_fac (for partition functions)
@@ -322,15 +317,6 @@ def resolve_scaling_factor(files, options, level_of_theory):
     # Exit program if a comparison of Boltzmann factors is requested and level of theory is not uniform across all files
     if not all_same(level_of_theory) and (options.boltz or options.ee is not None):
         sys.exit("\n\n   ✗ FATAL ERROR: Boltzmann factors require all species computed at the same level of theory\n")
-
-    # Exit program if molecular mechanics scaling factor is given and all files are not ONIOM calculations
-    if options.mm_freq_scale_factor is not None:
-        if all_same(level_of_theory) and 'ONIOM' in level_of_theory[0]:
-            log.info(f"\n\n   User-defined vibrational scale factor {options.mm_freq_scale_factor} for MM region of {level_of_theory[0]}")
-            log.info("\n   {}".format(oniom_scale_ref))
-        else:
-            sys.exit("\n   Option --vmm is only for use in ONIOM calculation output files.\n   "
-                     " help use option '-h'\n")
 
     if options.freq_scale_factor is None:
         options.freq_scale_factor = 1.0  # If no scaling factor is found use 1.0
@@ -361,7 +347,7 @@ def warn_orca_prescaled(files):
 
 
 def validate_and_configure(options, solvation_model):
-    """Validate solvent, print QH/QS configuration, and return (symm_option, vmm_option)."""
+    """Validate solvent, print QH/QS configuration, and return the symmetry option."""
     # Checks to see whether the available free space of a requested solvent is defined
     if options.freespace is not None:
         freespace = get_free_space(options.freespace)
@@ -438,7 +424,6 @@ def _calc_bbe_worker(args):
         solv=opts['freespace'],
         spc=opts['spc'], invert=opts['invert'],
         symm=opts['symm'],
-        mm_freq_scale_factor=opts['mm_freq_scale_factor'],
         inertia=opts['inertia'],
     )
     return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
@@ -455,7 +440,7 @@ def compute_thermochem(files, options, qcdata_cache=None):
         files (list): output file paths.
         options (Namespace): parsed CLI options. Uses: QS, QH, S_freq_cutoff,
             H_freq_cutoff, temperature, conc, freq_scale_factor, freespace,
-            spc, invert, symm, mm_freq_scale_factor, inertia, media, jobs.
+            spc, invert, symm, inertia, media, jobs.
         qcdata_cache (dict, optional): pre-parsed QCData keyed by basename.
 
     Returns:
@@ -474,7 +459,6 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'freespace': options.freespace,
         'spc': options.spc, 'invert': options.invert,
         'symm': options.symm,
-        'mm_freq_scale_factor': options.mm_freq_scale_factor,
         'inertia': options.inertia,
     }
     default_conc = options.conc if options.conc else ATMOS / (GAS_CONSTANT * options.temperature)

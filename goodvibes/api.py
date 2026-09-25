@@ -97,7 +97,6 @@ def compute_thermo(
     spc: Optional[str] = None,
     invert: Optional[float] = None,
     symm: bool = False,
-    mm_freq_scale_factor: Optional[float] = None,
     inertia: str = "global",
 ) -> ThermoResult:
     """Compute thermochemistry for one QC output file.
@@ -137,8 +136,7 @@ def compute_thermo(
         freq_scale_factor=freq_scale_factor,
         zpe_scale_factor=zpe_scale_factor,
         solv=solv, spc=spc, invert=invert,
-        symm=symm, mm_freq_scale_factor=mm_freq_scale_factor,
-        inertia=inertia,
+        symm=symm, inertia=inertia,
     )
     # from_options does the Truhlar-DB auto-lookup when freq/zpe scale
     # factors are None; we just need the level-of-theory string for the

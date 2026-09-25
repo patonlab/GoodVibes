@@ -96,7 +96,6 @@ class ThermoOptions:
     spc: str | None = None
     invert: float | None = None
     symm: bool = False
-    mm_freq_scale_factor: float | None = None
     inertia: str = "global"
 ```
 

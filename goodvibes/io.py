@@ -2,7 +2,7 @@
 import json
 import os.path
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from typing import List, Optional
 
@@ -57,8 +57,7 @@ class QCData:
     # CPU-time estimate (wall × nprocs); 1 elsewhere.
     nprocs: int = 1
 
-    # ONIOM MM frequency scaling fractions (per-frequency, empty if not ONIOM)
-    fract_modelsys: List[float] = field(default_factory=list)
+    # True when the Gaussian output is an ONIOM (QM/MM) calculation
     has_oniom: bool = False
 
     # Molecular geometry
@@ -103,8 +102,14 @@ def qcdata_to_dict(qcdata):
 
 
 def dict_to_qcdata(d):
-    """Reconstruct a QCData instance from a dictionary."""
-    clean = {k: v for k, v in d.items() if not k.startswith('_')}
+    """Reconstruct a QCData instance from a dictionary.
+
+    Keys that are not QCData fields are ignored so that payloads written by
+    other GoodVibes versions (e.g. the retired ``fract_modelsys`` field)
+    still load.
+    """
+    known = {f.name for f in fields(QCData)}
+    clean = {k: v for k, v in d.items() if not k.startswith('_') and k in known}
     return QCData(**clean)
 
 
@@ -1270,7 +1275,6 @@ def parse_gaussian_thermo(file):
     link = 0
     frequency_wn = []
     im_frequency_wn = []
-    fract_modelsys = []
     per_atom_masses = []  # Gaussian's per-atom masses (respects iso= keyword)
     freq_started = False  # True once we encounter the first "Frequencies --" in this link
     freq_done = False     # True once VPT2 "Recovering" marker is seen (guards against duplicates)
@@ -1285,7 +1289,6 @@ def parse_gaussian_thermo(file):
             if link == freqloc:
                 frequency_wn = []
                 im_frequency_wn = []
-                fract_modelsys = []
                 freq_started = False
                 freq_done = False
 
@@ -1301,20 +1304,11 @@ def parse_gaussian_thermo(file):
         # Frequencies
         if not freq_done and line.strip().startswith('Frequencies -- '):
             freq_started = True
-            if is_oniom:
-                fract_line = g_output[i + 3]
             for j in range(2, 5):
                 try:
                     x = float(line.strip().split()[j])
                     if x > 0.0:
                         frequency_wn.append(x)
-                        if is_oniom:
-                            try:
-                                y = float(fract_line.strip().split()[j]) / 100.0
-                                y = float('{:.6f}'.format(y))
-                                fract_modelsys.append(y)
-                            except (IndexError, ValueError):
-                                fract_modelsys.append(1.0)
                     elif x < 0.0:
                         im_frequency_wn.append(x)
                 except IndexError:
@@ -1444,8 +1438,6 @@ def parse_gaussian_thermo(file):
 
     qcdata.frequency_wn = frequency_wn
     qcdata.im_frequency_wn = im_frequency_wn
-    if is_oniom:
-        qcdata.fract_modelsys = fract_modelsys
     if qcdata.atom_nums:
         qcdata.atom_types = [periodictable[n] for n in qcdata.atom_nums]
 
