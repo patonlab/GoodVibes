@@ -41,7 +41,7 @@ empty file.
 
 ## Test modules
 
-769 tests at the time of writing. The first line of each module's
+776 tests at the time of writing. The first line of each module's
 docstring is reproduced here; regenerate this table rather than editing it
 by hand when modules are added.
 
@@ -61,6 +61,7 @@ by hand when modules are added.
 | `test_io_orca.py` | 25 | Tests for parsing ORCA 6 output files using goodvibes.io. |
 | `test_io_qchem.py` | 22 | Tests for parsing Q-Chem 6 output files using goodvibes.io. |
 | `test_io_xtb.py` | 20 | Tests for parsing xtb output files using goodvibes.io. |
+| `test_issue_114_ase_zpe.py` | 6 | Regression tests for issue #114 (ASE extxyz ingest and the ZPE gate). |
 | `test_json_output.py` | 12 | Tests for the --json structured output flag. |
 | `test_media.py` | 15 | Tests for the --media / --freespace CLI flags and the goodvibes.media module. |
 | `test_modules.py` | 27 | Unit tests for extracted modules: utils, validation. |
@@ -71,23 +72,23 @@ by hand when modules are added.
 | `test_pes_legacy.py` | 16 | Tests for goodvibes.pes_legacy — the line-based `--- # PES` format. |
 | `test_pes_loader.py` | 29 | Tests for goodvibes.pes_loader — pattern resolution + builder + dispatcher. |
 | `test_pes_model.py` | 36 | Tests for goodvibes.pes_model — pure data + arithmetic, no I/O. |
-| `test_pes_output.py` | 17 | Tests for the v4.2 PES output: Rich tables (`print_pes_tables`) and |
-| `test_pes_temperature_interval.py` | 2 | `--pes` together with `--ti` must produce the legacy per-temperature |
+| `test_pes_output.py` | 17 | Tests for the v4.2 PES output: Rich tables (`print_pes_tables`) and JSON v1.0 (`_pes_to_json` + `write_json_results`). |
+| `test_pes_temperature_interval.py` | 2 | `--pes` together with `--ti` must produce the legacy per-temperature PES tables instead of crashing. |
 | `test_pes_yaml.py` | 24 | Tests for goodvibes.pes_yaml — the proper YAML PES format. |
 | `test_plot.py` | 33 | Tests for goodvibes.plot — selectivity strip plots, PES profiles. |
 | `test_schema.py` | 14 | Tests for goodvibes.schema — version constants + payload validator. |
 | `test_selectivity.py` | 50 | Tests for the new --label / --selectivity API and the legacy --ee shim. |
 | `test_sort.py` | 30 | Tests for goodvibes.sort: kabsch_rmsd, deduplicate, sort_thermo. |
 | `test_supporting.py` | 13 | Tests for supporting modules: vib_scale_factors and media. |
-| `test_symm_fields.py` | 3 | --symm / symm=True: the detected point group and symmetry number must be reported, and |
+| `test_symm_fields.py` | 3 | --symm / symm=True: the detected point group and symmetry number must be reported, and pymsym's symmetry number must replace (not stack on) one already present in the output file. |
 | `test_thermo_ase.py` | 11 | Tests for thermochemistry calculations on ASE-driven extxyz fixtures. |
 | `test_thermo_g16.py` | 66 | Tests for thermochemistry calculations on Gaussian 16 output files. |
 | `test_thermo_orca.py` | 11 | Tests for thermochemistry calculations on ORCA 6 output files. |
 | `test_thermo_orca5.py` | 4 | Lightweight regression coverage for ORCA 5 output parsing and thermo. |
 | `test_thermo_qchem.py` | 19 | Tests for thermochemistry calculations on Q-Chem 6 output files. |
 | `test_thermo_xtb.py` | 5 | End-to-end thermochemistry tests on xtb output files. |
-| `test_validation.py` | 17 | Tests for goodvibes.validation: collect_and_validate_files |
-| `test_vmm_removed.py` | 4 | The ONIOM MM-region frequency scaling feature (``--vmm`` / |
+| `test_validation.py` | 17 | Tests for goodvibes.validation: collect_and_validate_files, print_check_fails, and check_files (smoke). |
+| `test_vmm_removed.py` | 5 | The ONIOM MM-region frequency scaling feature (``--vmm`` / ``mm_freq_scale_factor`` / ``QCData.fract_modelsys``) was removed in v4.5. |
 
 ## Tolerances
 

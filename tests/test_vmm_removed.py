@@ -2,6 +2,9 @@
 ``mm_freq_scale_factor`` / ``QCData.fract_modelsys``) was removed in v4.5.
 These tests pin the removal and the back-compat of existing JSON exports."""
 import inspect
+import sys
+
+import pytest
 
 from conftest import g16path
 from goodvibes import GoodVibes as GV
@@ -13,12 +16,10 @@ ONIOM = g16path('15_methanol_oniom_qmmm.log')
 
 
 def test_vmm_flag_is_gone():
-    parser = GV.build_parser() if hasattr(GV, 'build_parser') else None
     src = inspect.getsource(GV.parse_arguments)
-    assert '--vmm' not in src
+    # The only remaining mention is the guard that rejects the retired flag.
+    assert 'add_argument("--vmm"' not in src
     assert 'mm_freq_scale_factor' not in src
-    if parser is not None:
-        assert not any('--vmm' in a.option_strings for a in parser._actions)
 
 
 def test_thermo_options_and_api_have_no_mm_field():
@@ -41,3 +42,12 @@ def test_dict_to_qcdata_ignores_retired_fract_modelsys_key():
     q = dict_to_qcdata(d)
     assert q.program == 'Gaussian'
     assert not hasattr(q, 'fract_modelsys')
+
+
+@pytest.mark.parametrize('argv_tail', [['--vmm', '0.95'], ['--vmm=0.95']])
+def test_vmm_is_rejected_not_silently_dropped(monkeypatch, capsys, argv_tail):
+    monkeypatch.setattr(sys, 'argv', ['goodvibes', ONIOM] + argv_tail)
+    with pytest.raises(SystemExit) as exc:
+        GV.parse_arguments()
+    assert exc.value.code == 2
+    assert '--vmm is no longer supported' in capsys.readouterr().err

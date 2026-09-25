@@ -206,6 +206,12 @@ def parse_arguments():
     # Parse Arguments
     (options, args) = parser.parse_known_args()
 
+    # Retired options: fail loudly rather than let parse_known_args drop them,
+    # so a script cannot appear to apply a setting that no longer exists.
+    for retired, note in (("--vmm", "ONIOM MM-region frequency scaling was removed in v4.5"),):
+        if any(a == retired or a.startswith(retired + "=") for a in args):
+            parser.error(f"{retired} is no longer supported: {note}.")
+
     # If requested, turn on head-gordon enthalpy correction
     if options.Q:
         options.QH = True
