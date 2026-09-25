@@ -339,6 +339,27 @@ def write_xyz(filepath, files, thermo_data):
                 for atom, carts in zip(bbe.atom_types, bbe.cartesians):
                     f.write(f'{atom:>1}{carts[0]:13.6f}{carts[1]:13.6f}{carts[2]:13.6f}\n')
 
+def resolve_output_file(file, extensions=('.log', '.out', '.extxyz')):
+    """Return the on-disk path to parse for ``file``.
+
+    The path the caller actually gave is always preferred when it exists.
+    Only when it does not (e.g. an extension-less stem, or ``--spc`` twins
+    named by stem) are sibling files with the same stem and one of
+    ``extensions`` tried, in order. Returns ``None`` if nothing exists.
+
+    Earlier versions tried ``stem.log`` before the given path, so asking
+    for ``x.out`` silently parsed ``x.log`` when both were present.
+    """
+    if os.path.isfile(file):
+        return file
+    stub = os.path.splitext(file)[0]
+    for ext in extensions:
+        candidate = stub + ext
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def find_spc_file(name, spc):
     """Locate the single-point-correction output paired with ``name``.
 
@@ -392,15 +413,12 @@ def parse_data(file):
     empirical_dispersion = ''
 
     data = None
-    stub = os.path.splitext(file)[0]
-    possible_filenames = (stub + ".log", stub + ".out", stub + ".extxyz", file)
-    actual_file = file
-    for possible_filename in possible_filenames:
-        if os.path.exists(possible_filename):
-            actual_file = possible_filename
-            with open(possible_filename, encoding='utf-8', errors='replace') as f:
-                data = f.readlines()
-            break
+    actual_file = resolve_output_file(file)
+    if actual_file is not None:
+        with open(actual_file, encoding='utf-8', errors='replace') as f:
+            data = f.readlines()
+    else:
+        actual_file = file
 
     if data is None:
         raise ValueError("File {} does not exist".format(file))
@@ -730,14 +748,10 @@ def sp_cpu(file):
     nprocs scaling (ORCA reports wall time only; the parser scales by
     parallel-MPI process count to estimate effective CPU).
     """
-    candidates = [
-        os.path.splitext(file)[0] + '.log',
-        os.path.splitext(file)[0] + '.out',
-    ]
-    for cand in candidates:
-        if os.path.exists(cand):
-            return parse_qcdata(cand).cpu
-    raise ValueError("File {} does not exist".format(file))
+    actual_file = resolve_output_file(file, extensions=('.log', '.out'))
+    if actual_file is None:
+        raise ValueError("File {} does not exist".format(file))
+    return parse_qcdata(actual_file).cpu
 
 
 
@@ -2765,19 +2779,11 @@ def parse_qcdata(file):
     file : str
         Path to quantum chemistry output file.
     """
-    stub = os.path.splitext(file)[0]
-    possible_filenames = (stub + '.log', stub + '.out', stub + '.extxyz', file)
-    data = None
-    actual_file = file
-    for possible_filename in possible_filenames:
-        if os.path.exists(possible_filename):
-            actual_file = possible_filename
-            with open(possible_filename, encoding='utf-8', errors='replace') as f:
-                data = f.readlines()
-            break
-
-    if data is None:
+    actual_file = resolve_output_file(file)
+    if actual_file is None:
         return QCData(file=file, program='unknown')
+    with open(actual_file, encoding='utf-8', errors='replace') as f:
+        data = f.readlines()
 
     program = _detect_program(data)
 
@@ -2986,11 +2992,7 @@ def parse_hessian(file):
     if ext == '.hess':
         return _parse_orca_hess(file)
 
-    actual_file = None
-    for candidate in (stub + '.log', stub + '.out', file):
-        if os.path.exists(candidate):
-            actual_file = candidate
-            break
+    actual_file = resolve_output_file(file, extensions=('.log', '.out'))
     if actual_file is None:
         raise FileNotFoundError("No output file found for %s" % file)
 
