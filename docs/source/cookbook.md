@@ -189,12 +189,12 @@ from goodvibes.selectivity import (
 from goodvibes.plot import plot_selectivity_strip
 
 results = compute_batch(glob.glob("DA_*.out"))
-thermo = {r.file: r.qh_gibbs_free_energy for r in results}
+thermo = {r.file: r.bbe for r in results}          # compute_selectivity reads calc_bbe objects
 labels = parse_label_args(["exo=*_exo_*", "endo=*_endo_*"])
 files_per_label = assign_files_to_labels(list(thermo), labels)
 sel = compute_selectivity(thermo, files_per_label, 298.15)
 
-ax = plot_selectivity_strip(sel, thermo)
+ax = plot_selectivity_strip(sel, {r.file: r.qh_gibbs_free_energy for r in results})
 plt.savefig("selectivity.png", dpi=200, bbox_inches="tight")
 ```
 
@@ -211,8 +211,7 @@ goodvibes *.log --ee 'P_R_*:P_S_*'
 goodvibes *.log --label R='P_R_*' --label S='P_S_*'
 ```
 
-`--ee` still works in v4.x with a `DeprecationWarning`; it's slated
-for removal in v5.0.
+`--ee` still works with a deprecation notice; it will be removed in v6.0.
 
 ---
 
@@ -273,11 +272,13 @@ equals the value (or matches it as an fnmatch glob — `dir: "TS_*"`
 catches every `TS_R/`, `TS_S/`, ...). Trailing `/`, `/*` or `/**`
 on the dir name is ignored.
 
-Run it from the directory above the per-species subdirectories:
+Run it from the directory above the per-species subdirectories (the
+shipped `goodvibes/examples/pes` set is flat; this layout is one you
+arrange yourself, e.g. one directory per species):
 
 ```bash
-cd goodvibes/examples/pes_separated
-goodvibes */*log --spc tzpop --pes azabor_PES.yaml
+cd my_pes_project        # contains R1-An/, Aza-Phos/, THF/, ... subdirectories
+goodvibes */*log --spc sp_tzpop --pes azabor_PES.yaml
 ```
 
 The shell `*/*log` glob hands GoodVibes relative paths like
@@ -352,7 +353,7 @@ ax = plot_pes(
 
 The legacy `--graph FILE.yaml` flag is still supported and reads
 styling (dpi, color, title, legend, gridlines, ylim, ...) from a
-YAML's `--- # FORMAT` block. It will be deprecated in v5.1 once
+YAML's `--- # FORMAT` block. It will be removed in v6.0 once
 `--pes-plot` covers the remaining gaps.
 
 ---

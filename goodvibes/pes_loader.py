@@ -237,7 +237,7 @@ def load_pes(
     if is_legacy_format(text):
         warnings.warn(
             f"PES file {path!r} uses the legacy line-based format. "
-            "This format is deprecated and will be removed in v5.1; "
+            "This format is deprecated and will be removed in v6.0; "
             "see ROADMAP.md Sub-plan B for the new YAML schema.",
             DeprecationWarning,
             stacklevel=2,

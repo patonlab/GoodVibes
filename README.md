@@ -247,7 +247,7 @@ o  Aminoxylation_TS2_S   -879.404445   0.295301   -879.090562   0.064366   0.061
    Ratio R:S = 60:40   Major: R   excess = 20.98%   ΔΔG = 0.25 kcal/mol
 ```
 
-`--label NAME=PATTERN` is repeatable and supports any number of buckets (N=2 reports `excess` + `ΔΔG`; N>2 reports the ratio only). The legacy `--ee "*_R*:*_S*"` flag still works with a `DeprecationWarning` and will be removed in a future release.
+`--label NAME=PATTERN` is repeatable and supports any number of buckets (N=2 reports `excess` + `ΔΔG`; N>2 reports the ratio only). The legacy `--ee "*_R*:*_S*"` flag still works with a deprecation notice and will be removed in v6.0.
 
 #### CLI Reference
 
@@ -267,6 +267,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `-v SCALE` | Vibrational frequency scaling factor (partition-function H/S) | auto |
 | `--zpe-vscal SCALE` | Separate scaling factor for ZPE (Truhlar `zpe_fac`) | auto |
 | `--spc SUFFIX` | Single-point energy correction (suffix or `link`) | -- |
+| `--strict-spc` | With `--spc`, stop with an error when a single-point energy is missing or unparseable (default: warn and use the frequency-level energy) | off |
 | `--jobs N` | Parse and compute in parallel across N worker processes (`0` = all cores) | 1 |
 | `--symm` | Apply symmetry correction to entropy (pymsym) | off |
 | `--pg` | Display detected point group (no entropy correction applied) | off |
@@ -283,12 +284,14 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--parquet PATH` | Write per-file thermochemistry to a Parquet file (requires pyarrow; `goodvibes[full]`) | -- |
 | `--strip-plot PATH` | Save a per-species ΔG strip plot (requires `--label`/`--selectivity`; `goodvibes[plot]`) | -- |
 | `--pes-plot PATH` | Save a reaction-profile plot (requires `--pes`; `goodvibes[plot]`) | -- |
+| `--pes-plot-quantity Q` | Quantity drawn by `--pes-plot`: `qh_gibbs`, `gibbs`, `enthalpy`, `qh_enthalpy`, `electronic` (E), `e_zpe`, `zpe`, `entropy`, `qh_entropy` or `spc` (`--gtype` is the historical spelling) | qh_gibbs |
 | `--media SOLVENT` | Solvent standard-state concentration correction | -- |
 | `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
 | `--invert [THRESH]` | Invert small imaginary frequencies to positive values | off |
 | `--bav {global,conf}` | Moment of inertia for free-rotor entropy | global |
 | `--sort [energy\|gibbs]` | Sort output by energy | -- |
-| `--dedup` | Remove duplicate structures | off |
+| `--dedup` | Remove duplicate structures (compared within each `--label` species) | off |
+| `--dedup-global` | With `--dedup` and labels, also compare structures across species | off |
 | `--dp N` | Decimal places for energy output | 6 |
 | `--cache-save FILE` | (deprecated) alias for `--export`; still accepted, prefer `--export` | -- |
 | `--cache-read FILE` | (deprecated) alias for `--import`; still accepted, prefer `--import` | -- |
@@ -311,7 +314,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 
 Optional:
 
-- **ase** >= 3.22 (`goodvibes[ase]`) -- only needed to parse `.extxyz` inputs
+- **ase** >= 3.22 (`goodvibes[ase]`) -- only needed to *write* `.extxyz` inputs with `goodvibes.ase_helper`; parsing them needs no ase
 - **pyyaml** -- needed at runtime when reading new-style PES YAML or `--selectivity FILE.yaml`; included in the `test` extra
 
 Build requires setuptools >= 64. See `pyproject.toml` for details.

@@ -9,6 +9,21 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- `CHANGELOG.md`, `CITATION.cff`, `CONTRIBUTING.md`.
+- `--strict-spc`, `--dedup-global`, `--pes-plot-quantity` documented in the
+  README option table.
+
+### Changed
+- One removal version for everything deprecated in 4.x: **6.0** (`--ee`,
+  `--cache-save`/`--cache-read`, the legacy `--- # PES` format, `--graph`,
+  the 15-argument `calc_bbe` constructor). Messages and docs previously
+  said v5.0, v5.1, v6.0 or "a future release".
+- `docs/source/migration_v5.md` describes the API generation that shipped
+  in 4.2-4.4 rather than a future v5.0 release; the cookbook selectivity
+  recipe now runs (`{r.file: r.bbe}`), and its `dir:` example no longer
+  points at a directory that does not exist.
+- pytest configuration in `pyproject.toml`: a `DeprecationWarning` for the
+  legacy `calc_bbe` constructor raised from inside `goodvibes` is an error.
 - `tests/compatibility/`: 29 CLI goldens (`.dat` and `--json`) that pin the
   user-visible output of the common flag combinations.
 - `goodvibes.quantities`: one registry of the quantities GoodVibes tabulates
@@ -46,6 +61,10 @@ every such change is listed under **Output changes**.
   frequency array as `0.0 cm-1`; it now writes `-|ν|`.
 
 ### Output changes
+- The CLI prints a `!` deprecation notice (stdout and `.dat`) when `--ee` or
+  the legacy `--- # PES` text format is used. The Python
+  `DeprecationWarning` for these was attributed to GoodVibes' own modules
+  and hidden by the default warning filters, so CLI users never saw it.
 - `--json` / `--export`: `thermo.job_type` for an ASE (`.extxyz`) or Q-Chem
   transition state with frequencies is `TSFreq` (was `TS`), matching the
   Gaussian and ORCA parsers.

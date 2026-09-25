@@ -47,6 +47,16 @@ include-package-data = false
 # shipped in the wheel/sdist: they made every install ~70 MB.
 goodvibes = ["scaling_factors.json", "solvents.json"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# GoodVibes' own code must not use its deprecated constructor: a
+# "Calling calc_bbe(...) directly is deprecated" warning attributed to a
+# goodvibes module is an error. Tests that call the legacy form on purpose
+# are attributed to the test module and are unaffected.
+filterwarnings = [
+    "error:Calling calc_bbe:DeprecationWarning:goodvibes",
+]
+
 [tool.ruff]
 target-version = "py39"
 

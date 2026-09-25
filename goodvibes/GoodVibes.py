@@ -135,7 +135,7 @@ def parse_arguments():
     sel.add_argument("--ee", dest="ee", default=None, type=str, metavar="patterns",
                      help="DEPRECATED — use --label/--selectivity. Compute 2-species "
                           "selectivity from a colon-delimited glob pair (e.g. '*_R*:*_S*'). "
-                          "Will be removed in v5.0.")
+                          "Will be removed in v6.0.")
     sel.add_argument("--pes", dest="pes", default=None, metavar="file",
                      help="YAML file defining a reaction pathway for tabulating relative energies")
     sel.add_argument("--graph", dest='graph', default=None, metavar="file",
@@ -706,6 +706,10 @@ def main():
     if options.sort:
         thermo_data = sort_thermo(thermo_data, options.sort)
 
+    if options.ee is not None:
+        log.info("\n   ! --ee is deprecated and will be removed in v6.0; use --label NAME=PATTERN "
+                 "(repeatable) or --selectivity FILE.yaml instead.")
+
     # Species grouping for --label / --selectivity; resolved before dedup so
     # duplicate detection can be scoped within each species.
     files_per_label = None
@@ -784,6 +788,15 @@ def main():
     # any of those consumers read the model. T-interval mode still flows
     # through the legacy print_pes_results below.
     pes_result = None
+    if options.pes:
+        from .pes_loader import is_legacy_format
+        try:
+            legacy_pes = is_legacy_format(open(options.pes, encoding='utf-8', errors='replace').read())
+        except OSError as exc:
+            fatal(f"\n   ✗ FATAL ERROR: cannot read --pes file {options.pes}: {exc}")
+        if legacy_pes:
+            log.info(f"\n   ! {options.pes} uses the legacy '--- # PES' text format, which is deprecated "
+                     "and will be removed in v6.0; see the PES section of the documentation for the YAML form.")
     if options.pes and options.temperature_interval is None:
         from .pes_loader import load_pes
         pes_result = load_pes(options.pes, thermo_data,

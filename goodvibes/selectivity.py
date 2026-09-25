@@ -408,7 +408,7 @@ def get_boltz(thermo_data, temperature, dup_list, key='gibbs'):
 
 
 # ---------------------------------------------------------------------------
-# Legacy --ee shim (deprecated; remove in v5.0)
+# Legacy --ee shim (deprecated; removed in v6.0)
 # ---------------------------------------------------------------------------
 
 def get_selectivity(pattern, files, boltz_facs, temperature, dup_list):
@@ -423,7 +423,7 @@ def get_selectivity(pattern, files, boltz_facs, temperature, dup_list):
     """
     warnings.warn(
         "get_selectivity / --ee is deprecated; use --label / "
-        "--selectivity instead. Will be removed in v5.0.",
+        "--selectivity instead. Will be removed in v6.0.",
         DeprecationWarning,
         stacklevel=2,
     )

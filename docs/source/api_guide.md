@@ -100,7 +100,7 @@ df.sort_values("qh_gibbs_free_energy").head()
 ```
 
 `to_dataframe` requires pandas; install with `pip install goodvibes[full]`
-(includes pandas, ase, and pyyaml).
+(includes pandas, pyarrow, matplotlib, ase and pyyaml).
 
 The CLI flag `--csv PATH` does the same thing without leaving the shell:
 
@@ -144,5 +144,4 @@ r = compute_thermo(qcdata=qc)
   Footnoted on the `TOTAL CPU` line.
 
 See the [project ROADMAP](https://github.com/patonlab/GoodVibes/blob/master/ROADMAP.md)
-for what's coming in v5.0 (`Ensemble` container, conformational entropy
-correction, visualization, and more).
+for what is planned next and `CHANGELOG.md` for what has shipped.
