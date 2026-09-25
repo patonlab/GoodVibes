@@ -73,7 +73,7 @@ CASES = [
     ("check", [f"{G16}/01a_water_hf_freq.log", f"{G16}/02_ethane_opt_freq_T398_P2.log",
                f"{G16}/30_phenol_smd_thf_pbe0_d3bj.log", "--check"], False),
     ("cpu_xyz", [f"{G16}/01a_water_hf_freq.log", "--cpu", "--xyz"], False),
-    ("orca", ["tests/orca6/30_phenol_smd_thf_pbe0_d3bj.out", "-q", "--bav", "conf"], True),
+    ("orca6", ["tests/orca6/30_phenol_smd_thf_pbe0_d3bj.out", "-q", "--bav", "conf"], True),
     ("qchem", ["tests/qchem6/01a_water_hf_freq.out", "-q"], False),
     ("xtb", ["tests/xtb/01_water.out", "-q"], False),
     ("ase", ["tests/ase/01_water.extxyz", "tests/ase/44_ts_sn2.extxyz", "-q"], True),
