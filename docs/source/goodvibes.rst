@@ -101,6 +101,22 @@ PES — back-compat surface and reaction-profile plot
    :undoc-members:
    :show-inheritance:
 
+Plots (matplotlib, ``goodvibes[plot]``)
+---------------------------------------
+
+.. automodule:: goodvibes.plot
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Structured-output schema
+------------------------
+
+.. automodule:: goodvibes.schema
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Sorting and duplicate detection
 -------------------------------
 
