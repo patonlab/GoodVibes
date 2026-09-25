@@ -180,6 +180,11 @@ def parse_arguments():
                      help="Save a per-species ΔG strip plot to PATH (PNG/PDF/SVG by "
                           "extension). Requires --label or --selectivity to define "
                           "buckets; matplotlib via `pip install goodvibes[plot]`.")
+    out.add_argument("--pes-plot-quantity", "--gtype", dest="pes_plot_quantity", default="qh_gibbs",
+                     metavar="QUANTITY",
+                     help="Quantity drawn by --pes-plot: qh_gibbs (default), gibbs, enthalpy, qh_enthalpy, "
+                          "electronic (E), e_zpe (E+ZPE), zpe, entropy, qh_entropy or spc. "
+                          "--gtype is the historical spelling of this option.")
     out.add_argument("--pes-plot", dest="pes_plot_path", default=None, metavar="PATH",
                      help="Save a clean reaction-profile diagram to PATH (PNG/PDF/SVG "
                           "by extension). Requires --pes; uses goodvibes.plot.plot_pes "
@@ -205,6 +210,13 @@ def parse_arguments():
                            "available CPU cores.")
     # Parse Arguments
     (options, args) = parser.parse_known_args()
+
+    # Validate the plotted quantity up front so a typo fails before any parsing.
+    from .quantities import resolve_quantity
+    try:
+        options.pes_plot_quantity = resolve_quantity(options.pes_plot_quantity).id
+    except ValueError as exc:
+        parser.error(f"--pes-plot-quantity: {exc}")
 
     # Retired options: fail loudly rather than let parse_known_args drop them,
     # so a script cannot appear to apply a setting that no longer exists.
@@ -788,7 +800,7 @@ def main():
             from .plot import plot_pes
         except ImportError as exc:
             fatal(str(exc))
-        ax = plot_pes(pes_result)
+        ax = plot_pes(pes_result, quantity=options.pes_plot_quantity)
         ax.figure.savefig(options.pes_plot_path, dpi=200, bbox_inches="tight")
         log.info(f"\n   ✔ PES plot written to {options.pes_plot_path}\n")
 

@@ -152,6 +152,7 @@ def plot_pes(
     thermo_lookup: Optional[Union[Mapping[str, float], Callable[[str], float]]] = None,
     title: Optional[str] = None,
     label_points: bool = False,
+    quantity: str = "qh_gibbs",
 ):
     """Plot one or more pathways from a `PESResult` as a reaction profile.
 
@@ -178,15 +179,23 @@ def plot_pes(
         thermo_lookup: required when `show_conformers=True`; maps each
             conformer file path → qh_gibbs_free_energy (Hartree).
         title: figure title; defaults to the pathway names + temperature.
-        label_points: annotate each point's ΔqhG value above its
-            horizontal bar.
+        label_points: annotate each point's value above its horizontal bar.
+        quantity: which relative quantity to draw, by registry id or alias
+            (see goodvibes.quantities): 'qh_gibbs' (default), 'gibbs',
+            'enthalpy', 'qh_enthalpy', 'electronic', 'e_zpe', 'zpe',
+            'entropy' / 'qh_entropy' (drawn as T·ΔS) or 'spc'. The y-label
+            follows the choice. This restores the --gtype capability of
+            the 2022 --graph plot (issue #57).
 
     Returns:
         The matplotlib Axes the profile(s) were drawn on.
     """
+    from .quantities import resolve_quantity
     plt = _import_matplotlib()
     import matplotlib.path as mpath
     import matplotlib.patches as mpatches
+
+    qty = resolve_quantity(quantity)
 
     if connector_style not in ("bezier", "linear"):
         raise ValueError(
@@ -256,7 +265,12 @@ def plot_pes(
     # connectors between consecutive levels.
     for path, color in zip(pathways, colors_resolved):
         rels = path.relative(T, **rollup_kw)
-        qhg = [r.qh_gibbs * units_factor for r in rels]
+        values = [r.get(qty.id, T) for r in rels]
+        if any(v is None for v in values):
+            raise ValueError(
+                f"plot_pes: quantity {qty.id!r} is not available for every point "
+                f"of pathway {path.name!r} (no single-point energy?)")
+        qhg = [v * units_factor for v in values]
 
         # Step bars at each level.
         for i in range(n_points):
@@ -329,7 +343,7 @@ def plot_pes(
     ax.set_xticks(xs)
     ax.set_xticklabels([p.label for p in pathways[0].points],
                        rotation=15, ha="right", fontsize="small")
-    ax.set_ylabel(rf"$G_{{rel}}$ ({pes_options.units})")
+    ax.set_ylabel(f"{qty.label} ({pes_options.units})")
     if title is None:
         names = ", ".join(p.name for p in pathways)
         title = f"{names}  (T = {T:g} K)"

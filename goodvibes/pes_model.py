@@ -92,6 +92,28 @@ class ThermoVector:
 
     __rmul__ = __mul__
 
+    def get(self, quantity, T: Optional[float] = None) -> Optional[float]:
+        """Value of a registry quantity in Hartree (see goodvibes.quantities).
+
+        Entropy quantities are returned as T·S and therefore need ``T``.
+        ``e_zpe`` is (sp_energy if present else scf_energy) + zpe, matching
+        the table convention that H and G are SPC-substituted when --spc
+        is used. Returns None where the underlying value is None (no SPC).
+        """
+        from .quantities import resolve_quantity
+        q = resolve_quantity(quantity)
+        if q.id == "e_zpe":
+            base = self.sp_energy if self.sp_energy is not None else self.scf_energy
+            return base + self.zpe
+        value = getattr(self, q.field)
+        if value is None:
+            return None
+        if q.scale_by_T:
+            if T is None:
+                raise ValueError(f"quantity {q.id!r} is T·S; a temperature is required")
+            return T * value
+        return value
+
     @classmethod
     def zero(cls, with_sp: bool = False) -> "ThermoVector":
         """Identity element for addition."""
