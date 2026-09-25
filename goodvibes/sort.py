@@ -35,11 +35,18 @@ def kabsch_rmsd(coords_a, coords_b):
 
 
 def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,
-                rmsd_cutoff=None):
+                rmsd_cutoff=None, groups=None):
     """Identify duplicate or enantiomeric structures by comparing energies,
     rotational constants, and optionally Cartesian RMSD.
 
     All active criteria must pass for a pair to be flagged as duplicate.
+
+    The energy and rotational-constant gates cannot tell enantiomers apart,
+    so when structures belong to labelled species (``--label R=... S=...``)
+    pass ``groups`` and only pairs inside the same group are compared:
+    the R and S transition states of a selectivity calculation are then
+    never collapsed into one. Files in no group are compared only with
+    each other.
 
     Parameters:
         thermo_data (dict): file path → calc_bbe mapping.
@@ -48,12 +55,19 @@ def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,
             fraction, e.g. 0.01 = 1% (default 0.01).
         rmsd_cutoff (float or None): max Cartesian RMSD in Angstrom.
             None (default) disables RMSD comparison; 0.125 matches CREST.
+        groups (Mapping[str, Iterable[str]] or None): label → files. None
+            (default) compares every pair.
 
     Returns:
         list: pairs [file_i, file_j] flagged as duplicates.
     """
     files = list(thermo_data)
     dup_list = []
+    group_of = {}
+    if groups is not None:
+        for label, members in groups.items():
+            for f in members:
+                group_of[f] = label
     e_cutoff_au = e_cutoff / KCAL_TO_AU  # Convert kcal/mol to Hartree
     cutoff_msg = "\n   Checking for duplicate structures. Applying: e_cutoff={} kcal/mol, ro_cutoff={}%".format(e_cutoff, ro_cutoff * 100)
     if rmsd_cutoff is not None:
@@ -61,6 +75,8 @@ def deduplicate(thermo_data, *, e_cutoff=0.05, ro_cutoff=0.01,
     log.info("\n" + cutoff_msg)
     for i, file in enumerate(files):
         for j in range(0, i):
+            if groups is not None and group_of.get(files[i]) != group_of.get(files[j]):
+                continue
             bbe_i, bbe_j = thermo_data[files[i]], thermo_data[files[j]]
 
             # Energy gate (cheap): reject the pair before computing ro_diff or RMSD.

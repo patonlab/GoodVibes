@@ -108,7 +108,12 @@ def parse_arguments():
                           help="Print Boltzmann-weighted populations ('energy' for SCF, 'gibbs' for quasi-harmonic G; "
                                "default when flag used: gibbs)")
     sort_grp.add_argument("--dedup", dest="duplicate", action="store_true", default=False,
-                          help="Remove duplicate structures based on energy, rotational constants, and stoichiometry")
+                          help="Remove duplicate structures based on energy, rotational constants, and stoichiometry. "
+                               "With --label/--selectivity, structures are only compared within their own species "
+                               "so an R/S transition-state pair is never merged")
+    sort_grp.add_argument("--dedup-global", dest="dedup_global", action="store_true", default=False,
+                          help="With --dedup and --label/--selectivity, compare structures across species too "
+                               "(the pre-4.5 behaviour)")
     sort_grp.add_argument("--e_cutoff", dest="e_cutoff", default=0.05, type=float, metavar="KCAL",
                           help="Energy cutoff for duplicate detection in kcal/mol (default: 0.05)")
     sort_grp.add_argument("--ro_cutoff", dest="ro_cutoff", default=0.01, type=float, metavar="FRAC",
@@ -701,10 +706,25 @@ def main():
     if options.sort:
         thermo_data = sort_thermo(thermo_data, options.sort)
 
+    # Species grouping for --label / --selectivity; resolved before dedup so
+    # duplicate detection can be scoped within each species.
+    files_per_label = None
+    if label_patterns is not None:
+        files_per_label = assign_files_to_labels(list(thermo_data), label_patterns)
+    elif label_files is not None:
+        files_per_label = label_files
+
     # Deduplicate structures if requested (needed for both standard and PES output)
-    dup_list = deduplicate(thermo_data, e_cutoff=options.e_cutoff,
-                           ro_cutoff=options.ro_cutoff,
-                           rmsd_cutoff=options.rmsd_cutoff) if options.duplicate else []
+    dup_list = []
+    if options.duplicate:
+        groups = None
+        if files_per_label is not None and not options.dedup_global:
+            groups = files_per_label
+            log.info("\n   Duplicate detection is scoped within each labelled species "
+                     "(use --dedup-global to compare across species)")
+        dup_list = deduplicate(thermo_data, e_cutoff=options.e_cutoff,
+                               ro_cutoff=options.ro_cutoff,
+                               rmsd_cutoff=options.rmsd_cutoff, groups=groups)
 
     # Compute Boltzmann factors once (used by --boltz display and --ee selectivity)
     boltz_facs = None
@@ -718,11 +738,7 @@ def main():
     # conformers in each species, and lowest-conformer-only.
     selectivity_results = None
     selectivity_lowest_results = None
-    if label_patterns is not None or label_files is not None:
-        if label_patterns is not None:
-            files_per_label = assign_files_to_labels(list(thermo_data), label_patterns)
-        else:
-            files_per_label = label_files
+    if files_per_label is not None:
         sel_key = options.boltz if options.boltz else 'gibbs'
         try:
             if options.temperature_interval is None:

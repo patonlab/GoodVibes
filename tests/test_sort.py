@@ -312,3 +312,34 @@ def test_sort_thermo_real_files():
     }
     out = sort_thermo(data, 'energy')
     assert list(out) == ['ethane.log', 'water.log']
+
+
+# ---------------------------------------------------------------------------
+# groups= : duplicate detection scoped within labelled species
+# ---------------------------------------------------------------------------
+
+def test_deduplicate_groups_never_merge_across_species():
+    """Enantiomeric TSs have identical energies and rotational constants; with
+    --label R / S they must survive dedup (regression: one label was zeroed)."""
+    a = _stub(-100.0, [1.0, 2.0, 3.0])
+    b = _stub(-100.0, [1.0, 2.0, 3.0])
+    td = {"ts_R.log": a, "ts_S.log": b}
+    assert deduplicate(td) == [["ts_S.log", "ts_R.log"]]                      # global: flagged
+    assert deduplicate(td, groups={"R": ["ts_R.log"], "S": ["ts_S.log"]}) == []  # scoped: kept
+
+
+def test_deduplicate_groups_still_merge_within_species():
+    a = _stub(-100.0, [1.0, 2.0, 3.0])
+    b = _stub(-100.0, [1.0, 2.0, 3.0])
+    c = _stub(-100.0, [1.0, 2.0, 3.0])
+    td = {"R_c1.log": a, "R_c2.log": b, "S_c1.log": c}
+    dups = deduplicate(td, groups={"R": ["R_c1.log", "R_c2.log"], "S": ["S_c1.log"]})
+    assert dups == [["R_c2.log", "R_c1.log"]]
+
+
+def test_deduplicate_ungrouped_files_compare_only_with_each_other():
+    a = _stub(-100.0, [1.0, 2.0, 3.0])
+    b = _stub(-100.0, [1.0, 2.0, 3.0])
+    c = _stub(-100.0, [1.0, 2.0, 3.0])
+    td = {"R.log": a, "x.log": b, "y.log": c}
+    assert deduplicate(td, groups={"R": ["R.log"]}) == [["y.log", "x.log"]]
