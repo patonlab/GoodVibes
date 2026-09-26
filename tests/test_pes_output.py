@@ -133,8 +133,9 @@ def test_pes_to_json_species_breakdown():
 # write_json_results: schema integration
 # ---------------------------------------------------------------------------
 
-def test_schema_version_bumped_to_0_4():
-    assert JSON_SCHEMA_VERSION == "1.0"
+def test_schema_version_is_1_1():
+    """1.1 adds the optional `profile` block (reaction-profile document)."""
+    assert JSON_SCHEMA_VERSION == "1.1"
 
 
 def test_write_json_includes_pes_block_when_pes_result_given(tmp_path):
@@ -151,7 +152,7 @@ def test_write_json_includes_pes_block_when_pes_result_given(tmp_path):
     # Empty thermo_data; we only care about the pes block.
     write_json_results({}, options, str(out), pes_result=result)
     payload = json.loads(out.read_text())
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == JSON_SCHEMA_VERSION
     assert "pes" in payload
     assert payload["pes"]["pathways"][0]["name"] == "rxn"
 

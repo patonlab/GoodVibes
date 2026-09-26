@@ -137,7 +137,16 @@ def parse_arguments():
                           "selectivity from a colon-delimited glob pair (e.g. '*_R*:*_S*'). "
                           "Will be removed in v6.0.")
     sel.add_argument("--pes", dest="pes", default=None, metavar="file",
-                     help="YAML file defining a reaction pathway for tabulating relative energies")
+                     help="Reaction profile to tabulate: a reaction-profile document (YAML/JSON), a v2 "
+                          "PES YAML, or the legacy '--- # PES' text")
+    sel.add_argument("--profile", dest="profile_path", default=None, metavar="PATH",
+                     help="With --pes: write the evaluated reaction-profile document (levels of every "
+                          "series, provenance) to PATH (.json, .yaml or .yml). Plot, tabulate or convert it "
+                          "later with goodvibes-profile, no output files needed")
+    sel.add_argument("--with-conformers", dest="with_conformers", action="store_true", default=False,
+                     help="With --profile: embed every structure's parsed data and thermochemistry options, "
+                          "so the document can be re-evaluated (e.g. at another temperature) without the "
+                          "output files")
     sel.add_argument("--graph", dest='graph', default=None, metavar="file",
                      help="Graph a reaction profile from free energies; provide the PES YAML file")
     sel.add_argument("--nogconf", dest="gconf", action="store_false", default=True,
@@ -173,7 +182,8 @@ def parse_arguments():
                      help="Number of decimal places for energy values in output (default: 6)")
     out.add_argument("--json", dest="json_path", default=None, metavar="PATH",
                      help="Write structured results to PATH as JSON (every parsed and computed "
-                          "field per file plus the run options). Schema is preview/v0.1.")
+                          "field per file, the run options, and the selectivity / pes / profile "
+                          "blocks; payload schema 1.1).")
     out.add_argument("--csv", dest="csv_path", default=None, metavar="PATH",
                      help="Write per-file thermochemistry to PATH as CSV (one row per "
                           "structure; columns mirror ThermoResult). Requires pandas; "
@@ -199,7 +209,7 @@ def parse_arguments():
                           "(simpler than the legacy --graph FILE.yaml, no styling YAML "
                           "needed). matplotlib via `pip install goodvibes[plot]`.")
     out.add_argument("--export", dest="export_path", default=None, type=str, metavar="PATH",
-                     help="Write the unified v1.0 JSON payload to PATH "
+                     help="Write the unified JSON payload to PATH "
                           "(per-file QCData + thermo + run options + selectivity / pes "
                           "blocks). Identical to --json. The same file can be re-loaded "
                           "via --import to skip parsing on a follow-up run.")
@@ -225,6 +235,13 @@ def parse_arguments():
         options.pes_plot_quantity = resolve_quantity(options.pes_plot_quantity).id
     except ValueError as exc:
         parser.error(f"--pes-plot-quantity: {exc}")
+
+    if options.profile_path and not options.pes:
+        parser.error("--profile requires --pes (the profile to evaluate)")
+    if options.profile_path and os.path.splitext(options.profile_path)[1].lower() not in (".json", ".yaml", ".yml"):
+        parser.error("--profile: write the document as .json, .yaml or .yml")
+    if options.with_conformers and not options.profile_path:
+        parser.error("--with-conformers requires --profile")
 
     # Retired options: fail loudly rather than let parse_known_args drop them,
     # so a script cannot appear to apply a setting that no longer exists.
@@ -804,16 +821,47 @@ def main():
             log.info(f"\n   ! {options.pes} uses the legacy '--- # PES' text format, which is deprecated "
                      "and will be removed in v6.0; see the PES section of the documentation for the YAML form.")
     if options.pes:
+        import warnings as _warnings
+        import yaml
         from .pes_loader import load_pes
+        from .profile import ProfileWarning
         if options.temperature_interval is None:
             pes_temperatures = [options.temperature]
         else:
             pes_temperatures = parse_temperature_interval(options.temperature_interval)
         try:
-            pes_result = load_pes(options.pes, thermo_data, temperatures=pes_temperatures)
-        except (KeyError, ValueError) as exc:
+            with _warnings.catch_warnings():
+                _warnings.simplefilter("ignore", ProfileWarning)   # reported in the .dat below instead
+                pes_result = load_pes(options.pes, thermo_data, temperatures=pes_temperatures)
+        except (KeyError, ValueError, yaml.YAMLError) as exc:
             fatal(f"\n   ✗ FATAL ERROR: --pes {options.pes}: {exc}")
+        for note in getattr(pes_result.source, "warnings", []):
+            log.info(f"\n   ! {options.pes}: {note}")
         apply_cli_pes_options(pes_result, options)
+
+    # The evaluated reaction-profile document: embedded in --json (payload
+    # 1.1), written by --profile, and drawn by --pes-plot when the --pes file
+    # is itself a reaction-profile document (its own series, declared values
+    # and annotations). A v2 / legacy PES file gets one series of the
+    # --pes-plot-quantity per temperature.
+    profile_doc = None
+    explicit_profile = pes_result is not None and getattr(pes_result.source, "upgraded_from", "x") is None
+    if pes_result is not None and (options.json_path or options.profile_path
+                                   or (options.pes_plot_path and explicit_profile)):
+        from .profile import ProfileError
+        try:
+            profile_doc = pes_result.source.evaluate(
+                thermo_data, options=pes_result.options,
+                default_series=pes_result.default_series(options.pes_plot_quantity),
+                with_conformers=options.with_conformers,
+                base_temperature=pes_result.temperature,
+                invocation="goodvibes " + " ".join(sys.argv[1:]))
+        except (ProfileError, ValueError, KeyError) as exc:
+            fatal(f"\n   ✗ FATAL ERROR: evaluating the reaction profile: {exc}")
+        if options.profile_path:
+            profile_doc.dump(options.profile_path)
+            log.info(f"\n   ✔ Reaction profile written to {options.profile_path}"
+                     + (" (with conformers)" if options.with_conformers else ""))
 
     # Structured (JSON) output — v1.0 stable schema. Additive; runs
     # alongside the .dat output.
@@ -833,7 +881,7 @@ def main():
                            boltz_facs=boltz_facs,
                            selectivity_results=selectivity_results,
                            selectivity_lowest_results=selectivity_lowest_results,
-                           pes_result=pes_result)
+                           pes_result=pes_result, profile=profile_doc)
 
     # CSV / Parquet exports (single-T only; one row per structure,
     # ThermoResult columns). Pandas is in the optional `[full]` extras;
@@ -878,11 +926,15 @@ def main():
             from .plot import plot_profile
         except ImportError as exc:
             fatal(str(exc))
-        # One series per temperature: with --ti the scan is overlaid on one
-        # axes (linestyle per temperature), otherwise a single profile.
+        # A reaction-profile document draws its own series; otherwise one
+        # series per temperature: with --ti the scan is overlaid on one axes
+        # (linestyle per temperature), else a single profile.
         try:
-            profile = plot_profile(pes_result, quantity=options.pes_plot_quantity,
-                                   temperatures=pes_result.temperatures)
+            if explicit_profile:
+                profile = profile_doc.plot()
+            else:
+                profile = plot_profile(pes_result, quantity=options.pes_plot_quantity,
+                                       temperatures=pes_result.temperatures)
         except (ImportError, ValueError) as exc:
             fatal(f"\n   ✗ FATAL ERROR: --pes-plot: {exc}")
         profile.save(options.pes_plot_path)
@@ -895,6 +947,9 @@ def main():
     # because v4.2's single-T path doesn't call print_pes_results,
     # which is where this used to live.
     if options.graph is not None:
+        if explicit_profile and os.path.abspath(options.graph) == os.path.abspath(options.pes):
+            fatal("\n   ✗ FATAL ERROR: --graph reads only the legacy '--- # PES' format; draw a "
+                  "reaction-profile document with --pes-plot PATH or goodvibes-profile plot")
         try:
             import matplotlib.pyplot as plt
         except ImportError:
@@ -930,6 +985,13 @@ def main():
         if options.temperature_interval is None:
             from .output import print_pes_tables
             print_pes_tables(pes_result, options, temperature=options.temperature)
+        elif explicit_profile:
+            # a reaction-profile document is read only by the model: one Rich
+            # table set per scan temperature (the legacy text path below would
+            # reinterpret the document with the old parser)
+            from .output import print_pes_tables
+            for T in pes_result.temperatures:
+                print_pes_tables(pes_result, options, temperature=T)
         else:
             print_pes_results(thermo_data, options, dup_list,
                               boltz_facs=boltz_facs,

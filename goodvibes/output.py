@@ -248,6 +248,8 @@ def _pes_to_json(result, temperature=None):
     rollup_kw = result.options.rollup_kw
     temperatures = [temperature] if temperature is not None else list(result.temperatures)
     for pathway in result.pathways:
+        if not pathway.computable:        # declared-only points: see the `profile` block
+            continue
         for T in temperatures:
             rels = pathway.relative(T, **rollup_kw)
             points_out = []
@@ -282,7 +284,7 @@ def _pes_to_json(result, temperature=None):
 def write_json_results(thermo_data, options, path, media_conc_per_file=None,
                        boltz_facs=None, selectivity_results=None,
                        selectivity_lowest_results=None,
-                       pes_result=None):
+                       pes_result=None, profile=None):
     """Write structured run results to *path* as JSON.
 
     Captures every parsed QCData field plus computed thermo per file, the
@@ -299,6 +301,10 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
         boltz_facs (dict, optional): file path -> Boltzmann factor.
         selectivity_results (list[SelectivityResult], optional): one entry
             per temperature; included as a top-level "selectivity" block.
+        pes_result (PESResult, optional): written as the "pes" block.
+        profile (goodvibes.profile.Profile, optional): the evaluated
+            reaction-profile document, written as the "profile" block
+            (payload 1.1; without embedded conformers).
     """
     media_conc_per_file = media_conc_per_file or {}
     boltz_facs = boltz_facs or {}
@@ -325,6 +331,8 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
     pes_block = _pes_to_json(pes_result)
     if pes_block is not None:
         payload['pes'] = pes_block
+    if profile is not None:
+        payload['profile'] = profile.to_dict(include_conformers=False)
     # default=str catches anything stringifiable that json doesn't natively
     # know about (e.g., the '!' sentinel value calc_bbe uses for failed SPC).
     with open(path, 'w', encoding='utf-8') as f:
@@ -492,7 +500,7 @@ def pes_tables(result, temperature=None, conc=None):
     if temperature is None:
         temperature = result.temperature
     return [_build_pes_table(pathway, temperature, result.options, conc=conc)
-            for pathway in result.pathways]
+            for pathway in result.pathways if pathway.computable]
 
 
 def apply_cli_pes_options(result, options):
@@ -511,10 +519,15 @@ def apply_cli_pes_options(result, options):
     Returns:
         The same ``result``, for chaining.
     """
-    result.options.gconf = bool(getattr(options, 'gconf', True))
+    # The rollup flags only override the file when given: a reaction-profile
+    # document may ask for a Boltzmann or lowest-conformer rollup, which the
+    # CLI defaults (gconf on, lowest-only off) must not silently undo.
+    if not getattr(options, 'gconf', True):
+        result.options.gconf = False
+    if getattr(options, 'lowest_only', False):
+        result.options.lowest_only = True
     result.options.QH = bool(getattr(options, 'QH', False))
     result.options.spc_used = bool(getattr(options, 'spc', None))
-    result.options.lowest_only = bool(getattr(options, 'lowest_only', False))
     return result
 
 
@@ -534,10 +547,14 @@ def print_pes_tables(result, options, temperature=None):
     apply_cli_pes_options(result, options)
     if result.options.lowest_only:
         log.info("\n   Lowest conformer per species (no Boltzmann averaging, no gconf)")
-    elif options.gconf:
+    elif result.options.gconf:
         log.info("\n   Gconf correction applied to relative values")
     for table in pes_tables(result, temperature=temperature, conc=getattr(options, 'conc', None)):
         _print_rich_table(table)
+    skipped = [p.name for p in result.pathways if not p.computable]
+    if skipped:
+        log.info("\n   Pathway(s) with declared values only, not tabulated here: " + ", ".join(skipped)
+                 + " (see --profile, or goodvibes-profile table)")
 
 
 def print_cpu_time(thermo_data, exclude=None):

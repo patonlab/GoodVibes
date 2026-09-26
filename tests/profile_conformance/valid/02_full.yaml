@@ -1,0 +1,78 @@
+schema: reaction-profile/1.0
+title: Aza-borocyclization, DFT vs literature
+description: Every core block, a declared and an evaluated computed series, and the goodvibes namespace.
+units: kcal/mol
+ensemble: ideal-gas
+default_temperature: 298.15
+species:
+  R1-An:     {smiles: "C[N-]c1ccccc1", charge: -1, multiplicity: 1}
+  Aza-Phos:  {}
+  THF:       {formula: C4H8O}
+  R1-Comp:   {}
+  AmTS:      {}
+  Syn-P:     {}
+points:
+  R:    {species: {R1-An: 1, Aza-Phos: 1}, role: reactant, display: R}
+  Int1: {species: "R1-Comp + THF", role: minimum}
+  TS1:  {species: "AmTS + THF", role: ts, display: "TS1‡"}
+  P:    {species: "Syn-P + THF", role: product}
+pathways:
+  Ph:
+    points: [R, Int1, TS1, P]
+    zero: R
+    edges:
+      - {from: R, to: Int1, kind: barrierless}
+  Ph-lit:
+    points: [R, TS1, P]
+order: [R, Int1, TS1, P]
+methods:
+  dft:
+    program: gaussian
+    level_of_theory: "M06-2X/def2-TZVP//B3LYP-D3/6-31G(d)"
+    solvent: {model: SMD, name: THF}
+    standard_state: {concentration_M: 1.0}
+  lit:
+    program: literature
+    reference: {doi: "10.0000/example", note: "SI Table S3"}
+series:
+  - id: dft-G-298
+    label: "Δqh-G (298 K)"
+    method: dft
+    quantity: qh_gibbs
+    temperature: 298.15
+    source: computed
+    levels:
+      Ph: {R: 0.0, Int1: -3.8, TS1: 13.4, P: -91.4}
+  - id: lit
+    label: "lit. B3LYP"
+    method: lit
+    quantity: gibbs
+    temperature: 298.15
+    source: declared
+    levels:
+      Ph-lit: {R: 0.0, TS1: 18.4, P: null}
+    uncertainty:
+      Ph-lit: {TS1: 1.0}
+    style: {linestyle: dashed}
+annotations:
+  - {type: barrier, pathway: Ph, from: Int1, to: TS1, series: dft-G-298}
+  - {type: span, pathway: Ph, from: R, to: P, label: "ΔG_rxn"}
+style:
+  layout: overlay
+  connector: bezier
+  label_points: true
+  decimals: 1
+x-lab-notes: "any x-* key is preserved and never validated"
+goodvibes:
+  sources:
+    dft:
+      R1-An:    {files: "r1-li-3thf-c1*"}
+      Aza-Phos: {files: "azaoxy-phosphine-full*"}
+      THF:      {files: "thf*"}
+      R1-Comp:  {files: "r1-phosphine-2thf-full*"}
+      AmTS:     {files: "aminationTS-full-unfrz-c1*"}
+      Syn-P:    {files: "syn-product-phos-full*"}
+  rollup: {mode: gconf, weight_by: qh_gibbs}
+provenance:
+  tool: goodvibes
+  goodvibes_version: "4.5.0"

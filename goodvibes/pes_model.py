@@ -703,12 +703,24 @@ class Pathway:
 
         ``quantity`` is a registry id or alias (goodvibes.quantities);
         entropies are returned as T·ΔS. A value is None when the quantity
-        is unavailable (single-point energy without --spc).
+        is unavailable (single-point energy without --spc). A point
+        without species (one that only carries declared values in a
+        reaction-profile document) is absent from the result, and a pathway
+        whose zero has no species gives an empty mapping.
         """
         from .quantities import resolve_quantity
         qid = resolve_quantity(quantity).id
-        rels = self.relative(T, gconf=gconf, QH=QH, lowest_only=lowest_only)
-        return {p.label: r.get(qid, T) for p, r in zip(self.points, rels)}
+        if not self.zero.species:
+            return {}
+        kw = dict(gconf=gconf, QH=QH, lowest_only=lowest_only)
+        zero = self.zero.thermo(T, **kw)
+        return {p.label: (p.thermo(T, **kw) - zero).get(qid, T) for p in self.points if p.species}
+
+    @property
+    def computable(self) -> bool:
+        """True when every point (and the zero) has species, so the full
+        thermochemistry table can be formed for this pathway."""
+        return bool(self.zero.species) and all(p.species for p in self.points)
 
 
 @dataclass
@@ -738,7 +750,9 @@ class Series:
 
     A *computed* series (``declared=False``) is evaluated from the model
     through ``Pathway.levels(temperature, quantity)``; ``temperature``
-    None means the result's first temperature. A *declared* series
+    None means the result's first temperature. Its ``levels``, when set,
+    are a stored evaluation (a reaction-profile document written by
+    ``Profile.evaluate``) and are used as they are. A *declared* series
     (``declared=True``) carries typed-in ``levels`` — literature values, a
     hand-entered table — as {pathway name: {point label: value}} in
     ``units`` (default: the result's units) and is never re-evaluated;
@@ -755,15 +769,14 @@ class Series:
     declared: bool = False
     units: Optional[str] = None
     uncertainty: Optional[Dict[str, Dict[str, float]]] = None
+    standard_state: Optional[Dict[str, Any]] = None
+    extensions: Dict[str, Any] = field(default_factory=dict)   # x-* keys of a reaction-profile document
 
     def __post_init__(self):
         from .quantities import resolve_quantity
         self.quantity = resolve_quantity(self.quantity).id
         if self.declared and self.levels is None:
             raise ValueError(f"Series {self.id!r}: a declared series needs its levels")
-        if not self.declared and self.levels is not None:
-            raise ValueError(f"Series {self.id!r}: a computed series cannot carry declared levels; "
-                             "set declared=True")
         if self.units is not None:
             from .constants import canonical_units
             self.units = canonical_units(self.units)
@@ -781,10 +794,11 @@ class Series:
     def evaluate(self, result: "PESResult", pathway: Pathway) -> Dict[str, Optional[float]]:
         """{point label: value in the result's units} for one pathway.
 
-        Computed series go through ``Pathway.levels``; declared series
-        return their stored levels converted to the result's units.
+        Stored levels (every declared series, and a computed series read
+        from an evaluated document) are returned converted to the result's
+        units; otherwise a computed series goes through ``Pathway.levels``.
         """
-        if self.declared:
+        if self.levels is not None:
             src_units = self.units or result.options.units
             factor = hartree_factor(result.options.units) / hartree_factor(src_units)
             stored = (self.levels or {}).get(pathway.name, {})
@@ -804,6 +818,7 @@ class PESResult:
     temperatures: List[float] = field(default_factory=lambda: [298.15])
     series: List[Series] = field(default_factory=list)
     order: Optional[List[str]] = None     # optional override of the merged x order
+    source: Any = field(default=None, repr=False, compare=False)   # the goodvibes.profile.Profile it was built from
 
     @property
     def temperature(self) -> float:

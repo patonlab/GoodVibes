@@ -230,21 +230,38 @@ def load_pes(
 ) -> PESResult:
     """Read a PES definition file, parse it, and return a `PESResult`.
 
-    Sniffs the file format (legacy `--- # PES` markers vs proper YAML);
-    legacy emits a `DeprecationWarning`.
+    Three formats are accepted: a reaction-profile document
+    (``schema: reaction-profile/1.x``, YAML or JSON; see
+    ``goodvibes.profile``), the v2 PES YAML, and the legacy ``--- # PES``
+    text (deprecated; emits a `DeprecationWarning`). The returned result
+    carries the document it was read from as ``result.source`` (a
+    ``goodvibes.profile.Profile``; the two older formats are upgraded).
     """
-    text = Path(path).read_text()
+    # UTF-8 as YAML specifies (display labels such as 'TS1‡'); undecodable
+    # bytes are replaced, as GoodVibes.main does when it sniffs the format.
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
     if is_legacy_format(text):
         warnings.warn(
             f"PES file {path!r} uses the legacy line-based format. "
             "This format is deprecated and will be removed in v6.0; "
-            "see ROADMAP.md Sub-plan B for the new YAML schema.",
+            "see the reaction-profile documentation for the YAML form.",
             DeprecationWarning,
             stacklevel=2,
         )
         from .pes_legacy import parse_legacy
         spec = parse_legacy(text)
+        kind = "legacy"
     else:
-        from .pes_yaml import parse_yaml
-        spec = parse_yaml(text)
-    return build_pes_result(spec, thermo_data, temperatures=temperatures)
+        from .pes_yaml import _load_yaml_text, parse_yaml_data
+        data = _load_yaml_text(text)
+        from .profile import Profile, _looks_explicit
+        if isinstance(data, dict) and _looks_explicit(data):
+            profile = Profile.from_dict(data)
+            result = profile.to_pes_result(thermo_data, temperatures=temperatures)
+            return result
+        spec = parse_yaml_data(data)
+        kind = "v2"
+    result = build_pes_result(spec, thermo_data, temperatures=temperatures)
+    from .profile import Profile
+    result.source = Profile.from_spec(spec, kind=kind)
+    return result

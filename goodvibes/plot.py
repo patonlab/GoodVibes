@@ -208,12 +208,15 @@ class ProfileAxes:
         if y0 is None or y1 is None:
             raise ValueError(f"annotate_barrier: no level for {src!r} -> {dst!r} in series {sid!r}")
         axis = ax if ax is not None else self.axes_for(name)
-        xa = self.x[dst] + offset
+        # Beside dst, on the side facing the profile: to the right, unless dst
+        # is the last column (the label would leave the axes).
+        last = self.x[dst] >= max(self.x.values())
+        xa = self.x[dst] - offset if last else self.x[dst] + offset
         col = color if color is not None else self.colors.get(name, "k")
         axis.annotate("", xy=(xa, y1), xytext=(xa, y0),
                       arrowprops=dict(arrowstyle="<->", color=col, linewidth=0.8, shrinkA=0, shrinkB=0))
-        return axis.annotate(fmt.format(y1 - y0), (xa, (y0 + y1) / 2), xytext=(3, 0),
-                             textcoords="offset points", ha="left", va="center",
+        return axis.annotate(fmt.format(y1 - y0), (xa, (y0 + y1) / 2), xytext=(-3 if last else 3, 0),
+                             textcoords="offset points", ha="right" if last else "left", va="center",
                              fontsize="x-small", color=col)
 
     def save(self, *paths: str, dpi: int = 200, bbox_inches: str = "tight", **kw) -> None:
@@ -509,6 +512,7 @@ def plot_profile(
         axis.set_xticklabels([display.get(lab, lab) for lab in order],
                              rotation=15, ha="right", fontsize="small")
         axis.set_ylabel(ylabel)
+        axis.margins(y=0.1)      # room for the value labels above TS bars and below minima
         axis.minorticks_on()
         axis.tick_params(axis='x', which='minor', bottom=False, top=False)
         axis.tick_params(axis='y', which='both', labelright=True, right=True)

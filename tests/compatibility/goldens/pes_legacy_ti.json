@@ -208,6 +208,147 @@
    }
   ]
  },
+ "profile": {
+  "default_temperature": 298.15,
+  "ensemble": "ideal-gas",
+  "goodvibes": {
+   "rollup": {
+    "mode": "gconf"
+   },
+   "sources": {
+    "default": {
+     "TS": {
+      "files": [
+       "Aminoxylation_TS*"
+      ]
+     },
+     "cat": {
+      "files": [
+       "aminox_cat_conf65_S"
+      ]
+     },
+     "subs": {
+      "files": [
+       "aminox_subs_*"
+      ]
+     }
+    }
+   },
+   "thermo": {
+    "QH": false,
+    "QS": "grimme",
+    "concentration": null,
+    "freq_scale_factor": 0.983,
+    "h_freq_cutoff": 100.0,
+    "inertia": "global",
+    "invert": null,
+    "s_freq_cutoff": 100.0,
+    "solv": null,
+    "spc": null,
+    "strict_spc": false,
+    "symm": false,
+    "zpe_scale_factor": 0.97
+   }
+  },
+  "pathways": {
+   "Reaction": {
+    "points": [
+     "cat+subs",
+     "TS"
+    ],
+    "zero": "cat+subs"
+   }
+  },
+  "points": {
+   "TS": {
+    "role": "minimum",
+    "species": {
+     "TS": 1
+    }
+   },
+   "cat+subs": {
+    "role": "minimum",
+    "species": {
+     "cat": 1,
+     "subs": 1
+    }
+   }
+  },
+  "provenance": {
+   "inputs": [
+    {
+     "file": "aminox_cat_conf65_S.log",
+     "species": "cat"
+    },
+    {
+     "file": "aminox_subs_conf713.log",
+     "species": "subs"
+    },
+    {
+     "file": "Aminoxylation_TS1_R.log",
+     "species": "TS"
+    },
+    {
+     "file": "Aminoxylation_TS2_S.log",
+     "species": "TS"
+    }
+   ],
+   "invocation": "goodvibes <ROOT>/goodvibes/examples/gconf_ee_boltz/aminox_cat_conf65_S.log <ROOT>/goodvibes/examples/gconf_ee_boltz/aminox_subs_conf713.log <ROOT>/goodvibes/examples/gconf_ee_boltz/Aminoxylation_TS1_R.log <ROOT>/goodvibes/examples/gconf_ee_boltz/Aminoxylation_TS2_S.log --pes <ROOT>/goodvibes/examples/gconf_ee_boltz/gconf_TS.yaml --ti 298,318,10 --output pes_legacy_ti --json out.json",
+   "tool": "goodvibes",
+   "warnings": []
+  },
+  "schema": "reaction-profile/1.0",
+  "series": [
+   {
+    "id": "qh_gibbs@298K",
+    "label": "\u0394qh-G(T) 298 K",
+    "levels": {
+     "Reaction": {
+      "TS": 19.0454725582583,
+      "cat+subs": 0.0
+     }
+    },
+    "quantity": "qh_gibbs",
+    "source": "computed",
+    "temperature": 298.0
+   },
+   {
+    "id": "qh_gibbs@308K",
+    "label": "\u0394qh-G(T) 308 K",
+    "levels": {
+     "Reaction": {
+      "TS": 19.571279203822613,
+      "cat+subs": 0.0
+     }
+    },
+    "quantity": "qh_gibbs",
+    "source": "computed",
+    "temperature": 308.0
+   },
+   {
+    "id": "qh_gibbs@318K",
+    "label": "\u0394qh-G(T) 318 K",
+    "levels": {
+     "Reaction": {
+      "TS": 20.09749805130817,
+      "cat+subs": 0.0
+     }
+    },
+    "quantity": "qh_gibbs",
+    "source": "computed",
+    "temperature": 318.0
+   }
+  ],
+  "species": {
+   "TS": {},
+   "cat": {},
+   "subs": {}
+  },
+  "style": {
+   "decimals": 2
+  },
+  "units": "kcal/mol"
+ },
  "results": [
   {
    "boltzmann_factor": null,
@@ -633,5 +774,5 @@
    }
   }
  ],
- "schema_version": "1.0"
+ "schema_version": "1.1"
 }

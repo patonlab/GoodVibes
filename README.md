@@ -20,6 +20,7 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 - Boltzmann-weighted populations and N-way stereoselectivity (`--label`)
 - Potential energy surface analysis with YAML-defined pathways, stoichiometric sums (`2*A + B`), and Gconf corrections
 - Structured JSON output (`--json`) for downstream pipelines
+- Reaction-profile documents (`reaction-profile/1.0`, a published JSON Schema): write them with `--profile`, then plot, tabulate and convert them with `goodvibes-profile` without the output files (re-evaluating them, e.g. at another temperature, also needs `--with-conformers`); CSV tables of literature values plot the same way
 - Symmetry-corrected entropy via pymsym point-group detection
 - Solvent standard-state concentration and free-space corrections
 - Skip re-parsing across runs with `--export` / `--import` (v1.0 unified JSON; legacy `--cache-save` / `--cache-read` retained as deprecated aliases)
@@ -227,6 +228,16 @@ o  TS                           4.72      -0.46          3.53     -15.85     -16
    ************************************************************************************************************
 ```
 
+The same profile as a reaction-profile document, drawn later without the output files:
+
+```bash
+goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml --profile aminox.json
+goodvibes-profile plot aminox.json -o aminox.svg --label-points
+goodvibes-profile table aminox.json -o aminox_si.md
+```
+
+See [the reaction-profile format](docs/source/reaction_profile.md) for the document, the CSV tables `goodvibes-profile` reads, and `--with-conformers`.
+
 ##### Example 10: Stereoselectivity and Boltzmann populations
 
 ```bash
@@ -284,6 +295,8 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--parquet PATH` | Write per-file thermochemistry to a Parquet file (requires pyarrow; `goodvibes[full]`) | -- |
 | `--strip-plot PATH` | Save a per-species ΔG strip plot (requires `--label`/`--selectivity`; `goodvibes[plot]`) | -- |
 | `--pes-plot PATH` | Save a reaction-profile plot (requires `--pes`; `goodvibes[plot]`). With `--ti` the scan temperatures are overlaid on one axes | -- |
+| `--profile PATH` | With `--pes`: write the evaluated reaction-profile document (`.json`/`.yaml`); plot, tabulate or convert it later with `goodvibes-profile`, no output files needed | -- |
+| `--with-conformers` | With `--profile`: embed every structure's parsed data so the document can be re-evaluated (e.g. at another temperature) without the output files | off |
 | `--pes-plot-quantity Q` | Quantity drawn by `--pes-plot`: `qh_gibbs`, `gibbs`, `enthalpy`, `qh_enthalpy`, `electronic` (E), `e_zpe`, `zpe`, `entropy`, `qh_entropy` or `spc` (`--gtype` is the historical spelling) | qh_gibbs |
 | `--media SOLVENT` | Solvent standard-state concentration correction | -- |
 | `--freespace SOLVENT` | Free-space correction for solvent cavity | -- |
@@ -315,7 +328,8 @@ Run `goodvibes -h` for the full list of options. Key flags:
 Optional:
 
 - **ase** >= 3.22 (`goodvibes[ase]`) -- only needed to *write* `.extxyz` inputs with `goodvibes.ase_helper` or to drive `QCData.from_atoms` / `from_vibrations` from your own ASE workflow; parsing `.extxyz` files needs no ase
-- **pyyaml** -- needed at runtime when reading new-style PES YAML or `--selectivity FILE.yaml`; included in the `test` extra
+- **pyyaml** -- reaction-profile documents, PES YAML and `--selectivity FILE.yaml` (a core dependency from 4.6)
+- **jsonschema** (optional) -- `goodvibes-profile validate` also checks documents against the published JSON Schema when it is installed
 
 Build requires setuptools >= 64. See `pyproject.toml` for details.
 

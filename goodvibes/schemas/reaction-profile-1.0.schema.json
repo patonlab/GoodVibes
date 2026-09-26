@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/patonlab/GoodVibes/master/goodvibes/schemas/reaction-profile-1.0.schema.json",
+  "title": "reaction-profile 1.0",
+  "description": "A reaction energy profile: species, points, pathways, methods and series of relative energies. Structural rules only; the referential rules (a pathway's points exist, a series' levels name points of that pathway, ...) are stated in the specification and checked by the reference implementation (goodvibes.profile). Schema and specification text: CC0-1.0.",
+  "$comment": "SPDX-License-Identifier: CC0-1.0",
+  "type": "object",
+  "required": [
+    "schema",
+    "pathways"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "pattern": "^reaction-profile/1\\.[0-9]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "units": {
+      "enum": [
+        "kcal/mol",
+        "kJ/mol",
+        "eV",
+        "hartree"
+      ]
+    },
+    "ensemble": {
+      "enum": [
+        "ideal-gas"
+      ]
+    },
+    "default_temperature": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "species": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "smiles": {
+            "type": "string"
+          },
+          "inchi": {
+            "type": "string"
+          },
+          "formula": {
+            "type": "string"
+          },
+          "charge": {
+            "type": "integer"
+          },
+          "multiplicity": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "points": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "species": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "enum": [
+              "reactant",
+              "minimum",
+              "ts",
+              "product"
+            ]
+          },
+          "display": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "pathways": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "points"
+            ],
+            "properties": {
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "zero": {
+                "type": "string",
+                "minLength": 1
+              },
+              "edges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "from",
+                    "to"
+                  ],
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "kind": {
+                      "enum": [
+                        "step",
+                        "barrierless",
+                        "none"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "order": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "methods": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ]
+      }
+    },
+    "series": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "quantity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "enum": [
+              "spc",
+              "electronic",
+              "zpe",
+              "e_zpe",
+              "enthalpy",
+              "qh_enthalpy",
+              "entropy",
+              "qh_entropy",
+              "gibbs",
+              "qh_gibbs"
+            ]
+          },
+          "temperature": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "source": {
+            "enum": [
+              "computed",
+              "declared"
+            ]
+          },
+          "levels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          },
+          "uncertainty": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "style": {
+            "type": "object"
+          },
+          "standard_state": {
+            "type": "object"
+          }
+        },
+        "if": {
+          "properties": {
+            "source": {
+              "const": "declared"
+            }
+          },
+          "required": [
+            "source"
+          ]
+        },
+        "then": {
+          "required": [
+            "levels"
+          ]
+        }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "pathway",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "barrier",
+              "span"
+            ]
+          },
+          "pathway": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
+          "series": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "enum": [
+            "none"
+          ]
+        },
+        "layout": {
+          "enum": [
+            "overlay",
+            "panels"
+          ]
+        },
+        "connector": {
+          "enum": [
+            "bezier",
+            "linear",
+            "step"
+          ]
+        },
+        "label_points": {
+          "type": "boolean"
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "figsize": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "goodvibes": {
+      "type": "object",
+      "description": "GoodVibes recipe namespace; other readers ignore it."
+    },
+    "selectivity": {
+      "not": {},
+      "description": "Reserved for reaction-profile 1.1."
+    }
+  },
+  "patternProperties": {
+    "^x-": {}
+  }
+}

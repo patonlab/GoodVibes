@@ -218,7 +218,7 @@ def test_json_pes_block_matches_golden(azabor_pes_result, tmp_path):
     write_json_results({}, options, str(out), pes_result=azabor_pes_result)
     payload = json.loads(out.read_text())
 
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert "pes" in payload
     pathway = payload["pes"]["pathways"][0]
     assert pathway["name"] == "Ph"

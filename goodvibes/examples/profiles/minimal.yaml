@@ -1,0 +1,20 @@
+# The minimal reaction profile: typed-in values, no QC data.
+schema: reaction-profile/1.0
+title: Minimal profile
+units: kcal/mol
+points:
+  R:   {role: reactant}
+  TS1: {role: ts, display: "TS1‡"}
+  Int: {role: minimum}
+  TS2: {role: ts, display: "TS2‡"}
+  P:   {role: product}
+pathways:
+  main: [R, TS1, Int, TS2, P]
+series:
+  - id: G
+    label: "ΔG (298 K)"
+    quantity: gibbs
+    temperature: 298.15
+    source: declared
+    levels:
+      main: {R: 0.0, TS1: 18.4, Int: 3.2, TS2: 12.9, P: -12.1}

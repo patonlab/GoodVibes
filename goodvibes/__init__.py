@@ -17,6 +17,11 @@ Programmatic API:
     pes = load_pes("profile.yaml", {r.file: r.bbe for r in results})
     plot_profile(pes, temperatures=[298.15, 373.15]).save("profile.svg")
 
+    # reaction-profile documents (reaction-profile/1.0)
+    from goodvibes import load_profile
+    doc = load_profile("profile.yaml").evaluate(results, with_conformers=True)
+    doc.dump("profile.json"); doc.plot().save("profile.svg")
+
 The `calc_bbe` class remains the canonical engine; `compute_thermo` is
 just a kwargs façade that returns a structured `ThermoResult`.
 """
@@ -44,6 +49,7 @@ from .pes_model import (
     merge_point_order,
 )
 from .plot import ProfileAxes, plot_pes, plot_profile
+from .profile import Profile, ProfileError, ProfileWarning, load_profile, validate_document
 from .quantities import QUANTITIES, resolve_quantity
 from .selectivity import SelectivityResult, compute_selectivity
 from .thermo import MissingSinglePointError, ThermoOptions, calc_bbe
@@ -79,6 +85,12 @@ __all__ = [
     "plot_profile",
     "plot_pes",
     "ProfileAxes",
+    # reaction-profile documents
+    "Profile",
+    "ProfileError",
+    "ProfileWarning",
+    "load_profile",
+    "validate_document",
     # selectivity
     "SelectivityResult",
     "compute_selectivity",

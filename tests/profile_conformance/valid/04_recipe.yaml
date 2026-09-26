@@ -1,0 +1,24 @@
+# A recipe: computed series without levels yet, and where the files are.
+schema: reaction-profile/1.0
+units: eV
+default_temperature: 373.15
+species:
+  A: {}
+  B: {}
+  TS: {}
+points:
+  start: {species: "A + B", role: reactant}
+  TS:    {species: TS, role: ts}
+pathways:
+  rxn: {points: [start, TS]}
+series:
+  - {id: E, quantity: electronic}
+  - {id: G373, quantity: qh_gibbs, temperature: 373.15}
+goodvibes:
+  sources:
+    default:
+      A:  {files: "a_conf*"}
+      B:  {files: ["b.log"]}
+      TS: {dirs: ["TS_*"]}
+  thermo: {QS: grimme, QH: true, s_freq_cutoff: 100.0}
+  dedup: {e_cutoff: 0.05, ro_cutoff: 0.01}

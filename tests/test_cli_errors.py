@@ -254,7 +254,7 @@ class TestMainDirect:
     def test_json_export_v1_schema(self, monkeypatch, tmp_path, gv_logger_cleanup):
         run_main(monkeypatch, tmp_path, [WATER, '--json', 'out.json'])
         payload = json.loads((tmp_path / 'out.json').read_text())
-        assert payload['schema_version'] == '1.0'
+        assert payload['schema_version'] == '1.1'
         assert payload['results'], 'results list is empty'
         thermo = payload['results'][0]['thermo']
         assert 'qh_gibbs_free_energy' in thermo

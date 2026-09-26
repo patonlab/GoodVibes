@@ -220,8 +220,8 @@ def test_pathway_point_lookup(real_result):
 def test_series_validation():
     with pytest.raises(ValueError, match="needs its levels"):
         Series(id="lit", label="lit", declared=True)
-    with pytest.raises(ValueError, match="cannot carry declared levels"):
-        Series(id="x", label="x", levels={"rxn": {"A": 0.0}})
+    stored = Series(id="x", label="x", levels={"rxn": {"A": 0.0}})   # an evaluated computed series
+    assert not stored.declared and stored.levels == {"rxn": {"A": 0.0}}
     s = Series(id="g", label="G", quantity="G")
     assert s.quantity == "gibbs"
 
