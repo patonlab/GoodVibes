@@ -822,6 +822,7 @@ def main():
                      "and will be removed in v6.0; see the PES section of the documentation for the YAML form.")
     if options.pes:
         import warnings as _warnings
+        import yaml
         from .pes_loader import load_pes
         from .profile import ProfileWarning
         if options.temperature_interval is None:
@@ -832,7 +833,7 @@ def main():
             with _warnings.catch_warnings():
                 _warnings.simplefilter("ignore", ProfileWarning)   # reported in the .dat below instead
                 pes_result = load_pes(options.pes, thermo_data, temperatures=pes_temperatures)
-        except (KeyError, ValueError) as exc:
+        except (KeyError, ValueError, yaml.YAMLError) as exc:
             fatal(f"\n   ✗ FATAL ERROR: --pes {options.pes}: {exc}")
         for note in getattr(pes_result.source, "warnings", []):
             log.info(f"\n   ! {options.pes}: {note}")
@@ -853,6 +854,7 @@ def main():
                 thermo_data, options=pes_result.options,
                 default_series=pes_result.default_series(options.pes_plot_quantity),
                 with_conformers=options.with_conformers,
+                base_temperature=pes_result.temperature,
                 invocation="goodvibes " + " ".join(sys.argv[1:]))
         except (ProfileError, ValueError, KeyError) as exc:
             fatal(f"\n   ✗ FATAL ERROR: evaluating the reaction profile: {exc}")

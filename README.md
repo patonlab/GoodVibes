@@ -20,7 +20,7 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 - Boltzmann-weighted populations and N-way stereoselectivity (`--label`)
 - Potential energy surface analysis with YAML-defined pathways, stoichiometric sums (`2*A + B`), and Gconf corrections
 - Structured JSON output (`--json`) for downstream pipelines
-- Reaction-profile documents (`reaction-profile/1.0`, a published JSON Schema): write them with `--profile`, then plot, tabulate, convert or re-evaluate them with `goodvibes-profile` without the output files; CSV tables of literature values plot the same way
+- Reaction-profile documents (`reaction-profile/1.0`, a published JSON Schema): write them with `--profile`, then plot, tabulate and convert them with `goodvibes-profile` without the output files (re-evaluating them, e.g. at another temperature, also needs `--with-conformers`); CSV tables of literature values plot the same way
 - Symmetry-corrected entropy via pymsym point-group detection
 - Solvent standard-state concentration and free-space corrections
 - Skip re-parsing across runs with `--export` / `--import` (v1.0 unified JSON; legacy `--cache-save` / `--cache-read` retained as deprecated aliases)

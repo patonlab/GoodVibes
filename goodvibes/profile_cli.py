@@ -20,6 +20,8 @@ import argparse
 import os
 import sys
 import warnings
+
+import yaml
 from typing import List, Optional
 
 from .constants import __version__
@@ -98,11 +100,10 @@ def cmd_validate(args) -> int:
             if ext == ".json":
                 data = json.loads(text)
             else:
-                import yaml
                 data = yaml.safe_load(text)
             if isinstance(data, dict) and "schema_version" in data and "profile" in data:
                 data = data["profile"]
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, yaml.YAMLError) as exc:
             print(f"{path}: cannot read: {exc}", file=sys.stderr)
             status = 1
             continue
@@ -270,7 +271,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except ProfileError as exc:
         print(f"goodvibes-profile: error: {exc}", file=sys.stderr)
         return 1
-    except (OSError, ValueError, KeyError, ImportError) as exc:
+    except (OSError, ValueError, KeyError, ImportError, yaml.YAMLError) as exc:
         msg = exc.args[0] if isinstance(exc, KeyError) and exc.args else exc
         print(f"goodvibes-profile: error: {msg}", file=sys.stderr)
         return 1

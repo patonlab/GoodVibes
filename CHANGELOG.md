@@ -35,7 +35,9 @@ every such change is listed under **Output changes**.
     points carry only declared values are left out of the Rich tables and
     the `pes` block, with a note. With `--ti` such a document is tabulated
     by the model at every scan temperature (the legacy text path is kept
-    for the v2 and legacy formats), and `--graph` refuses it.
+    for the v2 and legacy formats), and `--graph` refuses it. Its computed
+    series that give no temperature are evaluated at the run temperature,
+    like the tables and the `pes` block.
   - `goodvibes-profile` (new console script): `validate`, `plot`, `table`,
     `convert`, `evaluate`. It reads documents and tables only, never QC
     outputs.

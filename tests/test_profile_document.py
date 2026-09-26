@@ -214,6 +214,16 @@ Ph,TS,41.84,E,electronic,kJ/mol,,
     assert ts_g[0]["uncertainty"] == 0.5 and ts_g[0]["role"] == "ts"
 
 
+def test_long_table_uncertainty_is_converted_with_its_value():
+    text = """pathway,point,value,units,uncertainty
+Ph,R,0,kJ/mol,
+Ph,TS,41.84,kJ/mol,4.184
+"""
+    s = Profile.from_table(text, units="kcal/mol").series[0]
+    assert s.levels["Ph"]["TS"] == pytest.approx(10.0)
+    assert s.uncertainty["Ph"]["TS"] == pytest.approx(1.0)
+
+
 def test_table_errors_and_zero_warning():
     with pytest.raises(ProfileError, match="'point' column"):
         Profile.from_table("a,b\n1,2\n", layout="wide")

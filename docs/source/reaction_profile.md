@@ -62,7 +62,7 @@ required.
 | `title`, `description` | string | free text |
 | `units` | `kcal/mol` \| `kJ/mol` \| `eV` \| `hartree` | units of every level in the document (default `kcal/mol`) |
 | `ensemble` | `ideal-gas` | the statistical ensemble; the only one defined in 1.0 |
-| `default_temperature` | number > 0 | K; used by computed series without a temperature (default 298.15) |
+| `default_temperature` | number > 0 | K; used by computed series without a temperature (default 298.15; the `goodvibes` command evaluates them at its run temperature instead) |
 | `species` | mapping | identity of each species (no files, no values) |
 | `points` | mapping | the nodes of the profile |
 | `pathways` | mapping | ordered points, a zero and edges |
@@ -268,6 +268,7 @@ P,product,P,-12.6,-12.1
 **From Python:**
 
 ```python
+import glob
 from goodvibes import compute_batch, load_profile
 
 prof = load_profile("profile.yaml")                 # .yaml/.json/.csv, v2 or legacy PES

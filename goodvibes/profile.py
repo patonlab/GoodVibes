@@ -875,12 +875,14 @@ class Profile:
                 sdef = series_def((row.get("series") or "").strip() or series_id, row)
                 try:
                     value = _cell_float(row.get("value"))
-                    if value is not None and (row.get("units") or "").strip():
-                        value *= hartree_factor(units) / hartree_factor(row["units"].strip())
+                    row_units = (row.get("units") or "").strip()
+                    factor = hartree_factor(units) / hartree_factor(row_units) if row_units else 1.0
+                    if value is not None:
+                        value *= factor
                     sdef["levels"].setdefault(pname, {})[pid] = value
                     unc = _cell_float(row.get("uncertainty"))
                     if unc is not None:
-                        sdef.setdefault("uncertainty", {}).setdefault(pname, {})[pid] = unc
+                        sdef.setdefault("uncertainty", {}).setdefault(pname, {})[pid] = unc * factor
                 except ValueError as exc:
                     errors.append(f"line {n}: {exc}")
         if errors:
@@ -1239,7 +1241,8 @@ class Profile:
 
     def evaluate(self, thermo_data=None, *, temperatures: Optional[Sequence[float]] = None,
                  options: Optional[PESOptions] = None, default_series: Optional[Sequence[Series]] = None,
-                 with_conformers: bool = False, invocation: Optional[str] = None) -> "Profile":
+                 with_conformers: bool = False, invocation: Optional[str] = None,
+                 base_temperature: Optional[float] = None) -> "Profile":
         """A new document with every computed series evaluated.
 
         The data is ``thermo_data`` ({file: calc_bbe} or ``ThermoResult``
@@ -1249,7 +1252,10 @@ class Profile:
         ``@<T>K``). A document without computed series gets
         ``default_series`` (default: Δqh-G(T) at ``default_temperature``).
         ``options`` overrides the rollup (the CLI passes its flags this
-        way). ``with_conformers`` embeds every structure's parsed data and
+        way). ``base_temperature`` replaces ``default_temperature`` for
+        computed series that give no temperature (the CLI passes its run
+        temperature, so the document matches the tables and the ``pes``
+        block of the same run). ``with_conformers`` embeds every structure's parsed data and
         thermochemistry options so the document can be re-evaluated, at
         any temperature, with no output files. Declared series are copied
         unchanged. Adds a ``provenance`` block.
@@ -1273,7 +1279,8 @@ class Profile:
             m = s.method or self.default_method()
             if m in by_method:
                 continue
-            pes = self.to_pes_result(thermo_data, method=m, options=options)
+            pes = self.to_pes_result(thermo_data, method=m, options=options,
+                                     temperatures=[base_temperature] if base_temperature else None)
             if not any(pt.species for path in pes.pathways for pt in path.points):
                 where = "the thermo data given" if thermo_data is not None else "embedded conformers"
                 raise ProfileError([f"series {s.id!r}: no species of method {m!r} could be built from {where}; "

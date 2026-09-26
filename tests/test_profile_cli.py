@@ -249,3 +249,36 @@ def test_graph_refuses_a_reaction_profile_document(monkeypatch, tmp_path, gv_log
     with pytest.raises(SystemExit):
         run_main(monkeypatch, tmp_path, WATERS + ["--pes", doc, "--graph", doc])
     assert "--graph reads only the legacy" in (tmp_path / "GoodVibes_output.dat").read_text(encoding="utf-8")
+
+
+def test_series_without_temperature_follow_the_run_temperature(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
+    """A computed series with no temperature is evaluated at the run's
+    temperature (--temp), like the tables and the pes block of the same
+    payload, not at the document's default."""
+    doc = json.loads(json.dumps(DOC))
+    doc["series"] = [{"id": "G", "quantity": "qh_gibbs"}]
+    run_main(monkeypatch, tmp_path, WATERS + ["--pes", _write(tmp_path, "doc.yaml", doc), "--temp", "350",
+                                              "--json", "out.json"])
+    payload = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))
+    series = payload["profile"]["series"][0]
+    assert series["temperature"] == 350.0
+    assert payload["pes"]["pathways"][0]["temperature"] == 350.0
+    assert series["levels"]["rxn"]["end"] == pytest.approx(
+        payload["pes"]["pathways"][0]["points"][1]["relative"]["qh_g"], abs=1e-9)
+
+
+def test_malformed_yaml_is_reported_not_a_traceback(tmp_path, capsys):
+    bad = _write(tmp_path, "bad.yaml", "schema: reaction-profile/1.0\npathways: {p: [A\n")
+    good = str(KIT / "valid" / "01_minimal.yaml")
+    assert gvp(["validate", bad, good]) == 1
+    captured = capsys.readouterr()
+    assert "bad.yaml: cannot read" in captured.err and "01_minimal.yaml: valid" in captured.out
+    assert gvp(["table", bad]) == 1
+    assert "goodvibes-profile: error:" in capsys.readouterr().err
+
+
+def test_malformed_pes_file_is_a_fatal_error(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
+    bad = _write(tmp_path, "bad.yaml", "pathways: {p: [A\n")
+    with pytest.raises(SystemExit):
+        run_main(monkeypatch, tmp_path, WATERS + ["--pes", bad])
+    assert "FATAL ERROR: --pes" in (tmp_path / "GoodVibes_output.dat").read_text(encoding="utf-8")
