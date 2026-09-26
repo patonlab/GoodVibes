@@ -230,6 +230,7 @@ to_parquet(results, "thermo.parquet")
 | You import `calc_bbe` and call it directly | Switch to `compute_thermo` for ergonomics, or `calc_bbe.from_options` if you specifically want the `calc_bbe` instance. |
 | You depend on cited paper values produced with v4.x.0 (uniform `harm_fac`) | Pin to `goodvibes==4.2.0` until you're ready to update. v5.0 uses Truhlar's separate `zpe_fac` / `harm_fac` (the *correct* split per Alecu et al., JCTC 2010). |
 
-See the [v4.x → v5.0 ROADMAP entry on
-GitHub](https://github.com/patonlab/GoodVibes/blob/master/ROADMAP.md)
-for the full list of v5.0 changes.
+See [CHANGELOG.md](https://github.com/patonlab/GoodVibes/blob/master/CHANGELOG.md)
+for the full list of changes, and the
+[ROADMAP](https://github.com/patonlab/GoodVibes/blob/master/ROADMAP.md) for
+what comes next.

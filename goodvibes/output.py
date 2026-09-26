@@ -408,7 +408,7 @@ def _print_rich_table(table: "Table") -> None:
 
 
 # ---------------------------------------------------------------------------
-# PES tables (v4.2 Rich renderer; see Sub-plan B in ROADMAP.md)
+# PES tables (Rich renderer)
 # ---------------------------------------------------------------------------
 
 # Quantities shown in the PES table, in order. e_zpe is deliberately not a

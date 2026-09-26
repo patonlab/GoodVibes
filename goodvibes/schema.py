@@ -14,7 +14,7 @@ for that schema:
 
 The JSON file is also accepted by `--import` as a cache (skips
 re-parsing the underlying QC outputs); the same schema therefore plays
-two roles, which is item 10 of ROADMAP.md.
+two roles.
 
 ## Version policy (v1.0+)
 

@@ -1,4 +1,4 @@
-"""Visualization for GoodVibes (v5.0 ROADMAP item 14).
+"""Visualization for GoodVibes.
 
 Pure plotting layer that renders the v4.2+ structured types
 (`PESResult`, `SelectivityResult`, `ThermoResult`) to matplotlib axes.
@@ -644,12 +644,12 @@ def plot_boltzmann_histogram(
 ):
     """Bar chart of per-conformer Boltzmann populations.
 
-    Not yet implemented — slated for v5.1 alongside the Ensemble
-    container that gives this a natural data source.
+    Not yet implemented; planned for 5.1 over ``ConformerSet.populations``
+    (ROADMAP milestone M3).
     """
     raise NotImplementedError(
         "plot_boltzmann_histogram is reserved for v5.1; "
-        "follow ROADMAP.md item 14."
+        "see ROADMAP.md, milestone M3."
     )
 
 
@@ -660,10 +660,10 @@ def plot_temperature_scan(
 ):
     """Plot thermochemistry quantities (qh-G, S, H) vs temperature.
 
-    Not yet implemented — slated for v5.1 alongside a structured
-    representation of `--ti` output.
+    Not yet implemented; planned for 5.1 over computed ``Series`` at
+    several temperatures (ROADMAP milestone M3).
     """
     raise NotImplementedError(
         "plot_temperature_scan is reserved for v5.1; "
-        "follow ROADMAP.md item 14."
+        "see ROADMAP.md, milestone M3."
     )

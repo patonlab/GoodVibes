@@ -101,6 +101,10 @@ every such change is listed under **Output changes**.
   README option table.
 
 ### Changed
+- `ROADMAP.md` rewritten around the reaction-profile direction: milestones
+  M0 to M2a shipped, M2b to M5 open, the items of the previous roadmap that
+  were dropped or reshaped and why, and the example-set policy. The previous
+  roadmap stays in git history.
 - PyYAML is a core dependency (reaction-profile documents and PES files
   are YAML); `jsonschema` is optional and in the `test` extra; new
   `profile` extra (matplotlib).
