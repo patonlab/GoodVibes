@@ -463,14 +463,36 @@ def _draw_connector(ax, x0, y0, x1, y1, *, style, color, linestyle, linewidth, z
                    linestyle=linestyle, zorder=zorder)[0]
 
 
-def _labels_collide(fig, texts) -> bool:
-    """Whether consecutive tick labels overlap (measured with the Agg renderer)."""
+def _tick_label_rotation(fig, axis, texts, angle: float = 15.0) -> float:
+    """The smallest of 15, 40 and 90 degrees at which slanted, right-aligned
+    tick labels one data unit apart do not overlap.
+
+    Parallel labels at angle a, d apart, run into each other when one is
+    long enough to reach its neighbour (width * cos a > d) and the gap
+    between their baselines (d * sin a) is less than the text height.
+    """
+    import math
     try:
         renderer = fig.canvas.get_renderer()
-        boxes = [t.get_window_extent(renderer) for t in texts if t.get_text()]
     except Exception:                                   # a canvas without a renderer
-        return False
-    return any(b.x1 > c.x0 + 1 for b, c in zip(boxes, boxes[1:]))
+        return angle
+    shown = [t for t in texts if t.get_text()]
+    if len(shown) < 2:
+        return angle
+    x0, x1 = axis.transData.transform([(0.0, 0.0), (1.0, 0.0)])[:, 0]
+    d = abs(x1 - x0)
+    widths = []
+    for t in shown:
+        rot = t.get_rotation()
+        t.set_rotation(0)
+        widths.append(t.get_window_extent(renderer).width)
+        t.set_rotation(rot)
+    height = 1.2 * max(t.get_size() for t in shown) * fig.dpi / 72.0
+    for a in (angle, 40.0):
+        r = math.radians(a)
+        if max(widths) * math.cos(r) <= d or d * math.sin(r) >= height:
+            return a
+    return 90.0
 
 
 def _label_margin(fig, axis, stack_pts: float, minimum: float = 0.1) -> float:
@@ -756,9 +778,10 @@ def plot_profile(
             axis.set_xticks(list(range(n_points)))
             ticklabels = axis.set_xticklabels([display.get(lab, lab) for lab in order],
                                               rotation=15, ha="right", fontsize=tick_size)
-            if _labels_collide(fig, ticklabels):
+            rotation = _tick_label_rotation(fig, axis, ticklabels)
+            if rotation != 15:
                 for t in ticklabels:
-                    t.set_rotation(40)
+                    t.set_rotation(rotation)
             if pre:
                 axis.tick_params(axis="y", labelsize=tick_size)
             axis.set_ylabel(ylabel)
