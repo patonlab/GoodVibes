@@ -20,7 +20,7 @@ level, and a barrier annotation.
 ![The same profile at 273, 298, 373 and 423 K](gallery/azabor_temperatures.png)
 
 The embedded structures re-evaluated at each temperature without the output
-files: `goodvibes-profile plot azabor_profile.json --temperatures 273.15,298.15,373.15,423.15`.
+files: `goodvibes-profile plot goodvibes/examples/profiles/azabor_profile.json --temperatures 273.15,298.15,373.15,423.15`.
 
 ## ΔE, ΔH and Δqh-G on one axes
 
@@ -39,7 +39,7 @@ Two pathways from one reactant pair (`layout: panels`), ΔE dotted and
 
 ![A profile drawn from a CSV table](gallery/declared_csv.png)
 
-`goodvibes-profile plot levels.csv`: a hand-typed table is a profile.
+`goodvibes-profile plot goodvibes/examples/profiles/levels.csv`: a hand-typed table is a profile.
 The values are illustrative, not from a publication.
 
 ## Computed and declared values together

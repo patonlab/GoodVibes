@@ -238,3 +238,14 @@ def test_default_linestyles_skip_styles_chosen_by_other_series():
     styles = plot_profile(res).linestyles
     assert styles["H"] != styles["G"] and ":" not in (styles["H"], styles["G"])
     prof.close()
+
+
+def test_dash_pattern_linestyle_is_accepted():
+    """A Matplotlib dash pattern holds a list, so it is unhashable; choosing
+    the default styles must not put it in a set."""
+    res = _branches()
+    res.series = [Series(id="E", label="E", quantity="electronic", style={"linestyle": (0, [3, 2])}),
+                  Series(id="G", label="G", quantity="gibbs")]
+    prof = plot_profile(res)
+    assert prof.linestyles == {"E": (0, [3, 2]), "G": "-"}
+    prof.close()

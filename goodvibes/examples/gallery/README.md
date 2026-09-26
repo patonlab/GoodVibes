@@ -16,7 +16,8 @@ python goodvibes/examples/gallery/build_gallery.py --out figs --formats png,svg,
 
 `_generate_inputs.py` (and `../profiles/_generate.py`) regenerate the two
 documents from the outputs; the gallery itself only needs the documents.
-The code for each figure is a short function in `build_gallery.py`.
+The code for each figure is a short function in `build_gallery.py`. The snippets
+below run from the repository root.
 
 ## Δqh-G with every conformer
 
@@ -27,7 +28,7 @@ each conformer drawn at the level plus its offset from the species' ensemble
 value, and the document's barrier annotation.
 
 ```python
-prof = load_profile("azabor_profile.json")
+prof = load_profile("goodvibes/examples/profiles/azabor_profile.json")
 prof.plot(series=["qh_gibbs@298.15K"], label_points=True, show_conformers=True)
 ```
 
@@ -39,7 +40,7 @@ The embedded structures are re-evaluated at each temperature, without the
 output files; one linestyle per temperature.
 
 ```bash
-goodvibes-profile plot azabor_profile.json --temperatures 273.15,298.15,373.15,423.15 -o scan.png
+goodvibes-profile plot goodvibes/examples/profiles/azabor_profile.json --temperatures 273.15,298.15,373.15,423.15 -o scan.png
 ```
 
 ## ΔE, ΔH and Δqh-G on one axes
@@ -67,7 +68,7 @@ style), ΔE dotted and Δqh-G solid, with the free-energy barriers marked. The
 catalyst is a three-conformer ensemble.
 
 ```bash
-goodvibes-profile plot aminox_profile.json -o branches.png
+goodvibes-profile plot goodvibes/examples/gallery/aminox_profile.json -o branches.png
 ```
 
 ## A CSV table of relative energies
@@ -78,7 +79,7 @@ A table typed in by hand is a profile too; declared values are drawn with
 hollow markers. The numbers in `levels.csv` are illustrative.
 
 ```bash
-goodvibes-profile plot levels.csv -o levels.png --quantity gibbs --temperature 298.15
+goodvibes-profile plot goodvibes/examples/profiles/levels.csv -o levels.png --quantity gibbs --temperature 298.15
 ```
 
 ## Computed and declared values together

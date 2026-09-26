@@ -412,10 +412,13 @@ def plot_profile(
     colors_by_path = _resolve_colors(plt, paths, colors)
     # Series without an explicit linestyle take the next style from the cycle
     # that no other series asked for, so defaults never repeat a chosen one.
+    # A list, not a set: a dash pattern such as (0, [3, 2]) is unhashable.
     _aliases = {"solid": "-", "dashed": "--", "dotted": ":", "dashdot": "-."}
-    explicit = {_aliases.get(s.style["linestyle"], s.style["linestyle"])
-                for s in series_list if "linestyle" in s.style}
-    free = [ls for ls in linestyles if _aliases.get(ls, ls) not in explicit] or linestyles
+
+    def _norm_ls(ls):
+        return _aliases.get(ls, ls) if isinstance(ls, str) else ls
+    explicit = [_norm_ls(s.style["linestyle"]) for s in series_list if "linestyle" in s.style]
+    free = [ls for ls in linestyles if _norm_ls(ls) not in explicit] or linestyles
     ls_by_series = {}
     n_default = 0
     for s in series_list:
