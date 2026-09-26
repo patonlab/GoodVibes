@@ -117,6 +117,24 @@ def test_gaussian_without_archive_raises(tmp_path):
         parse_hessian(str(out))
 
 
+def test_gaussian_without_masses_raises(tmp_path):
+    # A Hessian without its per-atom masses cannot be mass-weighted: fail at
+    # parse time rather than returning masses=[] for callers to trip over
+    src = open(g16path('01a_water_hf_freq.log'), encoding='utf-8').read().splitlines(True)
+    out = tmp_path / "job.log"
+    out.write_text(''.join(line for line in src if 'has atomic number' not in line))
+    with pytest.raises(ValueError, match="per-atom masses"):
+        parse_hessian(str(out))
+
+
+def test_orca_hess_without_atoms_raises(tmp_path):
+    src = open(orca_path('ts_sn2.hess'), encoding='utf-8').read()
+    hess = tmp_path / "job.hess"
+    hess.write_text(src.replace('$atoms', '$not_atoms'))
+    with pytest.raises(ValueError, match=r"\$atoms"):
+        parse_hessian(str(hess))
+
+
 def test_qcdata_per_atom_masses_gaussian():
     # parse_qcdata now exposes the per-atom masses (isotope-aware)
     qc = parse_qcdata(g16path('01c_water_hf_freq_isotopes.log'))

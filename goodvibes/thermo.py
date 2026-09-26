@@ -961,8 +961,9 @@ class calc_bbe:
         """
         if not _HAS_PYMSYM:
             raise RuntimeError(
-                "pymsym is required for symmetry detection but is not installed. "
-                "Install it with: pip install pymsym"
+                "pymsym is required for symmetry detection but could not be imported: it is "
+                "either not installed or broken. It has no Windows wheels; elsewhere install "
+                "it with: pip install pymsym"
             )
         atom_nums = np.array(self.xyz.atom_nums)
         positions = np.array(self.xyz.cartesians)
