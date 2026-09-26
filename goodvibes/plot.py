@@ -410,9 +410,20 @@ def plot_profile(
             levels[s.id][p.name] = vals
 
     colors_by_path = _resolve_colors(plt, paths, colors)
+    # Series without an explicit linestyle take the next style from the cycle
+    # that no other series asked for, so defaults never repeat a chosen one.
+    _aliases = {"solid": "-", "dashed": "--", "dotted": ":", "dashdot": "-."}
+    explicit = {_aliases.get(s.style["linestyle"], s.style["linestyle"])
+                for s in series_list if "linestyle" in s.style}
+    free = [ls for ls in linestyles if _aliases.get(ls, ls) not in explicit] or linestyles
     ls_by_series = {}
-    for i, s in enumerate(series_list):
-        ls_by_series[s.id] = s.style.get("linestyle", linestyles[i % len(linestyles)])
+    n_default = 0
+    for s in series_list:
+        if "linestyle" in s.style:
+            ls_by_series[s.id] = s.style["linestyle"]
+        else:
+            ls_by_series[s.id] = free[n_default % len(free)]
+            n_default += 1
 
     # Figure / axes
     figsize = style.get("figsize")

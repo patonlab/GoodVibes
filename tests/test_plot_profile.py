@@ -223,3 +223,18 @@ def test_plot_profile_uses_the_given_axes():
     prof = plot_profile(_branches(), ax=ax)
     assert prof.ax is ax and prof.figure is fig
     plt.close(fig)
+
+
+def test_default_linestyles_skip_styles_chosen_by_other_series():
+    """A series with its own linestyle (ΔE dotted) must not be matched by a
+    default one: the defaults skip styles other series asked for."""
+    res = _branches()
+    res.series = [Series(id="E", label="E", quantity="electronic", style={"linestyle": ":"}),
+                  Series(id="H", label="H", quantity="enthalpy"),
+                  Series(id="G", label="G", quantity="gibbs")]
+    prof = plot_profile(res)
+    assert prof.linestyles == {"E": ":", "H": "-", "G": "--"}
+    res.series[0] = Series(id="E", label="E", quantity="electronic", style={"linestyle": "dotted"})
+    styles = plot_profile(res).linestyles
+    assert styles["H"] != styles["G"] and ":" not in (styles["H"], styles["G"])
+    prof.close()

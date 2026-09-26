@@ -9,6 +9,14 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- A gallery of reproducible reaction-profile figures
+  (`goodvibes/examples/gallery`, `docs/source/gallery.md`): Δqh-G with every
+  conformer, one profile at four temperatures, ΔE / ΔH / Δqh-G on one axes,
+  competing transition states in panels, a CSV table, and computed with
+  declared values. `build_gallery.py` redraws every figure from compact
+  committed inputs (reaction-profile documents with embedded conformers and a
+  CSV table), without the program outputs; `tests/test_gallery.py` rebuilds
+  them and checks their numbers against the CLI.
 - The reaction-profile format, `reaction-profile/1.0` (M2a of the direction
   plan): a tool-independent document for reaction energy profiles (species,
   points with roles and display labels, pathways with a zero and edges,
@@ -133,6 +141,13 @@ every such change is listed under **Output changes**.
 - `calc_bbe.qcdata`: the parsed input is kept on the result.
 
 ### Fixed
+- `plot_profile` gave a series without an explicit linestyle the next style
+  in the cycle even when another series had asked for it, so two series
+  could both be dotted; default styles now skip the chosen ones.
+- `goodvibes/examples/profiles/levels.csv`, referenced by the documentation,
+  was never committed (`*.csv` is ignored); CSV files under
+  `goodvibes/examples` are now tracked, and the file says its values are
+  illustrative.
 - `solvents.json` and `scaling_factors.json` were read with the platform's
   default encoding, so importing GoodVibes failed under a non-UTF-8 locale
   (e.g. `LANG=C`); both are now read as UTF-8.

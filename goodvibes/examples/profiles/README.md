@@ -6,7 +6,7 @@ Documents in the `reaction-profile/1.0` format (see
 | File | What it shows |
 | --- | --- |
 | `minimal.yaml` | the 20-line minimal profile: typed-in values only |
-| `levels.csv` | a table of relative energies (two pathways) read as a declared-only profile |
+| `levels.csv` | a table of relative energies (two pathways) read as a declared-only profile; the values are illustrative, not from a publication |
 | `azabor_profile.json` | the `../pes` aza-borocyclization profile at 298.15 and 373.15 K, evaluated from about 100 Gaussian outputs and carrying every structure's parsed data (`--with-conformers`): 380 KB instead of the outputs themselves |
 | `_generate.py` | regenerates `azabor_profile.json` from the outputs in `../pes` |
 
