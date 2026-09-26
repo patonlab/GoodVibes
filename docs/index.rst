@@ -52,6 +52,7 @@ GoodVibes User Documentation
    :caption: Reaction-profile format:
 
    source/reaction_profile
+   source/gallery
 
 
 .. toctree::

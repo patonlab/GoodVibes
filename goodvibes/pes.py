@@ -9,7 +9,7 @@ that `output.print_pes_results` and `pes.graph_reaction_profile`
 already consume.
 
 This shim ships through the v4.x line. v5.1 removes `get_pes` entirely
-in favor of the structured API (item 12 / Sub-plan B in ROADMAP.md).
+in favor of the structured API (goodvibes.profile, plot_profile).
 """
 import logging
 import os.path

@@ -1,386 +1,230 @@
-# GoodVibes Roadmap
+# GoodVibes roadmap
 
-Tracking the v4.1 → v4.2 → v5.0 progression of GoodVibes.
+GoodVibes turns quantum-chemistry and MLIP frequency calculations into
+quasi-harmonic thermochemistry. Its next job is to own two things:
 
-The library is mature (v4.0): six native QC parsers (Gaussian, ORCA,
-NWChem, Q-Chem 6, xTB, ASE), a comprehensive test suite, and a clean
-modular structure. This roadmap addresses three structural gaps that
-day-to-day lab use has surfaced:
+1. **An open, versioned reaction-profile record**,
+   [`reaction-profile/1.0`](docs/source/reaction_profile.md): a document a
+   chemist can write by hand and the one GoodVibes deposits with every figure.
+2. **The default publication figure and table** drawn from that record.
 
-1. **No clean programmatic API.** `calc_bbe` is invoked with 15 positional
-   arguments and writes to a `.dat` file; embedding GoodVibes in
-   notebooks or pipelines (CREST → conformer search → thermo) is awkward.
-2. **No structured output.** Downstream tools and dashboards want JSON /
-   CSV / Parquet — today they parse the `.dat` text.
-3. **Doesn't scale to large conformer ensembles.** `pes.py` /
-   `selectivity.py` / `sort.deduplicate` work on lists; a 10³–10⁴
-   conformer batch is awkward.
+Thermochemistry from Gaussian, ORCA, xTB, Q-Chem, NWChem or an MLIP through
+ASE is one way to fill the record; a table typed in from a paper's SI is
+another. Post-hoc qRRHO on program outputs is no longer unique to GoodVibes
+(ORCA 6.1, Shermo and pymatgen ship it). A reproducible profile record that
+other tools read and write is a position nobody holds.
 
-Plus several in-flight features that are partially detected
-(CBS/Gn composites) or untested (`--media`, `--freespace`).
+What has shipped is listed in [CHANGELOG.md](CHANGELOG.md). The previous
+roadmap (v4.1 to v5.0 items 1 to 17, sub-plans A and B) is kept in git
+history:
+[ROADMAP.md at 407c14d](https://github.com/patonlab/GoodVibes/blob/407c14d/ROADMAP.md).
 
 ---
 
-## v4.1 — Polish & complete (4–6 weeks, backwards-compatible)
+## Status
 
-| # | Item | Status | Commit |
+| Milestone | Release | State | Pull requests |
 | --- | --- | --- | --- |
-| 1 | CBS/Gn composite method detection (CBS-QB3, CBS-4M, G3, G3B3) | Out of scope — niche use case relative to the v5.x rewrite priorities; revisit only on user request with sample fixtures attached | — |
-| 2 | `--media` / `--freespace` integration tests + clear errors when solvent is unknown | ✅ Done | [`04e2b63`](../../commit/04e2b63) |
-| 3 | Test coverage gaps: sort, validation modules | ✅ Done | [`f88abfa`](../../commit/f88abfa) |
-| 3a | Test coverage gaps: selectivity, PES modules | ✅ Done — coverage shipped with the redesigns (selectivity ≈87%, pes_loader 100%, pes_model 96%, pes_yaml 90%, pes_legacy 95%) | — |
-| 4 | `--json OUTPUT.json` preview (schema v0.1 → v0.3) | ✅ Done | [`6e6187f`](../../commit/6e6187f) |
-| Sub-plan A | **Selectivity redesign**: N-way labels, structured `SelectivityResult`, dual Boltzmann + lowest-conformer output, JSON v0.3 | ✅ Done | [`5fb8176`](../../commit/5fb8176) |
+| **M0** Correctness and compatibility goldens | 5.0 | ✅ merged | #115, #116, #117 |
+| **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
+| **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
+| **M2b** Figure polish and the gallery | 5.0 / 5.1 | 🟡 gallery done, rest open | |
+| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | open | |
+| **M4** Adoption and polish | 5.2 | open | |
+| **M5** Removals | 6.0 | open | |
+
+Everything merged so far still carries the version string **4.4.0**. The
+next release is **5.0**: it makes `docs/source/migration_v5.md` true and
+ships M0 to M2a plus whatever of M2b is ready.
 
 ---
 
-## v4.2 — Mid features (1–2 months, no API breaks)
+## Shipped
 
-| # | Item | Status |
+**M0: correctness and goldens.**
+- `tests/compatibility/`: 29 CLI goldens (`.dat` and `--json`), under both
+  `TERM=dumb` and a colour terminal.
+- The quantity registry (`goodvibes/quantities.py`), `--pes-plot-quantity`
+  (and its alias `--gtype`), and eV / hartree units.
+- `--ti` selectivity recomputes G(T) at every temperature.
+- The single-point downgrade is loud, with `--strict-spc` to make it fatal.
+- Per-label dedup; the ASE / Q-Chem `TSFreq` job type; complex ASE frequencies.
+- The `.dat` archive is free of terminal escape codes.
+- `CHANGELOG.md`, `CITATION.cff` and `CONTRIBUTING.md`.
+
+**M1: the profile model.**
+- `ComputedEntry`: a structure plus its options, evaluable at any temperature.
+- `ConformerSet` gains `from_results`, `populations`, `ensemble_free_energy`,
+  `s_conf` and `dedup`.
+- Point roles and display labels, pathway edges, and `Series` (computed or
+  declared).
+- `plot_profile`: merged x axis, overlays, panels, `ProfileAxes`.
+- `--ti --pes` builds the model.
+- `QCData.from_atoms` / `from_vibrations` and the mass table to Pu.
+- Top-level exports.
+
+**M2a: the format.**
+- The JSON Schema (CC0) and its specification page.
+- `goodvibes.profile`: `Profile`, `load_profile` and `validate_document`,
+  with the conformance kit (`tests/profile_conformance/`).
+- CSV/TSV tables of relative energies read as declared-only profiles.
+- `--profile` and `--with-conformers`.
+- Payload 1.1 with a `profile` block.
+- `goodvibes-profile validate | plot | table | convert | evaluate`.
+
+**M2b so far: the gallery.**
+- [`goodvibes/examples/gallery`](goodvibes/examples/gallery) holds six figures
+  rebuilt from compact committed inputs.
+- `tests/test_gallery.py` rebuilds them and checks their numbers against the CLI.
+
+---
+
+## Next
+
+### M2b: figure polish (5.0 or 5.1)
+
+- [x] Gallery of reproducible examples (azabor DFT, temperature overlay,
+      ΔE/ΔH/Δqh-G, R vs S panels, CSV table, computed with declared).
+- [ ] Style presets (`single-column`, `double-column`, `slide`): the
+      reserved `style.preset` key; figure size, fonts and line widths applied
+      inside an `rc_context`, never set globally.
+- [ ] SVG output with a `gid` on every element and the evaluated document in
+      `<metadata>`, so a figure carries its own data and can be edited in
+      Inkscape without redrawing.
+- [ ] Uncertainty drawn as error bars. `series.uncertainty` is stored and
+      tabulated but not drawn.
+- [ ] Image baselines for the gallery (pytest-mpl or a tolerance-based
+      comparison) so layout regressions fail CI.
+- [ ] Cookbook opens with the CSV-to-figure recipe.
+- [ ] Publish the schema at a stable URL (Read the Docs) with a Zenodo DOI
+      per schema minor; the `$id` currently points at the raw file on
+      `master`.
+
+### M3: methods, MLIP overlay, selectivity on the profile (5.1)
+
+- [ ] Per-method thermochemistry options. `goodvibes.sources` is already
+      per method; a DFT and an MLIP method should also differ in scaling and
+      qRRHO settings within one evaluation.
+- [ ] `QCData.with_single_point(energy, units, method)` for DFT//MLIP
+      composites without SPC files.
+- [ ] Provenance on `ThermoResult`: temperature, options,
+      `scale_factor_source` (`truhlar | user | mlip-unscaled | none-found`,
+      the last a warning instead of a silent 1.0), `symmetry_source` and
+      `n_imag`.
+- [ ] Multi-frame `.xyz` / `.extxyz` reader yielding energy-only entries
+      (CREST ensembles and MLIP sweeps alike).
+- [ ] The reserved `selectivity:` block: competing points sharing a
+      reference point, ΔG‡ and G_ensemble per branch, and `SelectivityResult`
+      v2. It needs a Curtin–Hammett precondition warning, a documented ee
+      sign and a `major` convention.
+- [ ] `compute_selectivity_batch(jobs, temperatures)` returning a tidy
+      DataFrame for prediction pipelines, plus cutoff and conformer-window
+      sensitivity sweeps. This gives the "ee 92 % (88–94 % over cutoffs)"
+      statement.
+- [ ] `plot_boltzmann_histogram` and `plot_temperature_scan` over
+      `ConformerSet` and `Series` (currently stubs).
+- [ ] `goodvibes-profile diff` between two documents.
+
+### M4: adoption and polish (5.2)
+
+- [ ] Label de-overlap (value labels of close series still collide), y-axis
+      break, optional RDKit depictions.
+- [ ] Minimal `kinetics.py`: Eyring rate ratio, energy span, a step table and
+      mikimo CSV export. No microkinetics.
+- [ ] A per-structure SI table exporter (E, ZPE, H, T·S, qh-G, n_imag,
+      lowest frequencies, scale factor, symmetry, xyz appendix).
+- [ ] Outreach, sent as pull requests rather than waited for:
+  - PESViewer writing the core format;
+  - autodE exporting from `Reaction`;
+  - a quacc `VibThermoSchema` importer here.
+- [ ] Reproduce three published profiles from their SI tables as declared
+      series for the gallery.
+- [ ] Promote the schema from 1.0-draft to 1.0 after the first external
+      round trip.
+
+### M5: removals (6.0)
+
+One release removes everything, with the goldens updated deliberately and a
+changelog entry for each changed output.
+
+Already deprecated, with notices in place that name 6.0:
+- the legacy `--- # PES` text format (`pes_legacy.py`);
+- `pes.py` (`get_pes`, `graph_reaction_profile`) and `--graph`;
+- `--ee`, `--cache-save` and `--cache-read`;
+- the 15-argument `calc_bbe` constructor.
+
+Need a deprecation notice during 5.x first:
+- the legacy `--ti` PES text path (the model already tabulates reaction-profile
+  documents at every scan temperature);
+- the `pes` payload block, in favour of `profile`;
+- `--freespace`, if the maintainer agrees (proposed, not decided).
+
+---
+
+## Principles
+
+- **Output compatibility.** The compatibility goldens pin the `.dat` and
+  JSON output of the common flag combinations. Output changes only
+  deliberately, and each change is listed under *Output changes* in the
+  changelog.
+- **One removal version.** Everything deprecated in 4.x is removed in
+  **6.0**, and every message says so.
+- **The format is small and additive.** The core is program-neutral;
+  GoodVibes-specific recipe keys live under `goodvibes:`. Minors only add
+  optional keys, keys reserved for a later minor are rejected rather than
+  ignored, and `x-*` keys are free.
+- **Declared values never mix with computed ones inside a point.** A literature value or
+  a hand-typed number lives at the point level of a declared series and is
+  never summed with absolute energies.
+- **Examples without bloat.**
+  - Commit the parsed record, never the program output: a reaction-profile
+    document with `--with-conformers`, an `--export` payload, or `.extxyz`
+    files.
+  - Keep the script that made it next to it, and archive the raw outputs
+    elsewhere (e.g. Zenodo).
+  - Label illustrative values as illustrative.
+
+  The azabor set is 380 KB this way instead of about 100 Gaussian outputs.
+- **Docs.** Stay on Sphinx + MyST. Effort goes into the format page, the
+  gallery and the cookbook.
+- **CI.** Run on GitHub Actions: lint, Linux 3.9 to 3.13, Windows 3.12.
+  - Raise the floor to 3.10 and add 3.14 at the 5.0 release.
+  - CircleCI duplicates the Linux job and can be retired: delete
+    `.circleci/config.yml`, a maintainer decision.
+
+---
+
+## Decided against
+
+| Old roadmap item | Decision | Why |
 | --- | --- | --- |
-| 5 | **Programmatic API façade** `goodvibes.api`: `compute_thermo(path) -> ThermoResult` and `compute_batch(...)`. `ThermoResult` mirrors `calc_bbe`'s public attributes + the source `QCData`. Internally just calls `calc_bbe` — no behavior change. Re-exported from `goodvibes/__init__.py`. | ✅ Done |
-| 6 | **Pandas DataFrame export + CSV writer**: `goodvibes.api.to_dataframe(results)`, `--csv PATH` CLI flag, `goodvibes[full]` extras group (ase + pyyaml + pandas). | ✅ Done |
-| 8 | **Parallel parsing** with `concurrent.futures.ProcessPoolExecutor`, `--jobs N` CLI flag, `compute_batch(paths, jobs=N)`. ~3× speedup at 8 cores on 46 azabor PES fixtures (18.6 s → 6.2 s). | ✅ Done |
-| Sub-plan B | **PES rewrite**: 3-layer data model (`ConformerSet`/`Point`/`Pathway`), true-YAML input alongside legacy parser, stoichiometry support, Rich tables, JSON v0.4 `pes` block, `--lowest-only` flag. Plot deferred to v5.0. | ✅ Done — [`03549d1`](../../commit/03549d1) |
-| Docs | **Refresh Read the Docs** for v4.1 + v4.2: bumped Sphinx config to v4.0, swapped deprecated `sphinxcontrib-napoleon` / `recommonmark` → `sphinx.ext.napoleon` / `myst-parser`, added a dedicated `api_guide.md` page (kwargs API, batch/parallel, DataFrame/CSV, what's-new) and a `cookbook.md` page with five v4.x recipes, expanded module reference to all 17 modules, added `.readthedocs.yaml`. Stays on Sphinx; the mkdocs migration is reserved for v5.0. | ✅ Done |
-| Follow-up A | **Separate ZPE vs harmonic frequency scaling factors**. The Truhlar database (Alecu et al., JCTC 2010) stores `zpe_fac` and `harm_fac` as distinct per-LOT values. Auto-detection now reads both: `harm_fac` for the partition-function frequencies (`calc_vibrational_energy`, `calc_rrho_entropy`) and `zpe_fac` for ZPE (`calc_zeropoint_energy`). New `--zpe-vscal` CLI flag and `zpe_scale_factor` API kwarg for explicit override. When `--vscal` alone is set, ZPE inherits it (back-compat for users with pinned scripts). Pre-refactor v3.x used `zpe_fac` uniformly; v4.x.0 used `harm_fac` uniformly — the new behavior matches Truhlar's intent and is the right default going forward. | ✅ Done |
-| 7 | ~~Wigner tunneling correction~~ (κ_W for TS rates) | Out of scope — covered better by Eyring rate-constant tooling (e.g. `kinisot`); GoodVibes stays focused on partition-function thermochemistry |
+| CBS/Gn composite detection; Wigner tunnelling | Dropped | Niche; tunnelling belongs in kinetics tooling such as kinisot. |
+| Ensemble container with lazy parsing and 10⁴-conformer streaming | Replaced | `ConformerSet` with recomputable entries is the species ensemble; no second container. |
+| Hindered rotors (and glowfreq, issue #77) | Deferred indefinitely | Orthogonal science; MLIP Hessian noise makes torsion identification unreliable. |
+| CENSO JSON import | Dropped | The multi-frame `.xyz` reader in M3 covers CREST ensembles. |
+| Auto-SI generator with a methods paragraph and BibTeX | Replaced | The deposited profile document plus the per-structure SI table exporter in M4. |
+| mkdocs migration | Dropped | Sphinx + MyST is enough; effort goes to content. |
+| Performance targets (10³ files in 30 s, 10⁴ conformers in 200 MB) | Dropped | Not on the critical path; parsing is already parallel. |
 
-**Sequencing.** Item 5 was the keystone — unblocked the structured
-DataFrame/CSV work in 6. Item 8 is independent. Docs refresh sits
-on top of whichever subset has shipped at the time it's tackled.
-
----
-
-## v5.0 — Major (2–3 months, breaking changes allowed with migration path)
-
-| # | Item | Status |
-| --- | --- | --- |
-| 10 | **First-class structured outputs**: stable `schema_version: "1.0"` in `goodvibes.schema` (TypedDicts + version constants + runtime validator). Parquet export via `to_parquet(results, path)` + `--parquet PATH` CLI flag (pandas + pyarrow behind `[full]` extras). Cache subsumed: new `--export` / `--import` flags read/write the unified v1.0 payload; `--cache-save` / `--cache-read` deprecated as aliases (still accept the legacy envelope on read). JSON writer no longer gated on `--ti` mode. | ✅ Done |
-| 11 | **Ensemble container** with lazy parsing, streaming Boltzmann/dedup. Refactor `selectivity`, `pes`, `sort.deduplicate` to consume `Ensemble`. Handles 10⁴ conformers without holding them all in memory. | Pending |
-| 12 | **Clean programmatic API as the headline**: `from goodvibes import compute_thermo, ThermoOptions, ThermoResult`. New `ThermoOptions` frozen dataclass replaces the 15 positional args. New `calc_bbe.from_options(qcdata_or_path, ThermoOptions)` classmethod is the v5.0+ entry point — also handles auto-lookup of Truhlar `harm_fac`/`zpe_fac` so any caller (not just `compute_thermo`) gets sensible defaults. Direct `calc_bbe(file, QS, ...)` calls now emit a `DeprecationWarning` (legacy form still works through v5.x; removed in v6.0). Internal callers (`compute_thermo`, parallel worker) migrated to `from_options`. New `docs/source/migration_v5.md` page covers the path for users embedding GoodVibes. `Ensemble` re-export deferred until item 11 lands. | ✅ Done |
-| 13 | **Conformational entropy correction**: S_conf = −R Σ pᵢ ln pᵢ on Ensemble; `boltzmann_averaged_G(T)` includes −T·S_conf. Wires into `pes.get_pes` so Gconf becomes first-class. | Pending |
-| 14 | **Visualization**: new `goodvibes/plot.py` with `plot_selectivity_strip` (per-species ΔG scatter + Boltzmann-mean / lowest overlays) and `plot_pes` (PES profile from `PESResult` — multi-pathway overlay, bezier or linear connectors, configurable colors, optional point-value annotations, optional per-conformer scatter). New `--strip-plot PATH` and `--pes-plot PATH` CLI flags; `--graph FILE.yaml` retained for YAML-driven styling until v5.1. `[plot]` extras add matplotlib. Stubs for `plot_boltzmann_histogram` and `plot_temperature_scan` lock in the v5.1 API. | ✅ Done |
-| 15 | **Hindered-rotor treatment** (Pitzer–Gwinn / Truhlar HO-QHO). Auto-detect torsional modes from the normal-mode analysis + redundant internals; replace the HO contribution to S/H/ZPE with the rotor partition function. Manual `--hindered-rotor MODE,V,I_red` override. Moved from v4.2 (was item 9) — auto-detection is the version users actually want; the manual flag alone has too much friction. | Pending |
-
-**Breaking changes.** `pes.get_pes` and `selectivity.get_boltz`
-signatures change (list[dict] → Ensemble) with a one-cycle shim
-accepting both. CLI flags + `.dat` output unchanged across the entire
-roadmap.
+Backlog, if asked for: heat capacities Cv / Cp (issue #66), a cheap
+addition to the quantity registry.
 
 ---
 
-## v5.1 — Ecosystem & polish (1–2 months, backwards-compatible)
+## Risks
 
-Builds on v5.0's structural rework (Ensemble, ThermoOptions, structured
-outputs) and turns those foundations outward toward two concrete
-user-facing wins — ingesting the dominant conformer-search tool's output
-natively and generating paper-ready supporting information — while
-clearing v4.x deprecation debt and finishing the v5.0 visualization stubs.
-
-| # | Item | Status |
-| --- | --- | --- |
-| 16 | **Native CREST / CENSO ensemble import**: parse `crest_conformers.xyz` / `crest_rotamers.xyz` / `censo.json` into a list[`QCData`] (or directly an `Ensemble` once item 11 lands). New parser entry points `parse_crest_ensemble(path)` / `parse_censo(path)` in `io.py`; format auto-detected by file basename. Closes the gap to the standard CREST → CENSO → thermo workflow without per-conformer-file scripting. Composes with `--jobs N` for parallel parsing. New fixtures under `tests/crest/` and `tests/censo/`. | Pending |
-| 17 | **Auto-SI generator**: new `goodvibes/report.py` + `--si PATH` CLI flag. Emits a markdown SI bundle: methods paragraph filled from detected program/version/functional/basis/solvent/dispersion/scaling factor, BibTeX entries for cited methods (Grimme qRRHO, Truhlar QH, Truhlar scaling factor, Head-Gordon enthalpy, dispersion correction, solvent model), per-structure coordinates + thermo table, and the literal GoodVibes invocation used. Hand-curated `references.bib` ships with the package; pandoc-convertible to LaTeX/Word downstream. | Pending |
-| Cleanup | **v4.x deprecation removals**: drop the legacy line-based PES parser (`pes_legacy.py`); drop `--ee` (legacy two-bucket selectivity); drop `--cache-save` / `--cache-read` aliases; drop the 15-positional-arg `calc_bbe(...)` form deprecated in v5.0. CLI emits clear errors pointing at the v5.x replacements. | Pending |
-| Plot | **Visualization completions**: implement the v5.0 stubs `plot_boltzmann_histogram` (per-structure population strip/bar) and `plot_temperature_scan` (qh-G(T) line plot from `--ti` data). New `--boltz-plot PATH` and `--ti-plot PATH` CLI flags. | Pending |
-
-**Sequencing.** Item 16 depends on v5.0 item 11 (Ensemble container) — block
-on that. Item 17 is independent and can land any time. Cleanup and Plot are
-mechanical follow-ups.
-
-**Open design questions** (resolve before implementation):
-
-- *CREST / CENSO ingest*: CREST's `crest_conformers.xyz` is geometry+energy
-  only (no Hessian). Decide whether the import path requires paired thermo
-  files or whether `Ensemble` should accept "geometry-only" entries and skip
-  them in qh-G aggregation. CENSO has multiple parts (part0..part4); pick a
-  default for which energy block is canonical for thermo work.
-- *Auto-SI*: ship markdown only at v5.1 (cheapest, pandoc-convertible) and
-  defer a native LaTeX writer to v5.2 unless demand is clear. Confirm scope
-  of methods-paragraph templating — GoodVibes-specific (qh, scaling,
-  dispersion) vs. full computational protocol (program, basis, solvation).
-- *Companion-package boundary*: KIE / isotope-substitution thermo lives in
-  the companion **kinisot** package. v5.1 should add a documented
-  `Ensemble` serialization format that kinisot can consume rather than
-  absorbing those features here.
-
----
-
-## Cross-cutting concerns
-
-- **Backwards compat.** CLI + `.dat` output identical across v4.x. v5.0
-  may rename internal kwargs; CLI stays. A `tests/compatibility/`
-  directory will diff `.dat` against checked-in goldens for the 20
-  most-used flag combinations.
-- **Deprecation policy.** Anything deprecated in v4.2 is removed no
-  earlier than v5.1. (Goal: CI runs `pytest -W error::DeprecationWarning`;
-  not yet enabled — current CI runs plain pytest with coverage.)
-- **Docs.** mkdocs + mkdocstrings auto-API docs at v5.0. Cookbook section
-  with notebook examples (CREST → `Ensemble` → Boltzmann G).
-- **Performance targets.** 1k conformers parsed in <30s on 8 cores;
-  ensemble Boltzmann/dedup memory <200 MB at 10k conformers.
-- **CI.** Add Python 3.13 at v5.0 cut. Lint (ruff, Pyflakes + syntax
-  errors, blocking) and pytest coverage reporting added 2026-06.
-- **Code health.** `AUDIT.md` (2026-06, plus focused re-audit) holds the
-  full repository audit and prioritized improvement plan. Top open items:
-  parse-failure diagnostics on QCData (~45 silent fallback sites across
-  the six parsers), the silent SPC downgrade (missing/unparseable `--spc`
-  file yields a `'!'` sentinel and the correction is skipped without any
-  API-visible warning — thermo.py `except TypeError: pass`), wheel
-  slimming (verified: a 21.5 MB keep-set suffices; `pes/*.log` ≈256 MB is
-  referenced by no test), and decomposition of `calc_bbe.__init__` /
-  `io.parse_data` along their existing phase seams ahead of the item-11
-  Ensemble refactor. `sys.exit` cleanup is layering hygiene only — the
-  API path cannot currently reach those sites.
-
----
-
-## Sub-plan A — Selectivity redesign (shipped in v4.1)
-
-A worked example of how items in this roadmap are designed before
-implementation begins.
-
-### Goals
-
-1. **N-way selectivity**: generalize from 2-bucket ee to N-bucket dr
-   (e.g. four diastereomers). The 2-bucket case is a special instance.
-2. **Explicit labels** instead of fragile filename globs. Decouple
-   algorithm from filename templating.
-3. **Structured `SelectivityResult` dataclass** + JSON output.
-4. **Temperature scan** that composes naturally with `--ti`.
-5. **Dual reporting**: Boltzmann-averaged AND lowest-conformer-only,
-   so the user can see how much selectivity comes from the gap between
-   the lowest TSs vs. conformer mixing.
-
-### Result type
-
-```python
-@dataclass(frozen=True)
-class SelectivityResult:
-    temperature: float                      # K
-    key: str                                # 'gibbs' | 'energy'
-    labels: List[str]                       # ordered species names
-    files_per_label: Dict[str, List[str]]
-    populations: Dict[str, float]           # normalized: Σ = 1.0
-    raw_boltzmann: Dict[str, float]
-    preferred: str                          # max-population label
-    ee: Optional[float] = None              # 2-label only, in %
-    ddG: Optional[float] = None             # 2-label only, in Hartree
-```
-
-Numeric data only. Ratio strings (`60:40`, `40:30:20:10`) are derived
-in the print layer from `populations`. For N>2, `ee` and `ddG` are None;
-consumers derive any ratios they want from `populations`.
-
-### CLI
-
-- `--label NAME=PATTERN` (repeatable; fnmatch against basenames of files
-  already in `thermo_data` — no filesystem walks).
-- `--selectivity FILE.yaml` (alternative for many species or shareable
-  specs). Top-level key `labels:` for patterns, or `files:` for explicit
-  per-species file lists.
-- `--label`/`--selectivity` combine with `--ti` for temperature scans.
-- `--ee 'a:b'` keeps working in v4.x with a `DeprecationWarning`;
-  removed in v5.0.
-
-### Output
-
-- Two stacked Rich tables per result: Boltzmann-averaged + Lowest
-  conformer only. Each has Species/Files/Population (%)/ΔΔG (kcal/mol)
-  columns plus a summary line (ratio, major, ee + ΔΔG‡ for N=2).
-- Temperature scan: one row per T per method.
-- JSON schema v0.3: top-level `selectivity` and `selectivity_lowest`
-  blocks, both with the same shape.
-
-### Resolved decisions
-
-- **Pattern matching**: `fnmatch` against basenames of files already in
-  `thermo_data`. No filesystem walks. The candidate set is exactly what
-  the user passed on the command line.
-- **Ratio formatting**: numeric data only on the dataclass; ratio
-  strings live only in the print layer.
-- **N=2 vs N>2 reporting**: N=2 emits ratio + ee + ΔΔG‡; N>2 emits only
-  the ratio. No pairwise data.
-- **Empty species**: `compute_selectivity` raises `ValueError`; `main()`
-  translates to `fatal()` for the CLI.
-- **`dup_list` semantics**: each pair is `[duplicate, canonical]` —
-  excluding only `dup[0]` is correct; the canonical structure stays in
-  the sum.
-
----
-
-## Sub-plan B — PES rewrite (v4.2)
-
-The current `pes.get_pes` is line-based parsing (despite the `.yaml`
-extension and `---` document markers), and the internal data model is
-~30 parallel lists nested four levels deep
-(`g_qhgvals[pathway][step][structure][conformer]`). New features
-(stoichiometry, JSON output, conformational entropy in v5.0) are hard
-to wire in without a redesign.
-
-### Design goals
-
-1. **Three-layer data model** that matches how chemists think about a
-   PES: pathway → point → species → conformers.
-2. **Two input formats**: keep the existing line-based "yaml" working
-   (auto-detected, `DeprecationWarning`, removed in v5.1); add a true
-   YAML schema as the documented format.
-3. **Stoichiometry**: `2*A + B` syntax for multi-mol reactions, valid
-   in both formats.
-4. **Rich tables + JSON v0.4** output, mirroring the v4.1 selectivity
-   redesign style.
-5. **Plot deferred** — `graph_reaction_profile` is matplotlib-tangled
-   and orthogonal; rewritten as part of v5.0 visualization.
-
-### Data model
-
-```python
-@dataclass(frozen=True)
-class ThermoVector:
-    """One species' thermo bundle in Hartree. Supports +, -, * scalar."""
-    sp_energy: Optional[float]
-    scf_energy: float
-    zpe: float
-    enthalpy: float
-    qh_enthalpy: float
-    entropy: float                  # S, not T·S — temperature lives on Pathway
-    qh_entropy: float
-    gibbs: float
-    qh_gibbs: float
-
-@dataclass
-class ConformerSet:
-    """A named species + ≥1 calc_bbe entries; encapsulates the gconf math."""
-    name: str
-    files: List[str]
-    def boltzmann_weighted(self, T: float) -> ThermoVector: ...
-    def lowest_conformer(self) -> ThermoVector: ...
-    def gconf_corrected(self, T: float, QH: bool = True) -> ThermoVector: ...
-
-@dataclass
-class Point:
-    """Stoichiometric sum at one node: [(coeff, ConformerSet), ...]."""
-    label: str                      # "Int-I + TolS + TolSH" or "2*A + B"
-    species: List[Tuple[int, ConformerSet]]
-    def thermo(self, T: float, gconf: bool = True, QH: bool = True) -> ThermoVector: ...
-
-@dataclass
-class Pathway:
-    name: str
-    points: List[Point]
-    zero: Point                     # default = points[0]
-    def relative(self, T: float, ...) -> List[ThermoVector]: ...
-
-@dataclass
-class PESResult:
-    pathways: List[Pathway]
-    options: PESOptions             # units, dp, gconf, QH
-    temperatures: List[float]       # supports --ti
-```
-
-`ThermoVector` arithmetic collapses 9 simultaneous parallel-list
-subtractions into one expression:
-`relative = point.thermo(T) - zero.thermo(T)`.
-
-### Stoichiometry
-
-Coefficient syntax: `2*A`, `2 * A`, `A` (implicit 1). Integer
-coefficients only. Parsing is regex-based on the point string and
-applied identically in both input formats. The thermo math is
-multiplication on `ThermoVector` (`2 * A.thermo(T) + B.thermo(T)`).
-
-### Input formats
-
-**Legacy (auto-detected by `--- # PES` / `# SPECIES` / `# FORMAT` comment markers):**
-parser kept for v4.x; emits `DeprecationWarning` on use; removed v5.1.
-The example at [goodvibes/examples/pes/azabor_PES.yaml](goodvibes/examples/pes/azabor_PES.yaml)
-(6-step pathway with conformer ensembles, stoichiometric sums, and
-`--spc tzpop` pairs) is the back-compat regression fixture.
-
-**True YAML:**
-
-```yaml
-pathways:
-  Reaction: ["Int-I + TolS + TolSH", "Int-II + TolSH", "Int-III"]
-
-species:
-  Int-I:    {files: "Int-I_*.log"}            # glob
-  Int-II:   {files: "Int-II_*.log"}
-  Int-III:  {files: "Int-III_*.log"}
-  TolS:     {files: "TolS.log"}
-  TolSH:    {files: "TolSH.log"}
-
-zero:
-  Reaction: "Int-I + TolS + TolSH"             # optional; default = points[0]
-
-format:
-  units: kcal/mol
-  decimals: 1
-```
-
-Each species is a dict to leave room for future per-species options
-(scaling factor overrides, symmetry numbers, ...) without breaking the
-schema. `files:` accepts a string (glob or single file) or list.
-
-### Output format
-
-**Rich table** per pathway × per temperature, columns matching the
-current `.dat` layout (`DE`, `DZPE`, `DH`, `qh-DH`, `T·DS`, `T·qh-DS`,
-`DG(T)`, `qh-DG(T)`, plus SPC variants when `--spc` is set).
-
-**JSON v0.4** adds a top-level `pes` block:
-
-```json
-"pes": {
-  "pathways": [{
-    "name": "Reaction",
-    "temperature": 298.15,
-    "units": "kcal/mol",
-    "points": [{
-      "label": "Int-I + TolS + TolSH",
-      "species": [
-        {"coefficient": 1, "name": "Int-I", "files": ["Int-I_Oax.log"]},
-        {"coefficient": 1, "name": "TolS", "files": ["TolS.log"]},
-        {"coefficient": 1, "name": "TolSH", "files": ["TolSH.log"]}
-      ],
-      "relative": {"scf": 0.0, "zpe": 0.0, "h": 0.0, "qh_h": 0.0,
-                   "ts": 0.0, "qh_ts": 0.0, "g": 0.0, "qh_g": 0.0}
-    }]
-  }]
-}
-```
-
-`.dat` text output unchanged across v4.x.
-
-### Code structure
-
-| File | Change |
-| --- | --- |
-| `goodvibes/pes_model.py` | New: `ThermoVector`, `ConformerSet`, `Point`, `Pathway`, `PESResult`. Pure data model + arithmetic; no I/O. |
-| `goodvibes/pes_legacy.py` | New: extract current `pes.get_pes` parser, target the new model. Emits `DeprecationWarning`. |
-| `goodvibes/pes_yaml.py` | New: true-YAML parser → new model. Stoichiometry parsing lives here (shared with legacy). |
-| `goodvibes/pes.py` | Becomes a dispatcher: sniff format, parse, return `PESResult`. `get_pes` retained as back-compat shim until v5.1. |
-| `goodvibes/output.py` | New `print_pes_tables(result)` Rich renderer. Existing text path kept for v4.x. JSON writer extended with `pes` block. |
-| `goodvibes/GoodVibes.py` | No new flags; `--pes FILE` already handles both formats. |
-| `tests/test_pes.py` | New: model tests (stub data), parser tests (both formats), integration test against [examples/pes/](goodvibes/examples/pes/). |
-
-### Migration
-
-| Version | Behavior |
-| --- | --- |
-| v4.2 | Both parsers work; legacy emits `DeprecationWarning`. New model is the runtime backbone. JSON schema bumps to 0.4. |
-| v5.0 | Refactor `ConformerSet` onto `Ensemble` (item 11). `Pathway.relative()` becomes streaming. No user-visible change. |
-| v5.1 | Legacy parser removed. CLI fails with a clear error pointing at the new schema. |
-
-### Decisions
-
-- **Stoichiometry**: integer coefficients via `n*Species` syntax in
-  both formats; default 1.
-- **Plot rewrite**: deferred to v5.0 visualization. `graph_reaction_profile`
-  keeps reading the legacy `get_pes` attributes via a thin compat shim
-  in v4.2 — no behavior change.
-- **Legacy timing**: deprecated in v4.2, removed in v5.1.
-- **Slot in roadmap**: v4.2, alongside item 5 (API façade) and item 6
-  (DataFrame export) — both depend on a clean `PESResult` for JSON
-  serialization.
+- **Scope.** M3 and M4 are gated on demand and on an external writer of the
+  format appearing; M0 to M2a were the committed slice.
+- **Schema churn.** Methods and selectivity arrive after 1.0. The core /
+  namespace split, reserved keys and additive minors keep them 1.x. The
+  format stays 1.0-draft until an external round trip.
+- **Misleading overlays.** Mixing DFT qh-G, a literature ΔG at 1 atm and an
+  MLIP ΔE on one axis invites bad figures. The legend names quantity and
+  method, declared series are hollow, and M3 adds a warning when a series
+  mixes scale-factor sources, SPC status or standard states.
+- **MLIP frequency noise.** `from_vibrations` treats tiny imaginary modes as
+  noise with a warning and checks the imaginary-mode count against the job
+  type. M3 records `n_imag` on the result.
+- **Standard-setting depends on others.** The format is small, the conformance
+  kit and minimal page exist, and M4 sends the integration pull requests
+  rather than waiting for them.

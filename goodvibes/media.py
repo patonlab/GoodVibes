@@ -22,7 +22,7 @@ def _load_solvents():
         dict: Mapping where keys are lowercase alias strings and values are `(mw, density)` tuples — `mw` in g/mol and `density` in g/mL.
     """
     json_path = os.path.join(os.path.dirname(__file__), 'solvents.json')
-    with open(json_path, 'r') as f:
+    with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     result = {}

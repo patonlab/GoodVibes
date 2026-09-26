@@ -1,4 +1,4 @@
-"""Visualization for GoodVibes (v5.0 ROADMAP item 14).
+"""Visualization for GoodVibes.
 
 Pure plotting layer that renders the v4.2+ structured types
 (`PESResult`, `SelectivityResult`, `ThermoResult`) to matplotlib axes.
@@ -410,9 +410,23 @@ def plot_profile(
             levels[s.id][p.name] = vals
 
     colors_by_path = _resolve_colors(plt, paths, colors)
+    # Series without an explicit linestyle take the next style from the cycle
+    # that no other series asked for, so defaults never repeat a chosen one.
+    # A list, not a set: a dash pattern such as (0, [3, 2]) is unhashable.
+    _aliases = {"solid": "-", "dashed": "--", "dotted": ":", "dashdot": "-."}
+
+    def _norm_ls(ls):
+        return _aliases.get(ls, ls) if isinstance(ls, str) else ls
+    explicit = [_norm_ls(s.style["linestyle"]) for s in series_list if "linestyle" in s.style]
+    free = [ls for ls in linestyles if _norm_ls(ls) not in explicit] or linestyles
     ls_by_series = {}
-    for i, s in enumerate(series_list):
-        ls_by_series[s.id] = s.style.get("linestyle", linestyles[i % len(linestyles)])
+    n_default = 0
+    for s in series_list:
+        if "linestyle" in s.style:
+            ls_by_series[s.id] = s.style["linestyle"]
+        else:
+            ls_by_series[s.id] = free[n_default % len(free)]
+            n_default += 1
 
     # Figure / axes
     figsize = style.get("figsize")
@@ -633,12 +647,12 @@ def plot_boltzmann_histogram(
 ):
     """Bar chart of per-conformer Boltzmann populations.
 
-    Not yet implemented — slated for v5.1 alongside the Ensemble
-    container that gives this a natural data source.
+    Not yet implemented; planned for 5.1 over ``ConformerSet.populations``
+    (ROADMAP milestone M3).
     """
     raise NotImplementedError(
         "plot_boltzmann_histogram is reserved for v5.1; "
-        "follow ROADMAP.md item 14."
+        "see ROADMAP.md, milestone M3."
     )
 
 
@@ -649,10 +663,10 @@ def plot_temperature_scan(
 ):
     """Plot thermochemistry quantities (qh-G, S, H) vs temperature.
 
-    Not yet implemented — slated for v5.1 alongside a structured
-    representation of `--ti` output.
+    Not yet implemented; planned for 5.1 over computed ``Series`` at
+    several temperatures (ROADMAP milestone M3).
     """
     raise NotImplementedError(
         "plot_temperature_scan is reserved for v5.1; "
-        "follow ROADMAP.md item 14."
+        "see ROADMAP.md, milestone M3."
     )
