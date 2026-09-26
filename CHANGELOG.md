@@ -133,6 +133,9 @@ every such change is listed under **Output changes**.
 - `calc_bbe.qcdata`: the parsed input is kept on the result.
 
 ### Fixed
+- `solvents.json` and `scaling_factors.json` were read with the platform's
+  default encoding, so importing GoodVibes failed under a non-UTF-8 locale
+  (e.g. `LANG=C`); both are now read as UTF-8.
 - `plot_pes(show_conformers=True)` placed conformer dots for multi-species
   points tens of thousands of kcal/mol away from the bar; dots now sit at
   the point level plus each conformer's offset from its species rollup.

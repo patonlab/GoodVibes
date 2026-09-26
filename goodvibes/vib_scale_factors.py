@@ -107,7 +107,7 @@ def _load_scaling_data():
         entries (dict[str, ScalingData]): Mapping from canonicalized `LEVEL/BASIS` keys to `ScalingData` instances built from each JSON entry.
     """
     json_path = os.path.join(os.path.dirname(__file__), 'scaling_factors.json')
-    with open(json_path, 'r') as f:
+    with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     refs = data['references']
