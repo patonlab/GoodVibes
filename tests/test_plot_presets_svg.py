@@ -218,6 +218,19 @@ def test_svg_to_a_file_object_embeds_too(doc):
     prof.close()
 
 
+@pytest.mark.parametrize("cdata", ["{not json", "42", '{"elements": {}}'])
+def test_malformed_svg_metadata_is_a_profile_error(tmp_path, capsys, cdata):
+    from goodvibes.profile import ProfileError
+    svg = tmp_path / "bad.svg"
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg">\n <metadata id="goodvibes-reaction-profile">'
+                   f"<![CDATA[{cdata}]]></metadata>\n</svg>\n", encoding="utf-8")
+    with pytest.raises(ProfileError):
+        load_profile(svg)
+    assert gvp(["validate", str(svg)]) == 1
+    assert "cannot read" in capsys.readouterr().err
+    assert gvp(["table", str(svg)]) == 1
+
+
 def test_embed_helpers_round_trip_awkward_text():
     svg = '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg">\n</svg>\n'
     payload = {"document": {"title": "a ]]> b ]]]]> c <&>"}}

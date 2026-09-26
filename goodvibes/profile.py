@@ -1633,8 +1633,11 @@ def validate_document(data, *, strict: bool = False, use_jsonschema: bool = True
 def svg_document(svg: str, path: str = "the SVG") -> dict:
     """The reaction-profile document a GoodVibes SVG figure carries."""
     from .plot import read_svg_metadata
-    payload = read_svg_metadata(svg)
-    if not payload or "document" not in payload:
+    try:
+        payload = read_svg_metadata(svg)
+    except ValueError as exc:                            # json.JSONDecodeError
+        raise ProfileError([f"{path} carries invalid reaction-profile metadata: {exc}"]) from exc
+    if not isinstance(payload, dict) or "document" not in payload:
         raise ProfileError([f"{path} carries no reaction-profile document (save the figure with "
                             "goodvibes-profile plot, Profile.plot(...).save or ProfileAxes.save)"])
     return payload["document"]

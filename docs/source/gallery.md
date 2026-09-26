@@ -53,6 +53,18 @@ A declared series (hollow markers; illustrative values) next to the computed
 
 ![A declared profile with error bars at the single-column preset](gallery/column_preset_uncertainty.png)
 
-Illustrative values with ± uncertainties at the `single-column` preset:
-`goodvibes-profile plot profile.yaml -o fig.svg --preset single-column`.
-The SVG keeps its text editable and embeds the drawn document.
+`minimal.yaml` with illustrative ± uncertainties added, drawn at the
+`single-column` preset. Saved as SVG, the figure keeps its text editable and
+embeds the drawn document.
+
+```python
+from goodvibes import load_profile
+
+prof = load_profile("goodvibes/examples/profiles/minimal.yaml")
+prof.series[0].uncertainty = {"main": {"TS1": 1.5, "Int": 0.8, "TS2": 1.2, "P": 1.0}}
+prof.plot(preset="single-column", label_points=True).save("fig.svg", "fig.pdf")
+```
+
+In a document the uncertainties sit under the series as `uncertainty:`, next
+to `levels:`; `goodvibes-profile plot profile.yaml -o fig.svg --preset
+single-column` then draws the same figure.
