@@ -51,10 +51,29 @@ def test_scaling_data_dict_lookup(level_basis, expected_zpe_fac):
     ("CAMB3LYP", "CAM-B3LYP"),
     ("HSE06", "HSEH1PBE"),
     ("PBEPBE", "PBE"),
+    ("MN12-L", "MN12L"),
+    ("MN12-SX", "MN12SX"),
+    ("MN15-L", "MN15L"),
+    ("M06-L(DKH2)", "M06L(DKH2)"),
 ])
 def test_functional_aliases(alias, canonical):
     """Aliases resolve to the canonical functional name."""
     assert canonicalize_level(alias + "/MG3S") == canonical + "/MG3S"
+
+
+@pytest.mark.parametrize("level_basis, zpe_fac", [
+    # hyphenated Minnesota names as ORCA and the Truhlar tables write them
+    ("MN15-L/MG3S", 0.977),
+    ("MN15-L/maug-cc-pVTZ", 0.979),
+    ("MN12-L/MG3S", 0.968),
+    ("MN12-SX/6-311++G(d,p)", 0.976),
+    ("M06-L(DKH2)/aug-cc-pwcVTZ-DK", 0.985),
+])
+def test_hyphenated_minnesota_levels_found(level_basis, zpe_fac):
+    """Hyphenated MN12/MN15/M06-L(DKH2) spellings find their database entries."""
+    key = canonicalize_level(level_basis)
+    assert key in scaling_data_dict
+    assert abs(scaling_data_dict[key].zpe_fac - zpe_fac) < 0.001
 
 
 def test_canonicalize_idempotent():

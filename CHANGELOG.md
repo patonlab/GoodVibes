@@ -154,6 +154,11 @@ every such change is listed under **Output changes**.
   are present and the rule accepts either spelling.
 - `write_thermo_extxyz` wrote an imaginary mode from ASE's complex
   frequency array as `0.0 cm-1`; it now writes `-|ν|`.
+- Vibrational scaling factors were not found for the hyphenated Minnesota
+  names `MN12-L`, `MN12-SX`, `MN15-L` and `M06-L(DKH2)` (as ORCA and the
+  Truhlar tables spell them), so those levels fell back to a factor of 1.0.
+  They are now aliases of the database keys `MN12L`, `MN12SX`, `MN15L` and
+  `M06L(DKH2)`.
 
 ### Output changes
 - `--json` / `--export` payloads are schema **1.1**: a `profile` block (the

@@ -52,6 +52,11 @@ FUNCTIONAL_ALIASES = {
     "M05-2X": "M052X",
     "M08-HX": "M08HX",
     "M08-SO": "M08SO",
+    "MN12-L": "MN12L",
+    "MN12-SX": "MN12SX",
+    "MN15-L": "MN15L",
+    # relativistic (DKH2) variant: the database key has no hyphen either
+    "M06-L(DKH2)": "M06L(DKH2)",
     # omega-B97 variants: database has wB97XD (no hyphen)
     "WB97X-D": "WB97XD",
     "WB97X-D3": "WB97XD",
