@@ -1,0 +1,21 @@
+{
+  "schema": "reaction-profile/1.0",
+  "title": "Two enantiomeric branches from one reactant",
+  "units": "kJ/mol",
+  "points": {
+    "R": {"role": "reactant"},
+    "TS-R": {"role": "ts", "display": "TS(R)‡"},
+    "TS-S": {"role": "ts", "display": "TS(S)‡"},
+    "P-R": {"role": "product"},
+    "P-S": {"role": "product"}
+  },
+  "pathways": {
+    "R-branch": {"points": ["R", "TS-R", "P-R"]},
+    "S-branch": {"points": ["R", "TS-S", "P-S"], "edges": [{"from": "TS-S", "to": "P-S", "kind": "none"}]}
+  },
+  "series": [
+    {"id": "E", "label": "ΔE", "quantity": "electronic", "source": "declared",
+     "levels": {"R-branch": {"R": 0, "TS-R": 60.2, "P-R": -40.1},
+                "S-branch": {"R": 0, "TS-S": 66.9, "P-S": -40.1}}}
+  ]
+}

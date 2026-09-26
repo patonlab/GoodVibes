@@ -9,6 +9,39 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- The reaction-profile format, `reaction-profile/1.0` (M2a of the direction
+  plan): a tool-independent document for reaction energy profiles (species,
+  points with roles and display labels, pathways with a zero and edges,
+  methods, computed and declared series, annotations, style, provenance),
+  specified in `docs/source/reaction_profile.md` and published as a JSON
+  Schema (`goodvibes/schemas/reaction-profile-1.0.schema.json`, CC0).
+  - `goodvibes.profile`: `Profile`, `load_profile`, `validate_document`.
+    Reads the explicit form (YAML/JSON), the v2 PES YAML, the legacy
+    `--- # PES` text, CSV/TSV tables of relative energies (wide or long) and
+    GoodVibes payloads with a `profile` block; `evaluate` fills the computed
+    series from thermo data or from embedded conformers (at any
+    temperature), `dump`, `to_rows` / `to_dataframe` / `write_table` (CSV,
+    Markdown), `plot`, `from_pes_result`.
+  - The reference validator checks the JSON Schema's structural rules plus
+    the referential ones it cannot express; the conformance kit
+    (`tests/profile_conformance/`) pins their agreement. Unknown keys warn
+    (error with `strict`); `x-*` keys are preserved; keys reserved for a
+    later minor are rejected.
+  - `goodvibes --profile PATH` writes the evaluated document;
+    `--with-conformers` embeds every structure's parsed data and options
+    so the document can be re-evaluated without the output files.
+  - `--pes` accepts a reaction-profile document. `--pes-plot` then draws the
+    document's own series (declared values, annotations); pathways whose
+    points carry only declared values are left out of the Rich tables and
+    the `pes` block, with a note. With `--ti` such a document is tabulated
+    by the model at every scan temperature (the legacy text path is kept
+    for the v2 and legacy formats), and `--graph` refuses it.
+  - `goodvibes-profile` (new console script): `validate`, `plot`, `table`,
+    `convert`, `evaluate`. It reads documents and tables only, never QC
+    outputs.
+  - `goodvibes/examples/profiles/`: a minimal document, a CSV table, and the
+    azabor profile with embedded conformers (380 KB in place of about 100
+    Gaussian outputs) plus the script that regenerates it.
 - The profile model (M1 of the direction plan):
   - `ComputedEntry` (a parsed structure plus its `ThermoOptions`, evaluable
     at any temperature and memoised) and `calc_bbe.options`, the resolved
@@ -58,6 +91,15 @@ every such change is listed under **Output changes**.
   README option table.
 
 ### Changed
+- PyYAML is a core dependency (reaction-profile documents and PES files
+  are YAML); `jsonschema` is optional and in the `test` extra; new
+  `profile` extra (matplotlib).
+- `--nogconf` / `--lowest-only` override the rollup of the `--pes` file
+  only when given; without them a reaction-profile document's
+  `goodvibes.rollup` is used (the v2 and legacy formats have no rollup
+  setting, so their behaviour is unchanged).
+- A computed `Series` may carry stored `levels` (an evaluated document);
+  `Pathway.levels` skips points without species.
 - `plot_pes` no longer rejects pathways of different lengths (they share
   the merged x axis) or `show_conformers=True` with several pathways
   (dots are drawn per pathway in its colour).
@@ -112,6 +154,13 @@ every such change is listed under **Output changes**.
   frequency array as `0.0 cm-1`; it now writes `-|ν|`.
 
 ### Output changes
+- `--json` / `--export` payloads are schema **1.1**: a `profile` block (the
+  evaluated reaction-profile document, without conformers) is added when
+  `--pes` is used. 1.0 readers ignore it; `--import` reads 1.0 and 1.1.
+  The `.dat` line reporting the JSON file says `schema v1.1`.
+- The gconf notice above the PES tables follows the rollup actually used
+  (it read the command-line flag, so a document's Boltzmann rollup was
+  announced as gconf).
 - `--pes --ti`: the PES model is built for the scan, so the `--json` `pes`
   block is now written (one entry per pathway per temperature; it was
   absent) and `--pes-plot` works, overlaying the temperatures on one axes.

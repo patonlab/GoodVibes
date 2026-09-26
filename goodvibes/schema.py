@@ -41,8 +41,10 @@ except ImportError:                                # pragma: no cover  (py<3.8)
 # Version constants
 # ---------------------------------------------------------------------------
 
-#: The schema version this build of GoodVibes writes.
-SCHEMA_VERSION = "1.0"
+#: The schema version this build of GoodVibes writes. 1.1 adds the optional
+#: top-level ``profile`` block (a reaction-profile document, see
+#: goodvibes.profile); a 1.0 reader ignores it.
+SCHEMA_VERSION = "1.1"
 
 #: The oldest schema a reader in this build will accept. Bump only on
 #: a true breaking change (e.g. v2.0).
@@ -136,6 +138,7 @@ class Payload(TypedDict, total=False):
     selectivity: SelectivityBlock          # optional
     selectivity_lowest: SelectivityBlock   # optional
     pes: PESBlock                          # optional
+    profile: dict                          # optional (1.1): reaction-profile/1.x document
 
 
 # ---------------------------------------------------------------------------

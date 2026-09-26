@@ -638,7 +638,7 @@ def test_cli_json_includes_selectivity(tmp_path):
     ], cwd=tmp_path)
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
     payload = json.loads(out.read_text())
-    assert payload['schema_version'] == '1.0'
+    assert payload['schema_version'] == '1.1'
     assert 'selectivity' in payload
     assert 'selectivity_lowest' in payload
     sel = payload['selectivity']

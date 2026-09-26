@@ -389,7 +389,7 @@ def test_export_writes_v1_payload(tmp_path):
     )
     assert res.returncode == 0, f"stderr:\n{res.stderr}"
     payload = json.loads(out.read_text())
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert "qcdata" in payload["results"][0]
     assert "thermo" in payload["results"][0]
 

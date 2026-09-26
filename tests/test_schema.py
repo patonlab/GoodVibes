@@ -14,10 +14,11 @@ from goodvibes import schema
 # Version constants
 # ---------------------------------------------------------------------------
 
-def test_schema_version_is_one_dot_zero():
-    """Pinned: bump only on a documented breaking change. v1.x minor
-    versions are reserved for backwards-compatible additions."""
-    assert schema.SCHEMA_VERSION == "1.0"
+def test_schema_version_is_one_dot_one():
+    """Pinned. 1.1 added the optional `profile` block; v1.x minor versions
+    are reserved for backwards-compatible additions and a major bump for a
+    documented breaking change."""
+    assert schema.SCHEMA_VERSION == "1.1"
 
 
 def test_schema_min_compatible_at_least_one():
@@ -133,4 +134,4 @@ def test_write_json_results_emits_v1_payload(tmp_path):
     write_json_results({}, options, str(out))
     payload = json.loads(out.read_text())
     schema.validate(payload)
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"

@@ -14,8 +14,9 @@ and mention the change in CHANGELOG.md.
 
 Normalisation: the repository root becomes ``<ROOT>`` (with ``/`` separators
 on every platform), the version banner becomes ``v<VERSION>``, and in JSON the
-``generated_at`` timestamp, ``goodvibes_version`` and the per-file ``qcdata``
-block (raw parser output, covered by the parser tests) are dropped. JSON numbers
+``generated_at`` timestamp, ``goodvibes_version``, the per-file ``qcdata``
+block (raw parser output, covered by the parser tests) and the input
+checksums of the ``profile`` provenance are dropped. JSON numbers
 are compared with a relative tolerance so a last-digit difference between
 platforms does not count as a regression; ``.dat`` values are printed at six
 decimals and are compared verbatim.
@@ -122,8 +123,10 @@ def _normalise_json(obj):
         # qcdata is raw parser output (coordinates, every frequency, ...) and is
         # covered by the parser tests; keeping it would make the goldens large
         # without pinning anything the thermo/selectivity/pes blocks do not.
+        # sha1: the input files' checksums in a profile's provenance depend on
+        # the checkout's line endings (Windows), not on GoodVibes.
         return {k: _normalise_json(v) for k, v in obj.items()
-                if k not in ("generated_at", "goodvibes_version", "qcdata")}
+                if k not in ("generated_at", "goodvibes_version", "qcdata", "sha1")}
     if isinstance(obj, list):
         return [_normalise_json(v) for v in obj]
     if isinstance(obj, str):

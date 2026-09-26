@@ -33,8 +33,8 @@ from .constants import canonical_units
 from .pes_model import PESOptions
 
 
-def parse_yaml(text: str) -> PESSpec:
-    """Parse the YAML text into a `PESSpec`. PyYAML is required."""
+def _load_yaml_text(text: str):
+    """yaml.safe_load with a clear error when PyYAML is missing."""
     try:
         import yaml
     except ImportError:
@@ -42,10 +42,21 @@ def parse_yaml(text: str) -> PESSpec:
             "PyYAML is required to read modern PES YAML files. Install with "
             "`pip install pyyaml`, or use the legacy `--- # PES` format."
         )
-    data = yaml.safe_load(text)
+    return yaml.safe_load(text)
+
+
+def parse_yaml(text: str) -> PESSpec:
+    """Parse the YAML text into a `PESSpec`. PyYAML is required."""
+    data = _load_yaml_text(text)
     if not isinstance(data, dict):
         raise ValueError("PES YAML root must be a mapping")
+    return parse_yaml_data(data)
 
+
+def parse_yaml_data(data: dict) -> PESSpec:
+    """Parse an already-loaded v2 PES mapping into a `PESSpec`."""
+    if not isinstance(data, dict):
+        raise ValueError("PES YAML root must be a mapping")
     if "pathways" not in data:
         raise ValueError("PES YAML must define a top-level `pathways:` block")
     if "species" not in data:

@@ -455,6 +455,32 @@ What the constructors do:
 
 ---
 
+## 4c. Reaction-profile documents and the file-free `goodvibes-profile`
+
+`--profile PATH` writes the evaluated profile as a
+[reaction-profile document](reaction_profile.md): points, pathways, one
+series of the plotted quantity per temperature, and provenance. With
+`--with-conformers` it also carries every structure's parsed data, so it
+can be re-evaluated at another temperature without the outputs.
+
+```bash
+cd goodvibes/examples/pes
+goodvibes *.log --spc sp_tzpop --pes azabor_PES_v2.yaml --profile azabor.json --with-conformers
+goodvibes-profile plot azabor.json -o azabor.svg --label-points
+goodvibes-profile evaluate azabor.json -o hot.json --temperatures 298.15,373.15
+goodvibes-profile table hot.json -o azabor_si.md
+```
+
+A CSV of literature values is a profile too, and a document can mix
+computed and declared series (hollow markers) with barrier annotations:
+
+```bash
+goodvibes-profile plot levels.csv -o lit.svg --quantity gibbs --temperature 298.15
+goodvibes-profile convert levels.csv -o lit.yaml     # then add series, methods, annotations by hand
+```
+
+---
+
 ## 5. PES + JSON for downstream analysis
 
 ```bash

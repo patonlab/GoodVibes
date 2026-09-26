@@ -149,6 +149,10 @@ and a vibrational analysis (`QCData.from_atoms`,
   literature overlays and `layout="panels"`; `QCData.from_atoms` /
   `from_vibrations` for file-free ASE and MLIP inputs; every class
   importable from `goodvibes`. See the cookbook, recipes 4 and 4b.
+- **Reaction-profile documents.** `load_profile` / `Profile` read, validate,
+  evaluate, write, tabulate and plot `reaction-profile/1.0` documents;
+  `goodvibes --profile` writes one and `goodvibes-profile` works with them
+  without output files. See [the reaction-profile format](reaction_profile.md).
 - **v4.2 — `--jobs N` parallel parsing.** ~3× speedup at 8 cores.
 - **v4.2 — `--csv PATH`.** Per-structure DataFrame export.
 - **v4.2 — ORCA CPU-time scaling.** ORCA prints wall time only;
