@@ -8,7 +8,8 @@ tables of relative energies), never quantum-chemistry output files.
     goodvibes-profile convert levels.csv -o profile.yaml --quantity gibbs --temperature 298.15
     goodvibes-profile evaluate profile.json -o hot.json --temperatures 298.15,373.15
 
-A profile is a reaction-profile document (.yaml/.yml/.json), a GoodVibes
+A profile is a reaction-profile document (.yaml/.yml/.json), an SVG figure
+saved by GoodVibes (it embeds the drawn document), a GoodVibes
 ``--json`` payload with a ``profile`` block, a CSV/TSV table of relative
 energies, a GoodVibes v2 PES YAML or a legacy ``--- # PES`` file (the last
 two only for ``validate`` and ``convert``: they name output files and
@@ -82,7 +83,7 @@ def _load(path: str, args, *, require_values: bool = False):
 
 def cmd_validate(args) -> int:
     import json
-    from .profile import validate_document
+    from .profile import ProfileError, validate_document
     status = 0
     for path in args.files:
         ext = os.path.splitext(path)[1].lower()
@@ -99,11 +100,14 @@ def cmd_validate(args) -> int:
                 continue
             if ext == ".json":
                 data = json.loads(text)
+            elif ext == ".svg":
+                from .profile import svg_document
+                data = svg_document(text, path)
             else:
                 data = yaml.safe_load(text)
             if isinstance(data, dict) and "schema_version" in data and "profile" in data:
                 data = data["profile"]
-        except (OSError, ValueError, yaml.YAMLError) as exc:
+        except (OSError, ValueError, yaml.YAMLError, ProfileError) as exc:
             print(f"{path}: cannot read: {exc}", file=sys.stderr)
             status = 1
             continue
@@ -134,8 +138,9 @@ def cmd_plot(args) -> int:
                          "install with `pip install goodvibes[plot]`")
     fig = prof.plot(series=_split(args.series), pathways=_split(args.pathways), layout=args.layout,
                     label_points=True if args.label_points else None, connector=args.connector,
-                    title=args.title, annotations=not args.no_annotations)
-    fig.save(*args.output, dpi=args.dpi)
+                    title=args.title, annotations=not args.no_annotations, preset=args.preset,
+                    uncertainty=not args.no_uncertainty)
+    fig.save(*args.output, dpi=args.dpi, embed=not args.no_embed)
     fig.close()
     for out in args.output:
         print(f"wrote {out}")
@@ -219,7 +224,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_table_options(p)
     p.set_defaults(func=cmd_validate)
 
-    p = sub.add_parser("plot", help="draw a profile (PNG/PDF/SVG by extension)")
+    p = sub.add_parser("plot", help="draw a profile (PNG/PDF/SVG by extension; an SVG embeds its data)")
     p.add_argument("profile", metavar="PROFILE")
     p.add_argument("-o", "--output", action="append", required=True, metavar="FILE",
                    help="output figure; repeat for several formats")
@@ -227,6 +232,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--pathways", default=None, help="comma-separated pathway names (default: all)")
     p.add_argument("--layout", choices=("overlay", "panels"), default=None)
     p.add_argument("--connector", choices=("bezier", "linear", "step"), default=None)
+    p.add_argument("--preset", choices=("none", "single-column", "double-column", "slide"), default=None,
+                   help="figure size, fonts and line widths for a journal column, a page width or a slide "
+                        "(default: the document's style.preset)")
+    p.add_argument("--no-uncertainty", action="store_true", help="do not draw series uncertainties as error bars")
+    p.add_argument("--no-embed", action="store_true",
+                   help="do not embed the drawn document in an SVG (it is by default)")
     p.add_argument("--label-points", action="store_true", help="print each level's value")
     p.add_argument("--no-annotations", action="store_true", help="omit the document's annotations")
     p.add_argument("--title", default=None)

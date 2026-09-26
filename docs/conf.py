@@ -93,6 +93,10 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+# Publish the reaction-profile JSON Schema at the site root, a stable URL for
+# validators: https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json
+html_extra_path = ['../goodvibes/schemas']
+
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
 #

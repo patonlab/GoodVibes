@@ -25,6 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(EXAMPLES))
 AZABOR = os.path.join(EXAMPLES, "profiles", "azabor_profile.json")
 AMINOX = os.path.join(HERE, "aminox_profile.json")
 LEVELS_CSV = os.path.join(EXAMPLES, "profiles", "levels.csv")
+MINIMAL = os.path.join(EXAMPLES, "profiles", "minimal.yaml")
 DEFAULT_OUT = os.path.join(ROOT, "docs", "source", "gallery")
 SINGLE = (6.4, 4.0)
 DPI = 150
@@ -94,6 +95,16 @@ def dft_vs_declared():
     return prof.plot(title="Computed (DFT) and declared values on one pathway")
 
 
+def column_preset_uncertainty():
+    """A declared profile with ± uncertainties at the single-column preset
+    (values and uncertainties illustrative, from ../profiles/minimal.yaml)."""
+    prof = load_profile(MINIMAL)
+    prof.title = "Illustrative values ± uncertainty"
+    prof.series[0].uncertainty = {"main": {"TS1": 1.5, "Int": 0.8, "TS2": 1.2, "P": 1.0}}
+    prof.style["preset"] = "single-column"
+    return prof.plot(label_points=True)
+
+
 GALLERY = [
     ("azabor_dft", azabor_dft),
     ("azabor_temperatures", azabor_temperatures),
@@ -101,6 +112,7 @@ GALLERY = [
     ("aminox_branches", aminox_branches),
     ("declared_csv", declared_csv),
     ("dft_vs_declared", dft_vs_declared),
+    ("column_preset_uncertainty", column_preset_uncertainty),
 ]
 
 

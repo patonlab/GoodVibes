@@ -809,6 +809,15 @@ class Series:
         raw = pathway.levels(T, self.quantity, **result.options.rollup_kw)
         return {k: (v * factor if v is not None else None) for k, v in raw.items()}
 
+    def evaluate_uncertainty(self, result: "PESResult", pathway: Pathway) -> Dict[str, float]:
+        """{point label: uncertainty in the result's units} for one pathway
+        (empty when the series carries none)."""
+        stored = (self.uncertainty or {}).get(pathway.name, {})
+        if not stored:
+            return {}
+        factor = hartree_factor(result.options.units) / hartree_factor(self.units or result.options.units)
+        return {label: u * factor for label, u in stored.items() if u is not None}
+
 
 @dataclass
 class PESResult:

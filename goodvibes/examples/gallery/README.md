@@ -13,6 +13,7 @@ python goodvibes/examples/gallery/build_gallery.py --out figs --formats png,svg,
 | `../profiles/azabor_profile.json` | aza-borocyclization profile from about 100 Gaussian outputs (`../pes`), with every structure's parsed data embedded (`--with-conformers`) | 380 KB |
 | `aminox_profile.json` | aminoxylation R vs S transition states from the six outputs in `../gconf_ee_boltz`, with embedded conformers | 22 KB |
 | `../profiles/levels.csv` | a table of relative energies; **illustrative values, not from a publication** | < 1 KB |
+| `../profiles/minimal.yaml` | a five-point typed-in profile; **illustrative values** | < 1 KB |
 
 `_generate_inputs.py` (and `../profiles/_generate.py`) regenerate the two
 documents from the outputs; the gallery itself only needs the documents.
@@ -98,10 +99,30 @@ prof.series = [prof.get_series("qh_gibbs@298.15K"),
 prof.plot()
 ```
 
+## A journal-column preset with error bars
+
+![column_preset_uncertainty](../../../docs/source/gallery/column_preset_uncertainty.png)
+
+`minimal.yaml` with illustrative `uncertainty` values, drawn at the
+`single-column` preset (about 85 mm wide, 7 pt text). Presets set the figure
+size, fonts and line widths for that figure only; `double-column` and `slide`
+are the others. Saved as SVG, the figure keeps its text editable and embeds
+the drawn document (`goodvibes-profile table fig.svg` reads it back).
+
+```python
+prof = load_profile("goodvibes/examples/profiles/minimal.yaml")
+prof.series[0].uncertainty = {"main": {"TS1": 1.5, "Int": 0.8, "TS2": 1.2, "P": 1.0}}
+prof.plot(preset="single-column", label_points=True).save("fig.svg", "fig.pdf")
+```
+
 ## Adding an example
 
 Commit the compact input (a reaction-profile document, with `--with-conformers`
 when it should be re-evaluable, a GoodVibes `--export` payload, `.extxyz`
 files or a CSV), the script that made it, and a function in
 `build_gallery.py`; archive the program outputs elsewhere (e.g. Zenodo) and
-cite them here. `tests/test_gallery.py` rebuilds every figure.
+cite them here. `tests/test_gallery.py` rebuilds every figure and checks its
+numbers; `tests/test_gallery_images.py` compares each figure's geometry with
+a baseline image, so add one with
+`GOODVIBES_UPDATE_BASELINES=1 pytest tests/test_gallery_images.py` (and look
+at it before committing).

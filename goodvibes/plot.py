@@ -12,6 +12,7 @@ matplotlib is missing — only the call-site fails, with a clear message.
 
 Public API:
     plot_profile(pes_result, series=..., ...)        — reaction profile (ProfileAxes)
+    STYLE_PRESETS / resolve_preset(name)             — figure presets for plot_profile
     plot_pes(pes_result, ax=None, **kw)              — 4.2-4.5 shim over plot_profile
     plot_selectivity_strip(selectivity,
                            thermo_lookup, ax=None)   — per-species scatter
@@ -23,8 +24,13 @@ The first two are implemented; the latter two are stubs that raise
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
+import io
+import json
+import os
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from .constants import canonical_units, hartree_factor
 
@@ -39,6 +45,38 @@ def _import_matplotlib():
             "goodvibes.plot requires matplotlib; install with "
             "`pip install goodvibes[plot]` or `pip install matplotlib`."
         ) from exc
+
+
+def _version() -> str:
+    from .constants import __version__
+    return __version__
+
+
+#: id of the ``<metadata>`` element that carries a figure's document.
+SVG_METADATA_ID = "goodvibes-reaction-profile"
+_SVG_METADATA_RE = re.compile(
+    r'<metadata id="' + SVG_METADATA_ID + r'">(.*?)</metadata>', re.DOTALL)
+
+
+def embed_svg_metadata(svg: str, payload: Mapping[str, Any]) -> str:
+    """Insert ``payload`` (JSON) as a ``<metadata id="goodvibes-reaction-profile">``
+    element right after the opening ``<svg>`` tag."""
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    data = data.replace("]]>", "]]]]><![CDATA[>")          # a CDATA section cannot contain ']]>'
+    m = re.search(r"<svg\b[^>]*>", svg)
+    if m is None:
+        raise ValueError("not an SVG document: no <svg> element")
+    block = f'\n <metadata id="{SVG_METADATA_ID}"><![CDATA[{data}]]></metadata>'
+    return svg[:m.end()] + block + svg[m.end():]
+
+
+def read_svg_metadata(svg: str) -> Optional[dict]:
+    """The payload ``ProfileAxes.save`` embedded in an SVG, or None."""
+    m = _SVG_METADATA_RE.search(svg)
+    if m is None:
+        return None
+    text = "".join(re.findall(r"<!\[CDATA\[(.*?)\]\]>", m.group(1), re.DOTALL))
+    return json.loads(text)
 
 
 # ---------------------------------------------------------------------------
@@ -151,14 +189,90 @@ def _rollup_vector(cset, T, rollup_kw):
 _LINESTYLES = ("-", "--", ":", "-.")
 
 
+@dataclass(frozen=True)
+class StylePreset:
+    """Figure size, font sizes (pt) and line widths (pt) for one target.
+
+    Applied inside a ``matplotlib.rc_context`` for the figure only, never
+    set globally. ``figsize`` is the overlay figure in inches; with
+    ``layout='panels'`` each panel is ``panel_height`` tall.
+    """
+    name: str
+    figsize: Tuple[float, float]
+    panel_height: float
+    font_size: float        # axis labels, tick labels, title
+    label_size: float       # value labels, barrier labels, legend
+    bar_width: float
+    connector_width: float
+    axes_width: float
+    marker_size: float
+
+    @property
+    def rc(self) -> Dict[str, Any]:
+        fs, aw = self.font_size, self.axes_width
+        return {
+            "font.size": fs, "axes.titlesize": fs, "axes.labelsize": fs,
+            "xtick.labelsize": fs, "ytick.labelsize": fs, "legend.fontsize": self.label_size,
+            "figure.titlesize": fs,
+            "axes.linewidth": aw, "xtick.major.width": aw, "ytick.major.width": aw,
+            "xtick.minor.width": 0.6 * aw, "ytick.minor.width": 0.6 * aw,
+            "xtick.major.size": 4.4 * aw, "ytick.major.size": 4.4 * aw,
+            "xtick.minor.size": 2.5 * aw, "ytick.minor.size": 2.5 * aw,
+            "lines.linewidth": self.connector_width, "lines.markersize": self.marker_size,
+        }
+
+
+#: Named styles for ``style.preset`` (reaction-profile documents),
+#: ``plot_profile(preset=...)`` and ``goodvibes-profile plot --preset``.
+#: 'none' keeps matplotlib's defaults and a figure sized to the profile.
+STYLE_PRESETS: Dict[str, Optional[StylePreset]] = {
+    "none": None,
+    # one journal column, about 85 mm wide
+    "single-column": StylePreset("single-column", (3.35, 2.6), 1.9, 7, 6, 1.2, 0.7, 0.6, 3),
+    # a full page width, about 178 mm
+    "double-column": StylePreset("double-column", (7.0, 3.2), 2.4, 8, 7, 1.5, 0.9, 0.8, 4),
+    # a 16:9 slide, readable from the back of the room
+    "slide": StylePreset("slide", (10.0, 5.6), 3.2, 16, 14, 3.0, 1.8, 1.2, 7),
+}
+
+
+def resolve_preset(name: Optional[str]) -> Optional[StylePreset]:
+    """The StylePreset called ``name`` (None or 'none' for the defaults)."""
+    if name is None or isinstance(name, StylePreset):
+        return name
+    if name not in STYLE_PRESETS:
+        raise ValueError(f"unknown style preset {name!r} (choose from {', '.join(STYLE_PRESETS)})")
+    return STYLE_PRESETS[name]
+
+
+class _ElementIds:
+    """Stable, unique SVG ids (matplotlib ``gid``) for the drawn elements,
+    and an index from each id back to what it shows."""
+
+    def __init__(self):
+        self.index: Dict[str, Dict[str, str]] = {}
+
+    def __call__(self, artist, kind: str, **ref) -> str:
+        ref = {k: str(v) for k, v in ref.items() if v is not None}
+        base = re.sub(r"[^A-Za-z0-9_.-]+", "_", "-".join([kind] + list(ref.values())))
+        gid, n = base, 2
+        while gid in self.index:
+            gid, n = f"{base}-{n}", n + 1
+        self.index[gid] = {"kind": kind, **ref}
+        artist.set_gid(gid)
+        return gid
+
+
 @dataclass
 class ProfileAxes:
     """What ``plot_profile`` drew, with the numbers behind it.
 
     ``levels`` is {series id: {pathway name: {point label: value}}} in
     ``units``: the same evaluation the bars were drawn from, so a table
-    written from it cannot disagree with the figure. ``order`` is the
-    merged x order (point labels) and ``x`` maps a label to its position.
+    written from it cannot disagree with the figure; ``uncertainty`` has
+    the same shape for the series that carry one. ``order`` is the merged
+    x order (point labels) and ``x`` maps a label to its position.
+    ``element_ids`` maps each drawn element's SVG id to what it shows.
     """
     figure: Any
     axes: List[Any]
@@ -171,6 +285,16 @@ class ProfileAxes:
     colors: Dict[str, Any]
     linestyles: Dict[str, str]
     layout: str = "overlay"
+    uncertainty: Dict[str, Dict[str, Dict[str, float]]] = field(default_factory=dict)
+    preset: Optional[str] = None
+    rc: Dict[str, Any] = field(default_factory=dict, repr=False)
+    label_size: Any = "x-small"
+    pes_result: Any = field(default=None, repr=False)
+    _ids: Any = field(default_factory=_ElementIds, repr=False)
+
+    @property
+    def element_ids(self) -> Dict[str, Dict[str, str]]:
+        return dict(self._ids.index)
 
     @property
     def ax(self):
@@ -213,16 +337,62 @@ class ProfileAxes:
         last = self.x[dst] >= max(self.x.values())
         xa = self.x[dst] - offset if last else self.x[dst] + offset
         col = color if color is not None else self.colors.get(name, "k")
-        axis.annotate("", xy=(xa, y1), xytext=(xa, y0),
-                      arrowprops=dict(arrowstyle="<->", color=col, linewidth=0.8, shrinkA=0, shrinkB=0))
-        return axis.annotate(fmt.format(y1 - y0), (xa, (y0 + y1) / 2), xytext=(-3 if last else 3, 0),
-                             textcoords="offset points", ha="right" if last else "left", va="center",
-                             fontsize="x-small", color=col)
+        with _import_matplotlib().rc_context(self.rc):
+            arrow = axis.annotate("", xy=(xa, y1), xytext=(xa, y0),
+                                  arrowprops=dict(arrowstyle="<->", color=col, shrinkA=0, shrinkB=0,
+                                                  linewidth=0.9 * self.rc["lines.linewidth"] if self.rc
+                                                  else 0.8))
+            text = axis.annotate(fmt.format(y1 - y0), (xa, (y0 + y1) / 2), xytext=(-3 if last else 3, 0),
+                                 textcoords="offset points", ha="right" if last else "left", va="center",
+                                 fontsize=self.label_size, color=col)
+        ref = {"series": sid, "pathway": name, "from": src, "to": dst}
+        self._ids(arrow.arrow_patch, "barrier-arrow", **ref)   # the text of `arrow` is empty
+        self._ids(text, "barrier-label", **ref)
+        return text
 
-    def save(self, *paths: str, dpi: int = 200, bbox_inches: str = "tight", **kw) -> None:
-        """Write the figure to each path (format by extension)."""
+    def to_document(self) -> dict:
+        """The reaction-profile document of what was drawn: the drawn
+        series with the drawn levels (and uncertainties), in ``units``.
+        Needs the ``PESResult`` the figure came from (``plot_profile``
+        keeps it)."""
+        from .profile import Profile
+        return Profile.from_figure(self).to_dict(include_conformers=False)
+
+    def save(self, *paths: str, dpi: int = 200, bbox_inches: str = "tight", embed: bool = True, **kw) -> None:
+        """Write the figure to each path (format by extension).
+
+        An SVG keeps its text as text (``svg.fonttype = 'none'``), gives
+        every bar, connector, label and error bar an ``id`` (see
+        ``element_ids``) and, unless ``embed=False``, carries the
+        reaction-profile document of what was drawn in a ``<metadata>``
+        element, so ``goodvibes.load_profile("figure.svg")`` reads the
+        numbers back. Output is deterministic (no date, fixed id salt).
+        """
+        plt = _import_matplotlib()
         for path in paths:
-            self.figure.savefig(path, dpi=dpi, bbox_inches=bbox_inches, **kw)
+            path_kw = dict(kw)
+            named = isinstance(path, (str, os.PathLike))
+            fmt = (path_kw.get("format") or (os.fspath(path).rsplit(".", 1)[-1] if named else "")).lower()
+            rc = dict(self.rc)
+            if fmt == "svg":
+                rc.update({"svg.fonttype": "none", "svg.hashsalt": "goodvibes"})
+                path_kw.setdefault("metadata", {"Date": None})
+            with plt.rc_context(rc):
+                if fmt == "svg" and embed and self.pes_result is not None:
+                    buf = io.StringIO()
+                    path_kw["format"] = "svg"
+                    self.figure.savefig(buf, dpi=dpi, bbox_inches=bbox_inches, **path_kw)
+                    payload = {"generator": f"GoodVibes {_version()}", "document": self.to_document(),
+                               "elements": self.element_ids}
+                    text = embed_svg_metadata(buf.getvalue(), payload)
+                    if named:
+                        Path(path).write_text(text, encoding="utf-8")
+                    elif isinstance(path, io.TextIOBase):
+                        path.write(text)
+                    else:
+                        path.write(text.encode("utf-8"))
+                else:
+                    self.figure.savefig(path, dpi=dpi, bbox_inches=bbox_inches, **path_kw)
 
     def close(self) -> None:
         _import_matplotlib().close(self.figure)
@@ -293,14 +463,65 @@ def _draw_connector(ax, x0, y0, x1, y1, *, style, color, linestyle, linewidth, z
                  [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]),
             fc="none", color=color, linewidth=linewidth, linestyle=linestyle, zorder=zorder,
         )
-        ax.add_patch(patch)
-    elif style == "step":
+        return ax.add_patch(patch)
+    if style == "step":
         xm = (x0 + x1) / 2
-        ax.plot([x0, xm, xm, x1], [y0, y0, y1, y1], color=color,
-                linewidth=linewidth, linestyle=linestyle, zorder=zorder)
-    else:
-        ax.plot([x0, x1], [y0, y1], color=color, linewidth=linewidth,
-                linestyle=linestyle, zorder=zorder)
+        return ax.plot([x0, xm, xm, x1], [y0, y0, y1, y1], color=color,
+                       linewidth=linewidth, linestyle=linestyle, zorder=zorder)[0]
+    return ax.plot([x0, x1], [y0, y1], color=color, linewidth=linewidth,
+                   linestyle=linestyle, zorder=zorder)[0]
+
+
+def _tick_label_rotation(fig, axis, texts, angle: float = 15.0) -> float:
+    """The smallest of 15, 40 and 90 degrees at which slanted, right-aligned
+    tick labels one data unit apart do not overlap.
+
+    Parallel labels at angle a, d apart, run into each other when one is
+    long enough to reach its neighbour (width * cos a > d) and the gap
+    between their baselines (d * sin a) is less than the text height.
+    """
+    import math
+    try:
+        renderer = fig.canvas.get_renderer()
+    except Exception:                                   # a canvas without a renderer
+        return angle
+    shown = [t for t in texts if t.get_text()]
+    if len(shown) < 2:
+        return angle
+    x0, x1 = axis.transData.transform([(0.0, 0.0), (1.0, 0.0)])[:, 0]
+    d = abs(x1 - x0)
+    widths = []
+    for t in shown:
+        rot = t.get_rotation()
+        t.set_rotation(0)
+        widths.append(t.get_window_extent(renderer).width)
+        t.set_rotation(rot)
+    height = 1.2 * max(t.get_size() for t in shown) * fig.dpi / 72.0
+    for a in (angle, 40.0):
+        r = math.radians(a)
+        if max(widths) * math.cos(r) <= d or d * math.sin(r) >= height:
+            return a
+    return 90.0
+
+
+def _label_margin(fig, axis, stack_pts: float, minimum: float = 0.1) -> float:
+    """The y margin (fraction of the data range) that keeps a stack of
+    ``stack_pts`` points of value labels inside the axes."""
+    height_pts = axis.get_position().height * fig.get_figheight() * 72.0
+    f = stack_pts / height_pts if height_pts > 0 else 0.0
+    return minimum if f >= 0.45 else max(minimum, f / (1.0 - 2.0 * f))
+
+
+def _draw_error_bar(ax, x, y, u, *, cap, color, linewidth, zorder=3):
+    """± u about y at x, with caps, as one artist (one SVG element)."""
+    from matplotlib.collections import LineCollection
+    segments = [[(x, y - u), (x, y + u)],
+                [(x - cap, y - u), (x + cap, y - u)],
+                [(x - cap, y + u), (x + cap, y + u)]]
+    coll = LineCollection(segments, colors=color, linewidths=linewidth, zorder=zorder)
+    ax.add_collection(coll, autolim=True)
+    ax.update_datalim([(x, y - u), (x, y + u)])
+    return coll
 
 
 def plot_profile(
@@ -318,6 +539,8 @@ def plot_profile(
     label_points: bool = False,
     title: Optional[str] = None,
     order: Optional[Sequence[str]] = None,
+    preset: Optional[str] = None,
+    uncertainty: bool = True,
 ) -> ProfileAxes:
     """Draw a reaction profile from a ``PESResult``.
 
@@ -346,7 +569,8 @@ def plot_profile(
             axes per pathway, shared y).
         ax: an Axes to draw on (overlay only); a new figure otherwise.
         style: {'connector': 'bezier' | 'linear' | 'step', 'bar_half':
-            float, 'decimals': int, 'figsize': (w, h), 'linestyles': [...]}.
+            float, 'decimals': int, 'figsize': (w, h), 'linestyles': [...],
+            'preset': name}.
         colors: per-pathway colours, a sequence in pathway order or a
             {name: colour} mapping. Default: black for one pathway, the
             matplotlib cycle otherwise.
@@ -356,6 +580,12 @@ def plot_profile(
         title: figure title (default: pathway names, and the temperature
             when there is one).
         order: explicit x order of point labels (overrides the result's).
+        preset: a ``STYLE_PRESETS`` name ('single-column', 'double-column',
+            'slide'; default ``style['preset']`` or 'none'): figure size,
+            fonts and line widths for that target, applied to this figure
+            only. An explicit ``style['figsize']`` still wins.
+        uncertainty: draw each series' ``uncertainty`` as an error bar
+            (± the value) on its levels.
 
     Returns:
         A ``ProfileAxes`` with the figure, axes and the drawn levels.
@@ -372,7 +602,17 @@ def plot_profile(
     bar_half = float(style.get("bar_half", 0.15))
     decimals = int(style.get("decimals", 1))
     linestyles = list(style.get("linestyles", _LINESTYLES))
-    bar_lw, connector_lw = 1.5, 1.0
+    pre = resolve_preset(preset if preset is not None else style.get("preset"))
+    rc = pre.rc if pre else {}
+    if pre:
+        bar_lw, connector_lw, marker_size = pre.bar_width, pre.connector_width, pre.marker_size
+        tick_size, label_size, legend_size = pre.font_size, pre.label_size, pre.label_size
+        shift0, shift_step = 0.85 * pre.label_size, 1.15 * pre.label_size
+    else:
+        bar_lw, connector_lw, marker_size = 1.5, 1.0, 4
+        tick_size, label_size, legend_size = "small", "x-small", "small"
+        shift0, shift_step = 6, 8
+    ids = _ElementIds()
 
     paths = _resolve_pathways(pes_result, pathways)
     if not paths:
@@ -408,6 +648,10 @@ def plot_profile(
                     f"plot_profile: quantity {s.quantity!r} is not available for every point "
                     f"of pathway {p.name!r} (no single-point energy?)")
             levels[s.id][p.name] = vals
+    sigmas: Dict[str, Dict[str, Dict[str, float]]] = {}
+    for s in series_list:
+        if s.uncertainty:
+            sigmas[s.id] = {p.name: s.evaluate_uncertainty(pes_result, p) for p in paths}
 
     colors_by_path = _resolve_colors(plt, paths, colors)
     # Series without an explicit linestyle take the next style from the cycle
@@ -428,143 +672,170 @@ def plot_profile(
             ls_by_series[s.id] = free[n_default % len(free)]
             n_default += 1
 
-    # Figure / axes
-    figsize = style.get("figsize")
-    if layout == "panels":
-        if ax is not None:
-            raise ValueError("plot_profile: ax= cannot be combined with layout='panels'")
-        if figsize is None:
-            figsize = (max(5, 0.9 * n_points + 1), 3.2 * len(paths))
-        fig, axes = plt.subplots(len(paths), 1, sharey=True, sharex=True, figsize=figsize, squeeze=False)
-        axes = [a[0] for a in axes]
-    else:
-        if ax is None:
-            if figsize is None:
-                figsize = (max(5, 0.9 * n_points + 1), 4)
-            fig, ax = plt.subplots(figsize=figsize)
-        else:
-            fig = ax.figure
-        axes = [ax]
-
-    def _axis_for(i):
-        return axes[i] if layout == "panels" else axes[0]
-
-    rng = None
-    for pi, path in enumerate(paths):
-        axis = _axis_for(pi)
-        color = colors_by_path[path.name]
-        for si, s in enumerate(series_list):
-            ls = ls_by_series[s.id]
-            label_shift = 6 + 8 * si          # stack value labels when several series share a bar
-            lv = levels[s.id][path.name]
-            # bars
-            for point in path.points:
-                y = lv.get(point.label)
-                if y is None:
-                    continue
-                x = xpos[point.label]
-                if s.declared:
-                    axis.hlines(y, x - bar_half, x + bar_half, colors=color, linewidth=bar_lw,
-                                linestyle=ls, zorder=3)
-                    axis.plot([x], [y], marker="o", markersize=4, markerfacecolor="white",
-                              markeredgecolor=color, linestyle="none", zorder=4)
-                else:
-                    axis.hlines(y, x - bar_half, x + bar_half, colors=color, linewidth=bar_lw, zorder=3)
-                if label_points:
-                    above = point.is_ts
-                    axis.annotate(f"{y:.{decimals}f}", (x, y),
-                                  xytext=(0, label_shift if above else -label_shift), textcoords="offset points",
-                                  ha="center", va="bottom" if above else "top",
-                                  fontsize="x-small", color=color)
-            # connectors along the edges
-            for edge in path.edges:
-                if edge.kind == "none":
-                    continue
-                y0, y1 = lv.get(edge.src), lv.get(edge.dst)
-                if y0 is None or y1 is None:
-                    continue
-                edge_ls = ":" if edge.kind == "barrierless" else ls
-                _draw_connector(axis, xpos[edge.src], y0, xpos[edge.dst], y1,
-                                style=connector, color=color, linestyle=edge_ls,
-                                linewidth=connector_lw)
-            # conformer dots: level + (conformer − species rollup) in the plotted quantity
-            if show_conformers and not s.declared:
-                import random
-                rng = rng or random.Random(0)
-                T = s.temperature if s.temperature is not None else pes_result.temperature
-                qid = resolve_quantity(s.quantity).id
-                factor = hartree_factor(units)
-                rollup_kw = pes_result.options.rollup_kw
-                for point in path.points:
-                    base = lv.get(point.label)
-                    if base is None:
-                        continue
-                    for _coeff, cset in point.species:
-                        if cset.is_single:
-                            continue
-                        rollup = _rollup_vector(cset, T, rollup_kw).get(qid, T)
-                        for vec in cset.vectors(T):
-                            conf = vec.get(qid, T)
-                            if conf is None or rollup is None:
-                                continue
-                            y = base + (conf - rollup) * factor
-                            x = xpos[point.label] + (rng.random() - 0.5) * 0.3
-                            axis.scatter([x], [y], alpha=0.4, s=18, color=color, zorder=4)
-
-    # Axis furniture
-    display = {}
-    for p in paths:
-        for point in p.points:
-            display.setdefault(point.label, point.display_label)
-    quantities = {s.quantity for s in series_list}
-    if len(quantities) == 1:
-        ylabel = f"{resolve_quantity(next(iter(quantities))).label} ({units})"
-    else:
-        ylabel = f"relative energy ({units})"
-    for i, axis in enumerate(axes):
-        axis.set_xticks(list(range(n_points)))
-        axis.set_xticklabels([display.get(lab, lab) for lab in order],
-                             rotation=15, ha="right", fontsize="small")
-        axis.set_ylabel(ylabel)
-        axis.margins(y=0.1)      # room for the value labels above TS bars and below minima
-        axis.minorticks_on()
-        axis.tick_params(axis='x', which='minor', bottom=False, top=False)
-        axis.tick_params(axis='y', which='both', labelright=True, right=True)
+    with plt.rc_context(rc):
+        # Figure / axes
+        figsize = style.get("figsize")
         if layout == "panels":
-            axis.set_title(paths[i].name, fontsize="small", loc="left")
-
-    if title is None:
-        names = ", ".join(p.name for p in paths)
-        temps = {s.temperature if s.temperature is not None else pes_result.temperature
-                 for s in series_list if not s.declared}
-        if len(temps) == 1:
-            title = f"{names}  (T = {next(iter(temps)):g} K)"
+            if ax is not None:
+                raise ValueError("plot_profile: ax= cannot be combined with layout='panels'")
+            if figsize is None:
+                figsize = ((pre.figsize[0], pre.panel_height * len(paths)) if pre
+                           else (max(5, 0.9 * n_points + 1), 3.2 * len(paths)))
+            fig, axes = plt.subplots(len(paths), 1, sharey=True, sharex=True, figsize=figsize, squeeze=False)
+            axes = [a[0] for a in axes]
         else:
-            title = names
-    if layout == "panels":
-        fig.suptitle(title)
-    else:
-        axes[0].set_title(title)
+            if ax is None:
+                if figsize is None:
+                    figsize = pre.figsize if pre else (max(5, 0.9 * n_points + 1), 4)
+                fig, ax = plt.subplots(figsize=figsize)
+            else:
+                fig = ax.figure
+            axes = [ax]
 
-    # Legend: pathway colours (when more than one pathway on an axes) and
-    # series linestyles (when more than one series). Series labels already
-    # name the quantity / temperature / method they represent.
-    from matplotlib.lines import Line2D
-    handles = []
-    if layout == "overlay" and len(paths) > 1:
-        handles += [Line2D([], [], color=colors_by_path[p.name], label=p.name) for p in paths]
-    if len(series_list) > 1:
-        for s in series_list:
-            handles.append(Line2D([], [], color="k", linestyle=ls_by_series[s.id],
-                                  marker="o" if s.declared else None, markerfacecolor="white",
-                                  label=s.label))
-    if handles:
-        axes[0].legend(handles=handles, loc="best", fontsize="small")
+        def _axis_for(i):
+            return axes[i] if layout == "panels" else axes[0]
+
+        rng = None
+        for pi, path in enumerate(paths):
+            axis = _axis_for(pi)
+            color = colors_by_path[path.name]
+            for si, s in enumerate(series_list):
+                ls = ls_by_series[s.id]
+                label_shift = shift0 + shift_step * si   # stack value labels when several series share a bar
+                lv = levels[s.id][path.name]
+                sig = sigmas.get(s.id, {}).get(path.name, {}) if uncertainty else {}
+                # bars
+                for point in path.points:
+                    y = lv.get(point.label)
+                    if y is None:
+                        continue
+                    x = xpos[point.label]
+                    ref = dict(series=s.id, pathway=path.name, point=point.label)
+                    if s.declared:
+                        ids(axis.hlines(y, x - bar_half, x + bar_half, colors=color, linewidth=bar_lw,
+                                        linestyle=ls, zorder=3), "bar", **ref)
+                        ids(axis.plot([x], [y], marker="o", markersize=marker_size, markerfacecolor="white",
+                                      markeredgecolor=color, linestyle="none", zorder=4)[0], "marker", **ref)
+                    else:
+                        ids(axis.hlines(y, x - bar_half, x + bar_half, colors=color, linewidth=bar_lw,
+                                        zorder=3), "bar", **ref)
+                    u = sig.get(point.label)
+                    if u:
+                        ids(_draw_error_bar(axis, x, y, u, cap=0.45 * bar_half, color=color,
+                                            linewidth=connector_lw), "error", **ref)
+                    if label_points:
+                        above = point.is_ts
+                        anchor = y + (u or 0.0) if above else y - (u or 0.0)
+                        ids(axis.annotate(f"{y:.{decimals}f}", (x, anchor),
+                                          xytext=(0, label_shift if above else -label_shift),
+                                          textcoords="offset points", ha="center",
+                                          va="bottom" if above else "top",
+                                          fontsize=label_size, color=color), "label", **ref)
+                # connectors along the edges
+                for edge in path.edges:
+                    if edge.kind == "none":
+                        continue
+                    y0, y1 = lv.get(edge.src), lv.get(edge.dst)
+                    if y0 is None or y1 is None:
+                        continue
+                    edge_ls = ":" if edge.kind == "barrierless" else ls
+                    ids(_draw_connector(axis, xpos[edge.src], y0, xpos[edge.dst], y1,
+                                        style=connector, color=color, linestyle=edge_ls,
+                                        linewidth=connector_lw),
+                        "edge", series=s.id, pathway=path.name, **{"from": edge.src, "to": edge.dst})
+                # conformer dots: level + (conformer − species rollup) in the plotted quantity
+                if show_conformers and not s.declared:
+                    import random
+                    rng = rng or random.Random(0)
+                    T = s.temperature if s.temperature is not None else pes_result.temperature
+                    qid = resolve_quantity(s.quantity).id
+                    factor = hartree_factor(units)
+                    rollup_kw = pes_result.options.rollup_kw
+                    for point in path.points:
+                        base = lv.get(point.label)
+                        if base is None:
+                            continue
+                        for _coeff, cset in point.species:
+                            if cset.is_single:
+                                continue
+                            rollup = _rollup_vector(cset, T, rollup_kw).get(qid, T)
+                            for vec in cset.vectors(T):
+                                conf = vec.get(qid, T)
+                                if conf is None or rollup is None:
+                                    continue
+                                y = base + (conf - rollup) * factor
+                                x = xpos[point.label] + (rng.random() - 0.5) * 0.3
+                                ids(axis.scatter([x], [y], alpha=0.4, s=(1.06 * marker_size) ** 2,
+                                                 color=color, zorder=4),
+                                    "conformer", series=s.id, pathway=path.name, point=point.label)
+
+        # Axis furniture
+        display = {}
+        for p in paths:
+            for point in p.points:
+                display.setdefault(point.label, point.display_label)
+        quantities = {s.quantity for s in series_list}
+        if len(quantities) == 1:
+            ylabel = f"{resolve_quantity(next(iter(quantities))).label} ({units})"
+        else:
+            ylabel = f"relative energy ({units})"
+        from matplotlib.font_manager import FontProperties
+        label_pts = FontProperties(size=label_size).get_size_in_points()
+        # value labels stacked above a TS bar / below a minimum, in points
+        stack = (shift0 + shift_step * (len(series_list) - 1) + 1.2 * label_pts) if label_points else 0.0
+        for i, axis in enumerate(axes):
+            axis.set_xticks(list(range(n_points)))
+            ticklabels = axis.set_xticklabels([display.get(lab, lab) for lab in order],
+                                              rotation=15, ha="right", fontsize=tick_size)
+            rotation = _tick_label_rotation(fig, axis, ticklabels)
+            if rotation != 15:
+                for t in ticklabels:
+                    t.set_rotation(rotation)
+            if pre:
+                axis.tick_params(axis="y", labelsize=tick_size)
+            axis.set_ylabel(ylabel)
+            # room for the value labels above TS bars and below minima
+            axis.margins(y=_label_margin(fig, axis, stack))
+            axis.minorticks_on()
+            axis.tick_params(axis='x', which='minor', bottom=False, top=False)
+            axis.tick_params(axis='y', which='both', labelright=True, right=True)
+            if layout == "panels":
+                axis.set_title(paths[i].name, fontsize=tick_size, loc="left")
+
+        if title is None:
+            names = ", ".join(p.name for p in paths)
+            temps = {s.temperature if s.temperature is not None else pes_result.temperature
+                     for s in series_list if not s.declared}
+            if len(temps) == 1:
+                title = f"{names}  (T = {next(iter(temps)):g} K)"
+            else:
+                title = names
+        if layout == "panels":
+            fig.suptitle(title)
+        else:
+            axes[0].set_title(title)
+
+        # Legend: pathway colours (when more than one pathway on an axes) and
+        # series linestyles (when more than one series). Series labels already
+        # name the quantity / temperature / method they represent.
+        from matplotlib.lines import Line2D
+        handles = []
+        if layout == "overlay" and len(paths) > 1:
+            handles += [Line2D([], [], color=colors_by_path[p.name], label=p.name) for p in paths]
+        if len(series_list) > 1:
+            for s in series_list:
+                handles.append(Line2D([], [], color="k", linestyle=ls_by_series[s.id],
+                                      marker="o" if s.declared else None, markerfacecolor="white",
+                                      label=s.label))
+        if handles:
+            ids(axes[0].legend(handles=handles, loc="best", fontsize=legend_size), "legend")
 
     return ProfileAxes(
         figure=fig, axes=axes, levels=levels, units=units, order=order, x=xpos,
         series=series_list, pathways=paths, colors=colors_by_path,
-        linestyles=ls_by_series, layout=layout,
+        linestyles=ls_by_series, layout=layout, uncertainty=sigmas,
+        preset=pre.name if pre else None, rc=rc, label_size=label_size,
+        pes_result=pes_result, _ids=ids,
     )
 
 

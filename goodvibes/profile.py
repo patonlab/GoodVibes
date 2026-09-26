@@ -67,6 +67,8 @@ ENSEMBLES = ("ideal-gas",)
 ROLLUP_MODES = ("gconf", "boltzmann", "lowest")
 LAYOUTS = ("overlay", "panels")
 CONNECTORS = ("bezier", "linear", "step")
+#: ``style.preset`` values; drawn by ``goodvibes.plot.STYLE_PRESETS``.
+PRESETS = ("none", "single-column", "double-column", "slide")
 ANNOTATION_TYPES = ("barrier", "span")
 SERIES_SOURCES = ("computed", "declared")
 
@@ -639,9 +641,8 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
     # -- style ---------------------------------------------------------------
     style = chk.mapping("style", data.get("style")) or {}
     chk.keys("style", style, _STYLE_KEYS)
-    if style.get("preset", "none") != "none":
-        chk.error("style.preset", "style presets are reserved for reaction-profile 1.1 (GoodVibes 5.1); "
-                                  "use 'none' or omit the key")
+    if "preset" in style and style["preset"] not in PRESETS:
+        chk.error("style.preset", f"must be one of {', '.join(PRESETS)}")
     if "layout" in style and style["layout"] not in LAYOUTS:
         chk.error("style.layout", f"must be one of {', '.join(LAYOUTS)}")
     if "connector" in style and style["connector"] not in CONNECTORS:
@@ -917,6 +918,40 @@ class Profile:
             computed = pes_result.default_series(quantity)
         return skeleton._evaluated({None: pes_result}, computed, with_conformers=with_conformers,
                                    invocation=invocation)
+
+    @classmethod
+    def from_figure(cls, figure) -> "Profile":
+        """The document of what a ``ProfileAxes`` drew: its points and
+        pathways, and the drawn series with the drawn levels (and
+        uncertainties) in the figure's units. Embedded conformers are
+        dropped; a computed series keeps its temperature and method."""
+        pes = figure.pes_result
+        if pes is None:
+            raise ProfileError(["the figure does not know the PESResult it was drawn from"])
+        if isinstance(pes.source, Profile):
+            doc = pes.source.copy()
+        else:
+            doc = cls._skeleton_from_pes(pes)
+        doc.namespace.pop("conformers", None)
+        doc.units = figure.units
+        drawn = []
+        for s in figure.series:
+            temperature = s.temperature
+            if temperature is None and not s.declared:
+                temperature = pes.temperature
+            drawn.append(replace(
+                s, temperature=temperature, units=figure.units,
+                levels={p: dict(v) for p, v in figure.levels[s.id].items()},
+                uncertainty={p: dict(v) for p, v in figure.uncertainty.get(s.id, {}).items() if v} or None))
+        doc.series = drawn
+        doc.style["layout"] = figure.layout
+        if figure.preset:
+            doc.style["preset"] = figure.preset
+        else:
+            doc.style.pop("preset", None)
+        ids = {s.id for s in drawn}
+        doc.annotations = [a for a in doc.annotations if a.get("series", drawn[0].id) in ids]
+        return doc
 
     @classmethod
     def _skeleton_from_pes(cls, pes_result: PESResult) -> "Profile":
@@ -1364,14 +1399,15 @@ class Profile:
 
     def plot(self, *, series=None, pathways=None, layout: Optional[str] = None, ax=None,
              label_points: Optional[bool] = None, connector: Optional[str] = None,
-             title: Optional[str] = None, annotations: bool = True, **kw):
+             title: Optional[str] = None, annotations: bool = True, preset: Optional[str] = None, **kw):
         """Draw the document with ``goodvibes.plot.plot_profile``.
 
         ``series`` (ids) defaults to every series; the document's ``style``
-        gives the layout, connector, decimals, figure size and whether to
-        label points unless overridden here; ``annotations`` draws the
-        document's barrier / span annotations. A computed series needs
-        levels (an evaluated document) or embedded conformers.
+        gives the preset, layout, connector, decimals, figure size and
+        whether to label points unless overridden here; ``annotations``
+        draws the document's barrier / span annotations. A computed series
+        needs levels (an evaluated document) or embedded conformers.
+        Saving the result as SVG embeds the drawn document.
         """
         from .plot import plot_profile
         pes = self.to_pes_result()
@@ -1384,9 +1420,11 @@ class Profile:
             if s.levels is None and not s.declared and not drawable:
                 raise ProfileError([f"series {s.id!r} is computed but has no levels: evaluate the document "
                                     "first (goodvibes ... --pes FILE --profile OUT, or Profile.evaluate)"])
-        style = {k: self.style[k] for k in ("decimals", "figsize", "connector") if k in self.style}
+        style = {k: self.style[k] for k in ("decimals", "figsize", "connector", "preset") if k in self.style}
         if connector:
             style["connector"] = connector
+        if preset:
+            style["preset"] = preset
         prof = plot_profile(
             pes, series=chosen, pathways=pathways, layout=layout or self.style.get("layout", "overlay"),
             ax=ax, style=style,
@@ -1592,11 +1630,25 @@ def validate_document(data, *, strict: bool = False, use_jsonschema: bool = True
 # Loading
 # ---------------------------------------------------------------------------
 
+def svg_document(svg: str, path: str = "the SVG") -> dict:
+    """The reaction-profile document a GoodVibes SVG figure carries."""
+    from .plot import read_svg_metadata
+    try:
+        payload = read_svg_metadata(svg)
+    except ValueError as exc:                            # json.JSONDecodeError
+        raise ProfileError([f"{path} carries invalid reaction-profile metadata: {exc}"]) from exc
+    if not isinstance(payload, dict) or "document" not in payload:
+        raise ProfileError([f"{path} carries no reaction-profile document (save the figure with "
+                            "goodvibes-profile plot, Profile.plot(...).save or ProfileAxes.save)"])
+    return payload["document"]
+
+
 def load_profile(source, *, strict: bool = False, **table_options) -> Profile:
     """Read a reaction-profile document.
 
     ``source`` is a Profile (returned as is), a mapping, or a path to:
-    a reaction-profile document (.yaml / .yml / .json), a GoodVibes
+    a reaction-profile document (.yaml / .yml / .json), an SVG figure
+    saved by GoodVibes (it embeds the drawn document), a GoodVibes
     ``--json`` / ``--export`` payload with a ``profile`` block, a CSV/TSV
     table of relative energies (``table_options`` go to
     :meth:`Profile.from_table`), a GoodVibes v2 PES YAML or a legacy
@@ -1611,6 +1663,8 @@ def load_profile(source, *, strict: bool = False, **table_options) -> Profile:
     if ext in (".csv", ".tsv"):
         return Profile.from_table(path, **table_options)
     text = Path(path).read_text(encoding="utf-8")
+    if ext == ".svg":
+        return Profile.from_dict(svg_document(text, path), strict=strict)
     from .pes_loader import is_legacy_format
     if is_legacy_format(text):
         from .pes_legacy import parse_legacy
