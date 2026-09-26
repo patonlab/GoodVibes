@@ -9,6 +9,28 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- Figure presets: `style.preset` in a reaction-profile document (no longer
+  reserved), `plot_profile(preset=...)`, `Profile.plot(preset=...)` and
+  `goodvibes-profile plot --preset` size the figure, fonts and line widths
+  for one journal column (`single-column`, about 85 mm), a page width
+  (`double-column`, about 178 mm) or a 16:9 `slide`. They apply to that
+  figure only (an `rc_context`), never to matplotlib globally.
+- A series' `uncertainty` is drawn as ± error bars (`uncertainty=False` /
+  `--no-uncertainty` to omit them) and kept on `ProfileAxes.uncertainty`.
+- SVG figures carry their data. `ProfileAxes.save` to `.svg` keeps text as
+  text, gives every bar, connector, value label, error bar, barrier marker
+  and legend a stable `id` (`ProfileAxes.element_ids`), and embeds the
+  reaction-profile document of what was drawn in a
+  `<metadata id="goodvibes-reaction-profile">` element; `load_profile`,
+  `goodvibes-profile validate | table | plot` read an SVG back
+  (`ProfileAxes.to_document`, `Profile.from_figure`). `embed=False` /
+  `--no-embed` leaves it out. SVG output is reproducible (no date, fixed
+  id salt).
+- Gallery image baselines: `tests/test_gallery_images.py` compares each
+  gallery figure's geometry (text hidden, fixed size) with a PNG in
+  `tests/baselines/gallery`; regenerate with `GOODVIBES_UPDATE_BASELINES=1`.
+  The gallery gains a single-column figure with error bars, and the
+  cookbook opens with the CSV-to-figure recipe.
 - A gallery of reproducible reaction-profile figures
   (`goodvibes/examples/gallery`, `docs/source/gallery.md`): Δqh-G with every
   conformer, one profile at four temperatures, ΔE / ΔH / Δqh-G on one axes,
@@ -191,6 +213,11 @@ every such change is listed under **Output changes**.
   both.
 
 ### Output changes
+- `plot_profile` figures: with value labels, the y margin is sized so a
+  stack of labels stays inside the axes (it was a fixed 10 %, and labels
+  of small figures ran into the title and the x axis); x tick labels that
+  would overlap are tilted to 40° (or 90°) instead of 15°. SVGs keep their
+  text as `<text>` elements instead of glyph paths.
 - `--json` / `--export` payloads are schema **1.1**: a `profile` block (the
   evaluated reaction-profile document, without conformers) is added when
   `--pes` is used. 1.0 readers ignore it; `--import` reads 1.0 and 1.1.

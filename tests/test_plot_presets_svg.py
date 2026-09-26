@@ -204,6 +204,20 @@ def test_a_figure_from_a_hand_built_result_gives_a_valid_document(tmp_path):
     prof.close()
 
 
+def test_svg_to_a_file_object_embeds_too(doc):
+    import io
+    prof = doc.plot()
+    for buf in (io.StringIO(), io.BytesIO()):
+        prof.save(buf, format="svg")
+        text = buf.getvalue()
+        text = text.decode("utf-8") if isinstance(text, bytes) else text
+        assert read_svg_metadata(text)["document"]["title"] == doc.title
+    png = io.BytesIO()
+    prof.save(png, format="png")
+    assert png.getvalue()[:4] == b"\x89PNG"
+    prof.close()
+
+
 def test_embed_helpers_round_trip_awkward_text():
     svg = '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg">\n</svg>\n'
     payload = {"document": {"title": "a ]]> b ]]]]> c <&>"}}

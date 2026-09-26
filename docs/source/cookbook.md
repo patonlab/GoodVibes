@@ -9,6 +9,64 @@ For background on the underlying CLI flags and Python API, see the
 
 ---
 
+## 0. A table of numbers → a publication figure
+
+No output files are needed. Type the relative energies into a CSV, one
+column per pathway (an empty cell means the point is not on that
+pathway; `role: ts` puts the value label above the bar):
+
+```text
+point,role,display,main
+R,reactant,R,0.0
+TS1,ts,TS1‡,18.4
+Int,minimum,Int,3.2
+TS2,ts,TS2‡,12.9
+P,product,P,-12.1
+```
+
+```bash
+goodvibes-profile plot levels.csv -o fig.svg -o fig.pdf --label-points --preset single-column
+goodvibes-profile table fig.svg          # the SVG carries its numbers
+```
+
+- `--preset` sizes the figure, fonts and line widths for one journal
+  column (about 85 mm), a full page width (`double-column`, about
+  178 mm) or a `slide`.
+- The SVG keeps its text as text, gives every bar, connector and label
+  an `id` for editing in Inkscape or Illustrator, and embeds the
+  reaction-profile document of what was drawn.
+- The values are taken as ΔG at 298.15 K in kcal/mol unless you pass
+  `--quantity`, `--temperature` and `--units`.
+
+For error bars use the long layout, with one row per point and an
+`uncertainty` column:
+
+```text
+pathway,point,role,display,value,uncertainty
+main,R,reactant,R,0.0,
+main,TS1,ts,TS1‡,18.4,1.5
+main,Int,minimum,Int,3.2,0.8
+main,TS2,ts,TS2‡,12.9,1.2
+main,P,product,P,-12.1,1.0
+```
+
+From Python:
+
+```python
+from goodvibes import load_profile
+
+prof = load_profile("levels.csv", quantity="gibbs", temperature=298.15)
+fig = prof.plot(preset="single-column", label_points=True)
+fig.save("fig.svg", "fig.pdf")
+```
+
+`goodvibes-profile convert levels.csv -o levels.yaml` writes the same
+data as a [reaction-profile document](reaction_profile.md). Edit it to
+add methods, barrier annotations or a second series. The
+[gallery](gallery.md) shows what else a document can draw.
+
+---
+
 ## 1. One file → one structured result
 
 The lowest-friction path for notebooks and scripts. Replaces the older

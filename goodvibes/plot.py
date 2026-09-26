@@ -12,6 +12,7 @@ matplotlib is missing — only the call-site fails, with a clear message.
 
 Public API:
     plot_profile(pes_result, series=..., ...)        — reaction profile (ProfileAxes)
+    STYLE_PRESETS / resolve_preset(name)             — figure presets for plot_profile
     plot_pes(pes_result, ax=None, **kw)              — 4.2-4.5 shim over plot_profile
     plot_selectivity_strip(selectivity,
                            thermo_lookup, ax=None)   — per-species scatter
@@ -25,6 +26,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -369,7 +371,8 @@ class ProfileAxes:
         plt = _import_matplotlib()
         for path in paths:
             path_kw = dict(kw)
-            fmt = path_kw.get("format") or str(path).rsplit(".", 1)[-1].lower()
+            named = isinstance(path, (str, os.PathLike))
+            fmt = (path_kw.get("format") or (os.fspath(path).rsplit(".", 1)[-1] if named else "")).lower()
             rc = dict(self.rc)
             if fmt == "svg":
                 rc.update({"svg.fonttype": "none", "svg.hashsalt": "goodvibes"})
@@ -381,7 +384,13 @@ class ProfileAxes:
                     self.figure.savefig(buf, dpi=dpi, bbox_inches=bbox_inches, **path_kw)
                     payload = {"generator": f"GoodVibes {_version()}", "document": self.to_document(),
                                "elements": self.element_ids}
-                    Path(path).write_text(embed_svg_metadata(buf.getvalue(), payload), encoding="utf-8")
+                    text = embed_svg_metadata(buf.getvalue(), payload)
+                    if named:
+                        Path(path).write_text(text, encoding="utf-8")
+                    elif isinstance(path, io.TextIOBase):
+                        path.write(text)
+                    else:
+                        path.write(text.encode("utf-8"))
                 else:
                     self.figure.savefig(path, dpi=dpi, bbox_inches=bbox_inches, **path_kw)
 

@@ -28,14 +28,14 @@ history:
 | **M0** Correctness and compatibility goldens | 5.0 | ✅ merged | #115, #116, #117 |
 | **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
 | **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
-| **M2b** Figure polish and the gallery | 5.0 / 5.1 | 🟡 gallery done, rest open | |
+| **M2b** Figure polish and the gallery | 5.0 | 🟡 done except the schema DOI | #121, this PR |
 | **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | open | |
 | **M4** Adoption and polish | 5.2 | open | |
 | **M5** Removals | 6.0 | open | |
 
 Everything merged so far still carries the version string **4.4.0**. The
 next release is **5.0**: it makes `docs/source/migration_v5.md` true and
-ships M0 to M2a plus whatever of M2b is ready.
+ships M0 to M2b.
 
 ---
 
@@ -72,10 +72,16 @@ ships M0 to M2a plus whatever of M2b is ready.
 - Payload 1.1 with a `profile` block.
 - `goodvibes-profile validate | plot | table | convert | evaluate`.
 
-**M2b so far: the gallery.**
-- [`goodvibes/examples/gallery`](goodvibes/examples/gallery) holds six figures
-  rebuilt from compact committed inputs.
-- `tests/test_gallery.py` rebuilds them and checks their numbers against the CLI.
+**M2b: figure polish.**
+- [`goodvibes/examples/gallery`](goodvibes/examples/gallery) holds seven figures
+  rebuilt from compact committed inputs; `tests/test_gallery.py` checks their
+  numbers against the CLI and `tests/test_gallery_images.py` their geometry
+  against baseline images.
+- Style presets (`single-column`, `double-column`, `slide`), uncertainty
+  error bars, and SVG figures that embed the drawn document and give every
+  element an `id`.
+- The cookbook opens with the CSV-to-figure recipe; the docs publish the
+  JSON Schema.
 
 ---
 
@@ -84,21 +90,23 @@ ships M0 to M2a plus whatever of M2b is ready.
 ### M2b: figure polish (5.0 or 5.1)
 
 - [x] Gallery of reproducible examples (azabor DFT, temperature overlay,
-      ΔE/ΔH/Δqh-G, R vs S panels, CSV table, computed with declared).
-- [ ] Style presets (`single-column`, `double-column`, `slide`): the
-      reserved `style.preset` key; figure size, fonts and line widths applied
-      inside an `rc_context`, never set globally.
-- [ ] SVG output with a `gid` on every element and the evaluated document in
-      `<metadata>`, so a figure carries its own data and can be edited in
-      Inkscape without redrawing.
-- [ ] Uncertainty drawn as error bars. `series.uncertainty` is stored and
-      tabulated but not drawn.
-- [ ] Image baselines for the gallery (pytest-mpl or a tolerance-based
-      comparison) so layout regressions fail CI.
-- [ ] Cookbook opens with the CSV-to-figure recipe.
-- [ ] Publish the schema at a stable URL (Read the Docs) with a Zenodo DOI
-      per schema minor; the `$id` currently points at the raw file on
-      `master`.
+      ΔE/ΔH/Δqh-G, R vs S panels, CSV table, computed with declared, a
+      single-column figure with error bars).
+- [x] Style presets (`single-column`, `double-column`, `slide`) through
+      `style.preset`; figure size, fonts and line widths applied inside an
+      `rc_context`, never set globally.
+- [x] SVG output with an `id` on every element and the drawn document in
+      `<metadata>`: a figure carries its own data (`load_profile("fig.svg")`)
+      and can be edited in Inkscape without redrawing.
+- [x] Uncertainty drawn as error bars.
+- [x] Image baselines for the gallery (geometry with text hidden, RMS
+      tolerance) so layout regressions fail CI.
+- [x] Cookbook opens with the CSV-to-figure recipe.
+- [ ] Schema at a stable URL with a Zenodo DOI per schema minor. The docs
+      now publish it at
+      `https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json`;
+      once that URL is live, point the `$id` at the versioned
+      (`/en/stable/`) copy and mint the DOI (maintainer actions).
 
 ### M3: methods, MLIP overlay, selectivity on the profile (5.1)
 

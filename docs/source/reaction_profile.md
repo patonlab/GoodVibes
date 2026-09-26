@@ -159,9 +159,18 @@ drawn one).
 
 ### style
 
-`{layout: overlay | panels, connector: bezier | linear | step,
-label_points: bool, decimals: 0-6, figsize: [w, h]}`. `preset` is reserved
-(only `none` is accepted in 1.0).
+`{preset, layout: overlay | panels, connector: bezier | linear | step,
+label_points: bool, decimals: 0-6, figsize: [w, h]}`, all hints a reader
+may ignore. `preset` names a target for the figure:
+
+| preset | figure | text |
+| --- | --- | --- |
+| `none` (default) | sized to the profile | the plotting library's defaults |
+| `single-column` | about 85 mm wide (3.35 × 2.6 in) | 7 pt; value labels 6 pt |
+| `double-column` | about 178 mm wide (7.0 × 3.2 in) | 8 pt; value labels 7 pt |
+| `slide` | 16:9 (10 × 5.6 in) | 16 pt; value labels 14 pt |
+
+An explicit `figsize` overrides the preset's.
 
 ### provenance
 
@@ -183,8 +192,8 @@ The JSON Schema checks structure. A conforming reader additionally rejects:
 6. an annotation naming an unknown pathway, point or series.
 
 Unknown keys that do not start with `x-` produce a warning (an error in
-strict mode). Keys reserved for later minors (`selectivity`, a `style.preset`
-other than `none`) are rejected, never silently ignored.
+strict mode). Keys reserved for later minors (`selectivity`) are rejected,
+never silently ignored.
 
 ## Versioning
 
@@ -240,7 +249,7 @@ rollup is used.
 
 ```bash
 goodvibes-profile validate profile.yaml [--strict]
-goodvibes-profile plot azabor.json -o azabor.svg -o azabor.pdf [--series ID,...] [--layout panels]
+goodvibes-profile plot azabor.json -o azabor.svg -o azabor.pdf [--series ID,...] [--layout panels] [--preset single-column]
 goodvibes-profile table azabor.json [-o table.csv | table.md] [--long]
 goodvibes-profile convert levels.csv -o profile.yaml --quantity gibbs --temperature 298.15
 goodvibes-profile convert old_pes.yaml -o profile.yaml          # v2 / legacy -> explicit form
@@ -249,7 +258,23 @@ goodvibes-profile plot azabor.json --temperatures 273,373 -o scan.png
 ```
 
 `evaluate` and `--temperatures` need embedded conformers. A GoodVibes
-`--json` payload with a `profile` block is accepted wherever a document is.
+`--json` payload with a `profile` block is accepted wherever a document is,
+and so is an SVG figure GoodVibes saved.
+
+**Figures carry their data.** An SVG written by `goodvibes-profile plot`,
+`Profile.plot(...).save` or `ProfileAxes.save` has:
+- text kept as text;
+- an `id` on every bar, connector, value label, error bar and barrier
+  marker (for example `bar-G-main-TS1`);
+- a `<metadata id="goodvibes-reaction-profile">` element holding, as JSON,
+  the reaction-profile document of what was drawn (the drawn series with
+  their levels and uncertainties, no embedded conformers) and an index from
+  each `id` to the series, pathway and point it shows.
+
+`load_profile("fig.svg")` and `goodvibes-profile table fig.svg` read the
+numbers back; `--no-embed` (`save(..., embed=False)`) leaves the document
+out. A series' `uncertainty` is drawn as ± error bars (`--no-uncertainty`
+to omit them).
 
 **Tables of relative energies.** A CSV (or TSV) is read as a declared-only
 profile. Wide layout: a `point` column, optional `role` and `display`, then

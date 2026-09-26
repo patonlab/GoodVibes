@@ -48,3 +48,11 @@ The values are illustrative, not from a publication.
 
 A declared series (hollow markers; illustrative values) next to the computed
 Δqh-G on the same points.
+
+## A journal-column preset with error bars
+
+![A declared profile with error bars at the single-column preset](gallery/column_preset_uncertainty.png)
+
+Illustrative values with ± uncertainties at the `single-column` preset:
+`goodvibes-profile plot profile.yaml -o fig.svg --preset single-column`.
+The SVG keeps its text editable and embeds the drawn document.
