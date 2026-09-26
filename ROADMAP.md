@@ -28,7 +28,7 @@ history:
 | **M0** Correctness and compatibility goldens | 5.0 | ✅ merged | #115, #116, #117 |
 | **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
 | **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
-| **M2b** Figure polish and the gallery | 5.0 | 🟡 done except the schema DOI | #121, this PR |
+| **M2b** Figure polish and the gallery | 5.0 | 🟡 done except the schema DOI | #121, `claude/cool-gates-ppg0j7` |
 | **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | open | |
 | **M4** Adoption and polish | 5.2 | open | |
 | **M5** Removals | 6.0 | open | |
