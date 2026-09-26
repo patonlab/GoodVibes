@@ -181,6 +181,14 @@ every such change is listed under **Output changes**.
   Truhlar tables spell them), so those levels fell back to a factor of 1.0.
   They are now aliases of the database keys `MN12L`, `MN12SX`, `MN15L` and
   `M06L(DKH2)`.
+- `parse_hessian` returned a Hessian with `masses=[]` when a Gaussian output
+  lacked the per-atom mass lines (or an ORCA `.hess` its `$atoms` block), so
+  mass-weighting failed later with an opaque NumPy error. It now raises a
+  `ValueError` naming the file.
+- The error raised when `--symm` detection is attempted without pymsym told
+  every user to `pip install pymsym`, including on Windows, where pymsym has
+  no wheels, and for installs that exist but fail to import. It now says
+  both.
 
 ### Output changes
 - `--json` / `--export` payloads are schema **1.1**: a `profile` block (the

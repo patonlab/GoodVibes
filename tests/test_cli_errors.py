@@ -287,10 +287,12 @@ class TestMainDirect:
         """--symm must not crash when pymsym is unavailable (issue #102)."""
         import goodvibes.thermo as thermo
         monkeypatch.setattr(thermo, '_HAS_PYMSYM', False)
-        # Should complete and still produce the normal thermochemistry table.
+        # Should complete and still produce the normal thermochemistry table,
+        # telling the user the correction was skipped.
         run_main(monkeypatch, tmp_path, [WATER, '--symm'])
         text = self._dat(tmp_path)
         assert '01a_water_hf_freq' in text
+        assert 'Symmetry entropy corrections will be skipped' in text
 
     def test_sort_by_gibbs(self, monkeypatch, tmp_path, gv_logger_cleanup):
         run_main(monkeypatch, tmp_path, [WATER, ETHANE, '--sort'])

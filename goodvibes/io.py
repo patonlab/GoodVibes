@@ -3184,7 +3184,12 @@ def _parse_gaussian_hessian(data, file):
     # G4-style composites print masses for several sections; the final
     # N entries belong to the freq job (same convention as parse_gaussian_thermo)
     n_atoms = dof // 3
-    masses = per_atom_masses[-n_atoms:] if len(per_atom_masses) >= n_atoms else []
+    if len(per_atom_masses) < n_atoms:
+        raise ValueError(
+            "Found %d per-atom masses ('has atomic number ... and mass') for a "
+            "%d-atom Hessian in %s; the masses are needed to mass-weight it"
+            % (len(per_atom_masses), n_atoms, file))
+    masses = per_atom_masses[-n_atoms:]
     return HessianData(hessian=hessian, masses=masses, program='Gaussian', source=file)
 
 
@@ -3239,7 +3244,9 @@ def _parse_orca_hess(hess_path):
 
     if hessian is None:
         raise ValueError("No $hessian section found in %s" % hess_path)
-    if masses and hessian.shape[0] != 3 * len(masses):
+    if not masses:
+        raise ValueError("No $atoms section (per-atom masses) found in %s" % hess_path)
+    if hessian.shape[0] != 3 * len(masses):
         raise ValueError(
             "$hessian dimension %d does not match %d atoms in %s"
             % (hessian.shape[0], len(masses), hess_path))
