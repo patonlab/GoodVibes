@@ -29,7 +29,7 @@ history:
 | **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
 | **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
 | **M2b** Figure polish and the gallery | 5.0 | ✅ merged | #121, #123 |
-| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | open | |
+| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | M3a in progress | |
 | **M4** Adoption and polish | 5.2 | open | |
 | **M5** Removals | 6.0 | open | |
 
@@ -109,17 +109,18 @@ ships M0 to M2b.
 
 ### M3: methods, MLIP overlay, selectivity on the profile (5.1)
 
-- [ ] Per-method thermochemistry options. `goodvibes.sources` is already
+- [x] Per-method thermochemistry options. `goodvibes.sources` is already
       per method; a DFT and an MLIP method should also differ in scaling and
-      qRRHO settings within one evaluation.
-- [ ] `QCData.with_single_point(energy, units, method)` for DFT//MLIP
+      qRRHO settings within one evaluation (`goodvibes.thermo.by_method`).
+- [x] `QCData.with_single_point(energy, units, method)` for DFT//MLIP
       composites without SPC files.
-- [ ] Provenance on `ThermoResult`: temperature, options,
+- [x] Provenance on `ThermoResult`: temperature, options,
       `scale_factor_source` (`truhlar | user | mlip-unscaled | none-found`,
       the last a warning instead of a silent 1.0), `symmetry_source` and
       `n_imag`.
-- [ ] Multi-frame `.xyz` / `.extxyz` reader yielding energy-only entries
-      (CREST ensembles and MLIP sweeps alike).
+- [x] Multi-frame `.xyz` / `.extxyz` reader yielding energy-only entries
+      (CREST ensembles and MLIP sweeps alike): `read_xyz_frames`, with
+      `ConformerSet(weight_by="electronic")` accepting them.
 - [ ] The reserved `selectivity:` block: competing points sharing a
       reference point, ΔG‡ and G_ensemble per branch, and `SelectivityResult`
       v2. It needs a Curtin–Hammett precondition warning, a documented ee

@@ -219,6 +219,30 @@ goodvibes:
   conformers: {...}          # written by --with-conformers; see below
 ```
 
+`goodvibes.thermo` records the options the structures were computed with.
+Its `by_method` key maps a method id to the options that method sets for
+itself: `QS`, `QH`, `s_freq_cutoff`, `h_freq_cutoff`, `concentration`,
+`freq_scale_factor`, `zpe_scale_factor`, `solv`, `invert`, `symm` and
+`inertia`.
+
+```yaml
+  thermo:
+    QS: grimme
+    by_method:
+      mace: {freq_scale_factor: 1.0, QS: truhlar, s_freq_cutoff: 50}
+```
+
+When a document is evaluated, that method's structures are re-evaluated with
+these options in place of the ones they were computed with, so a DFT and an
+MLIP method can differ in scaling and qRRHO settings within one evaluation.
+Setting either scale factor resolves both again: a `freq_scale_factor`
+alone sets both, and a factor that is left out or null is looked up for
+the level of theory. A method id that is not defined, an unknown option and
+`spc` / `strict_spc` (the single point is read with the output files) are
+errors. The re-evaluation needs the parsed structures: thermo data from
+`compute_thermo` / `calc_bbe.from_options`, the `goodvibes` command, or
+embedded conformers.
+
 `goodvibes.conformers` (written with `--with-conformers` or
 `Profile.evaluate(..., with_conformers=True)`) stores every structure's
 parsed data and thermochemistry options. A document that carries them can be

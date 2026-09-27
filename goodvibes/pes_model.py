@@ -43,8 +43,10 @@ class ThermoVector:
     """Bundle of thermo quantities for one species at one temperature.
 
     Energy fields are in Hartree; entropy fields are in Hartree/K (matching
-    calc_bbe). sp_energy is None when --spc was not used; arithmetic
-    propagates None (if either operand has sp_energy=None, the result does).
+    calc_bbe). sp_energy is None when --spc was not used, and every field
+    but scf_energy is None for an energy-only structure (no frequencies);
+    arithmetic propagates None (if either operand has a None field, the
+    result does).
     """
     scf_energy: float
     zpe: float
@@ -60,14 +62,14 @@ class ThermoVector:
         if not isinstance(other, ThermoVector):
             return NotImplemented
         return ThermoVector(
-            scf_energy=self.scf_energy + other.scf_energy,
-            zpe=self.zpe + other.zpe,
-            enthalpy=self.enthalpy + other.enthalpy,
-            qh_enthalpy=self.qh_enthalpy + other.qh_enthalpy,
-            entropy=self.entropy + other.entropy,
-            qh_entropy=self.qh_entropy + other.qh_entropy,
-            gibbs=self.gibbs + other.gibbs,
-            qh_gibbs=self.qh_gibbs + other.qh_gibbs,
+            scf_energy=_add_opt(self.scf_energy, other.scf_energy),
+            zpe=_add_opt(self.zpe, other.zpe),
+            enthalpy=_add_opt(self.enthalpy, other.enthalpy),
+            qh_enthalpy=_add_opt(self.qh_enthalpy, other.qh_enthalpy),
+            entropy=_add_opt(self.entropy, other.entropy),
+            qh_entropy=_add_opt(self.qh_entropy, other.qh_entropy),
+            gibbs=_add_opt(self.gibbs, other.gibbs),
+            qh_gibbs=_add_opt(self.qh_gibbs, other.qh_gibbs),
             sp_energy=_add_opt(self.sp_energy, other.sp_energy),
         )
 
@@ -75,14 +77,14 @@ class ThermoVector:
         if not isinstance(other, ThermoVector):
             return NotImplemented
         return ThermoVector(
-            scf_energy=self.scf_energy - other.scf_energy,
-            zpe=self.zpe - other.zpe,
-            enthalpy=self.enthalpy - other.enthalpy,
-            qh_enthalpy=self.qh_enthalpy - other.qh_enthalpy,
-            entropy=self.entropy - other.entropy,
-            qh_entropy=self.qh_entropy - other.qh_entropy,
-            gibbs=self.gibbs - other.gibbs,
-            qh_gibbs=self.qh_gibbs - other.qh_gibbs,
+            scf_energy=_sub_opt(self.scf_energy, other.scf_energy),
+            zpe=_sub_opt(self.zpe, other.zpe),
+            enthalpy=_sub_opt(self.enthalpy, other.enthalpy),
+            qh_enthalpy=_sub_opt(self.qh_enthalpy, other.qh_enthalpy),
+            entropy=_sub_opt(self.entropy, other.entropy),
+            qh_entropy=_sub_opt(self.qh_entropy, other.qh_entropy),
+            gibbs=_sub_opt(self.gibbs, other.gibbs),
+            qh_gibbs=_sub_opt(self.qh_gibbs, other.qh_gibbs),
             sp_energy=_sub_opt(self.sp_energy, other.sp_energy),
         )
 
@@ -90,15 +92,15 @@ class ThermoVector:
         if not isinstance(k, (int, float)):
             return NotImplemented
         return ThermoVector(
-            scf_energy=self.scf_energy * k,
-            zpe=self.zpe * k,
-            enthalpy=self.enthalpy * k,
-            qh_enthalpy=self.qh_enthalpy * k,
-            entropy=self.entropy * k,
-            qh_entropy=self.qh_entropy * k,
-            gibbs=self.gibbs * k,
-            qh_gibbs=self.qh_gibbs * k,
-            sp_energy=self.sp_energy * k if self.sp_energy is not None else None,
+            scf_energy=_mul_opt(self.scf_energy, k),
+            zpe=_mul_opt(self.zpe, k),
+            enthalpy=_mul_opt(self.enthalpy, k),
+            qh_enthalpy=_mul_opt(self.qh_enthalpy, k),
+            entropy=_mul_opt(self.entropy, k),
+            qh_entropy=_mul_opt(self.qh_entropy, k),
+            gibbs=_mul_opt(self.gibbs, k),
+            qh_gibbs=_mul_opt(self.qh_gibbs, k),
+            sp_energy=_mul_opt(self.sp_energy, k),
         )
 
     __rmul__ = __mul__
@@ -115,7 +117,7 @@ class ThermoVector:
         q = resolve_quantity(quantity)
         if q.id == "e_zpe":
             base = self.sp_energy if self.sp_energy is not None else self.scf_energy
-            return base + self.zpe
+            return None if self.zpe is None else base + self.zpe
         value = getattr(self, q.field)
         if value is None:
             return None
@@ -147,6 +149,14 @@ def _sub_opt(a: Optional[float], b: Optional[float]) -> Optional[float]:
     return a - b
 
 
+def _mul_opt(a: Optional[float], k: float) -> Optional[float]:
+    return None if a is None else a * k
+
+
+# Quantities an energy-only structure (no frequencies) has.
+ENERGY_ONLY_QUANTITIES = ("electronic",)
+
+
 def _bbe_to_vector(bbe: Any) -> ThermoVector:
     """Project a calc_bbe instance into a ThermoVector.
 
@@ -161,16 +171,19 @@ def _bbe_to_vector(bbe: Any) -> ThermoVector:
     sp = getattr(bbe, "sp_energy", None)
     if sp == "!" or not isinstance(sp, (int, float)):
         sp = None
-    qh_h = bbe.qh_enthalpy if bbe.qh_enthalpy else bbe.enthalpy
+    # An energy-only structure (no frequencies) has no thermochemistry: its
+    # vector carries the electronic energies and None elsewhere.
+    h = getattr(bbe, "enthalpy", None)
+    qh_h = getattr(bbe, "qh_enthalpy", None) or h
     return ThermoVector(
         scf_energy=bbe.scf_energy,
-        zpe=bbe.zpe,
-        enthalpy=bbe.enthalpy,
+        zpe=getattr(bbe, "zpe", None),
+        enthalpy=h,
         qh_enthalpy=qh_h,
-        entropy=bbe.entropy,
-        qh_entropy=bbe.qh_entropy,
-        gibbs=bbe.gibbs_free_energy,
-        qh_gibbs=bbe.qh_gibbs_free_energy,
+        entropy=getattr(bbe, "entropy", None),
+        qh_entropy=getattr(bbe, "qh_entropy", None),
+        gibbs=getattr(bbe, "gibbs_free_energy", None),
+        qh_gibbs=getattr(bbe, "qh_gibbs_free_energy", None),
         sp_energy=sp,
     )
 
@@ -276,11 +289,17 @@ class ConformerSet:
             )
         if not self.bbes:
             raise ValueError(f"ConformerSet {self.name!r} has no conformers")
-        for f, b in zip(self.files, self.bbes):
-            if not hasattr(b, "qh_gibbs_free_energy"):
-                raise ValueError(
-                    f"ConformerSet {self.name!r}: {f} has no thermochemistry (no frequencies in the "
-                    "output; a single-point file cannot be a conformer)")
+        from .quantities import resolve_quantity
+        self.weight_by = resolve_quantity(self.weight_by).id
+        # Energy-only structures (a single point, a frame of read_xyz_frames)
+        # can only be weighted by an electronic energy.
+        if self.weight_by not in ENERGY_ONLY_QUANTITIES:
+            for f, b in zip(self.files, self.bbes):
+                if not hasattr(b, "qh_gibbs_free_energy"):
+                    raise ValueError(
+                        f"ConformerSet {self.name!r}: {f} has no thermochemistry (no frequencies in the "
+                        "output; a single-point file cannot be a conformer unless the set is weighted "
+                        "by 'electronic')")
         if self.entries is None:
             built = [ComputedEntry.from_bbe(b, f) for f, b in zip(self.files, self.bbes)]
             self.entries = built if all(e is not None for e in built) else None  # type: ignore[assignment]
@@ -289,8 +308,6 @@ class ConformerSet:
                 f"ConformerSet {self.name!r}: entries and bbes length mismatch "
                 f"({len(self.entries)} vs {len(self.bbes)})"
             )
-        from .quantities import resolve_quantity
-        self.weight_by = resolve_quantity(self.weight_by).id
 
     # -- construction -------------------------------------------------------
 
@@ -423,8 +440,9 @@ class ConformerSet:
         adjusted = lowest + (boltz - lowest)
         # adjusted == boltz exactly; the explicit form is here to mirror the
         # legacy code's intent. Now add mixing entropy and recompute G(T).
-        s_total = adjusted.entropy + mix_entropy
-        qs_total = adjusted.qh_entropy + mix_entropy
+        # (an energy-only set has no entropy or enthalpy: those stay None)
+        s_total = _add_opt(adjusted.entropy, mix_entropy)
+        qs_total = _add_opt(adjusted.qh_entropy, mix_entropy)
         h_for_g = adjusted.qh_enthalpy if QH else adjusted.enthalpy
         return ThermoVector(
             scf_energy=adjusted.scf_energy,
@@ -433,8 +451,8 @@ class ConformerSet:
             qh_enthalpy=adjusted.qh_enthalpy,
             entropy=s_total,
             qh_entropy=qs_total,
-            gibbs=adjusted.enthalpy - T * s_total,
-            qh_gibbs=h_for_g - T * qs_total,
+            gibbs=_sub_opt(adjusted.enthalpy, _mul_opt(s_total, T)),
+            qh_gibbs=_sub_opt(h_for_g, _mul_opt(qs_total, T)),
             sp_energy=adjusted.sp_energy,
         )
 

@@ -46,7 +46,10 @@ _THERMO_FIELDS = (
     'frequency_wn', 'im_frequency_wn', 'inverted_freqs',
     'point_group', 'symmno', 'linear_mol',
     'multiplicity', 'job_type', 'applied_freq_scale_factor',
+    'freq_scale_factor', 'zpe_scale_factor', 'scale_factor_source', 'symmetry_source', 'n_imag',
 )
+# ...of which these are read from the resolved ThermoOptions, not the calc_bbe
+_OPTION_FIELDS = ('freq_scale_factor', 'zpe_scale_factor')
 
 
 def _options_to_json(options):
@@ -69,8 +72,10 @@ def _bbe_to_json(bbe, file_path, media_conc=None, boltz_factor=None):
         d.pop('_cache_version', None)
         entry['qcdata'] = d
     thermo = {}
+    opts = getattr(bbe, 'options', None)
     for field_name in _THERMO_FIELDS:
-        thermo[field_name] = getattr(bbe, field_name, None)
+        source = opts if field_name in _OPTION_FIELDS else bbe
+        thermo[field_name] = getattr(source, field_name, None)
     entry['thermo'] = thermo
     entry['media_conc'] = media_conc
     entry['boltzmann_factor'] = boltz_factor

@@ -46,7 +46,25 @@ class ThermoResult:
     program: str | None             # 'Gaussian', 'Orca', ...
     bbe: Any                        # original calc_bbe instance
     qcdata: Any                     # parsed QCData
+    spc_applied: bool               # a single-point energy replaced E in H and G
+    # provenance
+    temperature: float              # K
+    options: ThermoOptions          # every option, with the scale factors resolved
+    freq_scale_factor: float
+    zpe_scale_factor: float
+    scale_factor_source: str | None # 'user' | 'truhlar' | 'mlip-unscaled' | 'none-found'
+    symmetry_source: str            # 'output' | 'pymsym' | 'assumed' (sigma = 1)
+    n_imag: int | None              # imaginary modes in the output
 ```
+
+`scale_factor_source` says where the vibrational scale factors came from:
+passed in (`user`), the Truhlar database for the level of theory
+(`truhlar`), unscaled by design for an MLIP input (`mlip-unscaled`: from ASE,
+with a level of theory that names no basis set, e.g. `MACE-OFF23`),
+or not found (`none-found`: the frequencies are used unscaled, and a
+`goodvibes.thermo.ScaleFactorWarning` says so instead of a silent 1.0). It is
+None, like `n_imag`, for an input without frequencies. `to_dataframe` has a
+column for each (not `options`).
 
 ## Common options
 

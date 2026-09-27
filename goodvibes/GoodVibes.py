@@ -340,6 +340,7 @@ def resolve_scaling_factor(files, options, level_of_theory):
         level_of_theory (list): level of theory strings, one per file.
     """
     if options.freq_scale_factor is not None:
+        options.scale_factor_source = "user"
         log.info(f"\n   User-defined vibrational scale factor {options.freq_scale_factor} for {level_of_theory[0]} level of theory")
     else:
         # Look for vibrational scaling factor automatically. Truhlar's
@@ -351,6 +352,7 @@ def resolve_scaling_factor(files, options, level_of_theory):
             level = canonicalize_level(level_of_theory[0])
             if level in scaling_data_dict:
                 entry = scaling_data_dict[level]
+                options.scale_factor_source = "truhlar"
                 options.freq_scale_factor = entry.harm_fac
                 if options.zpe_scale_factor is None:
                     options.zpe_scale_factor = entry.zpe_fac
@@ -368,7 +370,17 @@ def resolve_scaling_factor(files, options, level_of_theory):
         sys.exit("\n\n   ✗ FATAL ERROR: Boltzmann factors require all species computed at the same level of theory\n")
 
     if options.freq_scale_factor is None:
-        options.freq_scale_factor = 1.0  # If no scaling factor is found use 1.0
+        # No factor found: frequencies are used unscaled, and the run says so
+        # (MLIP inputs are unscaled by design and are labelled
+        # 'mlip-unscaled' per file by calc_bbe.from_options).
+        options.freq_scale_factor = 1.0
+        options.scale_factor_source = "none-found"
+        if not all_same(level_of_theory):
+            log.info("\n   ! No single vibrational scaling factor applies to several levels of theory: "
+                     "frequencies are unscaled (1.0). Set one with --vscal.")
+        elif level_of_theory and level_of_theory[0]:
+            log.info("\n   ! No vibrational scaling factor found for {} level of theory: frequencies are "
+                     "unscaled (1.0). Set one with --vscal.".format(level_of_theory[0]))
 
 
 def warn_orca_prescaled(files):
@@ -472,7 +484,8 @@ def _calc_bbe_worker(args):
         inertia=opts['inertia'],
         strict_spc=opts.get('strict_spc', False),
     )
-    return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options)
+    return calc_bbe.from_options(cached_qcdata if cached_qcdata is not None else file, options,
+                                 scale_factor_source=opts.get('scale_factor_source'))
 
 
 def _thermo_data_by_temperature(files, options, thermo_data, temperatures, qcdata_cache=None):
@@ -530,6 +543,7 @@ def compute_thermochem(files, options, qcdata_cache=None):
         'symm': options.symm,
         'inertia': options.inertia,
         'strict_spc': getattr(options, 'strict_spc', False),
+        'scale_factor_source': getattr(options, 'scale_factor_source', None),
     }
     # None → gas phase, resolved to P/RT by ThermoOptions at whatever
     # temperature the structure is evaluated at (the same number as before
@@ -682,6 +696,9 @@ def main():
             solvation_model.append(sm)
         if options.freq_scale_factor is None:
             options.freq_scale_factor = 1.0
+            options.scale_factor_source = "none-found"
+        else:
+            options.scale_factor_source = "user"
         log.info("\n   Reading from QCData cache: " + options.import_path)
     else:
         # Collect file data and validate

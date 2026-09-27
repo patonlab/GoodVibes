@@ -11,7 +11,7 @@ import numpy as np
 
 from .constants import ATMOS, GAS_CONSTANT, J_TO_AU
 from .utils import display_name
-from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
+from .io import SP_ATTACHED, parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
 
 # pymsym powers the optional --symm point-group / symmetry-number detection.
 # It is not available on all platforms (e.g. no Windows wheels — see issue #102),
@@ -462,6 +462,10 @@ class ThermoOptions:
     symm: bool = False                          # pymsym symmetry-number correction
     inertia: str = "global"
     strict_spc: bool = False                    # raise (not warn) when an --spc energy is missing
+    # Where freq_scale_factor came from ('user', 'truhlar', 'mlip-unscaled',
+    # 'none-found'); filled in by calc_bbe.from_options when it resolves the
+    # factors, so a re-evaluation of the same options keeps the provenance.
+    scale_factor_source: Optional[str] = None
 
     def _to_calc_bbe_kwargs(self):
         """Map ThermoOptions fields onto the calc_bbe constructor's
@@ -487,10 +491,21 @@ class ThermoOptions:
         }
 
 
+#: Where ``calc_bbe.scale_factor_source`` says the harmonic frequency scale
+#: factor came from.
+SCALE_FACTOR_SOURCES = ("user", "truhlar", "mlip-unscaled", "none-found")
+
+
+class ScaleFactorWarning(UserWarning):
+    """No vibrational scaling factor was found for a level of theory, so its
+    frequencies were used unscaled (factor 1.0)."""
+
+
 def _scaling_entry(file, qcdata=None):
-    """Truhlar-database entry for the level of theory of `file`, or of
+    """(level of theory, Truhlar-database entry) for `file`, or for
     `qcdata.level_of_theory` when the input did not come from a file
-    (``QCData.from_atoms``); None when unknown."""
+    (``QCData.from_atoms``); the entry is None when the level is unknown
+    or not in the database."""
     from .io import read_initial
     from .vib_scale_factors import canonicalize_level, scaling_data_dict
     lot = None
@@ -502,8 +517,37 @@ def _scaling_entry(file, qcdata=None):
     if (not lot or lot == "none") and qcdata is not None:
         lot = getattr(qcdata, "level_of_theory", None)
     if lot and lot != "none":
-        return scaling_data_dict.get(canonicalize_level(lot))
-    return None
+        return lot, scaling_data_dict.get(canonicalize_level(lot))
+    return None, None
+
+
+def _is_mlip_input(qcdata) -> bool:
+    """An MLIP input: from ASE (``QCData.from_atoms`` / ``from_vibrations``
+    or an ASE-written file) with a level of theory that names no basis set
+    (``MACE-OFF23``, not ``B3LYP/def2-TZVP``). Its frequencies are unscaled
+    by design, since the empirical scaling factors are fitted to QM methods,
+    not to MLIPs; a QM level run through ASE is looked up like any other."""
+    if str(getattr(qcdata, "program", "") or "").lower() != "ase":
+        return False
+    return "/" not in str(getattr(qcdata, "level_of_theory", "") or "")
+
+
+def _unscaled_source(lot, qcdata, warn: bool) -> Optional[str]:
+    """'mlip-unscaled' for an MLIP input, else 'none-found' (with a
+    ScaleFactorWarning when `warn`, shown once per level of theory); None
+    for an input without vibrations (a single point, an atom), where no
+    factor applies."""
+    if not (getattr(qcdata, "frequency_wn", None) or getattr(qcdata, "im_frequency_wn", None)):
+        return None
+    if _is_mlip_input(qcdata):
+        return "mlip-unscaled"
+    if warn:
+        where = f"level of theory {lot!r}" if lot else "an unknown level of theory"
+        warnings.warn(
+            f"No vibrational scaling factor in the Truhlar database for {where}; "
+            "its frequencies are used unscaled (1.0). Pass freq_scale_factor (--vscal) to set one.",
+            ScaleFactorWarning, stacklevel=4)
+    return "none-found"
 
 
 class calc_bbe:
@@ -620,6 +664,13 @@ class calc_bbe:
         self.spc_applied = False   # True once a single-point correction has been added to H/G
         self.spc_reason = None     # why it was not, when --spc was requested
         self.zero_point_corr = qcdata.zero_point_corr
+        # Provenance (ThermoResult, --json): where the symmetry number came
+        # from, and how many imaginary modes the output reports (None for a
+        # single point). scale_factor_source is set by from_options.
+        self.symmetry_source = "output" if (qcdata.point_group or qcdata.symmno != 1) else "assumed"
+        self.n_imag = (len(qcdata.im_frequency_wn)
+                       if (qcdata.frequency_wn or qcdata.im_frequency_wn) else None)
+        self.scale_factor_source = None
         self.job_type = qcdata.job_type
         self.roconst = qcdata.roconst
         self.point_group = qcdata.point_group
@@ -638,7 +689,11 @@ class calc_bbe:
         # SPC cache: when --spc was used in a previous run that produced
         # the QCData we're now reading from, the parsed SPC numbers are
         # carried on qcdata.sp_*. Reuse them when the suffix matches so
-        # `--import` doesn't re-parse the SPC file from disk.
+        # `--import` doesn't re-parse the SPC file from disk. An energy
+        # attached with QCData.with_single_point is applied without --spc.
+        if spc is None and qcdata is not None and qcdata.sp_suffix == SP_ATTACHED:
+            spc = SP_ATTACHED
+        self.sp_level_of_theory = qcdata.sp_level_of_theory if spc == SP_ATTACHED else ''
         if spc and spc != 'link':
             cached_sp_hit = (
                 qcdata is not None
@@ -851,6 +906,7 @@ class calc_bbe:
                     sym_entropy_correction = (-GAS_CONSTANT * math.log(sym_num / symmno)) / J_TO_AU
                     self.point_group = pgroup
                     self.symmno = sym_num
+                    self.symmetry_source = "pymsym"
                     self.entropy += sym_entropy_correction
                     self.qh_entropy += sym_entropy_correction
 
@@ -889,7 +945,7 @@ class calc_bbe:
         warnings.warn(message, RuntimeWarning, stacklevel=2)
 
     @classmethod
-    def from_options(cls, qcdata_or_path, options):
+    def from_options(cls, qcdata_or_path, options, *, scale_factor_source=None):
         """Construct a `calc_bbe` from a `ThermoOptions` bundle.
 
         Recommended v5.0+ entry point — replaces the legacy 15-argument
@@ -902,10 +958,17 @@ class calc_bbe:
         are `None`, this method auto-looks them up from the file's
         level of theory via the Truhlar database (mirroring the CLI's
         behavior). Pass explicit floats to skip the lookup.
+
+        The result's ``scale_factor_source`` records where the harmonic
+        factor came from: 'user' (passed in), 'truhlar' (database lookup),
+        'mlip-unscaled' (an ASE input whose level names no basis set, i.e. an
+        MLIP, with no database entry: 1.0 by design) or 'none-found' (1.0 because the level of theory is not in
+        the database; a ScaleFactorWarning says so). A caller that resolved
+        the factors itself (the CLI) passes ``scale_factor_source``.
         """
         if isinstance(qcdata_or_path, str):
             file = qcdata_or_path
-            qcdata = None
+            qcdata = parse_qcdata(file)
         else:
             qcdata = qcdata_or_path
             file = qcdata.file
@@ -917,22 +980,34 @@ class calc_bbe:
         #                        --vscal X scales everything by X)
         #   freq None, zpe set → freq auto-lookup, zpe explicit
         #   both set         → use as-is
-        if options.freq_scale_factor is None or options.zpe_scale_factor is None:
-            from dataclasses import replace
-            harm = options.freq_scale_factor
-            zpe = options.zpe_scale_factor
-            if harm is None and zpe is None:
-                entry = _scaling_entry(file, qcdata)
-                harm = entry.harm_fac if entry is not None else 1.0
-                zpe = entry.zpe_fac if entry is not None else 1.0
-            elif harm is not None and zpe is None:
+        from dataclasses import replace
+        harm, zpe = options.freq_scale_factor, options.zpe_scale_factor
+        source = scale_factor_source or options.scale_factor_source
+        if harm is None:
+            lot, entry = _scaling_entry(file, qcdata)
+            if entry is not None:
+                harm, looked_up = entry.harm_fac, "truhlar"
+                if zpe is None:
+                    zpe = entry.zpe_fac
+            else:
+                harm = 1.0
+                zpe = 1.0 if zpe is None else zpe
+                looked_up = _unscaled_source(lot, qcdata, warn=scale_factor_source is None)
+            # no vibrations (looked_up None): there is nothing to scale
+            source = (scale_factor_source or looked_up) if looked_up is not None else None
+        else:
+            if zpe is None:
                 # --vscal alone: ZPE inherits (matches v3.x and v4.x.0
                 # behaviour where vscal was the single scale factor).
                 zpe = harm
-            elif harm is None and zpe is not None:
-                entry = _scaling_entry(file, qcdata)
-                harm = entry.harm_fac if entry is not None else 1.0
-            options = replace(options, freq_scale_factor=harm, zpe_scale_factor=zpe)
+            if source is None:
+                source = "user"
+        if source == "none-found" and _is_mlip_input(qcdata):
+            source = "mlip-unscaled"
+        if not (qcdata.frequency_wn or qcdata.im_frequency_wn):
+            source = None                             # a single point or an atom: nothing to scale
+        options = replace(options, freq_scale_factor=harm, zpe_scale_factor=zpe,
+                          scale_factor_source=source)
         bbe = cls(
             file,
             qcdata=qcdata,
@@ -943,6 +1018,7 @@ class calc_bbe:
         # result so the PES model can re-evaluate the same input at another
         # temperature without touching the file again (ComputedEntry).
         bbe.options = options
+        bbe.scale_factor_source = options.scale_factor_source
         return bbe
 
     # Get external symmetry number and point group using pymsym, if available, for symmetry corrections to entropy

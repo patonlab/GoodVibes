@@ -149,7 +149,8 @@ v1.0 schema. Use whichever name reads better in your script.
 Caveat: in cache-only mode (`--import FILE` with no positional
 `.log` files), the level-of-theory info is unavailable, so the
 frequency scale factor falls back to 1.0 unless you pass `--vscal` /
-`--zpe-vscal` explicitly. Auto-restoring scale factors from the
+`--zpe-vscal` explicitly (the results record `scale_factor_source:
+none-found`). Auto-restoring scale factors from the
 cached `options` block is a planned follow-up.
 
 ### SPC results are cached too

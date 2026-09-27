@@ -86,14 +86,16 @@ r = compute_thermo(
 print(f"qh-G(T) = {r.qh_gibbs_free_energy:.6f} Hartree")
 print(f"point group: {r.point_group}, σ = {r.symmno}")
 print(f"level of theory (auto-detected): {r.level_of_theory}")
-print(f"frequency scale factor (auto-applied): {r.bbe.scale_fac}")
+print(f"frequency scale factor: {r.freq_scale_factor} ({r.scale_factor_source})")
 ```
 
 `compute_thermo` returns a frozen `ThermoResult` dataclass with every
 attribute `calc_bbe` produces, plus `r.bbe` and `r.qcdata` for advanced
 reads. Defaults match the CLI: gas-phase concentration (`P/RT`),
 auto-lookup of the frequency scaling factor from the level of theory
-via the Truhlar database.
+via the Truhlar database. A level that is not in the database is used
+unscaled with a `ScaleFactorWarning` (`r.scale_factor_source ==
+"none-found"`); pass `freq_scale_factor=` to set one.
 
 ---
 
@@ -504,12 +506,47 @@ What the constructors do:
   symmetry number come from pymsym when it is installed (`symm="auto"`),
   or pass `symm=<int>`;
 - `method=` is recorded as `level_of_theory`; when it matches an entry
-  of the scaling-factor database the usual scale factors apply,
-  otherwise the frequencies are used unscaled (the right default for
-  an MLIP).
+  of the scaling-factor database the usual scale factors apply. An MLIP
+  (a `method` naming no basis set, such as `MACE-OFF23`) is used unscaled
+  by design (`scale_factor_source == "mlip-unscaled"`); a QM level the
+  database lacks is used unscaled with a `ScaleFactorWarning`.
 
 `compute_batch` accepts `QCData` objects alongside paths, and
 `ThermoResult.name` / `program` are the `name=` given and `"ase"`.
+
+**DFT//MLIP composites.** `QCData.with_single_point` attaches a
+higher-level single-point energy to a structure, in place of a `--spc`
+output file: enthalpies and free energies use it, the frequencies (and their
+scale factor) stay those of the MLIP.
+
+```python
+composite = qc.with_single_point(-232.3301, "hartree", "wB97X-D/def2-TZVP")
+r = compute_thermo(qcdata=composite)      # r.spc_applied is True
+```
+
+The units are required. The attached energy survives re-evaluation at
+other temperatures, `--export` caches and embedded conformers.
+
+**Ensembles in one file.** `read_xyz_frames` reads every frame of a
+multi-frame `.xyz` / `.extxyz` (a CREST `crest_conformers.xyz`, an xtb
+trajectory, or MLIP energies written with `ase.io.write`) as an energy-only
+`QCData`. Weighted by the electronic energy, an ensemble gives Boltzmann
+populations and its ensemble energy:
+
+```python
+from goodvibes import ConformerSet, compute_batch, read_xyz_frames
+
+frames = read_xyz_frames("crest_conformers.xyz", method="GFN2-xTB")
+ens = ConformerSet.from_results("crest", compute_batch(frames), weight_by="electronic")
+print(ens.populations(298.15)[:5], ens.lowest_index())
+```
+
+A plain `.xyz` comment line gives the energy as a bare number (CREST) or
+`energy: <value>` (xtb), in hartree. An extxyz one gives it as `energy=`,
+`free_energy=` or `total_energy=` (eV, the ASE convention), or as
+`scf_energy=` (hartree). `energy_key=` and `energy_units=` override the
+key and the units. Free energies need frequencies, so the thermochemical
+quantities of these frames are None.
 
 ---
 
@@ -535,6 +572,20 @@ computed and declared series (hollow markers) with barrier annotations:
 ```bash
 goodvibes-profile plot levels.csv -o lit.svg --quantity gibbs --temperature 298.15
 goodvibes-profile convert levels.csv -o lit.yaml     # then add series, methods, annotations by hand
+```
+
+A document with a DFT and an MLIP method can give each its own
+thermochemistry options. `goodvibes.thermo.by_method` re-evaluates the
+method's structures with them:
+
+```yaml
+goodvibes:
+  sources:
+    dft:  {R: {files: "R_dft*"}, TS: {files: "TS_dft*"}}
+    mace: {R: {files: "R_mace*"}, TS: {files: "TS_mace*"}}
+  thermo:
+    by_method:
+      mace: {freq_scale_factor: 1.0, QS: truhlar, s_freq_cutoff: 50}
 ```
 
 ---
