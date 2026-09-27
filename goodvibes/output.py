@@ -103,6 +103,34 @@ def print_selectivity_results(results_by_method):
             _print_selectivity_scan(results, method=method)
 
 
+def print_profile_selectivity(results, units="kcal/mol"):
+    """The selectivities of a reaction-profile document's ``selectivity``
+    blocks (``Profile.evaluate_selectivity``): a summary line, a table of
+    branch barriers and populations, and any Curtin–Hammett warning."""
+    if not results:
+        return
+    from .selectivity import describe_selectivity
+    per_hartree = hartree_factor(units)
+    for r in results:
+        log.info("\n   Selectivity " + describe_selectivity(r, units))
+        if Table is not None:
+            table = Table(box=rich_box.SIMPLE_HEAD, show_header=True, show_edge=False, pad_edge=False,
+                          highlight=False, header_style="")
+            table.add_column("", width=3)
+            table.add_column("Branch", no_wrap=True)
+            table.add_column(f"Barrier ({units})", justify="right")
+            table.add_column("Population (%)", justify="right")
+            for label in r.labels:
+                barrier = (r.barriers or {}).get(label)
+                table.add_row("★" if label == r.major else " ", label,
+                              f"{barrier * per_hartree:.2f}" if barrier is not None else "—",
+                              f"{r.populations[label] * 100:.2f}")
+            _print_rich_table(table)
+        for note in r.warnings:
+            log.info(f"   ! {note}")
+    log.info("\n")
+
+
 def _format_ratio(populations, labels, scale=100):
     """Format populations as integer-percent ratio string ('60:40' or '40:30:20:10')."""
     rounded = [round(populations[label] * scale) for label in labels]
@@ -344,6 +372,14 @@ def write_json_results(thermo_data, options, path, media_conc_per_file=None,
         payload['pes'] = pes_block
     if profile is not None:
         payload['profile'] = profile.to_dict(include_conformers=False)
+        if profile.selectivity:
+            from .profile import ProfileError
+            from .selectivity import selectivity_to_dict
+            try:
+                payload['profile_selectivity'] = [selectivity_to_dict(r)
+                                                  for r in profile.evaluate_selectivity(warn=False)]
+            except ProfileError:
+                pass                     # reported by the goodvibes command's selectivity notice
     # default=str catches anything stringifiable that json doesn't natively
     # know about (e.g., the '!' sentinel value calc_bbe uses for failed SPC).
     with open(path, 'w', encoding='utf-8') as f:

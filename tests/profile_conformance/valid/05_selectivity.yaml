@@ -1,0 +1,32 @@
+# reaction-profile 1.1: two competing transition states from one intermediate
+schema: reaction-profile/1.1
+title: Enantioselective step
+units: kcal/mol
+points:
+  Int:  {role: minimum}
+  TS_R: {role: ts, display: "TS-R‡"}
+  TS_S: {role: ts, display: "TS-S‡"}
+  P_R:  {role: product}
+  P_S:  {role: product}
+  TS_swap: {role: ts}
+pathways:
+  R: [Int, TS_R, P_R]
+  S: [Int, TS_S, P_S]
+  swap: [Int, TS_swap]
+series:
+  - id: G
+    quantity: gibbs
+    temperature: 298.15
+    source: declared
+    levels:
+      R: {Int: 0.0, TS_R: 15.0, P_R: -5.0}
+      S: {Int: 0.0, TS_S: 16.2, P_S: -4.0}
+      swap: {Int: 0.0, TS_swap: 8.0}
+selectivity:
+  - id: er
+    label: R vs S
+    kind: enantio
+    reference: Int
+    branches: [TS_R, TS_S]
+    series: G
+    interconversion: TS_swap

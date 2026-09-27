@@ -47,18 +47,24 @@ from .pes_model import (
     _normalise_role, merge_point_order, parse_point_label,
 )
 from .quantities import QUANTITIES, resolve_quantity
+from .selectivity import SelectivityResult, SelectivityWarning, selectivity_from_energies
 
 __all__ = [
     "Profile", "ProfilePoint", "ProfilePathway", "ProfileError", "ProfileWarning",
     "load_profile", "validate_document", "schema_errors", "load_json_schema",
-    "SCHEMA_TAG", "SCHEMA_VERSION", "SCHEMA_ID",
+    "SCHEMA_TAG", "SCHEMA_VERSION", "SCHEMA_ID", "BASE_TAG", "SelectivityWarning",
 ]
 
 SCHEMA_NAME = "reaction-profile"
-SCHEMA_VERSION = "1.0"
+#: The newest version this GoodVibes reads and writes.
+SCHEMA_VERSION = "1.1"
 SCHEMA_TAG = f"{SCHEMA_NAME}/{SCHEMA_VERSION}"
-SCHEMA_FILE = "reaction-profile-1.0.schema.json"
+#: The tag written for a document that uses no 1.1 key: a document is
+#: written at the oldest version that can express it.
+BASE_TAG = f"{SCHEMA_NAME}/1.0"
+SCHEMA_FILE = "reaction-profile-1.1.schema.json"
 #: The schema's published home: the docs site root (docs/conf.py html_extra_path).
+#: The 1.0 schema stays published next to it.
 SCHEMA_ID = "https://goodvibespy.readthedocs.io/en/latest/" + SCHEMA_FILE
 NAMESPACE = "goodvibes"
 DEFAULT_METHOD = "default"
@@ -70,15 +76,15 @@ CONNECTORS = ("bezier", "linear", "step")
 #: ``style.preset`` values; drawn by ``goodvibes.plot.STYLE_PRESETS``.
 PRESETS = ("none", "single-column", "double-column", "slide")
 ANNOTATION_TYPES = ("barrier", "span")
+SELECTIVITY_KINDS = ("enantio", "diastereo", "regio", "chemo", "other")
 SERIES_SOURCES = ("computed", "declared")
 
 _CORE_KEYS = ("schema", "title", "description", "units", "ensemble", "default_temperature",
               "species", "points", "pathways", "order", "methods", "series", "annotations",
-              "style", "provenance", NAMESPACE)
+              "style", "provenance", "selectivity", NAMESPACE)
 #: Keys a later 1.x minor will define; rejected, never silently ignored.
-_RESERVED = {
-    "selectivity": "the `selectivity` block is reserved for reaction-profile 1.1 (GoodVibes 5.1)",
-}
+_RESERVED: Dict[str, str] = {}
+_SELECTIVITY_KEYS = {"id", "label", "kind", "reference", "branches", "series", "interconversion"}
 _SPECIES_KEYS = {"name", "smiles", "inchi", "formula", "charge", "multiplicity"}
 _SOURCE_KEYS = {"files", "dir", "dirs"}
 _POINT_KEYS = {"species", "role", "display"}
@@ -152,6 +158,91 @@ class ProfilePathway:
     edges: List[Edge]
     explicit_edges: List[Edge] = field(default_factory=list)
     extensions: Dict[str, Any] = field(default_factory=dict)
+
+
+def _pathways_holding(pathways, *points) -> List[str]:
+    """Names of the pathways whose points (or zero) include all ``points``."""
+    out = []
+    for name, path in pathways.items():
+        members = set(path.points) | {path.zero}
+        if all(p in members for p in points):
+            out.append(name)
+    return out
+
+
+def _parse_selectivity(data, tag, minor, points, pathways, series_ids, chk: "_Checker") -> List[dict]:
+    """The 1.1 ``selectivity`` blocks, checked against the points,
+    pathways and series of the document."""
+    raw = data.get("selectivity")
+    if raw is None:
+        return []
+    if minor < 1:
+        chk.error("selectivity", f"is a reaction-profile 1.1 key; the document says {tag!r} "
+                                 "(declare 'reaction-profile/1.1')")
+    if not isinstance(raw, list):
+        chk.error("selectivity", "must be a list")
+        return []
+    out: List[dict] = []
+    seen = set()
+    for i, block in enumerate(raw):
+        where = f"selectivity[{i}]"
+        block = chk.mapping(where, block, allow_none=False)
+        if block is None:
+            continue
+        bid = block.get("id")
+        if not isinstance(bid, str) or not bid.strip():
+            chk.error(f"{where}.id", "must be a non-empty string")
+            continue
+        where = f"selectivity.{bid}"
+        if bid in seen:
+            chk.error(where, "duplicate selectivity id")
+        seen.add(bid)
+        chk.keys(where, block, _SELECTIVITY_KEYS)
+        if block.get("kind", "other") not in SELECTIVITY_KINDS:
+            chk.error(f"{where}.kind", f"must be one of {', '.join(SELECTIVITY_KINDS)}")
+        if "label" in block and not isinstance(block["label"], str):
+            chk.error(f"{where}.label", "must be a string")
+        ref = block.get("reference")
+        if not isinstance(ref, str) or ref not in points:
+            chk.error(f"{where}.reference", f"{ref!r} is not a defined point")
+            ref = None
+        branches = block.get("branches")
+        if not isinstance(branches, list) or len(branches) < 2 or not all(isinstance(b, str) for b in branches):
+            chk.error(f"{where}.branches", "must list at least two point ids")
+            branches = []
+        elif len(set(branches)) != len(branches):
+            chk.error(f"{where}.branches", "lists a point twice")
+        for b in branches:
+            if b not in points:
+                chk.error(f"{where}.branches", f"{b!r} is not a defined point")
+            elif b == ref:
+                chk.error(f"{where}.branches", f"{b!r} is the reference point itself")
+            elif ref is not None and not _pathways_holding(pathways, ref, b):
+                chk.error(f"{where}.branches", f"{b!r} shares no pathway with the reference {ref!r}")
+        inter = block.get("interconversion")
+        if inter is not None:
+            if not isinstance(inter, str) or inter not in points:
+                chk.error(f"{where}.interconversion", f"{inter!r} is not a defined point")
+            elif ref is not None and not _pathways_holding(pathways, ref, inter):
+                chk.error(f"{where}.interconversion", f"{inter!r} shares no pathway with the reference {ref!r}")
+        sid = block.get("series")
+        if sid is not None and sid not in series_ids:
+            chk.error(f"{where}.series", f"unknown series {sid!r}")
+        out.append(dict(block))
+    return out
+
+
+def _retarget_selectivity(blocks: List[dict], series_ids) -> List[dict]:
+    """``blocks`` with a ``series`` no longer in the document (renamed by a
+    temperature expansion, or left out of a drawn figure) removed, so the
+    block applies to every series that has its levels."""
+    out = []
+    for b in blocks:
+        b = dict(b)
+        if b.get("series") is not None and b["series"] not in series_ids:
+            b.pop("series")
+        out.append(b)
+    return out
 
 
 def _check_method_thermo(where: str, overrides: Mapping, chk: "_Checker") -> None:
@@ -276,7 +367,7 @@ def _source_to_patterns(source) -> List[str]:
 def _explicit_from_spec(spec, extra: Optional[Mapping] = None) -> dict:
     """The explicit reaction-profile mapping for a PESSpec (v2 YAML or
     legacy text). Point ids are the original point labels."""
-    doc: Dict[str, Any] = {"schema": SCHEMA_TAG, "units": spec.options.units}
+    doc: Dict[str, Any] = {"schema": BASE_TAG, "units": spec.options.units}
     doc["species"] = {name: {} for name in spec.species}
     doc["pathways"] = {}
     for name, labels in spec.pathways.items():
@@ -355,6 +446,7 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
     # -- schema --------------------------------------------------------------
     tag = data.get("schema")
     m = _SCHEMA_RE.match(tag) if isinstance(tag, str) else None
+    minor = int(m.group(2)) if m is not None else 0
     if m is None:
         chk.error("schema", f"must be 'reaction-profile/<major>.<minor>', got {tag!r}")
     elif int(m.group(1)) != 1:
@@ -659,6 +751,8 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
             extensions=_extensions(entry),
         ))
 
+    selectivity = _parse_selectivity(data, tag, minor, points, pathways, seen_ids, chk)
+
     # -- annotations ---------------------------------------------------------
     annotations: List[dict] = []
     raw_ann = data.get("annotations") or []
@@ -713,7 +807,7 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
         title=title, description=description, units=units, ensemble=ensemble, default_temperature=default_T,
         species=species, points=points, pathways=pathways, order=order, methods=methods, series=series,
         annotations=annotations, style=style, provenance=provenance, namespace=namespace,
-        extensions=_extensions(data),
+        extensions=_extensions(data), selectivity=selectivity,
     )
     prof.upgraded_from = upgraded_from
     return prof, chk.warnings
@@ -766,7 +860,7 @@ class Profile:
     def __init__(self, *, title=None, description=None, units="kcal/mol", ensemble="ideal-gas",
                  default_temperature=298.15, species=None, points=None, pathways=None, order=None,
                  methods=None, series=None, annotations=None, style=None, provenance=None,
-                 namespace=None, extensions=None):
+                 namespace=None, extensions=None, selectivity=None):
         self.title: Optional[str] = title
         self.description: Optional[str] = description
         self.units: str = canonical_units(units)
@@ -779,6 +873,8 @@ class Profile:
         self.methods: Dict[str, dict] = dict(methods or {})
         self.series: List[Series] = list(series or [])
         self.annotations: List[dict] = list(annotations or [])
+        #: reaction-profile 1.1 selectivity blocks (see :meth:`evaluate_selectivity`)
+        self.selectivity: List[dict] = [dict(b) for b in (selectivity or [])]
         self.style: Dict[str, Any] = dict(style or {})
         self.provenance: Dict[str, Any] = dict(provenance or {})
         self.namespace: Dict[str, Any] = dict(namespace or {})
@@ -840,7 +936,7 @@ class Profile:
         if layout not in ("wide", "long"):
             raise ValueError(f"layout must be 'auto', 'wide' or 'long', got {layout!r}")
         qty = resolve_quantity(quantity)
-        doc: Dict[str, Any] = {"schema": SCHEMA_TAG, "units": units, "points": {}, "pathways": {},
+        doc: Dict[str, Any] = {"schema": BASE_TAG, "units": units, "points": {}, "pathways": {},
                                "series": []}
         if title:
             doc["title"] = title
@@ -997,6 +1093,7 @@ class Profile:
             doc.style.pop("preset", None)
         ids = {s.id for s in drawn}
         doc.annotations = [a for a in doc.annotations if a.get("series", drawn[0].id) in ids]
+        doc.selectivity = _retarget_selectivity(doc.selectivity, ids)
         return doc
 
     @classmethod
@@ -1038,7 +1135,7 @@ class Profile:
         return _plain(self._to_dict(include_conformers))
 
     def _to_dict(self, include_conformers: bool) -> dict:
-        d: Dict[str, Any] = {"schema": SCHEMA_TAG}
+        d: Dict[str, Any] = {"schema": SCHEMA_TAG if self.selectivity else BASE_TAG}
         if self.title:
             d["title"] = self.title
         if self.description:
@@ -1071,6 +1168,8 @@ class Profile:
         d["series"] = [self._series_dict(s) for s in self.series]
         if self.annotations:
             d["annotations"] = copy.deepcopy(self.annotations)
+        if self.selectivity:
+            d["selectivity"] = copy.deepcopy(self.selectivity)
         if self.style:
             d["style"] = dict(self.style)
         d.update(copy.deepcopy(self.extensions))
@@ -1434,6 +1533,7 @@ class Profile:
                 out.extend(evaluated.values())
                 placed = True
         new.series = out if placed else list(evaluated.values()) + out
+        new.selectivity = _retarget_selectivity(new.selectivity, {s.id for s in new.series})
         any_pes = next(iter(pes_by_method.values()))
         mode = ("lowest" if any_pes.options.lowest_only else ("gconf" if any_pes.options.gconf else "boltzmann"))
         rollup = dict(new.namespace.get("rollup", {}))
@@ -1460,6 +1560,132 @@ class Profile:
             "warnings": warns,
         }
         return new
+
+    # -- selectivity (reaction-profile 1.1) -----------------------------------
+
+    def evaluate_selectivity(self, block: Optional[str] = None, *, series: Optional[str] = None,
+                             warn: bool = True) -> List[SelectivityResult]:
+        """The selectivity of each ``selectivity`` block, from series levels.
+
+        For every block (or only ``block``, an id) and every series that
+        has levels for its reference and branches (or only the block's
+        ``series``, or ``series`` here), each branch's barrier is
+        ``level(branch) - level(reference)`` on a pathway holding both,
+        and its population ``exp(-barrier / RT)`` normalised over the
+        branches, at the series' temperature (``default_temperature`` when
+        it has none). Declared series work as well as computed ones;
+        computed ones need levels (see :meth:`evaluate`).
+
+        The result follows the SelectivityResult conventions (labels are
+        the branch point ids in the order listed, so ``ee_signed`` is
+        positive when the first branch is the major one) and records
+        ``barriers`` and ``ensemble_energies`` relative to the reference,
+        in Hartree. ``curtin_hammett`` is 'violated' when a branch lies at
+        or below the reference, when a point between the reference and a
+        branch lies below the reference (a deeper resting state), or when
+        the ``interconversion`` point's barrier is not below the lowest
+        branch barrier; 'satisfied' when an interconversion barrier is
+        given and lower; 'assumed' otherwise. Each violation, and a branch
+        that is not a transition state, is listed in ``warnings`` and
+        raised as a :class:`SelectivityWarning` when ``warn``.
+
+        Raises ProfileError for an unknown block or series, or when no
+        series has levels for a block.
+        """
+        blocks = self.selectivity
+        if block is not None:
+            blocks = [b for b in blocks if b["id"] == block]
+            if not blocks:
+                raise ProfileError([f"no selectivity block {block!r} (the document has "
+                                    f"{', '.join(b['id'] for b in self.selectivity) or 'none'})"])
+        if series is not None:
+            self.get_series(series)                              # unknown -> ProfileError
+        out: List[SelectivityResult] = []
+        for b in blocks:
+            wanted = series or b.get("series")
+            candidates = [self.get_series(wanted)] if wanted else list(self.series)
+            found = False
+            for s in candidates:
+                result = self._branch_selectivity(b, s, warn=warn)
+                if result is not None:
+                    out.append(result)
+                    found = True
+                elif wanted:
+                    raise ProfileError([f"selectivity {b['id']!r}: series {s.id!r} has no levels for "
+                                        f"{b['reference']!r} and every branch (evaluate the document first)"])
+            if not found:
+                raise ProfileError([f"selectivity {b['id']!r}: no series has levels for {b['reference']!r} "
+                                    "and every branch (evaluate the document first)"])
+        return out
+
+    def _branch_levels(self, s: Series, ref: str, point: str) -> Optional[Tuple[float, str]]:
+        """(level(point) - level(ref) in the document's units, pathway) on
+        the first pathway where series ``s`` has both levels."""
+        for name in _pathways_holding(self.pathways, ref, point):
+            lv = (s.levels or {}).get(name) or {}
+            if lv.get(point) is not None and lv.get(ref) is not None:
+                return lv[point] - lv[ref], name
+        return None
+
+    def _branch_selectivity(self, b: dict, s: Series, *, warn: bool) -> Optional[SelectivityResult]:
+        ref, branches = b["reference"], list(b["branches"])
+        per_hartree = hartree_factor(self.units)
+        units = self.units
+        rel: Dict[str, float] = {}
+        paths: Dict[str, str] = {}
+        for br in branches:
+            found = self._branch_levels(s, ref, br)
+            if found is None:
+                return None
+            rel[br], paths[br] = found
+        notes: List[str] = []
+        violated = False
+        for br in branches:
+            role = self.points[br].role
+            if role != "ts":
+                notes.append(f"branch {br!r} is a {role}, not a transition state: its population is an "
+                             "equilibrium ratio, not a kinetic selectivity")
+        for br in branches:
+            if rel[br] <= 0:
+                violated = True
+                notes.append(f"branch {br!r} lies {abs(rel[br]):.2f} {units} "
+                             f"{'below' if rel[br] < 0 else 'level with'} the reference {ref!r}: "
+                             "the branches do not share it as their ground state (Curtin–Hammett)")
+            path = self.pathways[paths[br]]
+            lv = s.levels[paths[br]]
+            if ref in path.points and br in path.points:
+                i, j = sorted((path.points.index(ref), path.points.index(br)))
+                for p in path.points[i + 1:j]:
+                    if lv.get(p) is not None and lv[p] < lv[ref] - 1e-9:
+                        violated = True
+                        notes.append(f"point {p!r} between {ref!r} and {br!r} on pathway {path.name!r} lies "
+                                     f"{lv[ref] - lv[p]:.2f} {units} below the reference: it, not {ref!r}, may "
+                                     "be the resting state the branches share (Curtin–Hammett)")
+        status = "assumed"
+        inter = b.get("interconversion")
+        if inter is not None:
+            found = self._branch_levels(s, ref, inter)
+            if found is not None:
+                lowest = min(rel.values())
+                if found[0] >= lowest:
+                    violated = True
+                    notes.append(f"the interconversion barrier ({inter!r}, {found[0]:.2f} {units}) is not below "
+                                 f"the lowest branch barrier ({lowest:.2f} {units}): the states feeding the "
+                                 "branches do not equilibrate faster than they react (Curtin–Hammett)")
+                else:
+                    status = "satisfied"
+        if violated:
+            status = "violated"
+        if warn:
+            for note in notes:
+                warnings.warn(f"selectivity {b['id']!r}, series {s.id!r}: {note}", SelectivityWarning,
+                              stacklevel=3)
+        barriers = {br: rel[br] / per_hartree for br in branches}
+        T = s.temperature if s.temperature is not None else self.default_temperature
+        return selectivity_from_energies(
+            {br: [barriers[br]] for br in branches}, T, quantity=s.quantity,
+            name=b["id"], series=s.id, reference=ref, barriers=barriers,
+            curtin_hammett=status, warnings=tuple(notes))
 
     # -- plotting --------------------------------------------------------------
 

@@ -271,6 +271,72 @@ def selectivity_from_energies(energies, temperature, *, key=None, quantity=None,
     )
 
 
+def selectivity_rows(results, units='kcal/mol'):
+    """One row per label of each SelectivityResult, for tables and CSV:
+    ``selectivity`` (the block id), ``series``, ``temperature``,
+    ``branch``, ``barrier`` (``units``; document selectivities only),
+    ``population`` (%), ``major`` (bool), ``ee`` (the signed ee of the
+    result), ``ddG`` (``units``) and ``curtin_hammett``."""
+    from .constants import hartree_factor
+    per_hartree = hartree_factor(units)
+    rows = []
+    for r in results:
+        for label in r.labels:
+            barrier = (r.barriers or {}).get(label)
+            rows.append({
+                'selectivity': r.name, 'series': r.series, 'temperature': r.temperature,
+                'branch': label,
+                'barrier': barrier * per_hartree if barrier is not None else None,
+                'population': r.populations[label] * 100.0,
+                'major': label == r.major,
+                'ee': r.ee_signed,
+                'ddG': r.ddG * per_hartree if r.ddG is not None else None,
+                'curtin_hammett': r.curtin_hammett,
+            })
+    return rows
+
+
+def describe_selectivity(result, units='kcal/mol', decimals=1):
+    """A one-line summary: the major branch, the signed ee (two branches)
+    or the ratio over the runner-up, ΔΔG‡ and the Curtin–Hammett status,
+    e.g. ``er (G, 298.15 K): major TS_R, ee +76.6 % (TS_R vs TS_S),
+    ΔΔG‡ 1.20 kcal/mol, Curtin–Hammett satisfied``."""
+    from .constants import hartree_factor
+    per_hartree = hartree_factor(units)
+    head = ", ".join(x for x in (result.series, f"{result.temperature:g} K") if x)
+    parts = [f"major {result.major}"]
+    if result.ee_signed is not None:
+        a, b = result.labels
+        parts.append(f"ee {result.ee_signed:+.{decimals}f} % ({a} vs {b})")
+    elif result.ratio is not None:
+        runner = sorted(result.labels, key=lambda label: -result.populations[label])[1]
+        parts.append(f"{result.ratio:.{decimals}f}:1 over {runner}")
+    if result.ddG is not None:
+        parts.append(f"ΔΔG‡ {result.ddG * per_hartree:.2f} {units}")
+    if result.curtin_hammett:
+        parts.append(f"Curtin–Hammett {result.curtin_hammett}")
+    name = f"{result.name} " if result.name else ""
+    return f"{name}({head}): " + ", ".join(parts)
+
+
+def selectivity_to_dict(result, units=None):
+    """A SelectivityResult as a plain dict (JSON-ready); energies stay in
+    Hartree unless ``units`` is given."""
+    from dataclasses import asdict
+    d = asdict(result)
+    d['warnings'] = list(result.warnings)
+    if units is not None:
+        from .constants import hartree_factor
+        f = hartree_factor(units)
+        for key in ('barriers', 'ensemble_energies'):
+            if d[key] is not None:
+                d[key] = {k: (v * f if v is not None else None) for k, v in d[key].items()}
+        if d['ddG'] is not None:
+            d['ddG'] *= f
+        d['units'] = units
+    return d
+
+
 def compute_selectivity(thermo_data, files_per_label, temperature,
                         dup_list=None, key='gibbs'):
     """Compute populations and (for N=2) ee + ΔΔG‡ for a labeled species set.
