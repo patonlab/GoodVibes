@@ -67,6 +67,30 @@ def test_profile_from_a_v2_pes_file_matches_the_pes_block(monkeypatch, tmp_path,
     assert "Reaction profile written to prof.json" in text
 
 
+def test_aminox_example_document_matches_the_legacy_file(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
+    """README Example 9 uses gconf_aminox_cat_profile.yaml, the reaction-profile
+    form of the legacy gconf_aminox_cat.yaml: both give the same levels, and
+    only the legacy file prints the deprecation notice."""
+    ex = Path(__file__).resolve().parents[1] / "goodvibes" / "examples" / "gconf_ee_boltz"
+    logs = sorted(str(p) for p in ex.glob("*.log"))
+    relative = {}
+    for name in ("gconf_aminox_cat.yaml", "gconf_aminox_cat_profile.yaml"):
+        run = tmp_path / name.split(".")[0]
+        run.mkdir()
+        run_main(monkeypatch, run, logs + ["--pes", str(ex / name), "--json", "out.json"])
+        payload = json.loads((run / "out.json").read_text(encoding="utf-8"))
+        relative[name] = [pt["relative"] for pt in payload["pes"]["pathways"][0]["points"]]
+        legacy_notice = "legacy '--- # PES'" in (run / "GoodVibes_output.dat").read_text(encoding="utf-8")
+        assert legacy_notice == (name == "gconf_aminox_cat.yaml")
+    old, new = relative["gconf_aminox_cat.yaml"], relative["gconf_aminox_cat_profile.yaml"]
+    assert len(old) == len(new) == 2
+    for a, b in zip(old, new):
+        assert set(a) == set(b)
+        for key in a:
+            assert b[key] == pytest.approx(a[key], abs=1e-9), key
+    assert new[1]["qh_g"] == pytest.approx(19.91, abs=0.005)
+
+
 def test_with_conformers_writes_a_self_contained_yaml(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
     pes = _write(tmp_path, "pes.yaml", V2)
     run_main(monkeypatch, tmp_path, WATERS + ["--pes", pes, "--profile", "prof.yaml", "--with-conformers"])
