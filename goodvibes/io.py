@@ -3101,6 +3101,157 @@ def _detect_program(data):
     return 'unknown'
 
 
+# Keys an extxyz comment line may give a frame's energy under, in the order
+# they are tried, with their default units (ASE writes eV; scf_energy is the
+# GoodVibes thermo-extxyz key, in hartree).
+_FRAME_ENERGY_KEYS = (('energy', 'eV'), ('free_energy', 'eV'), ('total_energy', 'eV'),
+                      ('scf_energy', 'hartree'), ('E', 'eV'))
+# A plain .xyz comment: 'energy: -42.1 gnorm: ...' (xtb) or a bare number (CREST).
+_PLAIN_ENERGY = re.compile(r'energy\s*[:=]?\s*(-?\d+\.\d*(?:[eE][-+]?\d+)?)', re.IGNORECASE)
+_BARE_FLOAT = re.compile(r'(?<![\w.])(-?\d+\.\d*(?:[eE][-+]?\d+)?)(?![\w.])')
+
+
+class _Frame:
+    """The minimum of an ASE Atoms that QCData.from_atoms reads."""
+
+    def __init__(self, symbols, positions):
+        self._symbols, self._positions = symbols, positions
+        self.info = {}
+
+    def get_chemical_symbols(self):
+        return list(self._symbols)
+
+    def get_positions(self):
+        return [list(p) for p in self._positions]
+
+
+def _frame_columns(info):
+    """Column offsets of the species and positions in an extxyz atom line,
+    from its ``Properties`` key (default ``species:S:1:pos:R:3``)."""
+    props = info.get('Properties')
+    if not props:
+        return 0, 1
+    parts = props.split(':')
+    col, species, pos = 0, None, None
+    for name, _kind, n in zip(parts[0::3], parts[1::3], parts[2::3]):
+        if name == 'species':
+            species = col
+        elif name == 'pos':
+            pos = col
+        col += int(n)
+    if species is None or pos is None:
+        raise ValueError(f"extxyz Properties {props!r} has no species or pos column")
+    return species, pos
+
+
+def _frame_symbol(tok):
+    if tok.isdigit():
+        return periodictable[int(tok)]
+    return tok[:1].upper() + tok[1:].lower()
+
+
+def read_xyz_frames(path, *, energy_units=None, energy_key=None, method=None,
+                    charge=None, multiplicity=None):
+    """Read every frame of a multi-frame ``.xyz`` or ``.extxyz`` file as an
+    energy-only QCData: a geometry and an electronic energy, no frequencies.
+
+    For conformer ensembles (CREST ``crest_conformers.xyz``, xtb
+    trajectories) and MLIP sweeps (``ase.io.write`` of many frames).
+    ``compute_batch`` evaluates the list, and a ``ConformerSet`` of the
+    results weighted by ``'electronic'`` gives Boltzmann populations and the
+    ensemble energy; free energies need frequencies, so the thermochemical
+    quantities are None.
+
+    The energy of a frame comes from its comment line: in an extxyz one
+    (``key=value`` pairs) from ``energy_key`` or, by default, the first of
+    ``energy``, ``free_energy``, ``total_energy`` (eV, the ASE convention),
+    ``scf_energy`` (hartree) and ``E`` (eV); in a plain one from
+    ``energy: <value>`` (xtb) or a bare number (CREST), in hartree. An
+    ``energy_units`` (or ``scf_energy_units``) key, or the ``energy_units``
+    argument, overrides the units. A frame without an energy is an error.
+
+    Parameters:
+        path: the ``.xyz`` / ``.extxyz`` file.
+        energy_units: units of every frame's energy ('hartree', 'eV',
+            'kcal/mol', 'kJ/mol'); default as above.
+        energy_key: the extxyz key holding the energy.
+        method: level of theory of the energies (``level_of_theory``),
+            e.g. 'GFN2-xTB' or 'MACE-OFF23'; default the frame's
+            ``level_of_theory`` key.
+        charge, multiplicity: default the frame's keys, else 0 / 1.
+
+    Returns:
+        A list of QCData, one per frame, named ``<stem>_<n>`` (``n`` from 1,
+        zero-padded) unless a frame has a ``name`` key; ``job_type`` 'SP'.
+    """
+    with open(path, encoding='utf-8', errors='replace') as f:
+        lines = f.read().splitlines()
+    stem = os.path.splitext(os.path.basename(path))[0]
+    folder = os.path.dirname(path)
+    raw = []
+    i = 0
+    while i < len(lines):
+        if not lines[i].strip():
+            i += 1
+            continue
+        try:
+            natoms = int(lines[i].split()[0])
+        except ValueError:
+            raise ValueError(f"{path}: line {i + 1}: expected an atom count, got {lines[i]!r}") from None
+        if i + 2 + natoms > len(lines):
+            raise ValueError(f"{path}: frame {len(raw) + 1} is truncated ({natoms} atoms expected)")
+        raw.append((lines[i + 1], lines[i + 2:i + 2 + natoms]))
+        i += 2 + natoms
+    if not raw:
+        raise ValueError(f"{path}: no frames")
+
+    width = max(3, len(str(len(raw))))
+    frames = []
+    for n, (comment, atom_lines) in enumerate(raw, start=1):
+        where = f"{path}: frame {n}"
+        info = _parse_extxyz_comment(comment)
+        if info:
+            keys = [(energy_key, 'eV')] if energy_key else list(_FRAME_ENERGY_KEYS)
+            key, units = next(((k, u) for k, u in keys if k in info), (None, None))
+            if key is None:
+                raise ValueError(f"{where}: no energy in the comment line (looked for "
+                                 f"{', '.join(k for k, _u in keys)}); pass energy_key=")
+            value = info[key]
+            units = info.get('energy_units') or info.get(f'{key}_units') or units
+        else:
+            m = _PLAIN_ENERGY.search(comment) or _BARE_FLOAT.search(comment)
+            if m is None:
+                raise ValueError(f"{where}: no energy in the comment line {comment!r}")
+            value, units = m.group(1), 'hartree'
+        try:
+            energy = float(value)
+        except ValueError:
+            raise ValueError(f"{where}: energy {value!r} is not a number") from None
+        units = energy_units or units
+        species_col, pos_col = _frame_columns(info)
+        symbols, positions = [], []
+        for line in atom_lines:
+            parts = line.split()
+            try:
+                symbols.append(_frame_symbol(parts[species_col]))
+                positions.append([float(x) for x in parts[pos_col:pos_col + 3]])
+            except (IndexError, ValueError):
+                raise ValueError(f"{where}: cannot read the atom line {line!r}") from None
+            if len(positions[-1]) != 3:
+                raise ValueError(f"{where}: cannot read the atom line {line!r}")
+        name = info.get('name') or f"{stem}_{n:0{width}d}"
+        qc = QCData.from_atoms(
+            _Frame(symbols, positions), energy, energy_units=units, symm=None, job_type='SP',
+            name=os.path.join(folder, name),
+            method=method if method is not None else info.get('level_of_theory', ''),
+            charge=charge if charge is not None else int(float(info.get('charge', 0))),
+            multiplicity=multiplicity if multiplicity is not None else int(float(info.get('multiplicity', 1))))
+        qc.program = 'ase' if info.get('program') == 'ase' else 'xyz'
+        qc.version_program = ''
+        frames.append(qc)
+    return frames
+
+
 def parse_qcdata(file):
     """Parse any supported output file into a QCData object.
 

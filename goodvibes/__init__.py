@@ -34,7 +34,7 @@ from .api import (
     to_parquet,
 )
 from .constants import __version__
-from .io import QCData
+from .io import QCData, read_xyz_frames
 from .pes_loader import build_pes_result, load_pes
 from .pes_model import (
     ComputedEntry,
@@ -60,6 +60,7 @@ __all__ = [
     "ThermoOptions",
     "MissingSinglePointError",
     "QCData",
+    "read_xyz_frames",
     "calc_bbe",
     "bbe_to_result",
     "compute_thermo",

@@ -147,6 +147,10 @@ def _sub_opt(a: Optional[float], b: Optional[float]) -> Optional[float]:
     return a - b
 
 
+# Quantities an energy-only structure (no frequencies) has.
+ENERGY_ONLY_QUANTITIES = ("electronic", "spc")
+
+
 def _bbe_to_vector(bbe: Any) -> ThermoVector:
     """Project a calc_bbe instance into a ThermoVector.
 
@@ -161,16 +165,19 @@ def _bbe_to_vector(bbe: Any) -> ThermoVector:
     sp = getattr(bbe, "sp_energy", None)
     if sp == "!" or not isinstance(sp, (int, float)):
         sp = None
-    qh_h = bbe.qh_enthalpy if bbe.qh_enthalpy else bbe.enthalpy
+    # An energy-only structure (no frequencies) has no thermochemistry: its
+    # vector carries the electronic energies and None elsewhere.
+    h = getattr(bbe, "enthalpy", None)
+    qh_h = getattr(bbe, "qh_enthalpy", None) or h
     return ThermoVector(
         scf_energy=bbe.scf_energy,
-        zpe=bbe.zpe,
-        enthalpy=bbe.enthalpy,
+        zpe=getattr(bbe, "zpe", None),
+        enthalpy=h,
         qh_enthalpy=qh_h,
-        entropy=bbe.entropy,
-        qh_entropy=bbe.qh_entropy,
-        gibbs=bbe.gibbs_free_energy,
-        qh_gibbs=bbe.qh_gibbs_free_energy,
+        entropy=getattr(bbe, "entropy", None),
+        qh_entropy=getattr(bbe, "qh_entropy", None),
+        gibbs=getattr(bbe, "gibbs_free_energy", None),
+        qh_gibbs=getattr(bbe, "qh_gibbs_free_energy", None),
         sp_energy=sp,
     )
 
@@ -276,11 +283,17 @@ class ConformerSet:
             )
         if not self.bbes:
             raise ValueError(f"ConformerSet {self.name!r} has no conformers")
-        for f, b in zip(self.files, self.bbes):
-            if not hasattr(b, "qh_gibbs_free_energy"):
-                raise ValueError(
-                    f"ConformerSet {self.name!r}: {f} has no thermochemistry (no frequencies in the "
-                    "output; a single-point file cannot be a conformer)")
+        from .quantities import resolve_quantity
+        self.weight_by = resolve_quantity(self.weight_by).id
+        # Energy-only structures (a single point, a frame of read_xyz_frames)
+        # can only be weighted by an electronic energy.
+        if self.weight_by not in ENERGY_ONLY_QUANTITIES:
+            for f, b in zip(self.files, self.bbes):
+                if not hasattr(b, "qh_gibbs_free_energy"):
+                    raise ValueError(
+                        f"ConformerSet {self.name!r}: {f} has no thermochemistry (no frequencies in the "
+                        "output; a single-point file cannot be a conformer unless the set is weighted "
+                        "by 'electronic')")
         if self.entries is None:
             built = [ComputedEntry.from_bbe(b, f) for f, b in zip(self.files, self.bbes)]
             self.entries = built if all(e is not None for e in built) else None  # type: ignore[assignment]
@@ -289,8 +302,6 @@ class ConformerSet:
                 f"ConformerSet {self.name!r}: entries and bbes length mismatch "
                 f"({len(self.entries)} vs {len(self.bbes)})"
             )
-        from .quantities import resolve_quantity
-        self.weight_by = resolve_quantity(self.weight_by).id
 
     # -- construction -------------------------------------------------------
 
