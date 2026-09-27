@@ -206,8 +206,10 @@ def _print_selectivity_scan(results, method=""):
 def _selectivity_to_json(selectivity_results):
     """Serialize a list of SelectivityResult instances for the JSON payload.
 
-    For N=2 each entry includes ee + ddG; for N>2 those fields are null
-    and consumers derive any ratios they need from `populations`.
+    For N=2 each entry includes ee, ee_signed and ddG; for N>2 those fields
+    are null and consumers derive any ratios they need from `populations`.
+    `major`, `ratio` and `ensemble_energies` (Hartree) follow the
+    SelectivityResult conventions.
     """
     if not selectivity_results:
         return None
@@ -223,6 +225,10 @@ def _selectivity_to_json(selectivity_results):
                 'preferred': r.preferred,
                 'ee': r.ee,
                 'ddG': r.ddG,
+                'major': r.major,
+                'ee_signed': r.ee_signed,
+                'ratio': r.ratio,
+                'ensemble_energies': dict(r.ensemble_energies) if r.ensemble_energies else None,
                 'files_per_label': {k: list(v) for k, v in r.files_per_label.items()},
             }
             for r in selectivity_results

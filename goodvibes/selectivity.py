@@ -7,7 +7,7 @@ import sys
 import warnings
 from dataclasses import dataclass
 from glob import glob
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .constants import GAS_CONSTANT, J_TO_AU, KCAL_TO_AU
 from .sort import SORT_KEYS
@@ -19,24 +19,58 @@ log = logging.getLogger('goodvibes')
 # Structured selectivity result (v4.2+)
 # ---------------------------------------------------------------------------
 
+class SelectivityWarning(UserWarning):
+    """A selectivity rests on an assumption the data do not support (a
+    Curtin–Hammett precondition that fails, a branch that is not a
+    transition state)."""
+
+
 @dataclass(frozen=True)
 class SelectivityResult:
     """N-species selectivity outcome at one temperature.
 
     Numeric data only — formatting strings (e.g. "60:40", "1.5:1") are
-    derived in the print layer from `populations`. Pairwise data are not
-    stored here: for N=2, ee + ddG suffice; for N>2, downstream consumers
-    derive any ratios they need from `populations`.
+    derived in the print layer from `populations`.
+
+    Conventions (v2, GoodVibes 5.1):
+
+    - ``major`` is the label with the largest population; on an exact tie,
+      the first listed. ``preferred`` is the same label (kept from v1).
+    - ``ee`` is the excess of the major over the minor for two labels,
+      ``|p1 - p2| * 100``, always ≥ 0; ``ee_signed`` is ``(p1 - p2) * 100``
+      with the labels in the order given, so it is positive when the first
+      label is the major one. Both are None for more than two labels.
+    - ``ddG`` (two labels) and ``ratio`` (any number) compare the major with
+      the runner-up: ``ddG = RT ln(p_major / p_runner_up)`` in Hartree, ≥ 0,
+      and ``ratio = p_major / p_runner_up``.
+    - ``ensemble_energies`` is each label's ensemble energy
+      ``-RT ln Σ exp(-E_i / RT)`` over its conformers, in Hartree: absolute
+      when computed from structures, relative to the reference point when
+      computed from a reaction-profile document (then equal to
+      ``barriers``).
     """
     temperature: float                          # Kelvin
-    key: str                                    # 'gibbs' | 'energy'
+    key: str                                    # 'gibbs' | 'energy', or a quantity id (documents)
     labels: List[str]                           # ordered species names
     files_per_label: Dict[str, List[str]]       # species -> file paths
     populations: Dict[str, float]               # normalized: Σ = 1.0
     raw_boltzmann: Dict[str, float]             # un-normalized e^(-ΔG/RT)
     preferred: str                              # max-population label
-    ee: Optional[float] = None                  # 2-label only: (a-b)*100, in %
+    ee: Optional[float] = None                  # 2-label only: |p1-p2|*100, in %
     ddG: Optional[float] = None                 # 2-label only: ΔΔG‡ in Hartree
+    # -- v2 --------------------------------------------------------------
+    major: Optional[str] = None                 # == preferred
+    ee_signed: Optional[float] = None           # 2-label only: (p1-p2)*100
+    ratio: Optional[float] = None               # p_major / p_runner_up
+    ensemble_energies: Optional[Dict[str, float]] = None   # Hartree
+    quantity: Optional[str] = None              # registry id of the weighted energy
+    # document selectivity (Profile.selectivity) only
+    name: Optional[str] = None                  # the selectivity block's id
+    series: Optional[str] = None                # the series whose levels were used
+    reference: Optional[str] = None             # the point the branches share
+    barriers: Optional[Dict[str, float]] = None  # level(branch) - level(reference), Hartree
+    curtin_hammett: Optional[str] = None        # 'assumed' | 'satisfied' | 'violated'
+    warnings: Tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +201,76 @@ def _excluded_files(dup_list):
     return excluded
 
 
+_KEY_QUANTITY = {'gibbs': 'qh_gibbs', 'energy': 'electronic'}
+
+
+def selectivity_from_energies(energies, temperature, *, key=None, quantity=None,
+                              files_per_label=None, **extra):
+    """A SelectivityResult from each label's conformer energies.
+
+    Parameters:
+        energies (Mapping[str, Sequence[float]]): ordered label -> the
+            energies (Hartree) of its conformers; one value per label for a
+            single structure or an already rolled-up level.
+        temperature (float): Kelvin.
+        key, quantity (str): recorded on the result (``quantity`` is the
+            registry id; ``key`` defaults to it).
+        files_per_label (dict, optional): label -> file paths, recorded.
+        extra: further SelectivityResult fields (``name``, ``series``,
+            ``reference``, ``barriers``, ``curtin_hammett``, ``warnings``).
+
+    A label with no energy gets population 0.
+
+    Raises:
+        ValueError: fewer than two labels, or no energy at all.
+    """
+    labels = list(energies)
+    if len(labels) < 2:
+        raise ValueError("Selectivity needs at least two labels.")
+    values = {label: [float(v) for v in energies[label] if v is not None] for label in labels}
+    if not any(values.values()):
+        raise ValueError("No label has an energy; cannot compute selectivity.")
+    e_min = min(min(v) for v in values.values() if v)
+    rt = GAS_CONSTANT * temperature                      # J/mol
+    raw = {label: sum(math.exp(-(v - e_min) * J_TO_AU / rt) for v in values[label]) for label in labels}
+    total = sum(raw.values())
+    if total == 0.0:
+        raise ValueError("Boltzmann sums are zero across all labels; cannot compute selectivity.")
+    populations = {label: raw[label] / total for label in labels}
+    major = max(labels, key=lambda label: populations[label])    # first listed on a tie
+    rt_au = rt / J_TO_AU                                  # Hartree
+    ensemble = {label: (e_min - rt_au * math.log(raw[label]) if raw[label] > 0 else None)
+                for label in labels}
+    runner_up = max((label for label in labels if label != major), key=lambda label: populations[label])
+    p_major, p_second = populations[major], populations[runner_up]
+    ratio = p_major / p_second if p_second > 0 else None
+    ee = ee_signed = ddG = None
+    if len(labels) == 2:
+        a, b = labels
+        ee_signed = (populations[a] - populations[b]) * 100.0
+        ee = abs(ee_signed)
+        # ΔΔG‡ = RT ln(p_major / p_minor) in Hartree, ≥ 0; None when the
+        # minor population underflows to zero and the ratio diverges.
+        ddG = rt_au * math.log(p_major / p_second) if p_second > 0 else None
+    return SelectivityResult(
+        temperature=temperature,
+        key=key or quantity or '',
+        labels=labels,
+        files_per_label={label: list((files_per_label or {}).get(label, [])) for label in labels},
+        populations=populations,
+        raw_boltzmann=raw,
+        preferred=major,
+        ee=ee,
+        ddG=ddG,
+        major=major,
+        ee_signed=ee_signed,
+        ratio=ratio,
+        ensemble_energies=ensemble,
+        quantity=quantity,
+        **extra,
+    )
+
+
 def compute_selectivity(thermo_data, files_per_label, temperature,
                         dup_list=None, key='gibbs'):
     """Compute populations and (for N=2) ee + ΔΔG‡ for a labeled species set.
@@ -199,75 +303,24 @@ def compute_selectivity(thermo_data, files_per_label, temperature,
             "Check the patterns or file lists in your selectivity spec."
         )
 
-    # Find the global minimum energy (across all labeled files we'll keep) so
-    # we can shift before exponentiating to avoid float overflow / underflow.
-    e_min = math.inf
+    energies = {}
     for label in labels:
+        vals = []
         for file in files_per_label[label]:
             if file in excluded:
                 continue
             bbe = thermo_data.get(file)
-            if bbe is None:
-                continue
-            val = getattr(bbe, attr, None)
-            if val is not None and val < e_min:
-                e_min = val
-    if not math.isfinite(e_min):
+            val = getattr(bbe, attr, None) if bbe is not None else None
+            if val is not None:
+                vals.append(val)
+        energies[label] = vals
+    if not any(energies.values()):
         raise ValueError(
             "No files in any label had a usable energy attribute "
             f"({attr}); cannot compute selectivity."
         )
-
-    raw = {label: 0.0 for label in labels}
-    rt = GAS_CONSTANT * temperature  # J/mol
-    for label in labels:
-        for file in files_per_label[label]:
-            if file in excluded:
-                continue
-            bbe = thermo_data.get(file)
-            if bbe is None:
-                continue
-            val = getattr(bbe, attr, None)
-            if val is None:
-                continue
-            raw[label] += math.exp(-(val - e_min) * J_TO_AU / rt)
-
-    total = sum(raw.values())
-    if total == 0.0:
-        raise ValueError(
-            "Boltzmann sums are zero across all labels; cannot compute "
-            "selectivity."
-        )
-
-    populations = {label: raw[label] / total for label in labels}
-    preferred = max(populations, key=populations.get)
-
-    ee = None
-    ddG = None
-    if len(labels) == 2:
-        a, b = labels
-        pa = populations[a]
-        pb = populations[b]
-        ee = abs(pa - pb) * 100.0
-        # ΔΔG‡ = RT ln(p_major / p_minor), in Hartree, positive by convention
-        # (the gap between major and minor TS). None when one species is
-        # empty enough that the ratio diverges.
-        if pa > 0 and pb > 0:
-            ddG = rt * math.log(max(pa, pb) / min(pa, pb)) / J_TO_AU
-        else:
-            ddG = None
-
-    return SelectivityResult(
-        temperature=temperature,
-        key=key,
-        labels=labels,
-        files_per_label={label: list(files_per_label[label]) for label in labels},
-        populations=populations,
-        raw_boltzmann=raw,
-        preferred=preferred,
-        ee=ee,
-        ddG=ddG,
-    )
+    return selectivity_from_energies(energies, temperature, key=key, quantity=_KEY_QUANTITY.get(key),
+                                     files_per_label=files_per_label)
 
 
 def compute_selectivity_scan(thermo_data, files_per_label, temperatures,
