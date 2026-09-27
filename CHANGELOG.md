@@ -44,7 +44,9 @@ every such change is listed under **Output changes**.
   points with roles and display labels, pathways with a zero and edges,
   methods, computed and declared series, annotations, style, provenance),
   specified in `docs/source/reaction_profile.md` and published as a JSON
-  Schema (`goodvibes/schemas/reaction-profile-1.0.schema.json`, CC0).
+  Schema (`goodvibes/schemas/reaction-profile-1.0.schema.json`, CC0) at
+  https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json
+  (its `$id`).
   - `goodvibes.profile`: `Profile`, `load_profile`, `validate_document`.
     Reads the explicit form (YAML/JSON), the v2 PES YAML, the legacy
     `--- # PES` text, CSV/TSV tables of relative energies (wide or long) and

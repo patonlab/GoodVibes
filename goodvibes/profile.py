@@ -58,8 +58,8 @@ SCHEMA_NAME = "reaction-profile"
 SCHEMA_VERSION = "1.0"
 SCHEMA_TAG = f"{SCHEMA_NAME}/{SCHEMA_VERSION}"
 SCHEMA_FILE = "reaction-profile-1.0.schema.json"
-SCHEMA_ID = ("https://raw.githubusercontent.com/patonlab/GoodVibes/master/goodvibes/schemas/"
-             + SCHEMA_FILE)
+#: The schema's published home: the docs site root (docs/conf.py html_extra_path).
+SCHEMA_ID = "https://goodvibespy.readthedocs.io/en/latest/" + SCHEMA_FILE
 NAMESPACE = "goodvibes"
 DEFAULT_METHOD = "default"
 

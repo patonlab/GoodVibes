@@ -28,7 +28,7 @@ history:
 | **M0** Correctness and compatibility goldens | 5.0 | ✅ merged | #115, #116, #117 |
 | **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
 | **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
-| **M2b** Figure polish and the gallery | 5.0 | 🟡 done except the schema DOI | #121, #123 |
+| **M2b** Figure polish and the gallery | 5.0 | ✅ merged | #121, #123 |
 | **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | open | |
 | **M4** Adoption and polish | 5.2 | open | |
 | **M5** Removals | 6.0 | open | |
@@ -102,11 +102,10 @@ ships M0 to M2b.
 - [x] Image baselines for the gallery (geometry with text hidden, RMS
       tolerance) so layout regressions fail CI.
 - [x] Cookbook opens with the CSV-to-figure recipe.
-- [ ] Schema at a stable URL with a Zenodo DOI per schema minor. The docs
-      now publish it at
-      `https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json`;
-      once that URL is live, point the `$id` at the versioned
-      (`/en/stable/`) copy and mint the DOI (maintainer actions).
+- [x] Schema at a stable URL: the docs publish it at
+      `https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json`,
+      which is its `$id`. No separate DOI: a GoodVibes release's Zenodo DOI
+      covers the schema it ships.
 
 ### M3: methods, MLIP overlay, selectivity on the profile (5.1)
 
