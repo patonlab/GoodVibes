@@ -8,6 +8,9 @@ from typing import List, Optional
 
 import numpy as np
 
+# QCData.sp_suffix of a single-point energy attached with
+# QCData.with_single_point (rather than read with --spc from a file).
+SP_ATTACHED = '<attached>'
 
 
 @dataclass
@@ -91,6 +94,48 @@ class QCData:
     sp_multiplicity: Optional[int] = None
     sp_suffix: str = ''
     sp_file: str = ''
+    # Level of theory of an energy attached with with_single_point
+    # (sp_suffix == SP_ATTACHED); empty otherwise.
+    sp_level_of_theory: str = ''
+
+    def with_single_point(self, energy, units, method=None, *, solvation_model=None,
+                          charge=None, multiplicity=None):
+        """A copy of this QCData whose enthalpies and free energies use
+        ``energy``, a single point at another level, in place of the
+        electronic energy of the frequency calculation: a composite such as
+        DFT//MLIP (DFT energy, MLIP geometry and frequencies) with no
+        single-point output file.
+
+        The single point is applied the way ``spc`` applies one read from a
+        file (``ThermoResult.spc_applied`` is True and ``sp_energy`` is
+        ``energy``) without passing ``spc``; an explicit ``spc`` still wins.
+        The copy keeps the attached energy through ``compute_thermo``,
+        re-evaluation at other temperatures, ``--export`` caches and
+        embedded conformers. The vibrational scale factor is still looked
+        up for the level of the frequencies.
+
+        Parameters:
+            energy: the single-point electronic energy.
+            units: its units, 'hartree', 'eV', 'kcal/mol' or 'kJ/mol'
+                (required, so an energy is never read in the wrong units).
+            method: level of theory of the single point, e.g.
+                'DLPNO-CCSD(T)/def2-TZVP'; recorded as ``sp_level_of_theory``.
+            solvation_model, charge, multiplicity: of the single point;
+                default those of this QCData.
+        """
+        import copy
+        from .constants import hartree_factor
+        qc = copy.deepcopy(self)
+        qc.sp_energy = float(energy) / hartree_factor(units)
+        qc.sp_suffix = SP_ATTACHED
+        qc.sp_level_of_theory = str(method or '')
+        qc.sp_version_program = ''
+        qc.sp_solvation_model = self.solvation_model if solvation_model is None else str(solvation_model)
+        qc.sp_charge = self.charge if charge is None else int(charge)
+        qc.sp_multiplicity = self.multiplicity if multiplicity is None else int(multiplicity)
+        qc.sp_empirical_dispersion = ''
+        qc.sp_file = ''
+        return qc
 
     # -- file-free construction (MLIP / ASE workflows) ----------------------
 

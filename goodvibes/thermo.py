@@ -11,7 +11,7 @@ import numpy as np
 
 from .constants import ATMOS, GAS_CONSTANT, J_TO_AU
 from .utils import display_name
-from .io import parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
+from .io import SP_ATTACHED, parse_qcdata, parse_data, sp_cpu as _sp_cpu, find_spc_file
 
 # pymsym powers the optional --symm point-group / symmetry-number detection.
 # It is not available on all platforms (e.g. no Windows wheels — see issue #102),
@@ -685,7 +685,11 @@ class calc_bbe:
         # SPC cache: when --spc was used in a previous run that produced
         # the QCData we're now reading from, the parsed SPC numbers are
         # carried on qcdata.sp_*. Reuse them when the suffix matches so
-        # `--import` doesn't re-parse the SPC file from disk.
+        # `--import` doesn't re-parse the SPC file from disk. An energy
+        # attached with QCData.with_single_point is applied without --spc.
+        if spc is None and qcdata is not None and qcdata.sp_suffix == SP_ATTACHED:
+            spc = SP_ATTACHED
+        self.sp_level_of_theory = qcdata.sp_level_of_theory if spc == SP_ATTACHED else ''
         if spc and spc != 'link':
             cached_sp_hit = (
                 qcdata is not None
