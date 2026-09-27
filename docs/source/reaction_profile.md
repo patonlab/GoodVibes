@@ -1,18 +1,22 @@
 # The reaction-profile format
 
-`reaction-profile/1.0` is a small, tool-independent document format for
+`reaction-profile/1.x` is a small, tool-independent document format for
 reaction energy profiles: the species and points of a mechanism, the
 pathways through them, and one or more *series* of relative energies
 (computed by GoodVibes from quantum-chemistry or MLIP data, or typed in from
 a paper). One document is the data behind a figure, its table and its
-provenance.
+provenance. Version 1.1 adds `selectivity`: competing branches and the
+selectivity their barriers predict.
 
-- **Status.** 1.0 is a draft until a second, independent tool reads and
+- **Status.** 1.x is a draft until a second, independent tool reads and
   writes it; minor versions only ever add optional keys.
 - **Licence.** The JSON Schema and this specification text are CC0-1.0
   (public domain); GoodVibes itself is MIT.
-- **Schema.** [`reaction-profile-1.0.schema.json`](https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json)
-  (JSON Schema draft 2020-12), installed with GoodVibes.
+- **Schema.** [`reaction-profile-1.1.schema.json`](https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.1.schema.json)
+  (JSON Schema draft 2020-12), installed with GoodVibes; it validates 1.0
+  and 1.1 documents. The 1.0 schema,
+  [`reaction-profile-1.0.schema.json`](https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json),
+  stays published unchanged.
 - **Reference implementation.** `goodvibes.profile` (Python) and the
   `goodvibes-profile` command.
 - **Conformance kit.** `tests/profile_conformance/` in the repository:
@@ -70,6 +74,7 @@ required.
 | `methods` | mapping | provenance of the series (program, level of theory, ...) |
 | `series` | list | the energies: one line set on the axes, one column set in a table |
 | `annotations` | list | barriers and spans to mark on the figure |
+| `selectivity` | list | (1.1) competing branches sharing a reference point |
 | `style` | mapping | presentation hints |
 | `provenance` | mapping | who made the document, from what |
 | `goodvibes` | mapping | GoodVibes' recipe namespace; other readers ignore it |
@@ -157,6 +162,57 @@ writes the canonical id.
 difference `to − from` on one pathway (in `series`, default the first
 drawn one).
 
+### selectivity (1.1)
+
+Each entry names points that compete from one shared point: enantiomeric or
+diastereomeric transition states, regioisomeric pathways, a chemoselective
+choice.
+
+```yaml
+schema: reaction-profile/1.1
+selectivity:
+  - id: er                     # unique
+    label: R vs S              # optional
+    kind: enantio              # enantio | diastereo | regio | chemo | other (default)
+    reference: Int             # the point the branches leave from
+    branches: [TS_R, TS_S]     # at least two points, in the order that sets the ee sign
+    series: G                  # optional: the series to use (default: every series with the levels)
+    interconversion: TS_swap   # optional: the barrier between the states feeding the branches
+```
+
+**What it predicts.** For a series, each branch's barrier is
+`ΔG‡ᵢ = level(branchᵢ) − level(reference)`, both read on one pathway that
+holds the two points (so pathways with different zeros are fine). The
+branch populations are the Curtin–Hammett distribution
+`pᵢ = exp(−ΔG‡ᵢ/RT) / Σⱼ exp(−ΔG‡ⱼ/RT)` at the series' temperature
+(`default_temperature` when it has none). A computed series rolled up over
+conformers gives each branch's ensemble free energy, so the conformers of
+every branch count. Declared series work too, so literature values predict
+a selectivity the same way.
+
+**Conventions.**
+- The *major* branch has the largest population; on an exact tie, the
+  first listed.
+- With two branches, `ee = (p₁ − p₂) × 100` with the branches in the
+  order listed: positive when the first branch is the major one. The
+  excess without a sign is `|ee|`, and `ΔΔG‡ = RT ln(p_major/p_minor) ≥ 0`.
+- With more branches, `ratio = p_major / p_runner-up`.
+
+**Curtin–Hammett.** The distribution assumes the states feeding the
+branches interconvert faster than they react, from the reference as their
+common ground state. A reader reports the assumption as:
+- *violated* when a branch lies at or below the reference, when a point
+  between the reference and a branch on its pathway lies below the
+  reference (a deeper resting state, so the energy span, not the barrier
+  from the reference, applies), or when the `interconversion` barrier (its
+  level minus the reference's) is not lower than the lowest branch
+  barrier;
+- *satisfied* when a lower `interconversion` barrier is given;
+- *assumed* otherwise.
+
+A branch that is not a transition state gets a note: its population is an
+equilibrium ratio, not a kinetic selectivity.
+
 ### style
 
 `{preset, layout: overlay | panels, connector: bezier | linear | step,
@@ -189,11 +245,14 @@ The JSON Schema checks structure. A conforming reader additionally rejects:
 4. a series whose `levels` / `uncertainty` name an unknown pathway, or a
    point that is neither on that pathway nor its zero;
 5. duplicate series ids, and a `method` that is defined nowhere;
-6. an annotation naming an unknown pathway, point or series.
+6. an annotation naming an unknown pathway, point or series;
+7. (1.1) a selectivity entry with a duplicate id, a reference, branch or
+   `interconversion` point that is not defined, a branch that is the
+   reference or listed twice, a branch or `interconversion` point on no
+   pathway with the reference, or an unknown `series`.
 
 Unknown keys that do not start with `x-` produce a warning (an error in
-strict mode). Keys reserved for later minors (`selectivity`) are rejected,
-never silently ignored.
+strict mode).
 
 ## Versioning
 
@@ -201,6 +260,12 @@ never silently ignored.
 of 1.0 reads any 1.x document, warning that keys it does not know are
 ignored. A major version changes meaning and is refused by readers of the
 previous major.
+
+A document using a 1.1 key must declare `reaction-profile/1.1`: a
+`selectivity` block in a 1.0 document is an error. A writer should declare
+the oldest version that can express the document: GoodVibes writes 1.0
+unless the document has a `selectivity` block, so a 1.0 reader reads
+everything else it writes without a warning.
 
 ## The GoodVibes namespace
 
@@ -279,7 +344,17 @@ goodvibes-profile convert levels.csv -o profile.yaml --quantity gibbs --temperat
 goodvibes-profile convert old_pes.yaml -o profile.yaml          # v2 / legacy -> explicit form
 goodvibes-profile evaluate azabor.json -o hot.json --temperatures 298.15,373.15
 goodvibes-profile plot azabor.json --temperatures 273,373 -o scan.png
+goodvibes-profile selectivity profile.json [--id er] [--temperatures 273,298] [-o sel.csv | --json]
+goodvibes-profile diff old.json new.json [--tolerance 0.05] [--series G] [--json]
 ```
+
+`selectivity` prints each block's major branch, signed ee, ΔΔG‡,
+Curtin–Hammett status and branch table. `diff` lists what changed between
+two documents (points, pathways, series metadata, every level beyond
+`--tolerance` after converting to one set of units, selectivity blocks and
+annotations) and exits 1 when they differ. The `goodvibes` command prints a
+document's selectivities after its PES tables, and `--json` adds them as a
+`profile_selectivity` list.
 
 `evaluate` and `--temperatures` need embedded conformers. A GoodVibes
 `--json` payload with a `profile` block is accepted wherever a document is,
@@ -328,6 +403,8 @@ fig = ev.plot(label_points=True)                    # ProfileAxes
 fig.save("profile.svg")
 ev.to_dataframe("long")                             # pandas, one row per pathway × point × series
 ev.write_table("si_table.md")
+ev.evaluate_selectivity()                           # 1.1 selectivity blocks -> [SelectivityResult]
+ev.diff(load_profile("other.json"), tolerance=0.05) # ProfileDiff; empty when they agree
 ```
 
 `Profile.from_table(...)`, `Profile.from_pes_result(pes)` (for a model built

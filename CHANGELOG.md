@@ -9,6 +9,53 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- reaction-profile 1.1: the `selectivity` block (no longer reserved). It
+  names competing branch points that share a reference point.
+  - `Profile.evaluate_selectivity()` gives each branch's barrier
+    (`level(branch) - level(reference)` on a pathway holding both) and
+    the Curtin–Hammett populations, for computed and declared series
+    alike.
+  - Each result has a Curtin–Hammett status. It is `violated` when a
+    branch lies at or below the reference, when a deeper point lies
+    between the reference and a branch, or when the `interconversion`
+    barrier is not below the lowest branch barrier. It is `satisfied`
+    when a lower interconversion barrier is given, and `assumed`
+    otherwise. Violations, and branches that are not transition states,
+    are raised as `SelectivityWarning`.
+  - `goodvibes/schemas/reaction-profile-1.1.schema.json` defines the block;
+    the 1.0 schema stays published unchanged. Documents are written at the
+    oldest version that can express them, so only documents with a
+    `selectivity` block are tagged 1.1. A 1.0 document using the key is
+    rejected.
+  - `goodvibes-profile selectivity` prints, tabulates (`.csv`/`.md`) or
+    dumps (`--json`) the results; `goodvibes --pes` prints them after the
+    PES tables.
+- `SelectivityResult` v2:
+  - `major`: the most populated label, the first listed on a tie;
+    `preferred` stays as its alias;
+  - `ee_signed`: `(p1 - p2) * 100`, positive when the first label is
+    major;
+  - `ratio`: the major over the runner-up;
+  - `ensemble_energies`: `-RT ln Σ exp(-E/RT)` per label;
+  - for document selectivities: `name`, `series`, `reference`,
+    `barriers`, `curtin_hammett` and `warnings`.
+
+  `selectivity_from_energies` is the shared core.
+- `compute_selectivity_batch(jobs, temperatures, s_freq_cutoffs=...,
+  conformer_windows=...)` sweeps many selectivity jobs over temperatures,
+  entropy cutoffs and conformer energy windows. It parses each file once and
+  returns one row per job and condition (a pandas DataFrame, or records).
+  `summarize_selectivity` states the nominal value and its range: "ee +95 %
+  (94 to 96 % over s_freq_cutoff 50–150 cm⁻¹, conformer window 0–3
+  kcal/mol)".
+- `plot_boltzmann_histogram` draws conformer populations; several groups
+  are pooled into one distribution. `plot_temperature_scan` draws an
+  ensemble's thermochemistry, or a profile's point levels, against
+  temperature. Both replace the stubs that raised `NotImplementedError`.
+- `Profile.diff` / `goodvibes-profile diff OLD NEW` compare two documents
+  (points, pathways, series, every level within a tolerance in common
+  units, selectivity blocks and annotations). The command exits 1 when
+  they differ.
 - Provenance on `ThermoResult`: `temperature`, `options` (the resolved
   `ThermoOptions`), `freq_scale_factor`, `zpe_scale_factor`,
   `scale_factor_source` (`user`, `truhlar`, `mlip-unscaled` or
@@ -250,6 +297,12 @@ every such change is listed under **Output changes**.
   both.
 
 ### Output changes
+- `--json` / `--export` selectivity results (`selectivity`,
+  `selectivity_lowest`) gain `major`, `ee_signed`, `ratio` and
+  `ensemble_energies` (additive within the unreleased payload 1.1). With a
+  reaction-profile document that has `selectivity` blocks, the payload gains
+  a `profile_selectivity` list, and the `.dat` output prints the
+  selectivities after the PES tables.
 - A level of theory with no vibrational scaling factor in the Truhlar
   database adds a `! No vibrational scaling factor found for <level> level
   of theory: frequencies are unscaled (1.0). Set one with --vscal.` line to

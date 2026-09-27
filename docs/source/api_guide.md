@@ -167,6 +167,14 @@ and a vibrational analysis (`QCData.from_atoms`,
   literature overlays and `layout="panels"`; `QCData.from_atoms` /
   `from_vibrations` for file-free ASE and MLIP inputs; every class
   importable from `goodvibes`. See the cookbook, recipes 4 and 4b.
+- **5.1 — Selectivity on the profile.** `SelectivityResult` v2 (`major`,
+  signed `ee_signed`, `ratio`, `ensemble_energies`); the reaction-profile
+  1.1 `selectivity` block with Curtin–Hammett checks
+  (`Profile.evaluate_selectivity`, `goodvibes-profile selectivity`);
+  `compute_selectivity_batch` / `summarize_selectivity` for sweeps over
+  temperatures, entropy cutoffs and conformer windows;
+  `plot_boltzmann_histogram`, `plot_temperature_scan`; `Profile.diff` and
+  `goodvibes-profile diff`. See cookbook recipe 3b.
 - **Reaction-profile documents.** `load_profile` / `Profile` read, validate,
   evaluate, write, tabulate and plot `reaction-profile/1.0` documents;
   `goodvibes --profile` writes one and `goodvibes-profile` works with them

@@ -1,4 +1,4 @@
-"""Reaction-profile documents: the ``reaction-profile/1.0`` format.
+"""Reaction-profile documents: the ``reaction-profile/1.x`` format (1.1 adds ``selectivity``).
 
 A reaction-profile document describes an energy profile independently of
 how its numbers were obtained: species (identity only), points (a

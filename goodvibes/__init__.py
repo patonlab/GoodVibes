@@ -17,7 +17,7 @@ Programmatic API:
     pes = load_pes("profile.yaml", {r.file: r.bbe for r in results})
     plot_profile(pes, temperatures=[298.15, 373.15]).save("profile.svg")
 
-    # reaction-profile documents (reaction-profile/1.0)
+    # reaction-profile documents (reaction-profile/1.x)
     from goodvibes import load_profile
     doc = load_profile("profile.yaml").evaluate(results, with_conformers=True)
     doc.dump("profile.json"); doc.plot().save("profile.svg")

@@ -94,7 +94,7 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 # Publish the reaction-profile JSON Schema at the site root, a stable URL for
-# validators: https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json
+# validators: https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.1.schema.json (and 1.0)
 html_extra_path = ['../goodvibes/schemas']
 
 # Custom sidebar templates, must be a dictionary that maps document names
