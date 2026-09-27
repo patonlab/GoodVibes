@@ -43,7 +43,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .constants import __version__, canonical_units, hartree_factor
 from .pes_model import (
-    EDGE_KINDS, ConformerSet, Edge, PESOptions, PESResult, Pathway, Point, Series,
+    EDGE_KINDS, ComputedEntry, ConformerSet, Edge, PESOptions, PESResult, Pathway, Point, Series,
     _normalise_role, merge_point_order, parse_point_label,
 )
 from .quantities import QUANTITIES, resolve_quantity
@@ -95,6 +95,11 @@ _ROLLUP_KEYS = {"mode", "weight_by"}
 _DEDUP_KEYS = {"e_cutoff", "ro_cutoff", "rmsd_cutoff"}
 _THERMO_KEYS = {"QS", "QH", "s_freq_cutoff", "h_freq_cutoff", "concentration", "freq_scale_factor",
                 "zpe_scale_factor", "solv", "spc", "invert", "symm", "inertia", "strict_spc"}
+# Options a method may set for itself under goodvibes.thermo.by_method: all
+# re-evaluate a structure from its parsed data. spc and strict_spc are left
+# out, since a single-point energy comes from another file at parse time.
+_METHOD_THERMO_KEYS = {"QS", "QH", "s_freq_cutoff", "h_freq_cutoff", "concentration", "freq_scale_factor",
+                       "zpe_scale_factor", "solv", "invert", "symm", "inertia"}
 _DIR_PREFIX = "@dir:"          # pes_loader's encoding of a directory pattern
 _SCHEMA_RE = re.compile(r"^reaction-profile/(\d+)\.(\d+)$")
 
@@ -147,6 +152,34 @@ class ProfilePathway:
     edges: List[Edge]
     explicit_edges: List[Edge] = field(default_factory=list)
     extensions: Dict[str, Any] = field(default_factory=dict)
+
+
+def _check_method_thermo(where: str, overrides: Mapping, chk: "_Checker") -> None:
+    for key, value in overrides.items():
+        kwhere = f"{where}.{key}"
+        if key in ("spc", "strict_spc"):
+            chk.error(kwhere, "cannot differ between methods (the single-point energy is read with the "
+                              "output files); set it for the run instead")
+        elif key not in _METHOD_THERMO_KEYS:
+            if not (isinstance(key, str) and key.startswith("x-")):
+                chk.error(kwhere, f"unknown thermochemistry option; one of {', '.join(sorted(_METHOD_THERMO_KEYS))}")
+        elif key == "QS":
+            if value not in ("grimme", "truhlar"):
+                chk.error(kwhere, f"must be 'grimme' or 'truhlar', got {value!r}")
+        elif key == "inertia":
+            if value not in ("global", "conf"):
+                chk.error(kwhere, f"must be 'global' or 'conf', got {value!r}")
+        elif key == "invert":
+            if value is not None and value != "auto":
+                chk.number(kwhere, value, positive=True)
+        elif key in ("QH", "symm"):
+            if not isinstance(value, bool):
+                chk.error(kwhere, f"must be true or false, got {value!r}")
+        elif key == "solv":
+            if value is not None:
+                chk.string(kwhere, value)
+        elif value is not None or key in ("s_freq_cutoff", "h_freq_cutoff"):
+            chk.number(kwhere, value, positive=True)
 
 
 class _Checker:
@@ -532,7 +565,8 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
     if rollup:
         namespace["rollup"] = rollup
     thermo = chk.mapping(f"{NAMESPACE}.thermo", namespace.get("thermo")) or {}
-    chk.keys(f"{NAMESPACE}.thermo", thermo, _THERMO_KEYS | {"temperature"})
+    chk.keys(f"{NAMESPACE}.thermo", thermo, _THERMO_KEYS | {"temperature", "by_method"})
+    by_method = chk.mapping(f"{NAMESPACE}.thermo.by_method", thermo.get("by_method")) or {}
     dedup = namespace.get("dedup")
     if dedup is not None:
         dedup = chk.mapping(f"{NAMESPACE}.dedup", dedup) or {}
@@ -551,6 +585,14 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
             if not isinstance(items, list) or not all(isinstance(i, Mapping) and "qcdata" in i and "options" in i
                                                      for i in items):
                 chk.error(f"{where}.{sname}", "must be a list of {file, qcdata, options} entries")
+
+    for mid, overrides in by_method.items():
+        where = f"{NAMESPACE}.thermo.by_method.{mid}"
+        if str(mid) not in method_ids:
+            chk.error(where, f"method {mid!r} is not defined under `methods` or `{NAMESPACE}.sources`")
+        overrides = chk.mapping(where, overrides)
+        if overrides:
+            _check_method_thermo(where, overrides, chk)
 
     # -- series --------------------------------------------------------------
     series: List[Series] = []
@@ -1194,6 +1236,15 @@ class Profile:
             return None
         return DEFAULT_METHOD if DEFAULT_METHOD in methods else methods[0]
 
+    def method_thermo(self, method: Optional[str]) -> Dict[str, Any]:
+        """The thermochemistry options ``method`` sets for itself under
+        ``goodvibes.thermo.by_method`` (empty when it sets none). They
+        replace the options each of its structures was computed with, so
+        a DFT and an MLIP method can use different scaling and qRRHO
+        settings in one evaluation."""
+        by_method = self.namespace.get("thermo", {}).get("by_method") or {}
+        return {k: v for k, v in (by_method.get(method) or {}).items() if k in _METHOD_THERMO_KEYS}
+
     def pes_options(self) -> PESOptions:
         rollup = self.namespace.get("rollup", {})
         mode = rollup.get("mode", "gconf")
@@ -1268,6 +1319,9 @@ class Profile:
                     bbes.append(calc_bbe.from_options(qc, opts))
                 sets[name] = ConformerSet(name, files, bbes, weight_by=weight_by)
             used = bool(sets)
+        overrides = self.method_thermo(method)
+        if overrides and sets:
+            sets = {name: _with_method_options(cs, overrides, method) for name, cs in sets.items()}
         dedup = self.namespace.get("dedup")
         if dedup and sets:
             kw = {k: dedup[k] for k in ("e_cutoff", "ro_cutoff", "rmsd_cutoff") if k in dedup}
@@ -1333,7 +1387,7 @@ class Profile:
         warns: List[str] = []
         inputs: List[dict] = []
         conformers: Dict[str, Dict[str, list]] = {}
-        thermo_summary = None
+        first_options: Dict[Optional[str], Any] = {}
         seen_sets = set()
         for s in computed:
             m = method_of(s)
@@ -1358,8 +1412,8 @@ class Profile:
                             reason = getattr(bbe, "spc_reason", None)
                             if reason:
                                 warns.append(f"{os.path.basename(f)}: {reason}")
-                        if cset.entries and thermo_summary is None:
-                            thermo_summary = _options_summary(cset.entries[0].options)
+                        if cset.entries:
+                            first_options.setdefault(m, cset.entries[0].options)
                         if with_conformers:
                             if not cset.entries:
                                 warns.append(f"species {cset.name!r}: conformers not embedded (no parsed input kept)")
@@ -1381,8 +1435,16 @@ class Profile:
         rollup = dict(new.namespace.get("rollup", {}))
         rollup["mode"] = mode
         new.namespace["rollup"] = rollup
+        # goodvibes.thermo records the run's options: those of a method that
+        # does not set its own under by_method, when there is one
+        by_method = self.namespace.get("thermo", {}).get("by_method")
+        plain = [o for m, o in first_options.items() if not self.method_thermo(m)]
+        base = (plain or list(first_options.values()) or [None])[0]
+        thermo_summary = _options_summary(base) if base is not None else None
         if thermo_summary:
             new.namespace["thermo"] = thermo_summary
+        if by_method:
+            new.namespace.setdefault("thermo", {})["by_method"] = copy.deepcopy(by_method)
         if with_conformers:
             new.namespace["conformers"] = conformers
         new.provenance = {
@@ -1510,6 +1572,33 @@ def _options_summary(options) -> dict:
     d.pop("temperature", None)
     d.pop("scale_factor_source", None)
     return d
+
+
+def _with_method_options(cset: ConformerSet, overrides: Mapping[str, Any], method) -> ConformerSet:
+    """``cset`` re-evaluated with ``overrides`` replacing its structures'
+    thermochemistry options. Setting either scale factor resolves both
+    again, as for a new calculation: a freq_scale_factor alone sets both,
+    one left out or null is looked up, and the recorded source follows."""
+    if not cset.entries:
+        raise ProfileError([f"{NAMESPACE}.thermo.by_method.{method}: species {cset.name!r} cannot be "
+                            "re-evaluated with its own options (its thermochemistry was given without "
+                            "the parsed output; build it with compute_thermo or calc_bbe.from_options)"])
+    entries = []
+    for e in cset.entries:
+        changes = dict(overrides)
+        if "freq_scale_factor" in changes or "zpe_scale_factor" in changes:
+            changes = {**changes, "freq_scale_factor": changes.get("freq_scale_factor"),
+                       "zpe_scale_factor": changes.get("zpe_scale_factor"), "scale_factor_source": None}
+        opts = replace(e.options, **changes)
+        if opts == e.options:
+            entries.append(e)
+            continue
+        entry = ComputedEntry(qcdata=e.qcdata, options=opts, file=e.file)
+        bbe = entry.bbe()
+        entry = ComputedEntry(qcdata=e.qcdata, options=bbe.options, file=e.file)   # resolved factors
+        entry._cache[bbe.options] = bbe
+        entries.append(entry)
+    return ConformerSet(cset.name, list(cset.files), [e.bbe() for e in entries], entries, cset.weight_by)
 
 
 def _conformer_record(entry) -> dict:
