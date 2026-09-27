@@ -53,6 +53,7 @@ __all__ = [
     "Profile", "ProfilePoint", "ProfilePathway", "ProfileError", "ProfileWarning",
     "load_profile", "validate_document", "schema_errors", "load_json_schema",
     "SCHEMA_TAG", "SCHEMA_VERSION", "SCHEMA_ID", "BASE_TAG", "SelectivityWarning",
+    "ProfileDiff", "ProfileDifference",
 ]
 
 SCHEMA_NAME = "reaction-profile"
@@ -108,6 +109,65 @@ _METHOD_THERMO_KEYS = {"QS", "QH", "s_freq_cutoff", "h_freq_cutoff", "concentrat
                        "zpe_scale_factor", "solv", "invert", "symm", "inertia"}
 _DIR_PREFIX = "@dir:"          # pes_loader's encoding of a directory pattern
 _SCHEMA_RE = re.compile(r"^reaction-profile/(\d+)\.(\d+)$")
+
+
+@dataclass(frozen=True)
+class ProfileDifference:
+    """One difference between two documents: ``kind`` ('document',
+    'point', 'pathway', 'series', 'level', 'uncertainty', 'selectivity' or
+    'annotation'), ``where`` (a path such as ``series.G.levels.main.TS1``),
+    the two values (None where one side lacks it) and, for levels, ``delta``
+    = b - a in the diff's units."""
+    kind: str
+    where: str
+    a: Any
+    b: Any
+    delta: Optional[float] = None
+
+    def __str__(self) -> str:
+        if self.a is None:
+            return f"+ {self.where}: {_fmt_value(self.b)}"
+        if self.b is None:
+            return f"- {self.where}: {_fmt_value(self.a)}"
+        if self.delta is not None:
+            return f"~ {self.where}: {_fmt_value(self.a)} -> {_fmt_value(self.b)} ({self.delta:+.2f})"
+        return f"~ {self.where}: {_fmt_value(self.a)} -> {_fmt_value(self.b)}"
+
+
+@dataclass
+class ProfileDiff:
+    """The differences between two documents (``Profile.diff``); empty
+    when they agree within ``tolerance`` (in ``units``)."""
+    differences: List[ProfileDifference]
+    units: str
+    tolerance: float
+
+    @property
+    def identical(self) -> bool:
+        return not self.differences
+
+    def __bool__(self) -> bool:                  # truthy when the documents differ, like a diff
+        return bool(self.differences)
+
+    def to_rows(self) -> List[dict]:
+        return [{"kind": d.kind, "where": d.where, "a": d.a, "b": d.b, "delta": d.delta}
+                for d in self.differences]
+
+    def __str__(self) -> str:
+        if not self.differences:
+            return f"identical within {self.tolerance:g} {self.units}"
+        lines = [str(d) for d in self.differences]
+        lines.append(f"{len(self.differences)} difference{'s' if len(self.differences) != 1 else ''} "
+                     f"(levels in {self.units}, tolerance {self.tolerance:g})")
+        return "\n".join(lines)
+
+
+def _fmt_value(v) -> str:
+    if isinstance(v, float):
+        return f"{v:.2f}"
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, ensure_ascii=False, sort_keys=True, default=str)
+    return str(v)
 
 
 class ProfileError(ValueError):
@@ -230,6 +290,22 @@ def _parse_selectivity(data, tag, minor, points, pathways, series_ids, chk: "_Ch
             chk.error(f"{where}.series", f"unknown series {sid!r}")
         out.append(dict(block))
     return out
+
+
+def _union(a, b) -> List[str]:
+    """Keys of ``a`` then those of ``b`` not in ``a``, in order."""
+    return list(a) + [k for k in b if k not in a]
+
+
+def _point_dict(pt: Optional[ProfilePoint]) -> Optional[dict]:
+    if pt is None:
+        return None
+    d: Dict[str, Any] = {"role": pt.role}
+    if pt.species:
+        d["species"] = pt.species_mapping()
+    if pt.display is not None:
+        d["display"] = pt.display
+    return d
 
 
 def _retarget_selectivity(blocks: List[dict], series_ids) -> List[dict]:
@@ -1560,6 +1636,95 @@ class Profile:
             "warnings": warns,
         }
         return new
+
+    # -- comparison ------------------------------------------------------------
+
+    def diff(self, other: "Profile", *, tolerance: float = 0.01, units: Optional[str] = None,
+             series: Optional[Sequence[str]] = None) -> ProfileDiff:
+        """How ``other`` differs from this document.
+
+        Compares the document fields (title, units, ensemble,
+        default_temperature), points, pathways, series (matched by id:
+        added, removed, changed metadata, and every level and uncertainty,
+        which differ when they are more than ``tolerance`` apart, in
+        ``units``, default this document's; the other document's values
+        are converted), selectivity blocks and annotations. Provenance,
+        style and the GoodVibes namespace (sources, embedded conformers)
+        are not compared. ``series`` restricts the series compared.
+        """
+        units = canonical_units(units or self.units)
+        fa = hartree_factor(units) / hartree_factor(self.units)
+        fb = hartree_factor(units) / hartree_factor(other.units)
+        out: List[ProfileDifference] = []
+
+        def add(kind, where, a, b, delta=None):
+            out.append(ProfileDifference(kind, where, a, b, delta))
+
+        for key in ("title", "units", "ensemble", "default_temperature"):
+            a, b = getattr(self, key), getattr(other, key)
+            if a != b:
+                add("document", key, a, b)
+        for pid in _union(self.points, other.points):
+            pa, pb = self.points.get(pid), other.points.get(pid)
+            if pa is None or pb is None:
+                add("point", f"points.{pid}", _point_dict(pa), _point_dict(pb))
+                continue
+            for key, a, b in (("species", pa.species_mapping(), pb.species_mapping()),
+                              ("role", pa.role, pb.role), ("display", pa.display, pb.display)):
+                if a != b:
+                    add("point", f"points.{pid}.{key}", a, b)
+        for name in _union(self.pathways, other.pathways):
+            wa, wb = self.pathways.get(name), other.pathways.get(name)
+            if wa is None or wb is None:
+                add("pathway", f"pathways.{name}", wa and list(wa.points), wb and list(wb.points))
+                continue
+            for key, a, b in (("points", list(wa.points), list(wb.points)), ("zero", wa.zero, wb.zero)):
+                if a != b:
+                    add("pathway", f"pathways.{name}.{key}", a, b)
+        sa = {s.id: s for s in self.series}
+        sb = {s.id: s for s in other.series}
+        ids = [i for i in _union(sa, sb) if series is None or i in series]
+        for sid in ids:
+            a, b = sa.get(sid), sb.get(sid)
+            if a is None or b is None:
+                add("series", f"series.{sid}", a and a.label, b and b.label)
+                continue
+            for key in ("quantity", "temperature", "method", "declared"):
+                if getattr(a, key) != getattr(b, key):
+                    add("series", f"series.{sid}.{key}", getattr(a, key), getattr(b, key))
+            for what, la, lb in (("levels", a.levels, b.levels), ("uncertainty", a.uncertainty, b.uncertainty)):
+                la, lb = la or {}, lb or {}
+                for path in _union(la, lb):
+                    pa, pb = la.get(path) or {}, lb.get(path) or {}
+                    for pid in _union(pa, pb):
+                        va, vb = pa.get(pid), pb.get(pid)
+                        va = va * fa if va is not None else None
+                        vb = vb * fb if vb is not None else None
+                        where = f"series.{sid}.{what}.{path}.{pid}"
+                        kind = "level" if what == "levels" else "uncertainty"
+                        if (va is None) != (vb is None) or (pid in pa) != (pid in pb):
+                            add(kind, where, va, vb)
+                        elif va is not None and abs(vb - va) > tolerance:
+                            add(kind, where, va, vb, vb - va)
+        ba = {blk["id"]: blk for blk in self.selectivity}
+        bb = {blk["id"]: blk for blk in other.selectivity}
+        for bid in _union(ba, bb):
+            xa, xb = ba.get(bid), bb.get(bid)
+            if xa is None or xb is None:
+                add("selectivity", f"selectivity.{bid}", xa, xb)
+                continue
+            for key in _union(xa, xb):
+                if xa.get(key) != xb.get(key):
+                    add("selectivity", f"selectivity.{bid}.{key}", xa.get(key), xb.get(key))
+        ann_a = [json.dumps(x, sort_keys=True) for x in self.annotations]
+        ann_b = [json.dumps(x, sort_keys=True) for x in other.annotations]
+        for x in ann_a:
+            if x not in ann_b:
+                add("annotation", "annotations", json.loads(x), None)
+        for x in ann_b:
+            if x not in ann_a:
+                add("annotation", "annotations", None, json.loads(x))
+        return ProfileDiff(out, units, float(tolerance))
 
     # -- selectivity (reaction-profile 1.1) -----------------------------------
 

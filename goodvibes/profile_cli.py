@@ -8,6 +8,7 @@ tables of relative energies), never quantum-chemistry output files.
     goodvibes-profile convert levels.csv -o profile.yaml --quantity gibbs --temperature 298.15
     goodvibes-profile evaluate profile.json -o hot.json --temperatures 298.15,373.15
     goodvibes-profile selectivity profile.json [--id er] [--temperatures 273,298.15] [-o sel.csv|--json]
+    goodvibes-profile diff old.json new.json [--tolerance 0.05] [--series G] [--json]
 
 A profile is a reaction-profile document (.yaml/.yml/.json), an SVG figure
 saved by GoodVibes (it embeds the drawn document), a GoodVibes
@@ -244,6 +245,20 @@ def cmd_selectivity(args) -> int:
     return 0
 
 
+def cmd_diff(args) -> int:
+    import json
+    a = _load(args.a, args)
+    b = _load(args.b, args)
+    result = a.diff(b, tolerance=args.tolerance, units=args.diff_units, series=_split(args.series))
+    if args.json:
+        print(json.dumps({"identical": result.identical, "units": result.units, "tolerance": result.tolerance,
+                          "differences": result.to_rows()}, indent=2, ensure_ascii=False, default=str))
+    else:
+        print(f"--- {args.a}\n+++ {args.b}")
+        print(result)
+    return 1 if result.differences else 0
+
+
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
@@ -320,6 +335,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="print the results as JSON")
     _add_table_options(p)
     p.set_defaults(func=cmd_selectivity)
+
+    p = sub.add_parser("diff", help="compare two documents (exit status 1 when they differ)")
+    p.add_argument("a", metavar="OLD")
+    p.add_argument("b", metavar="NEW")
+    p.add_argument("--tolerance", type=float, default=0.01,
+                   help="levels closer than this are equal (default 0.01, in the comparison units)")
+    p.add_argument("--diff-units", dest="diff_units", default=None,
+                   help="units of the comparison (default: those of OLD)")
+    p.add_argument("--series", default=None, help="compare only these series (comma-separated ids)")
+    p.add_argument("--json", action="store_true", help="print the differences as JSON")
+    _add_table_options(p)
+    p.set_defaults(func=cmd_diff)
     return parser
 
 
