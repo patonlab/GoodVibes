@@ -46,6 +46,7 @@ _THERMO_FIELDS = (
     'frequency_wn', 'im_frequency_wn', 'inverted_freqs',
     'point_group', 'symmno', 'linear_mol',
     'multiplicity', 'job_type', 'applied_freq_scale_factor',
+    'scale_factor_source', 'symmetry_source', 'n_imag',
 )
 
 

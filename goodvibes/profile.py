@@ -1503,8 +1503,12 @@ def _input_record(path: str, species: str, method: Optional[str]) -> dict:
 
 
 def _options_summary(options) -> dict:
+    """The thermochemistry recipe of `options` for goodvibes.thermo: inputs
+    only (the temperature belongs to each series, and scale_factor_source
+    is provenance recorded per structure)."""
     d = asdict(options)
     d.pop("temperature", None)
+    d.pop("scale_factor_source", None)
     return d
 
 

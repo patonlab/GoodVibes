@@ -79,6 +79,16 @@ class ThermoResult:
     # MissingSinglePointError) when it could not be applied.
     spc_applied: bool = False
 
+    # Provenance: how this result was computed.
+    temperature: Optional[float] = None         # K
+    options: Any = None                         # the resolved ThermoOptions
+    freq_scale_factor: Optional[float] = None   # applied to H_vib / S_vib
+    zpe_scale_factor: Optional[float] = None    # applied to the ZPE
+    # 'user' | 'truhlar' | 'mlip-unscaled' | 'none-found' (see thermo.SCALE_FACTOR_SOURCES)
+    scale_factor_source: Optional[str] = None
+    symmetry_source: Optional[str] = None       # 'output' | 'pymsym' | 'assumed' (sigma = 1)
+    n_imag: Optional[int] = None                # imaginary modes in the output (None: no frequencies)
+
     @property
     def has_thermo(self) -> bool:
         """True when calc_bbe found enough information to compute G(T).
@@ -224,7 +234,7 @@ def to_dataframe(results: Sequence[ThermoResult]):
         raise ImportError(
             "to_dataframe requires pandas; install with `pip install pandas`."
         ) from exc
-    skip = {"bbe", "qcdata", "frequency_wn", "im_frequency_wn", "inverted_freqs"}
+    skip = {"bbe", "qcdata", "options", "frequency_wn", "im_frequency_wn", "inverted_freqs"}
     rows = []
     for r in results:
         rows.append({
@@ -300,6 +310,7 @@ def bbe_to_result(
     qh_h = getattr(bbe, "qh_enthalpy", None)
     if qh_h == 0.0:
         qh_h = None
+    opts = getattr(bbe, "options", None)
 
     return ThermoResult(
         file=file,
@@ -326,6 +337,13 @@ def bbe_to_result(
         level_of_theory=level_of_theory,
         spc_applied=bool(getattr(bbe, "spc_applied", False)),
         program=getattr(qc, "program", None) if qc else None,
+        temperature=getattr(opts, "temperature", None),
+        options=opts,
+        freq_scale_factor=getattr(opts, "freq_scale_factor", None),
+        zpe_scale_factor=getattr(opts, "zpe_scale_factor", None),
+        scale_factor_source=getattr(bbe, "scale_factor_source", None),
+        symmetry_source=getattr(bbe, "symmetry_source", None),
+        n_imag=getattr(bbe, "n_imag", None),
         bbe=bbe,
         qcdata=qc,
     )
