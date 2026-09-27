@@ -1,0 +1,24 @@
+# Aminoxylation: catalyst + substrate to the R transition state, with the
+# catalyst conformers rolled up by gconf. The reaction-profile form of
+# gconf_aminox_cat.yaml (the legacy '--- # PES' text, kept for its tests).
+#   goodvibes *.log --pes gconf_aminox_cat_profile.yaml
+schema: reaction-profile/1.0
+title: Aminoxylation (catalyst + substrate to TS)
+units: kcal/mol
+species:
+  cat: {}
+  subs: {}
+  TS: {}
+points:
+  cat+subs: {species: cat + subs, role: reactant}
+  TS: {species: TS, role: ts, display: "TS‡"}
+pathways:
+  Reaction: [cat+subs, TS]
+style: {decimals: 2}
+goodvibes:
+  sources:
+    default:
+      cat: {files: "aminox_cat_*"}
+      subs: {files: "aminox_subs_*"}
+      TS: {files: "Aminoxylation_TS1_R"}
+  rollup: {mode: gconf}

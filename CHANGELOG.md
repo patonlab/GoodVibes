@@ -125,6 +125,10 @@ every such change is listed under **Output changes**.
   README option table.
 
 ### Changed
+- README Example 9 uses a reaction-profile document,
+  `examples/gconf_ee_boltz/gconf_aminox_cat_profile.yaml`, instead of the
+  deprecated `--- # PES` text (`gconf_aminox_cat.yaml`, kept for its tests);
+  both give the same levels.
 - Python 3.10 or newer is required (3.9 reached end of life in October
   2025); Python 3.14 is tested. CI runs on GitHub Actions only (the
   CircleCI job duplicated the Linux tests and is removed).

@@ -206,8 +206,36 @@ o  neopentane         -197.772980   0.160311   -197.604824   0.034606   0.034620
 ```
 
 ##### Example 9: Potential Energy Surface (PES) Comparison with Accessible Conformer Correction
+
+The profile is a [reaction-profile document](docs/source/reaction_profile.md),
+`examples/gconf_ee_boltz/gconf_aminox_cat_profile.yaml`: the points and pathway, and under
+`goodvibes:` which output files make up each species and how its conformers are rolled up (gconf).
+
+```yaml
+schema: reaction-profile/1.0
+title: Aminoxylation (catalyst + substrate to TS)
+units: kcal/mol
+species:
+  cat: {}
+  subs: {}
+  TS: {}
+points:
+  cat+subs: {species: cat + subs, role: reactant}
+  TS: {species: TS, role: ts, display: "TS‡"}
+pathways:
+  Reaction: [cat+subs, TS]
+style: {decimals: 2}
+goodvibes:
+  sources:
+    default:
+      cat: {files: "aminox_cat_*"}
+      subs: {files: "aminox_subs_*"}
+      TS: {files: "Aminoxylation_TS1_R"}
+  rollup: {mode: gconf}
+```
+
 ```bash
-goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml
+goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat_profile.yaml
 
       Structure                        E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -219,7 +247,6 @@ o     Aminoxylation_TS1_R    -879.405138   0.295352   -879.087613   0.063356   0
 o     Aminoxylation_TS2_S    -879.404445   0.295301   -879.086800   0.063974   0.061531   -879.150774   -879.148331
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-   ! examples/gconf_ee_boltz/gconf_aminox_cat.yaml uses the legacy '--- # PES' text format, which is deprecated and will be removed in v6.0; see the PES section of the documentation for the YAML form.
    Gconf correction applied to relative values
 
            RXN: Reaction  (kcal/mol)  at T = 298.15 K, p = 1 atm
@@ -231,10 +258,10 @@ o     Aminoxylation_TS2_S    -879.404445   0.295301   -879.086800   0.063974   0
 ──────────────────────────────────────────────────────────────────────────
 ```
 
-The same profile as a reaction-profile document, drawn later without the output files:
+The same profile evaluated into a document, then drawn and tabulated later without the output files:
 
 ```bash
-goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml --profile aminox.json
+goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat_profile.yaml --profile aminox.json
 goodvibes-profile plot aminox.json -o aminox.svg --label-points
 goodvibes-profile table aminox.json -o aminox_si.md
 ```
