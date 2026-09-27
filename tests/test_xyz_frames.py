@@ -113,6 +113,8 @@ def test_extxyz_energy_key_units_and_names(tmp_path):
     assert [f.scf_energy for f in frames] == pytest.approx([-76.01, -76.00])     # hartree by default
     assert [os.path.basename(f.file) for f in frames] == ["conf_a", "conf_b"]
     assert [f.scf_energy for f in read_xyz_frames(path, energy_key="E_dft")] == pytest.approx([-76.2, -76.1])
+    # naming a known key keeps its units (scf_energy is in hartree)
+    assert [f.scf_energy for f in read_xyz_frames(path, energy_key="scf_energy")] == pytest.approx([-76.01, -76.00])
 
 
 def test_ase_writes_what_the_reader_reads(tmp_path):

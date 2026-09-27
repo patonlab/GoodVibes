@@ -3169,7 +3169,8 @@ def read_xyz_frames(path, *, energy_units=None, energy_key=None, method=None,
     The energy of a frame comes from its comment line: in an extxyz one
     (``key=value`` pairs) from ``energy_key`` or, by default, the first of
     ``energy``, ``free_energy``, ``total_energy`` (eV, the ASE convention),
-    ``scf_energy`` (hartree) and ``E`` (eV); in a plain one from
+    ``scf_energy`` (hartree) and ``E`` (eV), a named key other than these
+    being in eV; in a plain one from
     ``energy: <value>`` (xtb) or a bare number (CREST), in hartree. An
     ``energy_units`` (or ``scf_energy_units``) key, or the ``energy_units``
     argument, overrides the units. A frame without an energy is an error.
@@ -3216,7 +3217,9 @@ def read_xyz_frames(path, *, energy_units=None, energy_key=None, method=None,
     for n, (comment, atom_lines) in enumerate(raw, start=1):
         where = f"{path}: frame {n}"
         info = _parse_extxyz_comment(comment)
-        keys = [(energy_key, 'eV')] if energy_key else list(_FRAME_ENERGY_KEYS)
+        # a named key keeps a known key's units (scf_energy: hartree), else eV
+        keys = ([(energy_key, dict(_FRAME_ENERGY_KEYS).get(energy_key, 'eV'))] if energy_key
+                else list(_FRAME_ENERGY_KEYS))
         # extended XYZ when an energy key or an extxyz marker is present; a
         # stray key=value in a plain comment ('energy: -5.0 force=0.01') is not
         if any(k in info for k, _u in keys) or any(k in info for k in _EXTXYZ_MARKERS):
