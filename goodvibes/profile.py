@@ -567,6 +567,10 @@ def _parse(data: Mapping, strict: bool = False) -> Tuple["Profile", List[str]]:
     thermo = chk.mapping(f"{NAMESPACE}.thermo", namespace.get("thermo")) or {}
     chk.keys(f"{NAMESPACE}.thermo", thermo, _THERMO_KEYS | {"temperature", "by_method"})
     by_method = chk.mapping(f"{NAMESPACE}.thermo.by_method", thermo.get("by_method")) or {}
+    if by_method:
+        # method ids are strings everywhere else (a YAML `1:` key is an int)
+        by_method = {str(mid): v for mid, v in by_method.items()}
+        namespace["thermo"] = {**thermo, "by_method": by_method}
     dedup = namespace.get("dedup")
     if dedup is not None:
         dedup = chk.mapping(f"{NAMESPACE}.dedup", dedup) or {}

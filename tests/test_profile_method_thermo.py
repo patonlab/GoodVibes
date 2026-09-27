@@ -114,6 +114,16 @@ def test_invalid_overrides_are_errors(overrides, message):
     assert any("goodvibes.thermo.by_method.mlip." in e and message in e for e in errors), errors
 
 
+def test_a_numeric_method_id_matches_its_series(results):
+    doc = copy.deepcopy(DOC)
+    doc["goodvibes"]["sources"] = {1: SOURCES, "dft": SOURCES}      # a YAML `1:` key
+    doc["goodvibes"]["thermo"]["by_method"] = {1: MLIP}
+    doc["series"][1]["method"] = 1
+    prof = Profile.from_dict(doc)
+    assert prof.method_thermo("1") == MLIP
+    assert _end(prof.evaluate(results), "G_mlip") == pytest.approx(_dG(**MLIP), abs=1e-6)
+
+
 def test_an_unknown_method_is_an_error():
     doc = copy.deepcopy(DOC)
     doc["goodvibes"]["thermo"]["by_method"] = {"xtb": {"QS": "truhlar"}}

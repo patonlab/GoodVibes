@@ -13,7 +13,10 @@ every such change is listed under **Output changes**.
   `ThermoOptions`), `freq_scale_factor`, `zpe_scale_factor`,
   `scale_factor_source` (`user`, `truhlar`, `mlip-unscaled` or
   `none-found`), `symmetry_source` (`output`, `pymsym` or `assumed`) and
-  `n_imag` (imaginary modes in the output). `ThermoOptions` carries
+  `n_imag` (imaginary modes in the output). An input counts as an MLIP
+  (`mlip-unscaled`) when it comes from ASE with a level of theory that names
+  no basis set; a QM level run through ASE is looked up and warned about
+  like any other. `ThermoOptions` carries
   `scale_factor_source`, so re-evaluations at other temperatures keep it.
   A level of theory missing from the Truhlar database no longer falls back
   to 1.0 silently: the API raises a `goodvibes.thermo.ScaleFactorWarning`
@@ -32,7 +35,8 @@ every such change is listed under **Output changes**.
   (a CREST ensemble, an xtb trajectory, MLIP energies written by
   `ase.io.write`) as an energy-only `QCData`. A `ConformerSet` weighted by
   `electronic` accepts energy-only structures, for Boltzmann populations
-  and the ensemble energy of such an ensemble.
+  and the ensemble energy of such an ensemble; `ThermoVector` arithmetic
+  and the rollups carry the missing thermochemistry as None.
 - Figure presets: `style.preset` in a reaction-profile document (no longer
   reserved), `plot_profile(preset=...)`, `Profile.plot(preset=...)` and
   `goodvibes-profile plot --preset` size the figure, fonts and line widths
@@ -249,10 +253,13 @@ every such change is listed under **Output changes**.
 - A level of theory with no vibrational scaling factor in the Truhlar
   database adds a `! No vibrational scaling factor found for <level> level
   of theory: frequencies are unscaled (1.0). Set one with --vscal.` line to
-  the output (stdout and `.dat`); the numbers are unchanged.
+  the output (stdout and `.dat`); a run over several levels of theory
+  without `--vscal` gets `! No single vibrational scaling factor applies to
+  several levels of theory: ...`. The numbers are unchanged.
 - `--json` / `--export`: each result's `thermo` block has
-  `scale_factor_source`, `symmetry_source` and `n_imag` keys (additive
-  within schema 1.1, which is unreleased).
+  `freq_scale_factor`, `zpe_scale_factor`, `scale_factor_source`,
+  `symmetry_source` and `n_imag` keys (additive within schema 1.1, which is
+  unreleased).
 - `plot_profile` figures: with value labels, the y margin is sized so a
   stack of labels stays inside the axes (it was a fixed 10 %, and labels
   of small figures ran into the title and the x axis); x tick labels that

@@ -371,11 +371,14 @@ def resolve_scaling_factor(files, options, level_of_theory):
 
     if options.freq_scale_factor is None:
         # No factor found: frequencies are used unscaled, and the run says so
-        # (ASE / MLIP inputs are unscaled by design and are labelled
+        # (MLIP inputs are unscaled by design and are labelled
         # 'mlip-unscaled' per file by calc_bbe.from_options).
         options.freq_scale_factor = 1.0
         options.scale_factor_source = "none-found"
-        if all_same(level_of_theory) and level_of_theory and level_of_theory[0]:
+        if not all_same(level_of_theory):
+            log.info("\n   ! No single vibrational scaling factor applies to several levels of theory: "
+                     "frequencies are unscaled (1.0). Set one with --vscal.")
+        elif level_of_theory and level_of_theory[0]:
             log.info("\n   ! No vibrational scaling factor found for {} level of theory: frequencies are "
                      "unscaled (1.0). Set one with --vscal.".format(level_of_theory[0]))
 

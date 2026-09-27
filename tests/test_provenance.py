@@ -104,6 +104,11 @@ def test_ase_input_is_unscaled_by_design():
     dft = QCData.from_atoms(molecule("H2O"), -76.4 * HARTREE_TO_EV, frequencies=freqs,
                             name="water", method="HF/6-31G(d)", symm=None)
     assert compute_thermo(qcdata=dft).scale_factor_source == "truhlar"
+    # a QM level run through ASE that the database lacks is not an MLIP
+    rare = QCData.from_atoms(molecule("H2O"), -76.4 * HARTREE_TO_EV, frequencies=freqs,
+                             name="water", method="wB97M-V/def2-QZVPPD", symm=None)
+    with pytest.warns(ScaleFactorWarning, match="wB97M-V/def2-QZVPPD"):
+        assert compute_thermo(qcdata=rare).scale_factor_source == "none-found"
 
 
 def test_symm_records_pymsym_as_the_symmetry_source():
@@ -119,6 +124,15 @@ def test_cli_says_when_no_scale_factor_was_found(monkeypatch, tmp_path, gv_logge
     assert "No vibrational scaling factor found for B3LYP/6-311+G(d,p)" in text
     thermo = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))["results"][0]["thermo"]
     assert (thermo["scale_factor_source"], thermo["symmetry_source"], thermo["n_imag"]) == ("none-found", "output", 0)
+    assert (thermo["freq_scale_factor"], thermo["zpe_scale_factor"]) == (1.0, 1.0)
+
+
+def test_cli_says_so_for_several_levels_of_theory(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
+    run_main(monkeypatch, tmp_path, [NOT_IN_DB, IN_DB, "--json", "out.json"])
+    text = (tmp_path / "GoodVibes_output.dat").read_text(encoding="utf-8")
+    assert "No single vibrational scaling factor applies to several levels of theory" in text
+    results = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))["results"]
+    assert {r["thermo"]["scale_factor_source"] for r in results} == {"none-found"}
 
 
 def test_cli_with_vscal_is_user_and_silent(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
@@ -126,4 +140,5 @@ def test_cli_with_vscal_is_user_and_silent(monkeypatch, tmp_path, gv_logger_clea
     text = (tmp_path / "GoodVibes_output.dat").read_text(encoding="utf-8")
     assert "No vibrational scaling factor found" not in text
     thermo = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))["results"][0]["thermo"]
-    assert thermo["scale_factor_source"] == "user"
+    assert (thermo["scale_factor_source"], thermo["freq_scale_factor"], thermo["zpe_scale_factor"]) == \
+        ("user", 0.98, 0.98)

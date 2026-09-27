@@ -58,11 +58,36 @@ def test_the_frames_give_boltzmann_populations_by_electronic_energy(tmp_path):
         ens.populations(298.15, "qh_gibbs")
     with pytest.raises(ValueError, match="unless the set is weighted by 'electronic'"):
         ConformerSet.from_results("water", results)
+    with pytest.raises(ValueError, match="unless the set is weighted by 'electronic'"):
+        ConformerSet.from_results("water", results, weight_by="spc")    # no single point here
+
+
+def test_energy_only_sets_roll_up_their_electronic_energy(tmp_path):
+    frames = read_xyz_frames(_write(tmp_path, "crest_conformers.xyz", CREST))
+    ens = ConformerSet.from_results("water", compute_batch(frames), weight_by="electronic")
+    p = ens.populations(298.15)
+    expected = sum(pi * f.scf_energy for pi, f in zip(p, frames))
+    for vec in (ens.boltzmann_weighted(298.15), ens.gconf_corrected(298.15)):
+        assert vec.scf_energy == pytest.approx(expected)
+        assert vec.qh_gibbs is None and vec.entropy is None and vec.get("e_zpe") is None
+    diff = ens.boltzmann_weighted(298.15) - ens.lowest_conformer(298.15)
+    assert diff.scf_energy == pytest.approx(expected - frames[0].scf_energy) and diff.gibbs is None
 
 
 def test_an_xtb_trajectory(tmp_path):
     frames = read_xyz_frames(_write(tmp_path, "xtbopt.log", XTB))
     assert [f.scf_energy for f in frames] == pytest.approx([-5.070544440612, -5.069544440612])
+
+
+@pytest.mark.parametrize("comment, energy", [
+    ("energy: -5 gnorm: 0.1", -5.0),                  # an integer, not the next number
+    ("energy: -5.07e0 gnorm: 0.1", -5.07),
+    ("energy: -5.0 force=0.01", -5.0),                # a stray key=value is not extxyz
+    ("Energy = -4.5 (GFN2)", -4.5),
+])
+def test_a_labelled_plain_energy(tmp_path, comment, energy):
+    frames = read_xyz_frames(_write(tmp_path, "one.xyz", f"3\n{comment}\n{WATER}"))
+    assert frames[0].scf_energy == pytest.approx(energy)
 
 
 def test_an_extxyz_in_ev_with_extra_columns_and_keys(tmp_path):
@@ -108,9 +133,12 @@ def test_ase_writes_what_the_reader_reads(tmp_path):
 
 @pytest.mark.parametrize("text, message", [
     ("3\nno energy here\n" + WATER, "no energy in the comment line"),
-    ("3\nfoo=bar\n" + WATER, "looked for energy"),
+    ("3\nProperties=species:S:1:pos:R:3 foo=bar\n" + WATER, "looked for energy"),
+    ("3\nenergy: n/a gnorm: 0.1\n" + WATER, "energy 'n/a' is not a number"),
+    ("-2\n-1.0\n" + WATER, "expected a positive atom count"),
+    ("0\n-1.0\n", "expected a positive atom count"),
     ("3\n-1.0\nO 0 0 0\n", "truncated"),
-    ("three\n-1.0\n" + WATER, "expected an atom count"),
+    ("three\n-1.0\n" + WATER, "expected a positive atom count"),
     ("3\n-1.0\nO 0 0\nH 0 0 1\nH 0 1 0\n", "cannot read the atom line"),
     ("", "no frames"),
 ])

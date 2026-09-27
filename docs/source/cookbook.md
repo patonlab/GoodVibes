@@ -506,9 +506,10 @@ What the constructors do:
   symmetry number come from pymsym when it is installed (`symm="auto"`),
   or pass `symm=<int>`;
 - `method=` is recorded as `level_of_theory`; when it matches an entry
-  of the scaling-factor database the usual scale factors apply,
-  otherwise the frequencies are used unscaled (the right default for
-  an MLIP).
+  of the scaling-factor database the usual scale factors apply. An MLIP
+  (a `method` naming no basis set, such as `MACE-OFF23`) is used unscaled
+  by design (`scale_factor_source == "mlip-unscaled"`); a QM level the
+  database lacks is used unscaled with a `ScaleFactorWarning`.
 
 `compute_batch` accepts `QCData` objects alongside paths, and
 `ThermoResult.name` / `program` are the `name=` given and `"ase"`.

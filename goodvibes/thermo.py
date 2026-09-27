@@ -521,21 +521,25 @@ def _scaling_entry(file, qcdata=None):
     return None, None
 
 
-def _is_ase_input(qcdata) -> bool:
-    """An ASE / MLIP input (``QCData.from_atoms`` / ``from_vibrations`` or an
-    ASE-written file): its frequencies are unscaled by design, since the
-    empirical scaling factors are fitted to DFT, not to MLIPs."""
-    return str(getattr(qcdata, "program", "") or "").lower() == "ase"
+def _is_mlip_input(qcdata) -> bool:
+    """An MLIP input: from ASE (``QCData.from_atoms`` / ``from_vibrations``
+    or an ASE-written file) with a level of theory that names no basis set
+    (``MACE-OFF23``, not ``B3LYP/def2-TZVP``). Its frequencies are unscaled
+    by design, since the empirical scaling factors are fitted to QM methods,
+    not to MLIPs; a QM level run through ASE is looked up like any other."""
+    if str(getattr(qcdata, "program", "") or "").lower() != "ase":
+        return False
+    return "/" not in str(getattr(qcdata, "level_of_theory", "") or "")
 
 
 def _unscaled_source(lot, qcdata, warn: bool) -> Optional[str]:
-    """'mlip-unscaled' for ASE / MLIP input, else 'none-found' (with a
+    """'mlip-unscaled' for an MLIP input, else 'none-found' (with a
     ScaleFactorWarning when `warn`, shown once per level of theory); None
     for an input without vibrations (a single point, an atom), where no
     factor applies."""
     if not (getattr(qcdata, "frequency_wn", None) or getattr(qcdata, "im_frequency_wn", None)):
         return None
-    if _is_ase_input(qcdata):
+    if _is_mlip_input(qcdata):
         return "mlip-unscaled"
     if warn:
         where = f"level of theory {lot!r}" if lot else "an unknown level of theory"
@@ -957,8 +961,8 @@ class calc_bbe:
 
         The result's ``scale_factor_source`` records where the harmonic
         factor came from: 'user' (passed in), 'truhlar' (database lookup),
-        'mlip-unscaled' (ASE / MLIP input with no database entry: 1.0 by
-        design) or 'none-found' (1.0 because the level of theory is not in
+        'mlip-unscaled' (an ASE input whose level names no basis set, i.e. an
+        MLIP, with no database entry: 1.0 by design) or 'none-found' (1.0 because the level of theory is not in
         the database; a ScaleFactorWarning says so). A caller that resolved
         the factors itself (the CLI) passes ``scale_factor_source``.
         """
@@ -998,7 +1002,7 @@ class calc_bbe:
                 zpe = harm
             if source is None:
                 source = "user"
-        if source == "none-found" and _is_ase_input(qcdata):
+        if source == "none-found" and _is_mlip_input(qcdata):
             source = "mlip-unscaled"
         if not (qcdata.frequency_wn or qcdata.im_frequency_wn):
             source = None                             # a single point or an atom: nothing to scale

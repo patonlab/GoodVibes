@@ -59,7 +59,8 @@ class ThermoResult:
 
 `scale_factor_source` says where the vibrational scale factors came from:
 passed in (`user`), the Truhlar database for the level of theory
-(`truhlar`), unscaled by design for an ASE / MLIP input (`mlip-unscaled`),
+(`truhlar`), unscaled by design for an MLIP input (`mlip-unscaled`: from ASE,
+with a level of theory that names no basis set, e.g. `MACE-OFF23`),
 or not found (`none-found`: the frequencies are used unscaled, and a
 `goodvibes.thermo.ScaleFactorWarning` says so instead of a silent 1.0). It is
 None, like `n_imag`, for an input without frequencies. `to_dataframe` has a

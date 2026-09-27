@@ -165,7 +165,9 @@ class QCData:
             method: model chemistry label, e.g. 'MACE-OFF23' or
                 'B3LYP/6-31G(d)'. Stored as ``level_of_theory``; when it
                 matches an entry of the Truhlar scaling database the same
-                scale factors as for a file are applied, otherwise 1.0.
+                scale factors as for a file are applied, otherwise 1.0
+                (by design for an MLIP, a method naming no basis set; with
+                a ScaleFactorWarning for a QM level).
             charge, multiplicity: default ``atoms.info`` values, else 0 / 1.
             symm: 'auto' (default) detects the point group and symmetry
                 number with pymsym when it is installed, an int sets the
@@ -3107,8 +3109,10 @@ def _detect_program(data):
 _FRAME_ENERGY_KEYS = (('energy', 'eV'), ('free_energy', 'eV'), ('total_energy', 'eV'),
                       ('scf_energy', 'hartree'), ('E', 'eV'))
 # A plain .xyz comment: 'energy: -42.1 gnorm: ...' (xtb) or a bare number (CREST).
-_PLAIN_ENERGY = re.compile(r'energy\s*[:=]?\s*(-?\d+\.\d*(?:[eE][-+]?\d+)?)', re.IGNORECASE)
+_PLAIN_ENERGY = re.compile(r'\benergy\b\s*(?:[:=]\s*(\S*)|([-+]?\.?\d\S*))', re.IGNORECASE)
 _BARE_FLOAT = re.compile(r'(?<![\w.])(-?\d+\.\d*(?:[eE][-+]?\d+)?)(?![\w.])')
+# extxyz keys that mark a comment line as extended XYZ even without an energy
+_EXTXYZ_MARKERS = ('Properties', 'Lattice', 'pbc')
 
 
 class _Frame:
@@ -3197,7 +3201,9 @@ def read_xyz_frames(path, *, energy_units=None, energy_key=None, method=None,
         try:
             natoms = int(lines[i].split()[0])
         except ValueError:
-            raise ValueError(f"{path}: line {i + 1}: expected an atom count, got {lines[i]!r}") from None
+            natoms = 0
+        if natoms <= 0:
+            raise ValueError(f"{path}: line {i + 1}: expected a positive atom count, got {lines[i]!r}")
         if i + 2 + natoms > len(lines):
             raise ValueError(f"{path}: frame {len(raw) + 1} is truncated ({natoms} atoms expected)")
         raw.append((lines[i + 1], lines[i + 2:i + 2 + natoms]))
@@ -3210,8 +3216,10 @@ def read_xyz_frames(path, *, energy_units=None, energy_key=None, method=None,
     for n, (comment, atom_lines) in enumerate(raw, start=1):
         where = f"{path}: frame {n}"
         info = _parse_extxyz_comment(comment)
-        if info:
-            keys = [(energy_key, 'eV')] if energy_key else list(_FRAME_ENERGY_KEYS)
+        keys = [(energy_key, 'eV')] if energy_key else list(_FRAME_ENERGY_KEYS)
+        # extended XYZ when an energy key or an extxyz marker is present; a
+        # stray key=value in a plain comment ('energy: -5.0 force=0.01') is not
+        if any(k in info for k, _u in keys) or any(k in info for k in _EXTXYZ_MARKERS):
             key, units = next(((k, u) for k, u in keys if k in info), (None, None))
             if key is None:
                 raise ValueError(f"{where}: no energy in the comment line (looked for "
@@ -3219,10 +3227,17 @@ def read_xyz_frames(path, *, energy_units=None, energy_key=None, method=None,
             value = info[key]
             units = info.get('energy_units') or info.get(f'{key}_units') or units
         else:
-            m = _PLAIN_ENERGY.search(comment) or _BARE_FLOAT.search(comment)
-            if m is None:
-                raise ValueError(f"{where}: no energy in the comment line {comment!r}")
-            value, units = m.group(1), 'hartree'
+            # 'energy: <value>' (xtb) names the energy; only a comment without
+            # that label falls back to its first bare number (CREST)
+            m = _PLAIN_ENERGY.search(comment)
+            if m is not None:
+                value = m.group(1) if m.group(1) is not None else m.group(2)
+            else:
+                m = _BARE_FLOAT.search(comment)
+                if m is None:
+                    raise ValueError(f"{where}: no energy in the comment line {comment!r}")
+                value = m.group(1)
+            units = 'hartree'
         try:
             energy = float(value)
         except ValueError:
