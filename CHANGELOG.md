@@ -123,6 +123,9 @@ every such change is listed under **Output changes**.
   README option table.
 
 ### Changed
+- Python 3.10 or newer is required (3.9 reached end of life in October
+  2025); Python 3.14 is tested. CI runs on GitHub Actions only (the
+  CircleCI job duplicated the Linux tests and is removed).
 - `ROADMAP.md` rewritten around the reaction-profile direction: milestones
   M0 to M2a shipped, M2b to M5 open, the items of the previous roadmap that
   were dropped or reshaped and why, and the example-set policy. The previous

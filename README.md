@@ -30,7 +30,7 @@ GoodVibes computes quasi-harmonic thermochemical corrections from electronic str
 
 #### Installation
 
-Requires Python >= 3.9.
+Requires Python >= 3.10.
 
 ```bash
 pip install goodvibes
@@ -209,23 +209,26 @@ o  neopentane         -197.772980   0.160311   -197.604824   0.034606   0.034620
 ```bash
 goodvibes examples/gconf_ee_boltz/*.log --pes examples/gconf_ee_boltz/gconf_aminox_cat.yaml
 
-   Structure                       E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
-   ************************************************************************************************************
-o  Aminoxylation_TS1_R   -879.405138   0.295352   -879.091374   0.063746   0.061481   -879.155120   -879.152855
-o  Aminoxylation_TS2_S   -879.404445   0.295301   -879.090562   0.064366   0.061891   -879.154928   -879.152453
-o  aminox_cat_conf212_S  -517.875165   0.200338   -517.662195   0.051817   0.049814   -517.714012   -517.712009
-o  aminox_cat_conf280_R  -517.877308   0.200869   -517.664171   0.049996   0.048777   -517.714167   -517.712948
-o  aminox_cat_conf65_S   -517.877161   0.200789   -517.664159   0.049790   0.048656   -517.713949   -517.712815
-o  aminox_subs_conf713   -361.535757   0.095336   -361.433167   0.037824   0.037696   -361.470991   -361.470863
-   ************************************************************************************************************
+      Structure                        E        ZPE             H        T.S     T.qh-S          G(T)       qh-G(T)
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+o     aminox_cat_conf65_S    -517.877161   0.200789   -517.661584   0.049563   0.048445   -517.711147   -517.710028
+o     aminox_cat_conf212_S   -517.875165   0.200338   -517.659623   0.051586   0.049603   -517.711210   -517.709226
+o     aminox_cat_conf280_R   -517.877308   0.200869   -517.661594   0.049769   0.048566   -517.711362   -517.710160
+o     aminox_subs_conf713    -361.535757   0.095336   -361.431955   0.037712   0.037587   -361.469668   -361.469543
+o     Aminoxylation_TS1_R    -879.405138   0.295352   -879.087613   0.063356   0.061120   -879.150968   -879.148733
+o     Aminoxylation_TS2_S    -879.404445   0.295301   -879.086800   0.063974   0.061531   -879.150774   -879.148331
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-   Gconf correction requested to be applied to below relative values using quasi-harmonic Boltzmann factors
+   ! examples/gconf_ee_boltz/gconf_aminox_cat.yaml uses the legacy '--- # PES' text format, which is deprecated and will be removed in v6.0; see the PES section of the documentation for the YAML form.
+   Gconf correction applied to relative values
 
-   RXN: Reaction (kcal/mol)       DE       DZPE            DH       T.DS    T.qh-DS         DG(T)      qh-DG(T)
-   ************************************************************************************************************
-o  Cat+Subs                     0.00       0.00          0.00       0.00       0.00          0.00          0.00
-o  TS                           4.72      -0.46          3.53     -15.85     -16.37         19.39         19.90
-   ************************************************************************************************************
+           RXN: Reaction  (kcal/mol)  at T = 298.15 K, p = 1 atm
+
+     Species      ΔE    ΔZPE     ΔH     T·ΔS   T·Δqh-S   ΔG(T)   Δqh-G(T)
+ ─────────────────────────────────────────────────────────────────────────
+     cat+subs   0.00    0.00   0.00     0.00      0.00    0.00       0.00
+     TS         4.72   -0.46   3.52   -15.89    -16.39   19.40      19.91
+──────────────────────────────────────────────────────────────────────────
 ```
 
 The same profile as a reaction-profile document, drawn later without the output files:
@@ -320,7 +323,7 @@ Run `goodvibes -h` for the full list of options. Key flags:
 
 #### Dependencies
 
-- **Python** >= 3.9
+- **Python** >= 3.10
 - **numpy** -- numerical computations
 - **pymsym** -- point group detection and symmetry numbers
 - **rich** >= 13 -- console table rendering

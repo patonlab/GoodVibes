@@ -195,10 +195,7 @@ Need a deprecation notice during 5.x first:
   The azabor set is 380 KB this way instead of about 100 Gaussian outputs.
 - **Docs.** Stay on Sphinx + MyST. Effort goes into the format page, the
   gallery and the cookbook.
-- **CI.** Run on GitHub Actions: lint, Linux 3.9 to 3.13, Windows 3.12.
-  - Raise the floor to 3.10 and add 3.14 at the 5.0 release.
-  - CircleCI duplicates the Linux job and can be retired: delete
-    `.circleci/config.yml`, a maintainer decision.
+- **CI.** Run on GitHub Actions only: lint, Linux 3.10 to 3.14, Windows 3.12.
 
 ---
 
