@@ -11,7 +11,7 @@ provenance.
   writes it; minor versions only ever add optional keys.
 - **Licence.** The JSON Schema and this specification text are CC0-1.0
   (public domain); GoodVibes itself is MIT.
-- **Schema.** [`goodvibes/schemas/reaction-profile-1.0.schema.json`](https://raw.githubusercontent.com/patonlab/GoodVibes/master/goodvibes/schemas/reaction-profile-1.0.schema.json)
+- **Schema.** [`reaction-profile-1.0.schema.json`](https://goodvibespy.readthedocs.io/en/latest/reaction-profile-1.0.schema.json)
   (JSON Schema draft 2020-12), installed with GoodVibes.
 - **Reference implementation.** `goodvibes.profile` (Python) and the
   `goodvibes-profile` command.

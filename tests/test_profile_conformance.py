@@ -35,6 +35,15 @@ def test_the_schema_is_a_valid_draft_2020_12_schema():
     jsonschema.Draft202012Validator.check_schema(load_json_schema())
 
 
+def test_the_schema_id_is_its_published_url():
+    """The schema's $id and goodvibes.profile.SCHEMA_ID agree, and name the
+    file the docs publish (docs/conf.py html_extra_path)."""
+    from goodvibes.profile import SCHEMA_FILE, SCHEMA_ID
+    assert load_json_schema()["$id"] == SCHEMA_ID
+    assert SCHEMA_ID.startswith("https://goodvibespy.readthedocs.io/")
+    assert SCHEMA_ID.endswith("/" + SCHEMA_FILE)
+
+
 @_cases("valid")
 def test_valid_documents_pass_both_validators(path):
     doc = _load(path)
