@@ -6,6 +6,7 @@ and one or more lookup aliases (abbreviations, full names).
 
 Public API:
     solvents  -- dict mapping alias (lowercase str) -> (mw, density) tuple
+    canonical_solvent(name) -- the canonical name of a solvent alias, or None
 """
 
 import json
@@ -36,6 +37,23 @@ def _load_solvents():
 solvents = _load_solvents()
 
 
+def _load_canonical_names():
+    """Map each lowercase alias to its solvent's canonical name."""
+    json_path = os.path.join(os.path.dirname(__file__), 'solvents.json')
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return {alias.lower(): entry['name'] for entry in data['solvents'] for alias in entry['aliases']}
+
+
+_canonical = _load_canonical_names()
+
+
+def canonical_solvent(name):
+    """The canonical name of the solvent that ``name`` is an alias of
+    (case-insensitive), or None when it is not a known alias."""
+    return _canonical.get(str(name).lower())
+
+
 def lookup_solvent(name):
     """Look up a solvent by alias and return its (mw, density).
 
@@ -62,17 +80,22 @@ def lookup_solvent(name):
 def compute_media_conc(media, file):
     """
     Compute the neat-solvent molar concentration when the output file corresponds to the specified solvent.
-    
+
+    The file's name (without extension) and `media` match when they are
+    aliases of the same solvent, so ``--media h2o`` applies to ``water.log``
+    as well as to ``H2O.log``.
+
     Parameters:
         media (str): Solvent name as provided (e.g., from --media).
         file (str): Path to the output file used to infer the solvent name.
-    
+
     Returns:
         float or None: Neat-solvent concentration in mol/L if the file's solvent matches `media`, `None` otherwise.
     """
     from .utils import display_name
     key = media.lower()
-    if key in solvents and key == display_name(file).lower():
+    solvent = canonical_solvent(key)
+    if solvent is not None and canonical_solvent(display_name(file)) == solvent:
         mweight, density = solvents[key]
         return (density * 1000) / mweight
     return None

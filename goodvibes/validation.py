@@ -280,12 +280,15 @@ def check_files(thermo_data, options, level_of_theory):
                       "number of frequencies (3N-5) found in other calculations -{}.".format(linear_wrong_print,
                                                                                              linear_correct_print))
 
-    # Checks whether any TS have > 1 imaginary frequency and any GS have any imaginary frequencies
+    # Checks whether any TS has other than one imaginary frequency, and any GS
+    # has one, counting only modes beyond -50 cm-1 (smaller ones are
+    # numerical noise), as the messages say
     for file in files:
         bbe = thermo_data[file]
-        if bbe.job_type.find('TS') > -1 and len(bbe.im_frequency_wn) != 1:
+        significant = [f for f in (bbe.im_frequency_wn or []) if f < -50.0]
+        if bbe.job_type.find('TS') > -1 and len(significant) != 1:
             log.info("\n   x Caution! TS {} does not have 1 imaginary frequency greater than -50 wavenumbers.".format(file))
-        if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and bbe.im_frequency_wn:
+        if bbe.job_type.find('GS') > -1 and bbe.job_type.find('TS') == -1 and significant:
             log.info("\n   x Caution: GS {} has 1 or more imaginary frequencies greater than -50 wavenumbers.".format(file))
 
     # Check for empirical dispersion
