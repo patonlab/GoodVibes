@@ -267,3 +267,22 @@ def test_check_files_dispersion_homogeneous(caplog):
     with caplog.at_level(logging.INFO, logger='goodvibes'):
         check_files(data, _opts(), lots)
     assert 'No empirical dispersion detected' in caplog.text
+
+
+@pytest.mark.parametrize("job_type, imag, cautioned", [
+    ("TS", [-345.3], False),
+    ("TS", [-345.3, -20.0], False),          # a small mode is noise, not a second imaginary mode
+    ("TS", [-20.0], True),                   # no mode beyond -50 cm-1
+    ("TS", [-345.3, -120.0], True),
+    ("GS", [-20.0], False),
+    ("GS", [-75.0], True),
+])
+def test_check_files_counts_imaginary_modes_beyond_minus_50(caplog, job_type, imag, cautioned):
+    data = _thermo_data(['44_ts_sn2_identity_chloride.log'])
+    bbe = next(iter(data.values()))
+    bbe.job_type, bbe.im_frequency_wn = job_type, imag
+    with caplog.at_level(logging.INFO, logger='goodvibes'):
+        check_files(data, _opts(), ['B3LYP/6-311+G(d,p)'])
+    flagged = ('does not have 1 imaginary frequency' in caplog.text
+               or 'has 1 or more imaginary frequencies' in caplog.text)
+    assert flagged is cautioned
