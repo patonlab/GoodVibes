@@ -204,6 +204,17 @@ every such change is listed under **Output changes**.
 - `calc_bbe.qcdata`: the parsed input is kept on the result.
 
 ### Fixed
+- `kabsch_rmsd` (the RMSD behind `--rmsd_cutoff` and `dedup.rmsd_cutoff`)
+  averaged the squared deviation over the 3N coordinates instead of over the
+  N atoms, so it reported RMSDs √3 too small and a cutoff behaved as one √3
+  times larger. It is now the root-mean-square atomic displacement.
+- The caution that a TS "does not have 1 imaginary frequency greater than
+  -50 wavenumbers" (and that a ground state has one) counted every
+  imaginary mode, so a TS with a small numerical-noise mode was flagged;
+  both checks now count only modes beyond -50 cm⁻¹, as they say.
+- `--media` matched a file only when its name was the same alias
+  (`--media h2o` applied to `H2O.log` but not to `water.log`); any alias of
+  the same solvent now matches (`goodvibes.media.canonical_solvent`).
 - `plot_profile` gave a series without an explicit linestyle the next style
   in the cycle even when another series had asked for it, so two series
   could both be dotted; default styles now skip the chosen ones.
@@ -250,6 +261,10 @@ every such change is listed under **Output changes**.
   both.
 
 ### Output changes
+- `--rmsd_cutoff` deduplication compares the corrected RMSD (√3 larger than
+  before for the same pair), so fewer pairs fall under a given cutoff.
+- The TS / ground-state imaginary-frequency cautions no longer fire for
+  modes smaller than 50 cm⁻¹ in magnitude.
 - A level of theory with no vibrational scaling factor in the Truhlar
   database adds a `! No vibrational scaling factor found for <level> level
   of theory: frequencies are unscaled (1.0). Set one with --vscal.` line to

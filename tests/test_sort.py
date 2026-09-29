@@ -78,6 +78,15 @@ def test_kabsch_rmsd_genuinely_different():
     assert kabsch_rmsd(a, b) > 0.1
 
 
+def test_kabsch_rmsd_is_the_root_mean_square_over_atoms():
+    """A symmetric stretch no rigid motion can undo: each atom moves 0.5 Å,
+    so the RMSD is 0.5 Å (not 0.5/sqrt(3), the root mean square over the
+    3N coordinates)."""
+    a = np.array([[-1.0, 0, 0], [1.0, 0, 0]])
+    b = np.array([[-1.5, 0, 0], [1.5, 0, 0]])
+    assert kabsch_rmsd(a, b) == pytest.approx(0.5)
+
+
 def test_kabsch_rmsd_lists_accepted():
     """Lists (not numpy arrays) are coerced to float arrays."""
     coords = [[0, 0, 0], [1, 0, 0], [0, 1, 0]]

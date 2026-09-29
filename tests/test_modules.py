@@ -203,12 +203,12 @@ def test_deduplicate_custom_roconst_cutoff():
 def test_deduplicate_custom_rmsd_cutoff():
     """RMSD comparison with custom threshold."""
     coords1 = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
-    coords2 = [[0.0, 0.0, 0.0], [1.5, 0.0, 0.0], [0.0, 1.0, 0.0]]  # RMSD ~ 0.167
+    coords2 = [[0.0, 0.0, 0.0], [1.5, 0.0, 0.0], [0.0, 1.0, 0.0]]
     bbe1 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords1)
     bbe2 = MockBBE(scf_energy=-100.0, roconst=[10.0, 20.0, 30.0], cartesians=coords2)
     thermo_data = {'file1.log': bbe1, 'file2.log': bbe2}
 
-    # Tight cutoff (0.125 Å) should reject (aligned RMSD ~ 0.129 > 0.125)
+    # Tight cutoff (0.125 Å) should reject (aligned RMSD over atoms ~ 0.224 > 0.125)
     assert deduplicate(thermo_data, rmsd_cutoff=0.125) == []
     # Relaxed cutoff should flag them
     assert len(deduplicate(thermo_data, rmsd_cutoff=0.5)) == 1
@@ -275,3 +275,16 @@ def test_deduplicate_single_atoms_zero_roconst():
     bbe2 = MockBBE(scf_energy=-242.328708, roconst=[0.0, 0.0, 0.0])
     thermo_data = {'Al_298K.log': bbe1, 'Al_400K.log': bbe2}
     assert len(deduplicate(thermo_data)) == 1
+
+
+def test_media_matches_aliases_of_one_solvent():
+    """--media h2o applies to water.log as to H2O.log, and never to another solvent."""
+    from goodvibes.media import canonical_solvent, compute_media_conc
+    assert canonical_solvent("H2O") == canonical_solvent("water") == "water"
+    assert canonical_solvent("nope") is None
+    conc = compute_media_conc("h2o", "run/H2O.log")
+    assert conc == pytest.approx(55.38, abs=0.01)
+    assert compute_media_conc("h2o", "run/Water.log") == conc
+    assert compute_media_conc("h2o", "run/MeOH.log") is None
+    assert compute_media_conc("h2o", "run/01a_water_hf_freq.log") is None
+    assert compute_media_conc("nope", "run/nope.log") is None
