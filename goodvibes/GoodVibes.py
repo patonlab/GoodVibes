@@ -864,7 +864,8 @@ def main():
     profile_doc = None
     explicit_profile = pes_result is not None and getattr(pes_result.source, "upgraded_from", "x") is None
     if pes_result is not None and (options.json_path or options.profile_path
-                                   or (options.pes_plot_path and explicit_profile)):
+                                   or (explicit_profile and (options.pes_plot_path
+                                                             or pes_result.source.selectivity))):
         from .profile import ProfileError
         try:
             profile_doc = pes_result.source.evaluate(
@@ -1014,6 +1015,13 @@ def main():
                               boltz_facs=boltz_facs,
                               interval_bbe_data=interval_bbe_data,
                               interval=interval, file_list=file_list)
+        if profile_doc is not None and profile_doc.selectivity:
+            from .output import print_profile_selectivity
+            from .profile import ProfileError
+            try:
+                print_profile_selectivity(profile_doc.evaluate_selectivity(warn=False), profile_doc.units)
+            except ProfileError as exc:
+                log.info(f"\n   ! {options.pes}: selectivity not evaluated: {exc}")
 
     # Close the log
     logging.shutdown()

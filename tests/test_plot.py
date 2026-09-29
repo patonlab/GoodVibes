@@ -461,20 +461,6 @@ def test_pes_plot_uneven_pathway_lengths_share_a_merged_x_axis():
 
 
 # ---------------------------------------------------------------------------
-# Stubs lock in the v5.1 API
-# ---------------------------------------------------------------------------
-
-def test_boltzmann_histogram_stub():
-    with pytest.raises(NotImplementedError, match="v5.1"):
-        gv_plot.plot_boltzmann_histogram([])
-
-
-def test_temperature_scan_stub():
-    with pytest.raises(NotImplementedError, match="v5.1"):
-        gv_plot.plot_temperature_scan([])
-
-
-# ---------------------------------------------------------------------------
 # CLI: --strip-plot end-to-end
 # ---------------------------------------------------------------------------
 

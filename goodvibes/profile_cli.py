@@ -7,6 +7,8 @@ tables of relative energies), never quantum-chemistry output files.
     goodvibes-profile table profile.json [-o table.csv|table.md] [--long]
     goodvibes-profile convert levels.csv -o profile.yaml --quantity gibbs --temperature 298.15
     goodvibes-profile evaluate profile.json -o hot.json --temperatures 298.15,373.15
+    goodvibes-profile selectivity profile.json [--id er] [--temperatures 273,298.15] [-o sel.csv|--json]
+    goodvibes-profile diff old.json new.json [--tolerance 0.05] [--series G] [--json]
 
 A profile is a reaction-profile document (.yaml/.yml/.json), an SVG figure
 saved by GoodVibes (it embeds the drawn document), a GoodVibes
@@ -205,6 +207,58 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_selectivity(args) -> int:
+    import json
+    from .selectivity import describe_selectivity, selectivity_rows, selectivity_to_dict
+    prof = _load(args.profile, args, require_values=True)
+    if not prof.selectivity:
+        raise SystemExit("goodvibes-profile: error: the document has no `selectivity` blocks "
+                         "(reaction-profile 1.1)")
+    temps = _temperatures(args.temperatures)
+    if temps:
+        if not prof.namespace.get("conformers"):
+            raise SystemExit("goodvibes-profile: error: --temperatures needs embedded conformers; write the "
+                             "document with goodvibes ... --pes FILE --profile OUT --with-conformers")
+        prof = prof.evaluate(temperatures=temps)
+    results = prof.evaluate_selectivity(args.id, series=args.series, warn=False)
+    units = prof.units
+    if args.json:
+        print(json.dumps([selectivity_to_dict(r, units=units) for r in results], indent=2))
+        return 0
+    rows = selectivity_rows(results, units)
+    if args.output:
+        ext = os.path.splitext(args.output)[1].lower()
+        from .profile import _rows_to_csv, _rows_to_markdown
+        text = _rows_to_markdown(rows, 2) if ext in (".md", ".markdown") else _rows_to_csv(rows)
+        with open(args.output, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        print(f"wrote {args.output}")
+        return 0
+    for r in results:
+        print(describe_selectivity(r, units))
+        for row in (x for x in rows if x["selectivity"] == r.name and x["series"] == r.series):
+            barrier = "—" if row["barrier"] is None else f"{row['barrier']:.2f}"
+            print(f"  {'★' if row['major'] else ' '} {row['branch']:<16} barrier {barrier:>8} {units}"
+                  f"   population {row['population']:6.2f} %")
+        for note in r.warnings:
+            print(f"  ! {note}")
+    return 0
+
+
+def cmd_diff(args) -> int:
+    import json
+    a = _load(args.a, args)
+    b = _load(args.b, args)
+    result = a.diff(b, tolerance=args.tolerance, units=args.diff_units, series=_split(args.series))
+    if args.json:
+        print(json.dumps({"identical": result.identical, "units": result.units, "tolerance": result.tolerance,
+                          "differences": result.to_rows()}, indent=2, ensure_ascii=False, default=str))
+    else:
+        print(f"--- {args.a}\n+++ {args.b}")
+        print(result)
+    return 1 if result.differences else 0
+
+
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
@@ -218,7 +272,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
     sub.required = True
 
-    p = sub.add_parser("validate", help="check documents against reaction-profile 1.0")
+    p = sub.add_parser("validate", help="check documents against reaction-profile 1.x")
     p.add_argument("files", nargs="+", metavar="FILE")
     p.add_argument("--strict", action="store_true", help="unknown keys are errors")
     _add_table_options(p)
@@ -270,6 +324,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-conformers", action="store_true", help="drop embedded conformers from the output")
     _add_table_options(p)
     p.set_defaults(func=cmd_evaluate)
+
+    p = sub.add_parser("selectivity", help="the selectivities of the document's `selectivity` blocks")
+    p.add_argument("profile", metavar="PROFILE")
+    p.add_argument("--id", default=None, help="only this selectivity block")
+    p.add_argument("--series", default=None, help="only this series")
+    p.add_argument("--temperatures", default=None, metavar="T1,T2",
+                   help="re-evaluate at these temperatures first (needs embedded conformers)")
+    p.add_argument("-o", "--output", default=None, metavar="FILE", help="write the rows (.csv, .md)")
+    p.add_argument("--json", action="store_true", help="print the results as JSON")
+    _add_table_options(p)
+    p.set_defaults(func=cmd_selectivity)
+
+    p = sub.add_parser("diff", help="compare two documents (exit status 1 when they differ)")
+    p.add_argument("a", metavar="OLD")
+    p.add_argument("b", metavar="NEW")
+    p.add_argument("--tolerance", type=float, default=0.01,
+                   help="levels closer than this are equal (default 0.01, in the comparison units)")
+    p.add_argument("--diff-units", dest="diff_units", default=None,
+                   help="units of the comparison (default: those of OLD)")
+    p.add_argument("--series", default=None, help="compare only these series (comma-separated ids)")
+    p.add_argument("--json", action="store_true", help="print the differences as JSON")
+    _add_table_options(p)
+    p.set_defaults(func=cmd_diff)
     return parser
 
 

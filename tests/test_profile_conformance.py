@@ -1,4 +1,4 @@
-"""Conformance kit for reaction-profile 1.0 (tests/profile_conformance).
+"""Conformance kit for reaction-profile 1.x (tests/profile_conformance).
 
 The directory is the kit a third-party writer uses: every document under
 ``valid/`` must be accepted, every one under ``invalid-structural/`` must

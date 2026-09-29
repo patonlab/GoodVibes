@@ -16,11 +16,8 @@ Public API:
     plot_pes(pes_result, ax=None, **kw)              — 4.2-4.5 shim over plot_profile
     plot_selectivity_strip(selectivity,
                            thermo_lookup, ax=None)   — per-species scatter
-    plot_boltzmann_histogram(results, ax=None)       — population bars
-    plot_temperature_scan(results_per_T, ax=None)    — thermo vs T
-
-The first two are implemented; the latter two are stubs that raise
-`NotImplementedError` to lock in the API while leaving room for v5.1.
+    plot_boltzmann_histogram(conformers, ...)        — population bars
+    plot_temperature_scan(conformers or profile, ...) — thermo or levels vs T
 """
 from __future__ import annotations
 
@@ -907,37 +904,201 @@ def plot_pes(
 
 
 # ---------------------------------------------------------------------------
-# Stubs for v5.1+ work
+# Conformer populations and temperature scans
 # ---------------------------------------------------------------------------
 
-def plot_boltzmann_histogram(
-    thermo_results: Sequence[Any],
-    *,
-    ax=None,
-    temperature: float = 298.15,
-):
-    """Bar chart of per-conformer Boltzmann populations.
+def _as_conformer_set(source, name: str, quantity: Optional[str]):
+    """A ConformerSet from a ConformerSet or a sequence of ThermoResults."""
+    from .pes_model import ConformerSet
+    if isinstance(source, ConformerSet):
+        return source
+    results = list(source)
+    if not results:
+        raise ValueError(f"{name}: no conformers")
+    return ConformerSet.from_results(name, results, weight_by=quantity or "qh_gibbs")
 
-    Not yet implemented; planned for 5.1 over ``ConformerSet.populations``
-    (ROADMAP milestone M3).
+
+def _conformer_names(cset) -> List[str]:
+    from .utils import display_name
+    return [display_name(f) if f else f"{cset.name} {i + 1}" for i, f in enumerate(cset.files)]
+
+
+def plot_boltzmann_histogram(
+    source: Any,
+    *,
+    temperature: float = 298.15,
+    quantity: Optional[str] = None,
+    top: Optional[int] = None,
+    sort: bool = True,
+    ax=None,
+    title: Optional[str] = None,
+):
+    """Bar chart of conformer Boltzmann populations.
+
+    Parameters:
+        source: a ``ConformerSet``, a sequence of ``ThermoResult`` (one
+            species' conformers), or a mapping ``{group: ConformerSet or
+            results}``. With a mapping the populations are taken over all
+            conformers together (for example the transition states of
+            competing pathways, so the bars show where the selectivity
+            comes from); bars are coloured by group and the legend gives
+            each group's total population.
+        temperature: K; each conformer is re-evaluated at it when the set
+            carries its parsed data.
+        quantity: the registry quantity weighted (default the set's
+            ``weight_by``, ``qh_gibbs``; ``electronic`` for energy-only
+            ensembles).
+        top: draw only the ``top`` most populated conformers, plus one
+            "other" bar for the rest.
+        sort: most populated first (default); False keeps input order.
+        ax: optional matplotlib Axes.
+        title: figure title; generated when None.
+
+    Returns:
+        The matplotlib Axes. Each bar's ``gid`` is ``pop-<group>-<name>``.
     """
-    raise NotImplementedError(
-        "plot_boltzmann_histogram is reserved for v5.1; "
-        "see ROADMAP.md, milestone M3."
-    )
+    import math
+
+    from .constants import GAS_CONSTANT, J_TO_AU
+    from .quantities import resolve_quantity
+    plt = _import_matplotlib()
+    groups = dict(source) if isinstance(source, Mapping) else {None: source}
+    bars = []                                     # (group, name, value)
+    qid = None
+    for group, member in groups.items():
+        cset = _as_conformer_set(member, str(group or "conformers"), quantity)
+        qid = resolve_quantity(quantity or cset.weight_by).id
+        values = [v.get(qid, temperature) for v in cset.vectors(temperature)]
+        if any(v is None for v in values):
+            raise ValueError(f"plot_boltzmann_histogram: {qid!r} is not available for every conformer "
+                             "(an energy-only ensemble needs quantity='electronic')")
+        bars.extend((group, name, v) for name, v in zip(_conformer_names(cset), values))
+    if not bars:
+        raise ValueError("plot_boltzmann_histogram: no conformers")
+    rt = GAS_CONSTANT * temperature / J_TO_AU
+    lowest = min(v for _g, _n, v in bars)
+    weights = [math.exp(-(v - lowest) / rt) for _g, _n, v in bars]
+    total = sum(weights)
+    pops = [(g, n, w / total) for (g, n, _v), w in zip(bars, weights)]
+    if sort:
+        pops.sort(key=lambda b: -b[2])
+    shown, rest = (pops[:top], pops[top:]) if top is not None and top < len(pops) else (pops, [])
+
+    if ax is None:
+        n = len(shown) + (1 if rest else 0)
+        _, ax = plt.subplots(figsize=(max(3.5, 0.35 * n + 1.5), 3.5))
+    group_names = list(groups)
+    colour = {g: f"C{i}" for i, g in enumerate(group_names)}
+    xs = list(range(len(shown)))
+    for x, (g, name, p) in zip(xs, shown):
+        ax.bar(x, p * 100.0, color=colour[g], edgecolor="black", linewidth=0.4,
+               gid=f"pop-{g}-{name}" if g is not None else f"pop-{name}")
+    names = [name for _g, name, _p in shown]
+    if rest:
+        ax.bar(len(shown), sum(p for _g, _n, p in rest) * 100.0, color="0.8", edgecolor="black",
+               linewidth=0.4, gid="pop-other")
+        names.append(f"{len(rest)} other")
+    ax.set_xticks(range(len(names)))
+    ax.set_xticklabels(names, rotation=60 if len(names) > 4 else 0, ha="right" if len(names) > 4 else "center")
+    ax.set_ylabel("Population (%)")
+    if len(group_names) > 1 or group_names[0] is not None:
+        from matplotlib.patches import Patch
+        share = {g: sum(p for gg, _n, p in pops if gg == g) for g in group_names}
+        ax.legend(handles=[Patch(facecolor=colour[g], edgecolor="black", label=f"{g} ({share[g] * 100:.1f} %)")
+                           for g in group_names], frameon=False)
+    ax.set_title(title if title is not None else f"Boltzmann populations ({qid}, T = {temperature:g} K)")
+    return ax
+
+
+_SCAN_QUANTITIES = ("qh_gibbs", "qh_enthalpy", "qh_entropy")
 
 
 def plot_temperature_scan(
-    results_per_T: Sequence[tuple],
+    source: Any,
+    temperatures: Optional[Sequence[float]] = None,
     *,
+    quantities: Optional[Sequence[str]] = None,
+    points: Optional[Sequence[str]] = None,
+    pathway: Optional[str] = None,
+    units: str = "kcal/mol",
     ax=None,
+    title: Optional[str] = None,
 ):
-    """Plot thermochemistry quantities (qh-G, S, H) vs temperature.
+    """Thermochemistry against temperature.
 
-    Not yet implemented; planned for 5.1 over computed ``Series`` at
-    several temperatures (ROADMAP milestone M3).
+    Two kinds of ``source``:
+
+    - a ``ConformerSet`` (or a sequence of ``ThermoResult``, one
+      species' conformers) and ``temperatures``: one line per quantity
+      (default Δqh-G, Δqh-H and T·Δqh-S) of the conformer ensemble (the
+      gconf rollup), relative to its value at the first temperature;
+    - a reaction-profile ``Profile``: one line per point (``points``,
+      default every point of ``pathway`` but its zero; ``pathway``
+      defaults to the first) giving its level against temperature over
+      the document's series of one quantity (``quantities[0]``, default
+      that of the first series with a temperature). A point is read on
+      ``pathway`` when it is there, else on the first pathway that holds
+      it (each relative to that pathway's zero). With ``temperatures``
+      the document is evaluated at them first (it needs embedded
+      conformers).
+
+    Returns:
+        The matplotlib Axes; each line's ``gid`` is ``scan-<quantity>``
+        or ``scan-<point>``.
     """
-    raise NotImplementedError(
-        "plot_temperature_scan is reserved for v5.1; "
-        "see ROADMAP.md, milestone M3."
-    )
+    from .profile import Profile
+    from .quantities import QUANTITIES, resolve_quantity
+    plt = _import_matplotlib()
+    units = canonical_units(units)
+    if ax is None:
+        _, ax = plt.subplots(figsize=(4.5, 3.5))
+
+    if isinstance(source, Profile):
+        prof = source.evaluate(temperatures=temperatures) if temperatures else source
+        qid = resolve_quantity(quantities[0]).id if quantities else next(
+            (s.quantity for s in prof.series if s.temperature is not None and s.levels), None)
+        series = sorted((s for s in prof.series if s.quantity == qid and s.levels and s.temperature is not None),
+                        key=lambda s: s.temperature)
+        if not series:
+            raise ValueError("plot_temperature_scan: the document has no evaluated series with a temperature"
+                             + (f" of {qid!r}" if qid else ""))
+        path = prof.pathways[pathway] if pathway else next(iter(prof.pathways.values()))
+        pids = list(points) if points else [p for p in path.points if p != path.zero]
+        scale = hartree_factor(units) / hartree_factor(prof.units)
+        for pid in pids:
+            # the named pathway when it holds the point, else the first that does
+            names = [path.name] + [n for n, pw in prof.pathways.items()
+                                   if n != path.name and (pid in pw.points or pid == pw.zero)]
+            xs, ys = [], []
+            for s in series:
+                v = next(((s.levels.get(n) or {}).get(pid) for n in names
+                          if (s.levels.get(n) or {}).get(pid) is not None), None)
+                if v is not None:
+                    xs.append(s.temperature)
+                    ys.append(v * scale)
+            if not xs:
+                raise ValueError(f"plot_temperature_scan: no levels for point {pid!r}")
+            display = prof.points[pid].display if pid in prof.points and prof.points[pid].display else pid
+            ax.plot(xs, ys, marker="o", label=display, gid=f"scan-{pid}")
+        ax.set_ylabel(f"{QUANTITIES[qid].label} ({units})")
+        default_title = f"{prof.title or path.name}: {QUANTITIES[qid].label} vs T"
+    else:
+        if not temperatures:
+            raise ValueError("plot_temperature_scan: a conformer set needs temperatures")
+        cset = _as_conformer_set(source, "conformers", None)
+        temps = [float(t) for t in temperatures]
+        scale = hartree_factor(units)
+        for q in (quantities or _SCAN_QUANTITIES):
+            qid = resolve_quantity(q).id
+            vals = [cset.gconf_corrected(T).get(qid, T) if len(cset.bbes) > 1 else cset.vectors(T)[0].get(qid, T)
+                    for T in temps]
+            if any(v is None for v in vals):
+                raise ValueError(f"plot_temperature_scan: {qid!r} is not available for these conformers")
+            ax.plot(temps, [(v - vals[0]) * scale for v in vals], marker="o",
+                    label=QUANTITIES[qid].label, gid=f"scan-{qid}")
+        ax.set_ylabel(f"change from {temps[0]:g} K ({units})")
+        default_title = f"{cset.name}: thermochemistry vs T"
+    ax.set_xlabel("T (K)")
+    ax.legend(frameon=False)
+    ax.set_title(title if title is not None else default_title)
+    return ax

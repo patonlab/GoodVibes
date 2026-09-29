@@ -101,6 +101,10 @@ class SelectivityResult(TypedDict, total=False):
     preferred: str                   # max-population label
     ee: Optional[float]              # 2-label only; in %
     ddG: Optional[float]             # 2-label only; in Hartree
+    major: str                       # == preferred; the first listed on a tie
+    ee_signed: Optional[float]       # 2-label only: (p1 - p2) * 100, + when the first label is major
+    ratio: Optional[float]           # p_major / p_runner_up
+    ensemble_energies: dict          # {label: -RT ln sum exp(-G_i/RT)}, Hartree
     files_per_label: dict            # {label: list[file path]}
 
 

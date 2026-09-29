@@ -220,7 +220,9 @@ which layout your data uses.
 Add `--json results.json` and the file gets two top-level blocks,
 `selectivity` and `selectivity_lowest`, each with the per-species
 populations, ΔΔG, ee (when N=2), and the source files for every
-species. Schema is `0.4`.
+species. Each result also records `major`, the signed `ee_signed`, `ratio`
+(major over runner-up) and each species' `ensemble_energies`
+(−RT ln Σ exp(−G/RT), in Hartree).
 
 **Strip plot**
 
@@ -272,6 +274,87 @@ goodvibes *.log --label R='P_R_*' --label S='P_S_*'
 ```
 
 `--ee` still works with a deprecation notice; it will be removed in v6.0.
+
+---
+
+## 3b. Selectivity sweeps, populations and temperature scans
+
+**How robust is the prediction?** `compute_selectivity_batch` evaluates
+many selectivity jobs at once, over temperatures, quasi-harmonic entropy
+cutoffs and conformer energy windows. Each file is parsed once and then
+re-evaluated for every condition:
+
+```python
+from goodvibes import compute_selectivity_batch, summarize_selectivity
+
+jobs = {"DA": {"endo": "DA_endo_*.out", "exo": "DA_exo_*.out"}}   # globs, paths, results or ConformerSets
+df = compute_selectivity_batch(jobs, [298.15, 353.15],
+                               s_freq_cutoffs=[50, 150],           # cm⁻¹; the nominal 100 is always included
+                               conformer_windows=[0, 1.0, 3.0])    # kcal/mol above each label's lowest
+for s in summarize_selectivity(df):
+    print(s["temperature"], s["text"])
+```
+
+```text
+298.15 ee +95 % (94 to 96 % over s_freq_cutoff 50–150 cm⁻¹, conformer window 0–3 kcal/mol)
+353.15 ee +90 % (88 to 93 % over s_freq_cutoff 50–150 cm⁻¹, conformer window 0–3 kcal/mol)
+```
+
+The DataFrame has one row per job and condition, with these columns:
+- `job`, `temperature`, `s_freq_cutoff`, `conformer_window`;
+- `nominal`: the nominal cutoff with all conformers;
+- `major` and `ee`;
+- `ddG` in kcal/mol, and `ratio`;
+- per label, `population[<label>]` and `n[<label>]`.
+
+`records=True` returns plain dicts, and `quantity="electronic"` weights
+energy-only ensembles (`read_xyz_frames`).
+
+The signs follow the `SelectivityResult` conventions:
+- `major` is the most populated label; on a tie, the first listed.
+- `ee = (p₁ − p₂) × 100`, with the labels in the order given, so it is
+  positive when the first label is the major one.
+- `ddG` and `ratio` compare the major with the runner-up.
+
+**Where does the selectivity come from?** `plot_boltzmann_histogram`
+draws the conformer populations. Given a mapping, it pools the groups into
+one distribution, and its legend gives each group's total:
+
+```python
+import glob
+from goodvibes import ConformerSet, compute_batch
+from goodvibes.plot import plot_boltzmann_histogram, plot_temperature_scan
+
+endo = compute_batch(sorted(glob.glob("DA_endo_*.out")))
+exo = compute_batch(sorted(glob.glob("DA_exo_*.out")))
+ax = plot_boltzmann_histogram({"endo": endo, "exo": exo}, temperature=298.15)   # legend: endo (97.4 %), exo (2.6 %)
+ax.figure.savefig("populations.png", dpi=200, bbox_inches="tight")
+
+ax = plot_temperature_scan(ConformerSet.from_results("endo", endo), [273.15, 298.15, 323.15, 353.15])
+```
+
+`plot_temperature_scan` draws a conformer ensemble's Δqh-G, Δqh-H and
+T·Δqh-S against temperature. For a reaction-profile document, it draws each
+point's level across the document's series temperatures instead.
+
+**Selectivity in a reaction-profile document.** A `selectivity` block (see
+[the format](reaction_profile.md)) names the competing branch points and
+the point they share. GoodVibes predicts the selectivity from each branch
+barrier, for computed and declared series alike, and checks the
+Curtin–Hammett preconditions:
+
+```python
+from goodvibes import load_profile
+
+prof = load_profile("tests/profile_conformance/valid/05_selectivity.yaml")
+for r in prof.evaluate_selectivity():
+    print(r.name, r.major, f"{r.ee_signed:+.1f} %", r.curtin_hammett)   # er TS_R +76.7 % satisfied
+```
+
+```bash
+goodvibes-profile selectivity profile.json               # summary line and branch table per block
+goodvibes-profile diff before.json after.json --tolerance 0.05
+```
 
 ---
 

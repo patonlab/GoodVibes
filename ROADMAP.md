@@ -29,7 +29,7 @@ history:
 | **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
 | **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
 | **M2b** Figure polish and the gallery | 5.0 | ✅ merged | #121, #123 |
-| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | M3a in progress | |
+| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | M3a ✅ merged, M3b in review | #127 |
 | **M4** Adoption and polish | 5.2 | open | |
 | **M5** Removals | 6.0 | open | |
 
@@ -83,6 +83,13 @@ ships M0 to M2b.
 - The cookbook opens with the CSV-to-figure recipe; the docs publish the
   JSON Schema.
 
+**M3a: methods and provenance.**
+- Provenance on `ThermoResult` (temperature, options, scale factors and
+  their source, symmetry source, `n_imag`); a missing scale factor warns.
+- Per-method thermochemistry options (`goodvibes.thermo.by_method`).
+- `QCData.with_single_point` for DFT//MLIP composites.
+- `read_xyz_frames` for CREST ensembles and MLIP sweeps.
+
 ---
 
 ## Next
@@ -121,17 +128,18 @@ ships M0 to M2b.
 - [x] Multi-frame `.xyz` / `.extxyz` reader yielding energy-only entries
       (CREST ensembles and MLIP sweeps alike): `read_xyz_frames`, with
       `ConformerSet(weight_by="electronic")` accepting them.
-- [ ] The reserved `selectivity:` block: competing points sharing a
+- [x] The reserved `selectivity:` block: competing points sharing a
       reference point, ΔG‡ and G_ensemble per branch, and `SelectivityResult`
       v2. It needs a Curtin–Hammett precondition warning, a documented ee
-      sign and a `major` convention.
-- [ ] `compute_selectivity_batch(jobs, temperatures)` returning a tidy
+      sign and a `major` convention. (reaction-profile 1.1;
+      `Profile.evaluate_selectivity`, `goodvibes-profile selectivity`.)
+- [x] `compute_selectivity_batch(jobs, temperatures)` returning a tidy
       DataFrame for prediction pipelines, plus cutoff and conformer-window
       sensitivity sweeps. This gives the "ee 92 % (88–94 % over cutoffs)"
       statement.
-- [ ] `plot_boltzmann_histogram` and `plot_temperature_scan` over
+- [x] `plot_boltzmann_histogram` and `plot_temperature_scan` over
       `ConformerSet` and `Series` (currently stubs).
-- [ ] `goodvibes-profile diff` between two documents.
+- [x] `goodvibes-profile diff` between two documents.
 
 ### M4: adoption and polish (5.2)
 

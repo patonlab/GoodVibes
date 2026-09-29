@@ -17,7 +17,7 @@ Programmatic API:
     pes = load_pes("profile.yaml", {r.file: r.bbe for r in results})
     plot_profile(pes, temperatures=[298.15, 373.15]).save("profile.svg")
 
-    # reaction-profile documents (reaction-profile/1.0)
+    # reaction-profile documents (reaction-profile/1.x)
     from goodvibes import load_profile
     doc = load_profile("profile.yaml").evaluate(results, with_conformers=True)
     doc.dump("profile.json"); doc.plot().save("profile.svg")
@@ -51,7 +51,8 @@ from .pes_model import (
 from .plot import ProfileAxes, plot_pes, plot_profile
 from .profile import Profile, ProfileError, ProfileWarning, load_profile, validate_document
 from .quantities import QUANTITIES, resolve_quantity
-from .selectivity import SelectivityResult, compute_selectivity
+from .selectivity import SelectivityResult, SelectivityWarning, compute_selectivity, selectivity_from_energies
+from .selectivity_batch import compute_selectivity_batch, summarize_selectivity
 from .thermo import MissingSinglePointError, ThermoOptions, calc_bbe
 
 __all__ = [
@@ -94,6 +95,10 @@ __all__ = [
     "validate_document",
     # selectivity
     "SelectivityResult",
+    "SelectivityWarning",
+    "selectivity_from_energies",
+    "compute_selectivity_batch",
+    "summarize_selectivity",
     "compute_selectivity",
     "__version__",
 ]

@@ -18,7 +18,7 @@ from goodvibes import compute_thermo
 from goodvibes.constants import KCAL_TO_AU
 from goodvibes.pes_model import Series
 from goodvibes.profile import (
-    SCHEMA_TAG, Profile, ProfileError, ProfileWarning, load_profile, validate_document,
+    BASE_TAG, SCHEMA_TAG, Profile, ProfileError, ProfileWarning, load_profile, validate_document,
 )
 
 KIT = Path(__file__).resolve().parent / "profile_conformance"
@@ -83,7 +83,7 @@ def test_v2_pes_yaml_is_upgraded_to_the_explicit_form():
     prof = load_profile(ROOT / "goodvibes/examples/pes/azabor_PES_v2.yaml")
     assert prof.upgraded_from == "v2"
     d = prof.to_dict()
-    assert d["schema"] == SCHEMA_TAG
+    assert d["schema"] == BASE_TAG                   # no 1.1 key: written as 1.0
     assert d["pathways"]["Ph"]["points"][0] == "R1-An + Aza-Phos"
     assert d["points"]["R1-An + Aza-Phos"]["species"] == {"R1-An": 1, "Aza-Phos": 1}
     assert d["goodvibes"]["sources"]["default"]["AmTS"] == {"files": ["aminationTS-full-unfrz-*"]}
