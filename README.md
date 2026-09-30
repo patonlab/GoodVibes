@@ -323,6 +323,8 @@ Run `goodvibes -h` for the full list of options. Key flags:
 | `--import PATH` | Read pre-parsed data from a v1.0 JSON file (or legacy cache envelope) instead of re-parsing | -- |
 | `--csv PATH` | Write per-file thermochemistry to a CSV file (requires pandas; `goodvibes[full]`) | -- |
 | `--parquet PATH` | Write per-file thermochemistry to a Parquet file (requires pyarrow; `goodvibes[full]`) | -- |
+| `--si PATH` | Write a per-structure Supporting Information table (`.md`, `.tex`, `.csv`, `.tsv` or `.xyz`) with a Cartesian-coordinates appendix | -- |
+| `--si-units UNITS` | Energy units of the `--si` table (`hartree`, `kcal/mol`, `kJ/mol`, `eV`) | hartree |
 | `--strip-plot PATH` | Save a per-species ΔG strip plot (requires `--label`/`--selectivity`; `goodvibes[plot]`) | -- |
 | `--pes-plot PATH` | Save a reaction-profile plot (requires `--pes`; `goodvibes[plot]`). With `--ti` the scan temperatures are overlaid on one axes | -- |
 | `--profile PATH` | With `--pes`: write the evaluated reaction-profile document (`.json`/`.yaml`); plot, tabulate or convert it later with `goodvibes-profile`, no output files needed | -- |

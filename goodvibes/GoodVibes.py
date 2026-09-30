@@ -195,7 +195,7 @@ def parse_arguments():
     out.add_argument("--si", dest="si_path", default=None, metavar="PATH",
                      help="Write a Supporting Information table to PATH: E, ZPE, H, T·S, G and qh-G, "
                           "imaginary and lowest frequencies, scale factors and symmetry per structure, "
-                          "with a Cartesian coordinate appendix. Format by extension: .md, .tex, .csv "
+                          "with a Cartesian coordinate appendix. Format by extension: .md, .tex, .csv/.tsv "
                           "(coordinates in PATH_coordinates.xyz) or .xyz.")
     out.add_argument("--si-units", dest="si_units", default="hartree", metavar="UNITS",
                      help="Energy units of the --si table (default: hartree)")
