@@ -192,6 +192,13 @@ def parse_arguments():
                      help="Write per-file thermochemistry to PATH as Parquet (same "
                           "columns as --csv). Requires pandas + a Parquet engine "
                           "(pyarrow); install with `pip install goodvibes[full]`.")
+    out.add_argument("--si", dest="si_path", default=None, metavar="PATH",
+                     help="Write a Supporting Information table to PATH: E, ZPE, H, T·S, G and qh-G, "
+                          "imaginary and lowest frequencies, scale factors and symmetry per structure, "
+                          "with a Cartesian coordinate appendix. Format by extension: .md, .tex, .csv "
+                          "(coordinates in PATH_coordinates.xyz) or .xyz.")
+    out.add_argument("--si-units", dest="si_units", default="hartree", metavar="UNITS",
+                     help="Energy units of the --si table (default: hartree)")
     out.add_argument("--xyz", dest="xyz", action="store_true", default=False,
                      help="Write optimized Cartesian coordinates to a .xyz file")
     out.add_argument("--strip-plot", dest="strip_plot_path", default=None, metavar="PATH",
@@ -917,6 +924,17 @@ def main():
                 log.info(f"\n   ✔ Parquet written to {options.parquet_path}")
         except ImportError as exc:
             fatal(str(exc))
+
+    # Supporting Information table (single temperature, like --csv)
+    if options.si_path and options.temperature_interval is None:
+        from .api import bbe_to_result
+        from .si import write_si
+        try:
+            written = write_si([bbe_to_result(bbe, file) for file, bbe in thermo_data.items()],
+                               options.si_path, units=options.si_units, decimals=options.dp)
+        except (ValueError, OSError) as exc:
+            fatal(f"\n   ✗ FATAL ERROR: --si {options.si_path}: {exc}")
+        log.info("\n   ✔ SI table written to " + " and ".join(written))
 
     # Selectivity strip plot — needs a SelectivityResult and a
     # {file: qh_g} lookup. matplotlib via `goodvibes[plot]`.
