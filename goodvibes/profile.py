@@ -1726,6 +1726,62 @@ class Profile:
                 add("annotation", "annotations", None, json.loads(x))
         return ProfileDiff(out, units, float(tolerance))
 
+    # -- kinetics ----------------------------------------------------------------
+
+    def _pathway_levels(self, pathway: Optional[str], series: Optional[str]) -> Tuple[Series, Any, Dict[str, float]]:
+        """(series, pathway, {point: level}) along a pathway in order: the
+        named series, or the first with levels on that pathway."""
+        path = self.pathways.get(pathway) if pathway else next(iter(self.pathways.values()), None)
+        if path is None:
+            raise ProfileError([f"no pathway {pathway!r} (the document has {', '.join(self.pathways) or 'none'})"
+                                if pathway else "the document has no pathways"])
+        candidates = [self.get_series(series)] if series else list(self.series)
+        for s in candidates:
+            lv = (s.levels or {}).get(path.name)
+            if lv:
+                return s, path, {p: lv[p] for p in path.points if lv.get(p) is not None}
+        raise ProfileError([f"pathway {path.name!r}: no series has levels on it (evaluate the document first)"
+                            if not series else f"series {series!r} has no levels on pathway {path.name!r}"])
+
+    def _transition_states(self) -> List[str]:
+        return [pid for pid, pt in self.points.items() if pt.role == "ts"]
+
+    def step_table(self, pathway: Optional[str] = None, series: Optional[str] = None) -> List[dict]:
+        """``goodvibes.kinetics.step_table`` for a pathway (default the
+        first) and series (default the first with levels on it), at the
+        series' temperature, in the document's units; each row also names
+        the ``pathway`` and ``series``."""
+        from .kinetics import step_table
+        s, path, levels = self._pathway_levels(pathway, series)
+        T = s.temperature if s.temperature is not None else self.default_temperature
+        rows = step_table(levels, self._transition_states(), temperature=T, units=self.units)
+        return [{"pathway": path.name, "series": s.id, **row} for row in rows]
+
+    def energy_span(self, pathway: Optional[str] = None, series: Optional[str] = None, *,
+                    reaction_energy: Optional[float] = None):
+        """``goodvibes.kinetics.energy_span`` of a pathway read as one
+        catalytic turnover: its points in order, the last being the
+        regenerated catalyst with the products (unless ``reaction_energy``
+        is given), TSs by their role."""
+        from .kinetics import energy_span
+        s, _path, levels = self._pathway_levels(pathway, series)
+        T = s.temperature if s.temperature is not None else self.default_temperature
+        return energy_span(levels, self._transition_states(), reaction_energy=reaction_energy,
+                           temperature=T, units=self.units)
+
+    def write_mikimo(self, path, pathways: Optional[Sequence[str]] = None,
+                     series: Optional[str] = None) -> Dict[str, str]:
+        """Write mikimo's ``reaction_data.csv`` with one row per pathway
+        (default all), levels in kcal/mol; returns the point-to-state-name
+        map (``INT0, TS1, ..., Prod``). See ``goodvibes.kinetics``."""
+        from .kinetics import write_mikimo_csv
+        names = list(pathways) if pathways else list(self.pathways)
+        profiles = {}
+        for name in names:
+            _s, _path, levels = self._pathway_levels(name, series)
+            profiles[name] = levels
+        return write_mikimo_csv(path, profiles, self._transition_states(), units=self.units)
+
     # -- selectivity (reaction-profile 1.1) -----------------------------------
 
     def evaluate_selectivity(self, block: Optional[str] = None, *, series: Optional[str] = None,

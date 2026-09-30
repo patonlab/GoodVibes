@@ -9,6 +9,7 @@ tables of relative energies), never quantum-chemistry output files.
     goodvibes-profile evaluate profile.json -o hot.json --temperatures 298.15,373.15
     goodvibes-profile selectivity profile.json [--id er] [--temperatures 273,298.15] [-o sel.csv|--json]
     goodvibes-profile diff old.json new.json [--tolerance 0.05] [--series G] [--json]
+    goodvibes-profile kinetics profile.json [--pathway cycle] [--span] [--mikimo reaction_data.csv]
 
 A profile is a reaction-profile document (.yaml/.yml/.json), an SVG figure
 saved by GoodVibes (it embeds the drawn document), a GoodVibes
@@ -259,6 +260,45 @@ def cmd_diff(args) -> int:
     return 1 if result.differences else 0
 
 
+def cmd_kinetics(args) -> int:
+    import json
+    prof = _load(args.profile, args, require_values=True)
+    pathways = _split(args.pathway)
+    first = pathways[0] if pathways else None
+    rows = prof.step_table(first, args.series)
+    span = prof.energy_span(first, args.series) if args.span else None
+    if args.mikimo:
+        names = prof.write_mikimo(args.mikimo, pathways, args.series)
+        print(f"wrote {args.mikimo} (states: " + ", ".join(f"{p} = {n}" for p, n in names.items()) + ")")
+    if args.json:
+        out = {"steps": rows}
+        if span is not None:
+            from dataclasses import asdict
+            out["energy_span"] = asdict(span)
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    if args.output:
+        from .profile import _rows_to_csv, _rows_to_markdown
+        ext = os.path.splitext(args.output)[1].lower()
+        text = _rows_to_markdown(rows, 3) if ext in (".md", ".markdown") else _rows_to_csv(rows)
+        with open(args.output, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        print(f"wrote {args.output}")
+    elif rows:
+        units = rows[0]["units"]
+        print(f"pathway {rows[0]['pathway']}, series {rows[0]['series']}, T = {rows[0]['temperature']:g} K ({units})")
+        for r in rows:
+            to = f" -> {r['to']}" if r["to"] else ""
+            print(f"  {r['from']} -> {r['ts']}{to}: barrier {r['barrier']:.2f}"
+                  f" (from the lowest point before it {r['barrier_from_lowest']:.2f}), "
+                  f"k = {r['k']:.3g} s-1, half-life {r['half_life']:.3g} s")
+    else:
+        print("(no transition state with an earlier intermediate on this pathway)")
+    if span is not None:
+        print(span)
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
@@ -347,6 +387,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="print the differences as JSON")
     _add_table_options(p)
     p.set_defaults(func=cmd_diff)
+
+    p = sub.add_parser("kinetics", help="step barriers and Eyring rates, the energy span, a mikimo export")
+    p.add_argument("profile", metavar="PROFILE")
+    p.add_argument("--pathway", default=None,
+                   help="the pathway (default the first); with --mikimo, comma-separated pathways")
+    p.add_argument("--series", default=None, help="the series (default the first with levels on the pathway)")
+    p.add_argument("--span", action="store_true",
+                   help="read the pathway as one catalytic turnover and report its energy span and TOF")
+    p.add_argument("--mikimo", default=None, metavar="FILE", help="write mikimo's reaction_data.csv")
+    p.add_argument("-o", "--output", default=None, metavar="FILE", help="write the step table (.csv, .md)")
+    p.add_argument("--json", action="store_true", help="print the steps (and energy span) as JSON")
+    _add_table_options(p)
+    p.set_defaults(func=cmd_kinetics)
     return parser
 
 
