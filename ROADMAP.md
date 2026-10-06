@@ -29,8 +29,8 @@ history:
 | **M1** The profile model and file-free MLIP input | 5.0 | ✅ merged | #118 |
 | **M2a** The `reaction-profile/1.0` format, payload 1.1, `goodvibes-profile` | 5.0 | ✅ merged | #119 |
 | **M2b** Figure polish and the gallery | 5.0 | ✅ merged | #121, #123 |
-| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | M3a ✅ merged, M3b in review | #127 |
-| **M4** Adoption and polish | 5.2 | open | |
+| **M3** Methods, MLIP overlay, selectivity on the profile | 5.1 | ✅ merged | #127, #129 |
+| **M4** Adoption and polish | 5.2 | M4a in progress | |
 | **M5** Removals | 6.0 | open | |
 
 Everything merged so far still carries the version string **4.4.0**. The
@@ -90,6 +90,13 @@ ships M0 to M2b.
 - `QCData.with_single_point` for DFT//MLIP composites.
 - `read_xyz_frames` for CREST ensembles and MLIP sweeps.
 
+**M3b: selectivity on the profile.**
+- The `selectivity` block (reaction-profile 1.1) with Curtin–Hammett
+  checks, and `SelectivityResult` v2.
+- `compute_selectivity_batch` with cutoff and conformer-window sweeps.
+- `plot_boltzmann_histogram`, `plot_temperature_scan`,
+  `goodvibes-profile diff`.
+
 ---
 
 ## Next
@@ -143,12 +150,14 @@ ships M0 to M2b.
 
 ### M4: adoption and polish (5.2)
 
-- [ ] Label de-overlap (value labels of close series still collide), y-axis
-      break, optional RDKit depictions.
-- [ ] Minimal `kinetics.py`: Eyring rate ratio, energy span, a step table and
-      mikimo CSV export. No microkinetics.
-- [ ] A per-structure SI table exporter (E, ZPE, H, T·S, qh-G, n_imag,
-      lowest frequencies, scale factor, symmetry, xyz appendix).
+- [x] Label de-overlap: value labels of close series are pushed apart and
+      kept inside the axes (M4a).
+- [ ] A y-axis break and optional RDKit depictions (M4b).
+- [x] Minimal `kinetics.py`: Eyring rate ratio, energy span, a step table and
+      mikimo CSV export. No microkinetics. (`goodvibes-profile kinetics`.)
+- [x] A per-structure SI table exporter (E, ZPE, H, T·S, qh-G, n_imag,
+      lowest frequencies, scale factor, symmetry, xyz appendix):
+      `goodvibes --si`, `write_si`.
 - [ ] Outreach, sent as pull requests rather than waited for:
   - PESViewer writing the core format;
   - autodE exporting from `Reaction`;

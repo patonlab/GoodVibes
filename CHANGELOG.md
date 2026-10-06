@@ -9,6 +9,28 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- `goodvibes.kinetics`, a small kinetics module (no microkinetics):
+  - `eyring_rate`, `barrier_for_rate`, `rate_ratio` and `half_life`;
+  - `energy_span(levels, transition_states)`: the Kozuch–Shaik energy span
+    model. It gives an `EnergySpan` with the TDTS and TDI, the span (with
+    ΔG_r added when the TDTS comes before the TDI), the TOF and each state's
+    degree of TOF control;
+  - `step_table`: one row per transition state (from, to, barrier, barrier
+    from the lowest point before it, step energy, k, half-life);
+  - `mikimo_rows` / `write_mikimo_csv`: the `reaction_data.csv` input of
+    mikimo, with the points renamed to its `INT0, TS1, …, Prod` convention.
+
+  `Profile.energy_span()`, `Profile.step_table()` and
+  `Profile.write_mikimo()` apply them to a document's series at its
+  temperature, and `goodvibes-profile kinetics DOC [--span] [--mikimo FILE]
+  [-o steps.csv|.md] [--json]` from the shell.
+- `goodvibes.si`: a per-structure Supporting Information table (E, the
+  single point when one was applied, ZPE, H, T·S, T·qh-S, G, qh-G, the
+  imaginary and lowest real modes, the scale factors, the symmetry and
+  their sources, the level of theory and the temperature) with a Cartesian
+  coordinates appendix. `write_si` writes Markdown, LaTeX, CSV/TSV or
+  `.xyz`; `si_rows` gives the rows. `goodvibes --si PATH [--si-units U]`
+  writes it from the CLI.
 - reaction-profile 1.1: the `selectivity` block (no longer reserved). It
   names competing branch points that share a reference point.
   - `Profile.evaluate_selectivity()` gives each branch's barrier
@@ -337,6 +359,12 @@ every such change is listed under **Output changes**.
   of small figures ran into the title and the x axis); x tick labels that
   would overlap are tilted to 40° (or 90°) instead of 15°. SVGs keep their
   text as `<text>` elements instead of glyph paths.
+- `plot_profile` value labels no longer collide. At each point, a label that
+  would overlap the one below it (above it, for minima), or sit on another
+  series' bar, moves just clear of it, and the y limits grow when a label
+  would leave the axes. A value shared by several series of one pathway
+  (the 0.0 at the reference) is labelled once. Of the gallery figures, only
+  `declared_csv` (close series) changes geometry.
 - `--json` / `--export` payloads are schema **1.1**: a `profile` block (the
   evaluated reaction-profile document, without conformers) is added when
   `--pes` is used. 1.0 readers ignore it; `--import` reads 1.0 and 1.1.

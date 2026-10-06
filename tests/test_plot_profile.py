@@ -164,6 +164,40 @@ def test_label_points_places_ts_labels_above_and_minima_below():
     prof.close()
 
 
+def _label_boxes(prof):
+    fig = prof.figure
+    renderer = fig.canvas.get_renderer()
+    return renderer, {t: t.get_window_extent(renderer) for t in prof.ax.texts}
+
+
+@pytest.mark.parametrize("delta", [1.5, -0.5, -1.5])
+def test_close_value_labels_are_pushed_apart_and_kept_inside_the_axes(delta):
+    res = _branches()
+    ts = res.levels()["qh_gibbs@298.15K"]["R"]["TS_R"]
+    close = Series.declared_from("lit", "lit.", {"R": {"R": 0.0, "TS_R": ts + delta, "P_R": -2.0}},
+                                 units="kcal/mol")
+    prof = plot_profile(res, series=[res.default_series()[0], close], pathways=["R"], label_points=True)
+    renderer, boxes = _label_boxes(prof)
+    assert sorted(t.get_text() for t in boxes).count("0.0") == 1   # the shared reference is labelled once
+    lo, hi = sorted((b for t, b in boxes.items() if t.xyann[1] > 0), key=lambda b: b.y0)
+    assert hi.y0 >= lo.y1                                # stacked, not overlapping
+    for y in (ts, ts + delta):                           # and neither sits on a TS bar
+        bar = prof.ax.transData.transform((prof.x["TS_R"], y))[1]
+        assert not any(b.y0 < bar < b.y1 for b in (lo, hi))
+    frame = prof.ax.get_window_extent(renderer)
+    assert all(frame.y0 <= b.y0 and b.y1 <= frame.y1 for b in boxes.values())
+    prof.close()
+
+
+def test_labels_far_apart_keep_their_own_offsets():
+    res = _branches()
+    far = Series.declared_from("lit", "lit.", {"R": {"R": 0.0, "TS_R": 2.0, "P_R": -2.0}}, units="kcal/mol")
+    prof = plot_profile(res, series=[res.default_series()[0], far], pathways=["R"], label_points=True)
+    ups = sorted(t.xyann[1] for t in prof.ax.texts if t.xyann[1] > 0)
+    assert ups == pytest.approx([6.0, 6.0 + 8.0])        # shift0 and shift0 + shift_step, not pushed
+    prof.close()
+
+
 def test_annotate_barrier_reports_the_difference():
     res = _branches()
     prof = plot_profile(res)

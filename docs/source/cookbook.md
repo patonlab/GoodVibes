@@ -673,6 +673,85 @@ goodvibes:
 
 ---
 
+## 4d. Rates, the energy span and an SI table
+
+`goodvibes-profile kinetics` turns a profile into Eyring rates. Each
+transition state is one step, from the last intermediate before it to the
+first one after it; `--span` adds the energy span model (Kozuch and Shaik)
+with the turnover-determining states and the TOF:
+
+```yaml
+# cycle.yaml
+schema: reaction-profile/1.0
+units: kcal/mol
+points:
+  I0: {role: reactant}
+  TS1: {role: ts}
+  I1: {role: minimum}
+  TS2: {role: ts}
+  P: {role: product}
+pathways:
+  cycle: [I0, TS1, I1, TS2, P]
+series:
+  - id: G
+    quantity: gibbs
+    temperature: 298.15
+    source: declared
+    levels:
+      cycle: {I0: 0.0, TS1: 15.0, I1: -10.0, TS2: 8.0, P: -5.0}
+```
+
+```text
+$ goodvibes-profile kinetics cycle.yaml --span
+pathway cycle, series G, T = 298.15 K (kcal/mol)
+  I0 -> TS1 -> I1: barrier 15.00 (from the lowest point before it 15.00), k = 62.8 s-1, half-life 0.011 s
+  I1 -> TS2 -> P: barrier 18.00 (from the lowest point before it 18.00), k = 0.397 s-1, half-life 1.74 s
+energy span 20.00 kcal/mol (TDTS TS1, TDI I1, TDTS before TDI: + ΔG_r), ΔG_r -5.00 kcal/mol, TOF 0.0131 s⁻¹ at 298.15 K
+```
+
+The last point closes the cycle (ΔG_r = last − first). Here the span is
+not the largest step barrier (18.0): TS1 comes before the deep I1, so the
+next turnover crosses it at 15.0 − 5.0 = 10.0 above I1, 20.0 in all.
+`-o steps.csv` (or `.md`) writes the step table and `--json` prints
+everything. `--mikimo reaction_data.csv` writes the input of
+[mikimo](https://github.com/digital-chemistry-laboratory/mikimo) for
+microkinetic modelling, one row per pathway (`--pathway a,b`), with the
+points renamed to its `INT0, TS1, INT1, …, Prod` convention.
+
+The same from Python:
+
+```python
+from goodvibes import eyring_rate, rate_ratio
+from goodvibes.profile import load_profile
+
+prof = load_profile("cycle.yaml")
+es = prof.energy_span()             # EnergySpan: tdts, tdi, span, tof, control, ...
+es.control                          # degree of TOF control of each state
+prof.step_table()                   # one dict per step: barrier, k, half-life, ...
+prof.write_mikimo("reaction_data.csv")
+eyring_rate(20.0)                   # s⁻¹ at 298.15 K, kcal/mol
+rate_ratio(15.0, 16.0)              # k(15.0) / k(16.0) = 5.41
+```
+
+`--si` writes the per-structure table a Supporting Information needs: E
+(and the single point when `--spc` applied one), ZPE, H, T·S, T·qh-S, G,
+qh-G, the imaginary modes, the three lowest real modes, the scale factors
+and their source, the point group and symmetry number and their source,
+the level of theory and the temperature, then the Cartesian coordinates.
+
+```bash
+goodvibes *.log --spc sp_tzpop --si si.md --si-units kcal/mol
+```
+
+The format follows the extension: `.md` and `.tex` (booktabs) hold the
+table and a coordinates appendix, leaving out columns empty for every
+structure; `.csv`/`.tsv` hold every column and write the coordinates next to
+them as `<name>_coordinates.xyz`; `.xyz` holds only the coordinates. From
+Python, `goodvibes.write_si(results, "si.tex", units="kcal/mol",
+decimals=2)` or `si_rows(results)` for the rows.
+
+---
+
 ## 5. PES + JSON for downstream analysis
 
 ```bash

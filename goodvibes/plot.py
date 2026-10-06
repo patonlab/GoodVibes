@@ -509,6 +509,61 @@ def _label_margin(fig, axis, stack_pts: float, minimum: float = 0.1) -> float:
     return minimum if f >= 0.45 else max(minimum, f / (1.0 - 2.0 * f))
 
 
+def _declutter_labels(fig, labels, gap_pts: float, clear_pts: float) -> None:
+    """Push value labels apart where they would overlap.
+
+    ``labels`` holds ``(axes, x, anchor, above, annotation, offset)``: the
+    labels above TS bars (``above``) and below minima at one x of one axes
+    form a column, ``offset`` being each label's own offset (points). Taken
+    in order of their anchors (outwards from the axis), each label starts at
+    its own offset and moves out only as far as it must: ``gap_pts`` clear
+    of the previous label, and ``clear_pts`` past any other bar of the
+    column its box would cover. Each pass starts again from the own
+    offsets, so it can be repeated after the axis limits change."""
+    if not labels:
+        return
+    renderer = fig.canvas.get_renderer()
+    px_per_pt = fig.dpi / 72.0
+    gap = gap_pts * px_per_pt
+    clear = clear_pts * px_per_pt
+    columns: Dict[tuple, list] = {}
+    for axis, x, anchor, above, ann, off0 in labels:
+        columns.setdefault((id(axis), x, above), []).append((axis, anchor, ann, off0))
+    for (_axis_id, x, above), items in columns.items():
+        sign = 1.0 if above else -1.0
+        # work outwards in "height from the axis" (display y, negated below)
+        placed = sorted(((sign * axis.transData.transform((x, anchor))[1], ann, off0)
+                         for axis, anchor, ann, off0 in items), key=lambda t: t[0])
+        bars = [y for y, _ann, _off0 in placed]
+        edge = None                              # the outer edge of the previous label
+        for y, ann, off0 in placed:
+            height = ann.get_window_extent(renderer).height
+            inner = y + abs(off0) * px_per_pt
+            if edge is not None:
+                inner = max(inner, edge + gap)
+            for bar in bars:                     # ascending: a push may reach the next bar
+                if bar > y and inner - clear < bar < inner + height + gap:
+                    inner = bar + clear
+            edge = inner + height
+            ann.xyann = (0, sign * (inner - y) / px_per_pt)
+
+
+def _labels_overflow(fig, axis, labels, pad_pts: float = 0.0) -> Tuple[float, float]:
+    """How far (display pixels) the value labels of ``axis``, with ``pad_pts``
+    to spare, stick out above and below it."""
+    renderer = fig.canvas.get_renderer()
+    box = axis.get_window_extent(renderer)
+    pad = pad_pts * fig.dpi / 72.0
+    over = under = 0.0
+    for ax_, _x, _anchor, _above, ann, _off0 in labels:
+        if ax_ is not axis:
+            continue
+        tb = ann.get_window_extent(renderer)
+        over = max(over, tb.y1 + pad - box.y1)
+        under = max(under, box.y0 - (tb.y0 - pad))
+    return over, under
+
+
 def _draw_error_bar(ax, x, y, u, *, cap, color, linewidth, zorder=3):
     """± u about y at x, with caps, as one artist (one SVG element)."""
     from matplotlib.collections import LineCollection
@@ -693,6 +748,8 @@ def plot_profile(
             return axes[i] if layout == "panels" else axes[0]
 
         rng = None
+        value_labels = []            # (axes, x, anchor, above, annotation, offset) for _declutter_labels
+        seen_labels = set()          # a point shared by several pathways is labelled once
         for pi, path in enumerate(paths):
             axis = _axis_for(pi)
             color = colors_by_path[path.name]
@@ -723,11 +780,17 @@ def plot_profile(
                     if label_points:
                         above = point.is_ts
                         anchor = y + (u or 0.0) if above else y - (u or 0.0)
-                        ids(axis.annotate(f"{y:.{decimals}f}", (x, anchor),
-                                          xytext=(0, label_shift if above else -label_shift),
-                                          textcoords="offset points", ha="center",
-                                          va="bottom" if above else "top",
-                                          fontsize=label_size, color=color), "label", **ref)
+                        text = f"{y:.{decimals}f}"
+                        key = (id(axis), x, text, color, above)
+                        if key not in seen_labels:
+                            seen_labels.add(key)
+                            off0 = label_shift if above else -label_shift
+                            ann = axis.annotate(text, (x, anchor), xytext=(0, off0),
+                                                textcoords="offset points", ha="center",
+                                                va="bottom" if above else "top",
+                                                fontsize=label_size, color=color)
+                            ids(ann, "label", **ref)
+                            value_labels.append((axis, x, anchor, above, ann, off0))
                 # connectors along the edges
                 for edge in path.edges:
                     if edge.kind == "none":
@@ -826,6 +889,27 @@ def plot_profile(
                                       label=s.label))
         if handles:
             ids(axes[0].legend(handles=handles, loc="best", fontsize=legend_size), "legend")
+
+        # Value labels: push apart the ones that would overlap, then give the
+        # axes room for any pushed past its edge (and push again, since the
+        # new limits move the anchors).
+        if value_labels:
+            for axis in axes:
+                axis.get_ylim()      # settle pending autoscaling before measuring in display space
+            gap = 0.15 * label_pts
+            for _ in range(3):
+                _declutter_labels(fig, value_labels, gap, shift0)
+                grown = False
+                for axis in axes:
+                    over, under = _labels_overflow(fig, axis, value_labels, gap)
+                    if over > 0.5 or under > 0.5:
+                        lo, hi = axis.get_ylim()
+                        height = axis.get_window_extent(fig.canvas.get_renderer()).height or 1.0
+                        per_px = (hi - lo) / height
+                        axis.set_ylim(lo - under * per_px * 1.05, hi + over * per_px * 1.05)
+                        grown = True
+                if not grown:
+                    break
 
     return ProfileAxes(
         figure=fig, axes=axes, levels=levels, units=units, order=order, x=xpos,

@@ -126,6 +126,36 @@ The CLI flag `--csv PATH` does the same thing without leaving the shell:
 goodvibes *.log --csv thermo.csv
 ```
 
+## Supporting Information tables
+
+```python
+from goodvibes import compute_batch, si_rows, write_si
+
+results = compute_batch(glob.glob("*.log"))
+write_si(results, "si.md", units="kcal/mol")    # also .tex, .csv, .tsv, .xyz
+rows = si_rows(results)                         # one dict per structure
+```
+
+The CLI flag `--si PATH` (with `--si-units`) does the same; see cookbook
+recipe 4d.
+
+## Rates and the energy span
+
+```python
+from goodvibes import energy_span, eyring_rate, rate_ratio, step_table
+
+eyring_rate(20.0, 298.15)                        # s⁻¹; kcal/mol unless units= says otherwise
+rate_ratio(15.0, 16.0)                           # k(15.0) / k(16.0)
+levels = {"I0": 0.0, "TS1": 15.0, "I1": -10.0, "TS2": 8.0, "P": -5.0}
+es = energy_span(levels, ["TS1", "TS2"])         # the last point closes the cycle
+print(es.span, es.tdts, es.tdi, es.tof)
+step_table(levels, ["TS1", "TS2"])               # barrier, k and half-life per step
+```
+
+A reaction-profile document has the same as `Profile.energy_span()`,
+`Profile.step_table()` and `Profile.write_mikimo()`, at the series'
+temperature and in the document's units.
+
 ## Skipping a re-parse
 
 If you've already parsed an output file (e.g. via

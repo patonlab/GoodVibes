@@ -51,6 +51,8 @@ from .pes_model import (
 from .plot import ProfileAxes, plot_pes, plot_profile
 from .profile import Profile, ProfileError, ProfileWarning, load_profile, validate_document
 from .quantities import QUANTITIES, resolve_quantity
+from .si import si_rows, write_si
+from .kinetics import EnergySpan, energy_span, eyring_rate, rate_ratio, step_table
 from .selectivity import SelectivityResult, SelectivityWarning, compute_selectivity, selectivity_from_energies
 from .selectivity_batch import compute_selectivity_batch, summarize_selectivity
 from .thermo import MissingSinglePointError, ThermoOptions, calc_bbe
@@ -95,6 +97,15 @@ __all__ = [
     "validate_document",
     # selectivity
     "SelectivityResult",
+    # SI tables
+    "si_rows",
+    "write_si",
+    # kinetics
+    "eyring_rate",
+    "rate_ratio",
+    "energy_span",
+    "EnergySpan",
+    "step_table",
     "SelectivityWarning",
     "selectivity_from_energies",
     "compute_selectivity_batch",
