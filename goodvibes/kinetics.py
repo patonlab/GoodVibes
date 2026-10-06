@@ -212,6 +212,9 @@ def _mikimo_names(points: Sequence[str], transition_states: Iterable[str]) -> Li
     transition state and one starting with R or P as a reactant or
     product, so point ids cannot be used as they are)."""
     ts = set(transition_states)
+    if points and points[-1] in ts:
+        raise ValueError(f"the last point, {points[-1]!r}, is a transition state; mikimo reads the last "
+                         "state as the product, so end the profile at a minimum")
     names, n_int, n_ts = [], 0, 0
     for i, p in enumerate(points):
         if i == len(points) - 1:

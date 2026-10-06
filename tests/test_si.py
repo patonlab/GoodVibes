@@ -84,6 +84,8 @@ def test_markdown_latex_csv_and_xyz_files(results, tmp_path):
     assert write_si(results, tmp_path / "all.xyz")[0].endswith("all.xyz")
     with pytest.raises(ValueError, match="unknown format"):
         write_si(results, tmp_path / "si.docx")
+    with pytest.raises(ValueError, match="holds only the coordinates"):
+        write_si(results, tmp_path / "none.xyz", coordinates=False)
 
 
 def test_goodvibes_si_option(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
@@ -93,6 +95,13 @@ def test_goodvibes_si_option(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa:
     assert "E (kcal/mol)" in text and "44_ts_sn2_identity_chloride" in text
     assert "SI table written to si.md" in (tmp_path / "GoodVibes_output.dat").read_text(encoding="utf-8")
     assert os.path.exists(tmp_path / "si.md")
+
+
+def test_goodvibes_si_is_rejected_with_ti(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
+    from test_cli_errors import run_main
+    with pytest.raises(SystemExit):
+        run_main(monkeypatch, tmp_path, [WATER, "--si", "si.md", "--ti", "250,300,25"])
+    assert not (tmp_path / "si.md").exists()
 
 
 from test_cli_errors import gv_logger_cleanup  # noqa: E402,F401  (fixture)

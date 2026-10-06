@@ -412,8 +412,11 @@ def test_pes_plot_label_points_annotates_levels():
     """label_points=True adds annotation text for each step level."""
     result = _two_pathway_pes_result()
     ax = gv_plot.plot_pes(result, label_points=True)
-    # 2 pathways × 3 points = 6 annotations.
-    assert len(ax.texts) >= 6
+    # 2 pathways × 3 points, but A and B are shared with equal values and
+    # are labelled once each: A, TS (R), TS (S), B.
+    assert sorted(t.get_text() for t in ax.texts) == sorted(
+        f"{v:.1f}" for v in {round(lv[p], 6) for lv in result.levels()["qh_gibbs@298.15K"].values() for p in lv})
+    assert len(ax.texts) == 4
     plt.close(ax.figure)
 
 

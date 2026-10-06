@@ -249,6 +249,8 @@ def parse_arguments():
         parser.error("--profile: write the document as .json, .yaml or .yml")
     if options.with_conformers and not options.profile_path:
         parser.error("--with-conformers requires --profile")
+    if options.si_path and options.temperature_interval is not None:
+        parser.error("--si writes a table at one temperature; it cannot be combined with --ti")
 
     # Retired options: fail loudly rather than let parse_known_args drop them,
     # so a script cannot appear to apply a setting that no longer exists.
@@ -926,7 +928,7 @@ def main():
             fatal(str(exc))
 
     # Supporting Information table (single temperature, like --csv)
-    if options.si_path and options.temperature_interval is None:
+    if options.si_path:
         from .api import bbe_to_result
         from .si import write_si
         try:
