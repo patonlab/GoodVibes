@@ -677,7 +677,7 @@ def resolve_output_file(file, extensions=('.log', '.out', '.extxyz')):
 def find_spc_file(name, spc):
     """Locate the single-point-correction output paired with ``name``.
 
-    Pattern matched: ``{name}_{spc}.{log,out}`` — exact match. ``--spc TZVP``
+    Pattern matched: ``{name}_{spc}.{log,out,extxyz}`` — exact match. ``--spc TZVP``
     finds ``filename_TZVP.log`` only; it will NOT match ``filename_def2_TZVP.log``.
     To pair with a file like ``filename_def2_TZVP.log``, pass the full suffix
     (``--spc def2_TZVP``).
@@ -694,7 +694,7 @@ def find_spc_file(name, spc):
     str or None
         Path to the matching file, or None if nothing matches.
     """
-    for ext in ('.log', '.out'):
+    for ext in ('.log', '.out', '.extxyz'):
         candidate = f'{name}_{spc}{ext}'
         if os.path.isfile(candidate):
             return candidate
