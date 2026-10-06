@@ -311,6 +311,16 @@ def test_to_dataframe_round_trip():
     assert "frequency_wn" not in df.columns
 
 
+def test_to_dataframe_keeps_the_imaginary_frequencies():
+    """Issue #130: the frequencies --imag prints are in the CSV too."""
+    pd = pytest.importorskip("pandas")
+    rs = compute_batch([WATER_HF, os.path.join(G16, "44_ts_sn2_identity_chloride.log")])
+    df = to_dataframe(rs)
+    assert pd.isna(df.loc[0, "im_frequency_wn"])
+    assert df.loc[1, "im_frequency_wn"] == f"{rs[1].im_frequency_wn[0]:.2f}"
+    assert df.loc[1, "n_imag"] == 1
+
+
 def test_to_dataframe_values_match_results():
     pytest.importorskip("pandas")
     rs = compute_batch([WATER_HF])
