@@ -109,6 +109,8 @@ def test_mikimo_rows_rename_points_and_convert_units(tmp_path):
     assert lines[2][0] == "b" and float(lines[2][2]) == pytest.approx(20.0)
     with pytest.raises(ValueError, match="same sequence"):
         mikimo_rows({"a": kj, "b": {"x": 0.0, "y": 1.0}}, ["TSa", "TSb"])
+    with pytest.raises(ValueError, match="is a transition state"):
+        mikimo_rows({"a": {"I0": 0.0, "TS1": 10.0}}, ["TS1"])     # mikimo would read the TS as the product
 
 
 # -- documents and the command line -----------------------------------------------------
@@ -150,10 +152,57 @@ def test_goodvibes_profile_kinetics(tmp_path, capsys):
     assert "I0 -> TS1 -> I1: barrier 15.00" in out and "energy span 20.00 kcal/mol (TDTS TS1, TDI I1" in out
     mik = tmp_path / "reaction_data.csv"
     assert gvp(["kinetics", str(src), "--mikimo", str(mik), "--json"]) == 0
-    printed = capsys.readouterr().out
-    assert "I0 = INT0" in printed
-    payload = json.loads(printed[printed.index("{"):])
+    captured = capsys.readouterr()
+    assert "I0 = INT0" in captured.err                    # the status line stays out of the JSON
+    payload = json.loads(captured.out)
     assert [s["ts"] for s in payload["steps"]] == ["TS1", "TS2"]
     assert mik.read_text(encoding="utf-8").splitlines()[0] == ",INT0,TS1,INT1,TS2,Prod"
     assert gvp(["kinetics", str(src), "-o", str(tmp_path / "steps.csv")]) == 0
     assert (tmp_path / "steps.csv").read_text(encoding="utf-8").startswith("pathway,series,ts,from,to,barrier")
+
+
+def _two_series(**extra):
+    """CYCLE with an electronic-energy series listed before the free-energy one."""
+    e = {"id": "E", "quantity": "electronic", "source": "declared",
+         "levels": {"cycle": {"I0": 0.0, "TS1": 30.0, "I1": -20.0, "TS2": 5.0, "P": -8.0}}}
+    return {**CYCLE, "series": [e, *CYCLE["series"]], **extra}
+
+
+def test_rates_come_from_a_free_energy_series():
+    from goodvibes.profile import Profile, ProfileError, ProfileWarning
+    prof = Profile.from_dict(_two_series())
+    assert prof.step_table()[0]["series"] == "G"         # not the first series, which holds ΔE
+    with pytest.warns(ProfileWarning, match="not a free energy"):
+        assert prof.energy_span(series="E").span == pytest.approx(50.0 - 8.0)
+    only_e = Profile.from_dict({**CYCLE, "series": _two_series()["series"][:1]})
+    with pytest.raises(ProfileError, match="no free-energy series"):
+        only_e.step_table()
+
+
+def test_levels_are_converted_and_must_be_complete(tmp_path):
+    from goodvibes.profile import Profile, ProfileError
+    prof = Profile.from_dict(CYCLE)
+    s = prof.series[0]                          # a series built in code may carry its own units
+    s.units, s.levels = "kJ/mol", {"cycle": {k: v * 4.184 for k, v in s.levels["cycle"].items()}}
+    assert prof.units == "kcal/mol" and prof.energy_span().span == pytest.approx(20.0)
+    assert prof.step_table()[0]["barrier"] == pytest.approx(15.0)
+    gap = dict(CYCLE["series"][0], levels={"cycle": {**CYCLE["series"][0]["levels"]["cycle"], "P": None}})
+    incomplete = Profile.from_dict({**CYCLE, "series": [gap]})
+    with pytest.raises(ProfileError, match="no level for P"):
+        incomplete.energy_span()
+    with pytest.raises(ProfileError, match="no level for P"):
+        incomplete.write_mikimo(tmp_path / "x.csv")
+
+
+def test_a_mikimo_export_uses_one_series(tmp_path):
+    from goodvibes.profile import Profile, ProfileError
+    doc = {**CYCLE, "pathways": {**CYCLE["pathways"], "alt": ["I0", "TS1", "I1", "TS2", "P"]}}
+    g, = doc["series"]
+    other = {"id": "G2", "quantity": "gibbs", "temperature": 298.15, "source": "declared",
+             "levels": {"alt": {"I0": 0.0, "TS1": 1.0, "I1": 0.0, "TS2": 1.0, "P": 0.0}}}
+    # G covers only 'cycle' and G2 only 'alt': neither can export both, and they are not mixed
+    with pytest.raises(ProfileError, match="no series has levels on pathways 'cycle', 'alt'"):
+        Profile.from_dict({**doc, "series": [g, other]}).write_mikimo(tmp_path / "x.csv")
+    both = dict(g, levels={"cycle": g["levels"]["cycle"], "alt": g["levels"]["cycle"]})
+    Profile.from_dict({**doc, "series": [other, both]}).write_mikimo(tmp_path / "y.csv")
+    assert [r[0] for r in csv.reader((tmp_path / "y.csv").open(encoding="utf-8"))][1:] == ["cycle", "alt"]

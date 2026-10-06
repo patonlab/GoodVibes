@@ -269,7 +269,8 @@ def cmd_kinetics(args) -> int:
     span = prof.energy_span(first, args.series) if args.span else None
     if args.mikimo:
         names = prof.write_mikimo(args.mikimo, pathways, args.series)
-        print(f"wrote {args.mikimo} (states: " + ", ".join(f"{p} = {n}" for p, n in names.items()) + ")")
+        print(f"wrote {args.mikimo} (states: " + ", ".join(f"{p} = {n}" for p, n in names.items()) + ")",
+              file=sys.stderr if args.json else sys.stdout)
     if args.json:
         out = {"steps": rows}
         if span is not None:
