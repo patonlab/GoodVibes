@@ -265,6 +265,17 @@ class TestMainDirect:
         header = (tmp_path / 'out.csv').read_text().splitlines()[0]
         assert 'qh_gibbs_free_energy' in header
 
+    def test_csv_export_has_the_imaginary_frequencies(self, monkeypatch, tmp_path, gv_logger_cleanup):
+        """Issue #130: --imag --csv puts the printed frequencies in the CSV."""
+        pd = pytest.importorskip('pandas')
+        ts = g16path('44_ts_sn2_identity_chloride.log')
+        run_main(monkeypatch, tmp_path, [WATER, ts, '--imag', '--csv', 'out.csv'])
+        df = pd.read_csv(tmp_path / 'out.csv', dtype={'im_frequency_wn': str}).set_index('name')
+        printed = self._dat(tmp_path)
+        freq = df.loc['44_ts_sn2_identity_chloride', 'im_frequency_wn']
+        assert freq.startswith('-') and freq in printed
+        assert pd.isna(df.loc['01a_water_hf_freq', 'im_frequency_wn'])
+
     def test_media_correction(self, monkeypatch, tmp_path, gv_logger_cleanup):
         run_main(monkeypatch, tmp_path, [WATER, '--media', 'h2o'])
         text = self._dat(tmp_path)

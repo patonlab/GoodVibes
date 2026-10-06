@@ -330,6 +330,10 @@ every such change is listed under **Output changes**.
   both.
 
 ### Output changes
+- `--csv` / `--parquet` and `to_dataframe` have an `im_frequency_wn`
+  column: the imaginary frequencies (cm⁻¹, space-separated, as `--imag`
+  prints them), empty when a structure has none. They were left out of the
+  file (#130).
 - `--json` / `--export` selectivity results (`selectivity`,
   `selectivity_lowest`) gain `major`, `ee_signed`, `ratio` and
   `ensemble_energies` (additive within the unreleased payload 1.1). With a

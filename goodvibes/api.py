@@ -226,7 +226,10 @@ def to_dataframe(results: Sequence[ThermoResult]):
     Pandas is an optional dependency; raises ImportError with an install
     hint if it isn't available. The DataFrame has one row per result
     and columns for every public scalar field on `ThermoResult`
-    (omits the `bbe` and `qcdata` references).
+    (omits the `bbe` and `qcdata` references and the frequency lists).
+    The imaginary frequencies are kept as ``im_frequency_wn``: a
+    space-separated string in cm⁻¹, as ``--imag`` prints them, or None
+    when the structure has none.
     """
     try:
         import pandas as pd
@@ -234,14 +237,16 @@ def to_dataframe(results: Sequence[ThermoResult]):
         raise ImportError(
             "to_dataframe requires pandas; install with `pip install pandas`."
         ) from exc
-    skip = {"bbe", "qcdata", "options", "frequency_wn", "im_frequency_wn", "inverted_freqs"}
+    skip = {"bbe", "qcdata", "options", "frequency_wn", "inverted_freqs"}
     rows = []
     for r in results:
-        rows.append({
+        row = {
             f.name: getattr(r, f.name)
             for f in r.__dataclass_fields__.values()
             if f.name not in skip
-        })
+        }
+        row["im_frequency_wn"] = " ".join(f"{f:.2f}" for f in r.im_frequency_wn or []) or None
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
