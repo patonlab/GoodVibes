@@ -306,3 +306,43 @@ def test_malformed_pes_file_is_a_fatal_error(monkeypatch, tmp_path, gv_logger_cl
     with pytest.raises(SystemExit):
         run_main(monkeypatch, tmp_path, WATERS + ["--pes", bad])
     assert "FATAL ERROR: --pes" in (tmp_path / "GoodVibes_output.dat").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# --dedup with --pes (issue #133)
+# ---------------------------------------------------------------------------
+
+def _dedup_run(monkeypatch, tmp_path, copies, extra=()):
+    """A -> B with A as one water conformer plus ``copies`` identical copies
+    of it; returns (profile level of B, PES-table qh-G of B)."""
+    import shutil
+    a = g16path("01a_water_hf_freq.log")
+    files = [a]
+    for i in range(copies):
+        dup = tmp_path / f"01a_water_copy{i}.log"
+        shutil.copy(a, dup)
+        files.append(str(dup))
+    names = ", ".join(Path(f).stem for f in files)
+    pes = _write(tmp_path, "pes.yaml", f"pathways:\n  rxn: [A, B]\nspecies:\n  A: [{names}]\n"
+                                       "  B: [01b_water_hf_freq_scaled]\n")
+    run_main(monkeypatch, tmp_path, files + [g16path("01b_water_hf_freq_scaled.log"), "--pes", pes,
+                                             "--json", "out.json", "--profile", "prof.json", *extra])
+    payload = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))
+    table = payload["pes"]["pathways"][0]["points"][1]["relative"]["qh_g"]
+    return load_profile(tmp_path / "prof.json").series[0].levels["rxn"]["B"], table
+
+
+def test_dedup_removes_duplicates_from_the_pes_and_the_profile(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811
+    one_dir, dup_dir, kept_dir = (tmp_path / d for d in ("one", "dup", "kept"))
+    for d in (one_dir, dup_dir, kept_dir):
+        d.mkdir()
+    single = _dedup_run(monkeypatch, one_dir, 0)
+    deduped = _dedup_run(monkeypatch, dup_dir, 2, ["--dedup", "--with-conformers"])
+    assert deduped == pytest.approx(single, abs=1e-9)          # tables and profile agree with one copy
+    kept_a = load_profile(dup_dir / "prof.json").namespace["conformers"]["default"]["A"]
+    assert len(kept_a) == 1                                    # --with-conformers lists the kept copy only
+    assert deduped[0] == pytest.approx(deduped[1], abs=1e-9)
+    text = (dup_dir / "GoodVibes_output.dat").read_text(encoding="utf-8")
+    assert "2 duplicate conformer(s) excluded from the --pes species ensembles" in text
+    kept = _dedup_run(monkeypatch, kept_dir, 2)                 # without --dedup the copies count
+    assert kept[0] == pytest.approx(kept[1], abs=1e-9) and kept[0] != pytest.approx(single[0], abs=1e-3)

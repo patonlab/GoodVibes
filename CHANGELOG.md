@@ -273,6 +273,15 @@ every such change is listed under **Output changes**.
 - `calc_bbe.qcdata`: the parsed input is kept on the result.
 
 ### Fixed
+- `--dedup` had no effect on `--pes`: the PES tables, the `--profile`
+  document, the payload's `profile` block and `--pes-plot` all kept every
+  duplicate conformer, so each copy added to the species' conformer
+  (gconf) entropy, by up to RT ln(copies). Of each duplicate pair inside
+  one PES species the later file is now left out of that species, for the
+  tables and the profile alike, and the output says how many were
+  excluded; `--with-conformers` lists only the kept ones. Pairs across
+  species (such as enantiomeric R and S transition states) are not
+  touched (#133).
 - `kabsch_rmsd` (the RMSD behind `--rmsd_cutoff` and `dedup.rmsd_cutoff`)
   averaged the squared deviation over the 3N coordinates instead of over the
   N atoms, so it reported RMSDs √3 too small and a cutoff behaved as one √3
