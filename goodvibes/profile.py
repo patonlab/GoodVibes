@@ -181,6 +181,14 @@ class ProfileError(ValueError):
         super().__init__(head + ":\n  " + "\n  ".join(self.errors))
 
 
+def _is_free_energy(quantity: str) -> bool:
+    """Whether a series quantity is a Gibbs free energy (G or qh-G)."""
+    try:
+        return resolve_quantity(quantity).id in ("gibbs", "qh_gibbs")
+    except ValueError:
+        return False
+
+
 class ProfileWarning(UserWarning):
     """A reaction-profile document was accepted with a caveat (an unknown
     key, a quantity alias, a v2 shorthand, ...)."""
@@ -1728,29 +1736,71 @@ class Profile:
 
     # -- kinetics ----------------------------------------------------------------
 
-    def _pathway_levels(self, pathway: Optional[str], series: Optional[str]) -> Tuple[Series, Any, Dict[str, float]]:
-        """(series, pathway, {point: level}) along a pathway in order: the
-        named series, or the first with levels on that pathway."""
+    def _kinetics_pathway(self, pathway: Optional[str]):
         path = self.pathways.get(pathway) if pathway else next(iter(self.pathways.values()), None)
         if path is None:
             raise ProfileError([f"no pathway {pathway!r} (the document has {', '.join(self.pathways) or 'none'})"
                                 if pathway else "the document has no pathways"])
-        candidates = [self.get_series(series)] if series else list(self.series)
-        for s in candidates:
-            lv = (s.levels or {}).get(path.name)
-            if lv:
-                return s, path, {p: lv[p] for p in path.points if lv.get(p) is not None}
-        raise ProfileError([f"pathway {path.name!r}: no series has levels on it (evaluate the document first)"
-                            if not series else f"series {series!r} has no levels on pathway {path.name!r}"])
+        return path
+
+    def _kinetics_series(self, paths: Sequence[Any], series: Optional[str]) -> Series:
+        """The series rates are read from: ``series``, or the first free-energy
+        (G or qh-G) series with levels on every one of ``paths``, else the
+        first such series of unstated quantity. A named series of another
+        quantity (E, H, ...) is used with a ``ProfileWarning``: Eyring and the
+        energy span need free energies of activation."""
+        names = ", ".join(repr(p.name) for p in paths)
+        if series:
+            s = self.get_series(series)
+            for path in paths:
+                if not (s.levels or {}).get(path.name):
+                    raise ProfileError([f"series {series!r} has no levels on pathway {path.name!r}"])
+            if s.quantity is not None and not _is_free_energy(s.quantity):
+                warnings.warn(f"series {series!r} holds {s.quantity!r}, not a free energy; the rates and the "
+                              "energy span read its differences as free energies of activation",
+                              ProfileWarning, stacklevel=3)
+            return s
+        complete = [s for s in self.series if all((s.levels or {}).get(p.name) for p in paths)]
+        if not complete:
+            raise ProfileError([f"no series has levels on pathway{'s' if len(paths) > 1 else ''} {names} "
+                                "(evaluate the document first)"])
+        for s in complete:
+            if s.quantity is not None and _is_free_energy(s.quantity):
+                return s
+        for s in complete:
+            if s.quantity is None:
+                return s
+        raise ProfileError([f"no free-energy series on {names} (series: "
+                            + ", ".join(f"{s.id} ({s.quantity})" for s in complete)
+                            + "); name one with series= to use it anyway"])
+
+    def _kinetics_levels(self, s: Series, path) -> Dict[str, float]:
+        """{point: level} along ``path`` in order, in the document's units;
+        every point needs a level."""
+        lv = (s.levels or {}).get(path.name) or {}
+        missing = [p for p in path.points if lv.get(p) is None]
+        if missing:
+            raise ProfileError([f"series {s.id!r} has no level for {', '.join(missing)} on pathway "
+                                f"{path.name!r}; kinetics needs every point of the pathway"])
+        factor = hartree_factor(self.units) / hartree_factor(s.units or self.units)
+        return {p: lv[p] * factor for p in path.points}
+
+    def _pathway_levels(self, pathway: Optional[str], series: Optional[str]) -> Tuple[Series, Any, Dict[str, float]]:
+        """(series, pathway, {point: level in the document's units}) along a
+        pathway (default the first) in order; the series as in
+        ``_kinetics_series``."""
+        path = self._kinetics_pathway(pathway)
+        s = self._kinetics_series([path], series)
+        return s, path, self._kinetics_levels(s, path)
 
     def _transition_states(self) -> List[str]:
         return [pid for pid, pt in self.points.items() if pt.role == "ts"]
 
     def step_table(self, pathway: Optional[str] = None, series: Optional[str] = None) -> List[dict]:
         """``goodvibes.kinetics.step_table`` for a pathway (default the
-        first) and series (default the first with levels on it), at the
-        series' temperature, in the document's units; each row also names
-        the ``pathway`` and ``series``."""
+        first) and series (default the first free-energy series with levels
+        on it), at the series' temperature, in the document's units; each
+        row also names the ``pathway`` and ``series``."""
         from .kinetics import step_table
         s, path, levels = self._pathway_levels(pathway, series)
         T = s.temperature if s.temperature is not None else self.default_temperature
@@ -1772,14 +1822,14 @@ class Profile:
     def write_mikimo(self, path, pathways: Optional[Sequence[str]] = None,
                      series: Optional[str] = None) -> Dict[str, str]:
         """Write mikimo's ``reaction_data.csv`` with one row per pathway
-        (default all), levels in kcal/mol; returns the point-to-state-name
-        map (``INT0, TS1, ..., Prod``). See ``goodvibes.kinetics``."""
+        (default all), all from one series (default the first free-energy
+        series with levels on every one), levels in kcal/mol; returns the
+        point-to-state-name map (``INT0, TS1, ..., Prod``). See
+        ``goodvibes.kinetics``."""
         from .kinetics import write_mikimo_csv
-        names = list(pathways) if pathways else list(self.pathways)
-        profiles = {}
-        for name in names:
-            _s, _path, levels = self._pathway_levels(name, series)
-            profiles[name] = levels
+        paths = [self._kinetics_pathway(name) for name in (list(pathways) if pathways else list(self.pathways))]
+        s = self._kinetics_series(paths, series)
+        profiles = {p.name: self._kinetics_levels(s, p) for p in paths}
         return write_mikimo_csv(path, profiles, self._transition_states(), units=self.units)
 
     # -- selectivity (reaction-profile 1.1) -----------------------------------

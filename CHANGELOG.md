@@ -22,8 +22,12 @@ every such change is listed under **Output changes**.
 
   `Profile.energy_span()`, `Profile.step_table()` and
   `Profile.write_mikimo()` apply them to a document's series at its
-  temperature, and `goodvibes-profile kinetics DOC [--span] [--mikimo FILE]
-  [-o steps.csv|.md] [--json]` from the shell.
+  temperature and in its units: by default the first free-energy (G or
+  qh-G) series, as rates need free energies of activation (naming a ΔE or
+  ΔH series warns); every point of the pathway needs a level, and a mikimo
+  export reads all its pathways from one series. `goodvibes-profile
+  kinetics DOC [--span] [--mikimo FILE] [-o steps.csv|.md] [--json]` does
+  the same from the shell.
 - `goodvibes.si`: a per-structure Supporting Information table (E, the
   single point when one was applied, ZPE, H, T·S, T·qh-S, G, qh-G, the
   imaginary and lowest real modes, the scale factors, the symmetry and
@@ -273,6 +277,15 @@ every such change is listed under **Output changes**.
 - `calc_bbe.qcdata`: the parsed input is kept on the result.
 
 ### Fixed
+- `--dedup` had no effect on `--pes`: the PES tables, the `--profile`
+  document, the payload's `profile` block and `--pes-plot` all kept every
+  duplicate conformer, so each copy added to the species' conformer
+  (gconf) entropy, by up to RT ln(copies). Of each duplicate pair inside
+  one PES species the later file is now left out of that species, for the
+  tables and the profile alike, and the output says how many were
+  excluded; `--with-conformers` lists only the kept ones. Pairs across
+  species (such as enantiomeric R and S transition states) are not
+  touched (#133).
 - `kabsch_rmsd` (the RMSD behind `--rmsd_cutoff` and `dedup.rmsd_cutoff`)
   averaged the squared deviation over the 3N coordinates instead of over the
   N atoms, so it reported RMSDs √3 too small and a cutoff behaved as one √3
@@ -362,8 +375,10 @@ every such change is listed under **Output changes**.
 - `plot_profile` value labels no longer collide. At each point, a label that
   would overlap the one below it (above it, for minima), or sit on another
   series' bar, moves just clear of it, and the y limits grow when a label
-  would leave the axes. A value shared by several series of one pathway
-  (the 0.0 at the reference) is labelled once. Of the gallery figures, only
+  would leave the axes. The label boxes are sized from the font size, not
+  measured, so the layout is the same on every matplotlib version. A value
+  shared by several series or pathways at one point (the 0.0 at the
+  reference) is labelled once. Of the gallery figures, only
   `declared_csv` (close series) changes geometry.
 - `--json` / `--export` payloads are schema **1.1**: a `profile` block (the
   evaluated reaction-profile document, without conformers) is added when

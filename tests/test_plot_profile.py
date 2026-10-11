@@ -189,6 +189,13 @@ def test_close_value_labels_are_pushed_apart_and_kept_inside_the_axes(delta):
     prof.close()
 
 
+def test_a_value_shared_by_pathways_is_labelled_once():
+    prof = plot_profile(_branches(), label_points=True)        # R and S share the reference point R
+    texts = [t.get_text() for t in prof.ax.texts]
+    assert texts.count("0.0") == 1 and len(texts) == 5      # R once, then TS_R, P_R, TS_S, P_S
+    prof.close()
+
+
 def test_labels_far_apart_keep_their_own_offsets():
     res = _branches()
     far = Series.declared_from("lit", "lit.", {"R": {"R": 0.0, "TS_R": 2.0, "P_R": -2.0}}, units="kcal/mol")

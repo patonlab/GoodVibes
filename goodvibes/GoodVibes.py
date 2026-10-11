@@ -249,6 +249,8 @@ def parse_arguments():
         parser.error("--profile: write the document as .json, .yaml or .yml")
     if options.with_conformers and not options.profile_path:
         parser.error("--with-conformers requires --profile")
+    if options.si_path and options.temperature_interval is not None:
+        parser.error("--si writes a table at one temperature; it cannot be combined with --ti")
 
     # Retired options: fail loudly rather than let parse_known_args drop them,
     # so a script cannot appear to apply a setting that no longer exists.
@@ -584,6 +586,31 @@ def compute_thermochem(files, options, qcdata_cache=None):
     return dict(zip(files, bbe_vals))
 
 
+def _pes_duplicates(pes_result, dup_list) -> set:
+    """The files ``--dedup`` removes from the ``--pes`` species ensembles:
+    of each duplicate pair (``[duplicate, kept]``, see
+    ``goodvibes.sort.deduplicate``) whose files share a species, the
+    duplicate. Pairs across species are left alone (the energy and
+    rotational-constant gates cannot tell R from S), and a file is kept
+    when dropping it would empty a species."""
+    if not dup_list:
+        return set()
+    members = {}
+    for path in pes_result.pathways:
+        for point in path.points:
+            for _coeff, cset in point.species:
+                members.setdefault(cset.name, set()).update(cset.files)
+    species_of = {}
+    for name, files in members.items():
+        for f in files:
+            species_of.setdefault(f, set()).add(name)
+    drop = {a for a, b in dup_list if species_of.get(a, set()) & species_of.get(b, set())}
+    for files in members.values():
+        if files and files <= drop:
+            drop -= files
+    return drop
+
+
 def main():
     """CLI entry point: parse arguments, compute thermochemistry, and print results."""
     # Ensure stdout/stderr can encode GoodVibes' Unicode output before argparse
@@ -844,6 +871,8 @@ def main():
         if legacy_pes:
             log.info(f"\n   ! {options.pes} uses the legacy '--- # PES' text format, which is deprecated "
                      "and will be removed in v6.0; see the PES section of the documentation for the YAML form.")
+    pes_thermo = thermo_data     # thermo_data without --dedup duplicates inside a PES species
+    pes_drop = set()
     if options.pes:
         import warnings as _warnings
         import yaml
@@ -859,6 +888,19 @@ def main():
                 pes_result = load_pes(options.pes, thermo_data, temperatures=pes_temperatures)
         except (KeyError, ValueError, yaml.YAMLError) as exc:
             fatal(f"\n   ✗ FATAL ERROR: --pes {options.pes}: {exc}")
+        # --dedup: of each duplicate pair inside one PES species, the later
+        # file leaves that species' ensemble (enantiomeric R and S TSs in
+        # different species are both kept), for the tables and the profile alike
+        pes_drop = _pes_duplicates(pes_result, dup_list)
+        if pes_drop:
+            pes_thermo = {f: b for f, b in thermo_data.items() if f not in pes_drop}
+            try:
+                with _warnings.catch_warnings():
+                    _warnings.simplefilter("ignore", ProfileWarning)
+                    pes_result = load_pes(options.pes, pes_thermo, temperatures=pes_temperatures)
+            except (KeyError, ValueError, yaml.YAMLError) as exc:
+                fatal(f"\n   ✗ FATAL ERROR: --pes {options.pes}: {exc}")
+            log.info(f"\n   {len(pes_drop)} duplicate conformer(s) excluded from the --pes species ensembles")
         for note in getattr(pes_result.source, "warnings", []):
             log.info(f"\n   ! {options.pes}: {note}")
         apply_cli_pes_options(pes_result, options)
@@ -876,7 +918,7 @@ def main():
         from .profile import ProfileError
         try:
             profile_doc = pes_result.source.evaluate(
-                thermo_data, options=pes_result.options,
+                pes_thermo, options=pes_result.options,
                 default_series=pes_result.default_series(options.pes_plot_quantity),
                 with_conformers=options.with_conformers,
                 base_temperature=pes_result.temperature,
@@ -926,7 +968,7 @@ def main():
             fatal(str(exc))
 
     # Supporting Information table (single temperature, like --csv)
-    if options.si_path and options.temperature_interval is None:
+    if options.si_path:
         from .api import bbe_to_result
         from .si import write_si
         try:
@@ -1029,7 +1071,11 @@ def main():
             for T in pes_result.temperatures:
                 print_pes_tables(pes_result, options, temperature=T)
         else:
-            print_pes_results(thermo_data, options, dup_list,
+            if pes_drop:
+                keep = [i for i, f in enumerate(file_list) if f not in pes_drop]
+                file_list = [file_list[i] for i in keep]
+                interval_bbe_data = [interval_bbe_data[i] for i in keep]
+            print_pes_results(pes_thermo, options, dup_list,
                               boltz_facs=boltz_facs,
                               interval_bbe_data=interval_bbe_data,
                               interval=interval, file_list=file_list)

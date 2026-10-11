@@ -509,7 +509,24 @@ def _label_margin(fig, axis, stack_pts: float, minimum: float = 0.1) -> float:
     return minimum if f >= 0.45 else max(minimum, f / (1.0 - 2.0 * f))
 
 
-def _declutter_labels(fig, labels, gap_pts: float, clear_pts: float) -> None:
+#: A value label's box height as a multiple of its font size (a line of digits).
+_LABEL_HEIGHT = 1.1
+
+
+def _label_boxes(fig, labels, height_pts: float):
+    """For each value label, (axes, display y of its inner edge, its
+    height in pixels): the box is ``height_pts`` tall whatever the text,
+    so the layout does not follow the font metrics of a matplotlib
+    version (a measured text box differs by a pixel or so between them)."""
+    px_per_pt = fig.dpi / 72.0
+    out = []
+    for axis, x, anchor, above, ann, _off0 in labels:
+        y = axis.transData.transform((x, anchor))[1] + ann.xyann[1] * px_per_pt
+        out.append((axis, y, height_pts * px_per_pt))
+    return out
+
+
+def _declutter_labels(fig, labels, gap_pts: float, clear_pts: float, height_pts: float) -> None:
     """Push value labels apart where they would overlap.
 
     ``labels`` holds ``(axes, x, anchor, above, annotation, offset)``: the
@@ -518,14 +535,15 @@ def _declutter_labels(fig, labels, gap_pts: float, clear_pts: float) -> None:
     in order of their anchors (outwards from the axis), each label starts at
     its own offset and moves out only as far as it must: ``gap_pts`` clear
     of the previous label, and ``clear_pts`` past any other bar of the
-    column its box would cover. Each pass starts again from the own
-    offsets, so it can be repeated after the axis limits change."""
+    column its box (``height_pts`` tall) would cover. Each pass starts again
+    from the own offsets, so it can be repeated after the axis limits
+    change."""
     if not labels:
         return
-    renderer = fig.canvas.get_renderer()
     px_per_pt = fig.dpi / 72.0
     gap = gap_pts * px_per_pt
     clear = clear_pts * px_per_pt
+    height = height_pts * px_per_pt
     columns: Dict[tuple, list] = {}
     for axis, x, anchor, above, ann, off0 in labels:
         columns.setdefault((id(axis), x, above), []).append((axis, anchor, ann, off0))
@@ -537,7 +555,6 @@ def _declutter_labels(fig, labels, gap_pts: float, clear_pts: float) -> None:
         bars = [y for y, _ann, _off0 in placed]
         edge = None                              # the outer edge of the previous label
         for y, ann, off0 in placed:
-            height = ann.get_window_extent(renderer).height
             inner = y + abs(off0) * px_per_pt
             if edge is not None:
                 inner = max(inner, edge + gap)
@@ -548,19 +565,19 @@ def _declutter_labels(fig, labels, gap_pts: float, clear_pts: float) -> None:
             ann.xyann = (0, sign * (inner - y) / px_per_pt)
 
 
-def _labels_overflow(fig, axis, labels, pad_pts: float = 0.0) -> Tuple[float, float]:
-    """How far (display pixels) the value labels of ``axis``, with ``pad_pts``
-    to spare, stick out above and below it."""
-    renderer = fig.canvas.get_renderer()
-    box = axis.get_window_extent(renderer)
+def _labels_overflow(fig, axis, labels, height_pts: float, pad_pts: float = 0.0) -> Tuple[float, float]:
+    """How far (display pixels) the value labels of ``axis`` (boxes
+    ``height_pts`` tall), with ``pad_pts`` to spare, stick out above and
+    below it."""
+    box = axis.get_window_extent(fig.canvas.get_renderer())
     pad = pad_pts * fig.dpi / 72.0
     over = under = 0.0
-    for ax_, _x, _anchor, _above, ann, _off0 in labels:
+    for (ax_, y, h), (_a, _x, _anchor, above, _ann, _off0) in zip(_label_boxes(fig, labels, height_pts), labels):
         if ax_ is not axis:
             continue
-        tb = ann.get_window_extent(renderer)
-        over = max(over, tb.y1 + pad - box.y1)
-        under = max(under, box.y0 - (tb.y0 - pad))
+        lo, hi = (y, y + h) if above else (y - h, y)
+        over = max(over, hi + pad - box.y1)
+        under = max(under, box.y0 - (lo - pad))
     return over, under
 
 
@@ -749,7 +766,7 @@ def plot_profile(
 
         rng = None
         value_labels = []            # (axes, x, anchor, above, annotation, offset) for _declutter_labels
-        seen_labels = set()          # a point shared by several pathways is labelled once
+        seen_labels = set()          # a value shared by several series or pathways is labelled once
         for pi, path in enumerate(paths):
             axis = _axis_for(pi)
             color = colors_by_path[path.name]
@@ -781,7 +798,7 @@ def plot_profile(
                         above = point.is_ts
                         anchor = y + (u or 0.0) if above else y - (u or 0.0)
                         text = f"{y:.{decimals}f}"
-                        key = (id(axis), x, text, color, above)
+                        key = (id(axis), x, y, anchor, above)   # one label per value, whatever the colour
                         if key not in seen_labels:
                             seen_labels.add(key)
                             off0 = label_shift if above else -label_shift
@@ -897,11 +914,12 @@ def plot_profile(
             for axis in axes:
                 axis.get_ylim()      # settle pending autoscaling before measuring in display space
             gap = 0.15 * label_pts
+            label_h = _LABEL_HEIGHT * label_pts
             for _ in range(3):
-                _declutter_labels(fig, value_labels, gap, shift0)
+                _declutter_labels(fig, value_labels, gap, shift0, label_h)
                 grown = False
                 for axis in axes:
-                    over, under = _labels_overflow(fig, axis, value_labels, gap)
+                    over, under = _labels_overflow(fig, axis, value_labels, label_h, gap)
                     if over > 0.5 or under > 0.5:
                         lo, hi = axis.get_ylim()
                         height = axis.get_window_extent(fig.canvas.get_renderer()).height or 1.0

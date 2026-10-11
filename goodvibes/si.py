@@ -160,7 +160,10 @@ def write_si(results: Sequence[Any], path, *, units: str = "hartree", decimals: 
     xyz = si_xyz(results, units=units) if coordinates else ""
     written = [path]
     if ext == ".xyz":
-        text = si_xyz(results, units=units)
+        if not coordinates:
+            raise ValueError("write_si: a .xyz file holds only the coordinates; coordinates=False leaves "
+                             "nothing to write")
+        text = xyz
     elif ext in (".md", ".markdown"):
         text = _markdown(rows, decimals, units)
         if xyz:
