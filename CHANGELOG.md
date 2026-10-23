@@ -273,6 +273,13 @@ every such change is listed under **Output changes**.
 - `calc_bbe.qcdata`: the parsed input is kept on the result.
 
 ### Fixed
+- The ZPE scale factor (`--zpe-vscal`, `zpe_scale_factor`, or Truhlar's
+  `zpe_fac` when the factors are looked up) now reaches H, qh-H, G and
+  qh-G. Before, it only changed the ZPE column: the ZPE inside H and G
+  was scaled by the harmonic factor, so `--zpe-vscal` on its own seemed
+  to do nothing.
+- `--csv`, `--parquet` and `--si` with `--ti` say they were not written
+  (they are single-temperature only) instead of skipping silently.
 - `kabsch_rmsd` (the RMSD behind `--rmsd_cutoff` and `dedup.rmsd_cutoff`)
   averaged the squared deviation over the 3N coordinates instead of over the
   N atoms, so it reported RMSDs √3 too small and a cutoff behaved as one √3
@@ -330,6 +337,14 @@ every such change is listed under **Output changes**.
   both.
 
 ### Output changes
+- H, qh-H, G and qh-G use the ZPE scale factor for the zero-point part
+  of the vibrational energy (see **Fixed**). Wherever it differs from the
+  harmonic factor (every Truhlar lookup, or `--vscal X --zpe-vscal Y`),
+  absolute H and G change by (ZPE − harmonic factor) × unscaled ZPE, e.g.
+  0.4 kcal/mol lower for methane at B3LYP/6-31G(d) (0.991 / 0.977);
+  relative energies change by the same fraction of ΔZPE. `--vscal X` alone, where
+  ZPE inherits X, is unchanged. To reproduce earlier numbers, pass
+  `--zpe-vscal` equal to the harmonic factor.
 - `--csv` / `--parquet` and `to_dataframe` have an `im_frequency_wn`
   column: the imaginary frequencies (cm⁻¹, space-separated, as `--imag`
   prints them), empty when a structure has none. They were left out of the
