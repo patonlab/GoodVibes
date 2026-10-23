@@ -639,6 +639,26 @@ def test_zpe_vscal_alone_lets_freq_autolookup():
     assert bbe.qh_entropy == ref.qh_entropy
 
 
+@pytest.mark.parametrize("QH", [False, True])
+def test_zpe_vscal_reaches_enthalpy_and_gibbs(QH):
+    """The ZPE scale factor must move H and G by exactly the change in
+    ZPE, not only the reported ZPE column (it used to leave H and G at
+    the harmonic factor's ZPE). Entropies don't depend on it."""
+    from goodvibes import ThermoOptions
+    base = calc_bbe.from_options(WATER_HF, ThermoOptions(freq_scale_factor=0.95, zpe_scale_factor=0.95, QH=QH))
+    split = calc_bbe.from_options(WATER_HF, ThermoOptions(freq_scale_factor=0.95, zpe_scale_factor=0.90, QH=QH))
+    dzpe = split.zpe - base.zpe
+    assert dzpe < 0
+    assert split.enthalpy - base.enthalpy == pytest.approx(dzpe, abs=1e-12)
+    assert split.gibbs_free_energy - base.gibbs_free_energy == pytest.approx(dzpe, abs=1e-12)
+    assert split.qh_gibbs_free_energy - base.qh_gibbs_free_energy == pytest.approx(dzpe, abs=1e-6)
+    if QH:
+        # qh-H damps each mode's ZPE with the Head-Gordon function, so the
+        # shift is at most the full ZPE change (water has no low modes).
+        assert split.qh_enthalpy - base.qh_enthalpy == pytest.approx(dzpe, abs=1e-6)
+    assert split.entropy == base.entropy
+
+
 # ---------------------------------------------------------------------------
 # bbe_to_result (CLI adapter)
 # ---------------------------------------------------------------------------
