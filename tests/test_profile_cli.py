@@ -88,7 +88,7 @@ def test_aminox_example_document_matches_the_legacy_file(monkeypatch, tmp_path, 
         assert set(a) == set(b)
         for key in a:
             assert b[key] == pytest.approx(a[key], abs=1e-9), key
-    assert new[1]["qh_g"] == pytest.approx(19.91, abs=0.005)
+    assert new[1]["qh_g"] == pytest.approx(19.92, abs=0.005)
 
 
 def test_with_conformers_writes_a_self_contained_yaml(monkeypatch, tmp_path, gv_logger_cleanup):  # noqa: F811

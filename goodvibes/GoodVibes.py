@@ -908,6 +908,11 @@ def main():
                            selectivity_lowest_results=selectivity_lowest_results,
                            pes_result=pes_result, profile=profile_doc)
 
+    skipped = [flag for flag, path in (("--csv", options.csv_path), ("--parquet", options.parquet_path),
+                                       ("--si", options.si_path)) if path]
+    if skipped and options.temperature_interval is not None:
+        log.info(f"\n   ! {', '.join(skipped)} not written: single temperature only, not with --ti")
+
     # CSV / Parquet exports (single-T only; one row per structure,
     # ThermoResult columns). Pandas is in the optional `[full]` extras;
     # Parquet additionally needs pyarrow. Build the ThermoResult list
