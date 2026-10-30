@@ -659,6 +659,27 @@ def test_zpe_vscal_reaches_enthalpy_and_gibbs(QH):
     assert split.entropy == base.entropy
 
 
+def test_zpe_vscal_shift_is_damped_in_qh_enthalpy():
+    """With --qh, each mode's ZPE change enters qh-H (and qh-G) weighted by
+    its Head-Gordon damping factor, so low modes contribute less than to H."""
+    from goodvibes import ThermoOptions
+    from goodvibes.constants import J_TO_AU
+    from goodvibes.io import parse_qcdata
+    from goodvibes.thermo import calc_damp, calc_zeropoint_energy
+    path = os.path.join(REPO_ROOT, "goodvibes", "examples", "methylaniline.out")
+    freqs = parse_qcdata(path).frequency_wn
+    damp = calc_damp(freqs, 100.0)
+    assert min(damp) < 0.9                     # has modes the damping actually reaches
+    base = calc_bbe.from_options(path, ThermoOptions(freq_scale_factor=0.95, zpe_scale_factor=0.95, QH=True))
+    split = calc_bbe.from_options(path, ThermoOptions(freq_scale_factor=0.95, zpe_scale_factor=0.90, QH=True))
+    damped = sum(d * (calc_zeropoint_energy([f], 0.90) - calc_zeropoint_energy([f], 0.95))
+                 for d, f in zip(damp, freqs)) / J_TO_AU
+    assert split.enthalpy - base.enthalpy == pytest.approx(split.zpe - base.zpe, abs=1e-12)
+    assert split.qh_enthalpy - base.qh_enthalpy == pytest.approx(damped, abs=1e-12)
+    assert split.qh_gibbs_free_energy - base.qh_gibbs_free_energy == pytest.approx(damped, abs=1e-12)
+    assert abs(damped) < abs(split.zpe - base.zpe)
+
+
 # ---------------------------------------------------------------------------
 # bbe_to_result (CLI adapter)
 # ---------------------------------------------------------------------------

@@ -268,7 +268,7 @@ def graph_reaction_profile(graph_data, options, plt):
                             legend = False
                     except IndexError:
                         pass
-                if line.strip().find('filetype') > -1:
+                if line.strip().replace('=', ':').split(':')[0].strip() == 'filetype':
                     try:
                         filetypes = [t.strip().lstrip('.').lower() for t in
                                      line.strip().replace(':', '=').split("=")[1].split(',') if t.strip()]
