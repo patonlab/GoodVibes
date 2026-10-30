@@ -7,10 +7,13 @@ compared with a committed PNG in ``tests/baselines/gallery`` (RMS
 tolerance ``TOLERANCE`` on a 0-255 scale). Text is left out because glyph
 rasterisation changes between matplotlib and FreeType releases while the
 geometry does not; the numbers the text shows are checked in
-``test_gallery.py``. Measured when the baselines were made: matplotlib
-3.9, 3.10 and 3.11 render them identically (RMS 0, at most 0.67 for the
-panels figure); five missing connectors give 3.6, missing error bars
-4.1, a lost series 13.
+``test_gallery.py``. Hidden text still shapes the geometry, though: the
+axes grow to fit the value labels, measured from the rendered glyphs, so
+the baselines hold for one matplotlib (FreeType) build. The ``[test]``
+extra pins it (matplotlib 3.10.9; 3.11 moves ``declared_csv`` by RMS 5)
+and each test restores the rc defaults so a system ``matplotlibrc``
+(another font) cannot shift it either. Five missing connectors give 3.6,
+missing error bars 4.1, a lost series 13.
 
 Regenerate after an intended change, and look at the images first:
 
@@ -35,6 +38,15 @@ BASELINES = ROOT / "tests" / "baselines" / "gallery"
 DPI = 50
 TOLERANCE = 1.5
 UPDATE = bool(os.environ.get("GOODVIBES_UPDATE_BASELINES"))
+
+
+
+@pytest.fixture(autouse=True)
+def _default_rc():
+    """Matplotlib's own defaults, whatever a site matplotlibrc sets (fonts)."""
+    with matplotlib.rc_context():
+        matplotlib.rcdefaults()
+        yield
 
 
 def _gallery():

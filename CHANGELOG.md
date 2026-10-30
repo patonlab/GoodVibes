@@ -228,6 +228,13 @@ every such change is listed under **Output changes**.
   README option table.
 
 ### Changed
+- The `[test]` extra pins `matplotlib==3.10.9` (the newest release that
+  still supports Python 3.10), and the gallery image tests restore
+  matplotlib's rc defaults. The image baselines depend on the glyph
+  metrics of one matplotlib/FreeType build: 3.11 moved `declared_csv`
+  past the tolerance and failed the Python 3.10 job, which got 3.10.
+  `declared_csv.png` is regenerated with 3.10.9. The `plot` and `full`
+  extras are unchanged.
 - README Example 9 uses a reaction-profile document,
   `examples/gconf_ee_boltz/gconf_aminox_cat_profile.yaml`, instead of the
   deprecated `--- # PES` text (`gconf_aminox_cat.yaml`, kept for its tests);
