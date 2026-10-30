@@ -204,6 +204,8 @@ def graph_reaction_profile(graph_data, options, plt):
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i + 1:]):
+                if line.strip().startswith('---'):   # the next section ends FORMAT
+                    break
                 if line.strip().find('ylim') > -1:
                     try:
                         ylim = line.strip().replace(':', '=').split("=")[1].replace(' ', '').strip().split(',')
