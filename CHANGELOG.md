@@ -9,6 +9,12 @@ every such change is listed under **Output changes**.
 ## [Unreleased]
 
 ### Added
+- `filetype` in the `--- # FORMAT` block of a legacy `--graph` PES file:
+  `filetype : svg` (or a list such as `png,svg`, or `pdf`) writes
+  `Rxn_profile_<name>.<ext>` for each type, SVG with its text kept as
+  text. It defaults to png as before and saves even without `dpi`.
+  (`--pes-plot` and `goodvibes-profile plot -o` already pick the format
+  from the file extension, SVG included.)
 - `goodvibes.kinetics`, a small kinetics module (no microkinetics):
   - `eyring_rate`, `barrier_for_rate`, `rate_ratio` and `half_life`;
   - `energy_span(levels, transition_states)`: the Kozuch–Shaik energy span
