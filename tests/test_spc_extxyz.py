@@ -49,7 +49,7 @@ def test_extxyz_twin_supplies_the_single_point_energy(water_with_extxyz_spc):
 def test_cli_pairs_extxyz_twins(water_with_extxyz_spc, monkeypatch, gv_logger_cleanup):  # noqa: F811
     # The glob also matches the twin; --spc must skip it as an input and use it as the single point.
     run_main(monkeypatch, water_with_extxyz_spc, ['*.extxyz', '--spc', 'SP', '-v', '1.0'], gv_logger_cleanup)
-    dat = (water_with_extxyz_spc / 'Goodvibes_output.dat').read_text()
+    dat = (water_with_extxyz_spc / 'GoodVibes_output.dat').read_text()
     rows = [line.split() for line in dat.splitlines() if line.startswith('o ')]
     structures = [r for r in rows if r[1] != 'Requested:']
     assert [r[1] for r in structures] == ['water']
