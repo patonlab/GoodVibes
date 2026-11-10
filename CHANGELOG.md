@@ -328,6 +328,11 @@ every such change is listed under **Output changes**.
   every user to `pip install pymsym`, including on Windows, where pymsym has
   no wheels, and for installs that exist but fail to import. It now says
   both.
+- `--spc SUFFIX` looked only for `name_SUFFIX.log` and `name_SUFFIX.out`, so
+  an ASE extxyz input could not take its single point from a separate file
+  (the command line stopped with "No SPC calculation file", and the API
+  warned and kept the frequency-level energy). `name_SUFFIX.extxyz` is now
+  found too, and its `scf_energy` is the single-point energy.
 
 ### Output changes
 - `--csv` / `--parquet` and `to_dataframe` have an `im_frequency_wn`

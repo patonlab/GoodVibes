@@ -319,7 +319,7 @@ def parse_arguments():
             if options.spc is not None and options.spc != 'link':
                 name, _ = os.path.splitext(file)
                 if find_spc_file(name, options.spc) is None:
-                    sys.exit("\nError! No SPC calculation file '{0}_{1}.(log|out)' found! "
+                    sys.exit("\nError! No SPC calculation file '{0}_{1}.(log|out|extxyz)' found! "
                              "The --spc suffix must match the SPC filename exactly "
                              "(e.g. --spc def2_TZVP for filename_def2_TZVP.log), or specify "
                              "link job.\nFor help, use option '-h'\n".format(name, options.spc))
