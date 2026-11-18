@@ -514,7 +514,9 @@ returns the matplotlib Axes.
 
 The legacy `--graph FILE.yaml` flag is still supported and reads
 styling (dpi, color, title, legend, gridlines, ylim, ...) from a
-YAML's `--- # FORMAT` block. It will be removed in v6.0 once
+YAML's `--- # FORMAT` block. It writes `Rxn_profile_<name>.png` when `dpi`
+is set; `filetype : svg` (or `png,svg`, `pdf`, ...) picks the format(s),
+and SVG keeps its text editable. It will be removed in v6.0 once
 `--pes-plot` covers the remaining gaps.
 
 **Building a profile without a PES file**

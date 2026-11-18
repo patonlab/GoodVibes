@@ -173,7 +173,7 @@ def graph_reaction_profile(graph_data, options, plt):
     
     Parameters:
         graph_data (get_pes): Populated PES object providing pathway labels and thermodynamic arrays used for plotting (e.g., `path`, `qhg_abs`, `qhg_zero`, `e_abs`, `species`, `g_qhgvals`, `g_species_qhgzero`, `g_rel_val`, and `units`).
-        options (object): Options container with a `graph` attribute pointing to a formatting file that controls plot appearance (ylim, colors, title, dpi, etc.). If `dpi` is set in that file, an image file named "Rxn_profile_<options.graph stem>.png" will be written.
+        options (object): Options container with a `graph` attribute pointing to a formatting file that controls plot appearance (ylim, colors, title, dpi, etc.). If `dpi` or `filetype` is set in that file, an image named "Rxn_profile_<options.graph stem>.<ext>" is written for each `filetype` (comma-separated, e.g. `png,svg`; default png).
         plt (module): The matplotlib.pyplot module (used to create and display the figure).
     
     """
@@ -200,9 +200,12 @@ def graph_reaction_profile(graph_data, options, plt):
     ylim, color, show_conf, show_gconf, show_title = None, None, True, False, True
     label_point, label_xaxis, dpi, dec, legend = False, True, None, 2, False,
     colors, gridlines, title =  None, False, 'Potential Energy Surface'
+    filetypes = None
     for i, line in enumerate(yaml):
         if line.strip().find('FORMAT') > -1:
             for j, line in enumerate(yaml[i + 1:]):
+                if line.strip().startswith('---'):   # the next section ends FORMAT
+                    break
                 if line.strip().find('ylim') > -1:
                     try:
                         ylim = line.strip().replace(':', '=').split("=")[1].replace(' ', '').strip().split(',')
@@ -265,6 +268,12 @@ def graph_reaction_profile(graph_data, options, plt):
                         legend_input = line.strip().replace(':', '=').split("=")[1].strip().split(',')[0].lower()
                         if legend_input == 'false':
                             legend = False
+                    except IndexError:
+                        pass
+                if line.strip().replace('=', ':').split(':')[0].strip() == 'filetype':
+                    try:
+                        filetypes = [t.strip().lstrip('.').lower() for t in
+                                     line.strip().replace(':', '=').split("=")[1].split(',') if t.strip()]
                     except IndexError:
                         pass
                 if line.strip().find('gridlines') > -1:
@@ -387,11 +396,19 @@ def graph_reaction_profile(graph_data, options, plt):
         ax.xaxis.set_ticklabels([])
     if legend:
         plt.legend()
-    if dpi is not None:
+    if dpi is not None or filetypes:
         # `options.graph` may be a full path (e.g. when --graph is the
         # PES file in another directory); strip to the basename's stem
         # so the saved image lands in the cwd instead of an absolute
         # path that mostly doesn't exist (Rxn_profile_/Users/.../foo.png).
         stem = os.path.splitext(os.path.basename(options.graph))[0]
-        plt.savefig('Rxn_profile_' + stem + '.png', dpi=dpi)
+        supported = plt.gcf().canvas.get_supported_filetypes()
+        for ext in filetypes or ['png']:
+            if ext not in supported:
+                log.info(f"\n   ! filetype '{ext}' is not supported; use one of {', '.join(sorted(supported))}\n")
+                continue
+            # SVG keeps its text as text, so labels stay editable.
+            with plt.rc_context({'svg.fonttype': 'none'} if ext == 'svg' else {}):
+                plt.savefig('Rxn_profile_' + stem + '.' + ext, dpi=dpi or 'figure', format=ext)
+            log.info(f"\n   ✔ Reaction profile written to Rxn_profile_{stem}.{ext}\n")
     plt.show()

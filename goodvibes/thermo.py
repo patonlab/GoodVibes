@@ -806,7 +806,13 @@ class calc_bbe:
             if len(frequency_wn) > 0:
                 zpe = calc_zeropoint_energy(frequency_wn, effective_zpe_scale)
                 u_rot = calc_rotational_energy(temp, monatomic=monatomic, linear=(linear_mol == 1))
-                u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac)
+                # U_vib holds each mode's ZPE at `scale_fac`; swap it for the
+                # ZPE at `effective_zpe_scale` so H and G carry the reported
+                # ZPE (before, zpe_scale_fac only changed the ZPE column).
+                zpe_shift = [0.5 * GAS_CONSTANT * PLANCK_CONSTANT * freq * SPEED_OF_LIGHT
+                             * (effective_zpe_scale - scale_fac) / BOLTZMANN_CONSTANT
+                             for freq in frequency_wn]
+                u_vib = calc_vibrational_energy(temp, frequency_wn, scale_fac) + sum(zpe_shift)
                 s_rot = calc_rotational_entropy(temp, rotemp,
                                                 symmno=symmno,
                                                 monatomic=monatomic,
@@ -851,7 +857,7 @@ class calc_bbe:
                     # Enthalpy correction
                     if QH:
                         vib_energy.append(
-                            H_damp[j] * Uvib_qrrho[j] +
+                            H_damp[j] * (Uvib_qrrho[j] + zpe_shift[j]) +
                             (1 - H_damp[j]) * 0.5 * GAS_CONSTANT * temp)
 
                 qh_s_vib, h_s_vib = sum(vib_entropy), sum(Svib_rrho)

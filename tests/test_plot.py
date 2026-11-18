@@ -596,3 +596,35 @@ def test_cli_graph_writes_legacy_image(tmp_path):
         "--graph was supposed to write Rxn_profile_azabor_PES.png in cwd"
     )
     assert expected.stat().st_size > 1000
+
+
+def test_cli_graph_writes_svg_and_png_from_filetype(tmp_path):
+    """`filetype : svg,png` in the FORMAT block writes one image per type,
+    with the SVG text kept as text."""
+    import subprocess
+    import sys
+
+    pes_dir = os.path.join(REPO_ROOT, "goodvibes", "examples", "pes")
+    src = os.path.join(pes_dir, "azabor_PES.yaml")
+    if not os.path.exists(src):
+        pytest.skip("azabor PES fixture missing")
+    with open(src, encoding="utf-8") as f:
+        text = f.read().replace("dpi : 400", "filetype : svg, png")
+    yaml = tmp_path / "azabor_PES.yaml"
+    yaml.write_text(text, encoding="utf-8")
+    fixtures = sorted(
+        os.path.join(pes_dir, f)
+        for f in os.listdir(pes_dir)
+        if f.endswith(".log") and "_sp_tzpop." not in f
+    )
+    res = subprocess.run(
+        [sys.executable, "-m", "goodvibes", *fixtures,
+         "--spc", "sp_tzpop", "--pes", str(yaml), "--graph", str(yaml),
+         "--output", "graph_svg"],
+        capture_output=True, text=True, cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": REPO_ROOT, "MPLBACKEND": "Agg"},
+    )
+    assert res.returncode == 0, f"stderr:\n{res.stderr}"
+    svg = tmp_path / "Rxn_profile_azabor_PES.svg"
+    assert svg.exists() and (tmp_path / "Rxn_profile_azabor_PES.png").exists()
+    assert "<text" in svg.read_text(encoding="utf-8")
