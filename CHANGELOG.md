@@ -291,6 +291,13 @@ every such change is listed under **Output changes**.
   qh-G. Before, it only changed the ZPE column: the ZPE inside H and G
   was scaled by the harmonic factor, so `--zpe-vscal` on its own seemed
   to do nothing.
+- ASE extxyz input without a `zpe` key in the comment line computes
+  thermochemistry again: the ZPE is derived from `frequencies`. Before,
+  GoodVibes 4.4.0 printed "No frequency information found" for such a
+  file even when `frequencies` was present (issue #114). A supplied `zpe`
+  is kept as metadata only; the reported ZPE is always recomputed from
+  the scaled frequencies, as for every other program. `zpe=0.0` no longer
+  makes a molecule lose its rotational terms.
 - `--csv`, `--parquet` and `--si` with `--ti` say they were not written
   (they are single-temperature only) instead of skipping silently.
 - `kabsch_rmsd` (the RMSD behind `--rmsd_cutoff` and `dedup.rmsd_cutoff`)
